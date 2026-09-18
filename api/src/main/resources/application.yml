@@ -1,0 +1,29 @@
+spring:
+  application.name: logitrack-control-api
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/logitrack}
+    username: ${DB_USER:logitrack}
+    password: ${DB_PASSWORD:logitrack}
+  jpa:
+    hibernate.ddl-auto: validate
+    open-in-view: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: control-api-telemetry-v1
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+  data.redis.host: ${REDIS_HOST:localhost}
+management:
+  endpoints.web.exposure.include: health,info,prometheus
+  endpoint.health.probes.enabled: true
+  metrics.tags.application: ${spring.application.name}
+server:
+  shutdown: graceful
+

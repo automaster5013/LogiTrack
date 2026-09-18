@@ -1,0 +1,11 @@
+.idea/
+.vscode/
+.env
+target/
+node_modules/
+.next/
+__pycache__/
+*.pyc
+*.log
+work/
+outputs/
