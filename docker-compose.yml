@@ -60,6 +60,19 @@ services:
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic warehouse.outbound.picked.v1 --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic warehouse.outbound.dispatched.v1 --partitions 3 --replication-factor 1
 
+  analytics:
+    build: ./analytics
+    environment:
+      ROUTING_PROVIDER: ${ROUTING_PROVIDER:-osrm}
+      OSRM_BASE_URL: ${OSRM_BASE_URL:-https://router.project-osrm.org}
+      ROUTING_TIMEOUT_SECONDS: ${ROUTING_TIMEOUT_SECONDS:-2.5}
+    ports: ["8090:8090"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8090/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
   api:
     build: ./api
     environment:
@@ -68,12 +81,14 @@ services:
       DB_PASSWORD: logitrack
       KAFKA_BOOTSTRAP: kafka:29092
       REDIS_HOST: redis
+      ANALYTICS_URL: http://analytics:8090
     ports: ["8080:8080"]
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
       kafka: {condition: service_healthy}
       kafka-init: {condition: service_completed_successfully}
+      analytics: {condition: service_healthy}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/readiness | grep UP"]
       interval: 10s

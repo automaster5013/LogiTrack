@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from threading import Thread
 
 from confluent_kafka import Consumer, Producer
-from .route import Point, eta, interpolate
+from .route import Point, eta, interpolate, planned_eta, sample_route
 
 
 BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
@@ -21,7 +21,10 @@ def utc_now() -> str:
 def simulate(producer: Producer, event: dict) -> None:
     payload = event["payload"]
     origin, destination = Point(**payload["origin"]), Point(**payload["destination"])
-    for index, point in enumerate(interpolate(origin, destination, STEPS), start=1):
+    route = [Point(lat=coordinate[1], lon=coordinate[0]) for coordinate in payload.get("route", [])]
+    points = sample_route(route, STEPS) if len(route) >= 2 else interpolate(origin, destination, STEPS)
+    planned_duration = payload.get("plannedDurationSeconds")
+    for index, point in enumerate(points, start=1):
         progress = round(index / STEPS, 4)
         status = "DELIVERED" if index == STEPS else "IN_TRANSIT"
         telemetry = {
@@ -29,7 +32,8 @@ def simulate(producer: Producer, event: dict) -> None:
             "occurredAt": utc_now(), "traceId": event.get("traceId", str(uuid.uuid4())), "schemaVersion": 1,
             "payload": {"deliveryId": payload["deliveryId"], "vehicleId": payload["vehicleId"],
                         "lat": point.lat, "lon": point.lon, "progress": progress,
-                        "status": status, "eta": None if status == "DELIVERED" else eta(point, destination)}
+                        "status": status, "eta": None if status == "DELIVERED" else
+                        (planned_eta(planned_duration, progress) if planned_duration else eta(point, destination))}
         }
         producer.produce("vehicle.telemetry.v1", key=payload["deliveryId"], value=json.dumps(telemetry))
         producer.flush(5)
@@ -54,4 +58,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

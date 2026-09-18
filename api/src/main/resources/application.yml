@@ -26,4 +26,5 @@ management:
   metrics.tags.application: ${spring.application.name}
 server:
   shutdown: graceful
-
+logitrack:
+  analytics.url: ${ANALYTICS_URL:http://localhost:8090}

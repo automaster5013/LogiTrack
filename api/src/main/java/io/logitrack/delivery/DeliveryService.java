@@ -3,6 +3,7 @@ package io.logitrack.delivery;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.logitrack.event.EventEnvelope;
 import io.logitrack.outbox.*;
+import io.logitrack.route.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
@@ -11,17 +12,25 @@ import java.util.*;
 @Service
 public class DeliveryService {
     private final DeliveryRepository repository; private final OutboxRepository outbox; private final ObjectMapper mapper;
-    public DeliveryService(DeliveryRepository repository, OutboxRepository outbox, ObjectMapper mapper){this.repository=repository;this.outbox=outbox;this.mapper=mapper;}
+    private final RouteAnalysisClient routeAnalysis; private final RouteSnapshotRepository routes;
+    public DeliveryService(DeliveryRepository repository, OutboxRepository outbox, ObjectMapper mapper,
+        RouteAnalysisClient routeAnalysis,RouteSnapshotRepository routes){this.repository=repository;this.outbox=outbox;this.mapper=mapper;this.routeAnalysis=routeAnalysis;this.routes=routes;}
 
     @Transactional
     public Delivery create(CreateDeliveryRequest request, String key, String traceId) {
         var existing=repository.findByIdempotencyKey(key); if(existing.isPresent()) return existing.get();
         validate(request);
         var saved=repository.save(Delivery.create(request,key));
+        var route=routeAnalysis.analyze(saved);
         try {
+            var geometry=mapper.valueToTree(Map.of("type","LineString","coordinates",route.coordinates()));
+            routes.save(new RouteSnapshot(saved,route,geometry));
             var payload=mapper.valueToTree(Map.of("deliveryId",saved.getId(),"vehicleId",saved.getVehicleId(),
                 "origin",Map.of("lat",saved.getOriginLat(),"lon",saved.getOriginLon()),
-                "destination",Map.of("lat",saved.getDestinationLat(),"lon",saved.getDestinationLon())));
+                "destination",Map.of("lat",saved.getDestinationLat(),"lon",saved.getDestinationLon()),
+                "route",route.coordinates(),"routeProvider",route.provider(),
+                "distanceMeters",route.distanceMeters(),"plannedDurationSeconds",route.durationSeconds(),
+                "plannedEta",route.plannedEta().toString()));
             var event=new EventEnvelope(UUID.randomUUID(),"delivery.created.v1",Instant.now(),traceId,1,payload);
             outbox.save(new OutboxEvent(event.eventId(),"DELIVERY",saved.getId(),event.eventType(),
                 "delivery.created.v1",saved.getId().toString(),mapper.writeValueAsString(event)));

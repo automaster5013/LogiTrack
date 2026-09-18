@@ -4,16 +4,18 @@
 
 - `control-api`: 배송 command/query, 상태 전이, telemetry 소비, SSE fan-out
 - `simulator`: 배송 생성 이벤트를 받아 결정론적 위치/상태 이벤트 생성
+- `analytics`: OSRM 호환 provider와 로컬 fallback을 사용하는 경로/ETA 계산, 공급자 장애 격리
 - `web`: 관제 운영 콘솔. API와 SSE만 사용하고 브로커에는 접근하지 않음
 - `warehouse` 모듈: 비관적 잠금 기반 재고, 입고·피킹·출고 workflow와 불변 ledger. 초기에는 control-api에 모듈로 배치하고 부하/팀 경계가 필요할 때 별도 서비스로 추출
-- 향후 `analytics-service`: 경로/ETA, 지연/이탈, 일별 KPI projection
+- 향후 analytics 확장: 지연/이탈 탐지, 일별 KPI projection
 
 초기에는 과도한 분산을 피하기 위해 배송 도메인의 command/query/consumer를 하나의 배포 단위로 두되, Kafka 계약과 DB 소유권으로 경계를 명확히 한다.
 
 ## 이벤트 흐름
 
 ```text
-Operator -> POST /deliveries -> PostgreSQL(delivery + outbox)
+Operator -> POST /deliveries -> analytics(route + ETA)
+                              -> PostgreSQL(delivery + route snapshot + outbox)
                                             |
                                   outbox publisher -> delivery.created.v1
                                             |
@@ -41,12 +43,15 @@ Kafka key는 `deliveryId`이며 동일 배송의 순서를 보존한다. 모든 
 
 `id UUID PK`는 event ID와 같고, aggregate/type/topic/key/payload를 배송과 같은 DB 트랜잭션에 기록한다. publisher는 `FOR UPDATE SKIP LOCKED`로 batch를 선점하여 다중 인스턴스 중복 경쟁을 막고, 성공 시 `PUBLISHED`, 반복 실패 시 `FAILED`로 전환한다.
 
+### route_snapshots
+
+`delivery_id`, GeoJSON `geometry`, `provider`, `algorithm_version`, `geometry_hash`, `distance_meters`, `duration_seconds`, `planned_eta`, `generated_at`을 저장한다. 재계산 시 기존 스냅샷을 덮어쓰지 않아 계획 이력을 보존한다.
+
 ### 향후 모델
 
 - `orders`: 고객 주문 aggregate와 배송 참조
 - `inventory_ledger`: SKU별 불변 수량 이동(+/-), warehouse, reason, correlation ID
 - `warehouse_tasks`: receiving/picking/dispatch 상태 머신
-- `route_snapshots`: polyline, 계획 거리/시간, 알고리즘 버전
 - `delivery_alerts`: DELAY/ROUTE_DEVIATION, severity, observed/resolved timestamp
 
 ## 저장소 구조
@@ -54,6 +59,7 @@ Kafka key는 `deliveryId`이며 동일 배송의 순서를 보존한다. 모든 
 ```text
 api/             Spring Boot 제어/API 서비스
 simulator/       Python GPS/상태 이벤트 생성기
+analytics/       Python 경로/ETA 분석 서비스
 web/             Next.js 운영 콘솔
 infra/           Prometheus/Grafana 설정
 docs/            요구사항, ADR, 운영 문서
