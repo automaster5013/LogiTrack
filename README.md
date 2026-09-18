@@ -44,6 +44,7 @@ curl -X POST http://localhost:8080/api/deliveries \
 - [기술 선택 ADR](docs/adr/0001-technology-stack.md)
 - [실시간 지도 ADR](docs/adr/0002-live-map.md)
 - [운영 및 장애 처리](docs/operations.md)
+- [구현 진행 현황](docs/progress.md)
 
 ## 로컬 검증
 
@@ -55,3 +56,5 @@ docker compose config
 통합 smoke test는 전체 스택 실행 후 `./scripts/smoke.ps1`로 수행합니다.
 
 배송과 이벤트는 PostgreSQL에 같은 트랜잭션으로 기록됩니다. outbox publisher가 대기 이벤트를 Kafka에 전달하므로 broker가 일시 중단되어도 생성 이벤트가 유실되지 않습니다.
+
+창고 흐름 검증은 `./scripts/warehouse-smoke.ps1`로 실행합니다. API는 `POST /api/warehouse/receipts`, `POST /api/warehouse/outbounds`, `POST /api/warehouse/outbounds/{id}/dispatch`와 재고·작업·ledger 조회를 제공합니다.

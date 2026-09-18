@@ -5,7 +5,7 @@
 - `control-api`: 배송 command/query, 상태 전이, telemetry 소비, SSE fan-out
 - `simulator`: 배송 생성 이벤트를 받아 결정론적 위치/상태 이벤트 생성
 - `web`: 관제 운영 콘솔. API와 SSE만 사용하고 브로커에는 접근하지 않음
-- 향후 `warehouse-service`: 재고 ledger와 입·출고 workflow
+- `warehouse` 모듈: 비관적 잠금 기반 재고, 입고·피킹·출고 workflow와 불변 ledger. 초기에는 control-api에 모듈로 배치하고 부하/팀 경계가 필요할 때 별도 서비스로 추출
 - 향후 `analytics-service`: 경로/ETA, 지연/이탈, 일별 KPI projection
 
 초기에는 과도한 분산을 피하기 위해 배송 도메인의 command/query/consumer를 하나의 배포 단위로 두되, Kafka 계약과 DB 소유권으로 경계를 명확히 한다.

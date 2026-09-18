@@ -1,18 +1,23 @@
 "use client";
 import { FormEvent, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import type { Delivery } from "./types";
+import type { Delivery, LedgerEntry, WarehouseStock, WarehouseTask } from "./types";
 
 const FleetMap=dynamic(()=>import("./components/FleetMap"),{ssr:false});
 const API=process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 export default function Home(){
  const [items,setItems]=useState<Delivery[]>([]); const [connected,setConnected]=useState(false); const [error,setError]=useState(""); const [selected,setSelected]=useState<string>();
+ const [stocks,setStocks]=useState<WarehouseStock[]>([]); const [tasks,setTasks]=useState<WarehouseTask[]>([]); const [ledger,setLedger]=useState<LedgerEntry[]>([]); const [warehouseBusy,setWarehouseBusy]=useState(false);
  const load=()=>fetch(`${API}/api/deliveries`).then(r=>r.json()).then(setItems).catch(()=>setError("API에 연결할 수 없습니다."));
+ const loadWarehouse=()=>Promise.all([fetch(`${API}/api/warehouse/stock`).then(r=>r.json()),fetch(`${API}/api/warehouse/tasks`).then(r=>r.json()),fetch(`${API}/api/warehouse/ledger`).then(r=>r.json())]).then(([s,t,l])=>{setStocks(s);setTasks(t);setLedger(l)}).catch(()=>setError("창고 데이터에 연결할 수 없습니다."));
  useEffect(()=>{load(); const source=new EventSource(`${API}/api/stream/deliveries`); source.onopen=()=>setConnected(true); source.onerror=()=>setConnected(false);
   source.addEventListener("delivery-update",e=>{const next=JSON.parse((e as MessageEvent).data);setItems(old=>[next,...old.filter(x=>x.id!==next.id)])});return()=>source.close()},[]);
  useEffect(()=>{if(!selected&&items.length)setSelected(items[0].id)},[items,selected]);
+ useEffect(()=>{loadWarehouse()},[]);
  async function create(e:FormEvent){e.preventDefault();setError("");const response=await fetch(`${API}/api/deliveries`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({orderNumber:`ORD-${Date.now().toString().slice(-6)}`,vehicleId:`TRUCK-${Math.ceil(Math.random()*9).toString().padStart(2,"0")}`,origin:{name:"Seoul Hub",lat:37.5665,lon:126.978},destination:{name:"Incheon DC",lat:37.4563,lon:126.7052}})});if(!response.ok)setError("배송 생성에 실패했습니다.");else load()}
+ async function receiveStock(){setWarehouseBusy(true);setError("");try{const suffix=Date.now().toString().slice(-6);const r=await fetch(`${API}/api/warehouse/receipts`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({referenceNumber:`ASN-${suffix}`,warehouseId:"SEOUL-HUB-A",sku:"COLD-BOX-01",quantity:10})});if(!r.ok)throw new Error();await loadWarehouse()}catch{setError("입고 처리에 실패했습니다.")}finally{setWarehouseBusy(false)}}
+ async function pickAndDispatch(){setWarehouseBusy(true);setError("");try{const suffix=Date.now().toString().slice(-6);const pick=await fetch(`${API}/api/warehouse/outbounds`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({referenceNumber:`OUT-${suffix}`,warehouseId:"SEOUL-HUB-A",sku:"COLD-BOX-01",quantity:4})});if(!pick.ok)throw new Error();const task:WarehouseTask=await pick.json();const dispatched=await fetch(`${API}/api/warehouse/outbounds/${task.id}/dispatch`,{method:"POST"});if(!dispatched.ok)throw new Error();await loadWarehouse()}catch{setError("출고 처리에 실패했습니다. 먼저 재고를 입고해 주세요.")}finally{setWarehouseBusy(false)}}
  const focus=items.find(x=>x.id===selected);
  return <main><header><div><p className="eyebrow">OPERATIONS / LIVE</p><h1>LogiTrack Control Tower</h1></div><div className={`signal ${connected?"on":""}`}><i/>{connected?"LIVE STREAM":"RECONNECTING"}</div></header>
   <section className="hero"><div><span>ACTIVE DELIVERIES</span><strong>{items.filter(x=>x.status!=="DELIVERED").length.toString().padStart(2,"0")}</strong></div><div><span>COMPLETED</span><strong>{items.filter(x=>x.status==="DELIVERED").length.toString().padStart(2,"0")}</strong></div><div><span>FLEET PROGRESS</span><strong>{items.length?Math.round(items.reduce((n,x)=>n+x.progress,0)/items.length*100):0}%</strong></div><form onSubmit={create}><button>+ SIMULATE DELIVERY</button></form></section>
@@ -21,5 +26,10 @@ export default function Home(){
    <FleetMap deliveries={items} selectedId={selected} onSelect={setSelected}/></section>
   <section className="board"><div className="boardTitle"><h2>Fleet telemetry</h2><span>{items.length} shipments · select to focus map</span></div>
   <div className="grid">{items.length===0?<div className="empty">배송을 생성하면 차량 위치 이벤트가 지도와 목록에 표시됩니다.</div>:items.map(d=><article key={d.id} onClick={()=>setSelected(d.id)} className={selected===d.id?"selected":""}><div className="row"><span className={`badge ${d.status.toLowerCase()}`}>{d.status.replace("_"," ")}</span><b>{d.vehicleId}</b></div><h3>{d.orderNumber}</h3><p>{d.originName} <em>→</em> {d.destinationName}</p><div className="track"><i style={{width:`${d.progress*100}%`}}/></div><div className="meta"><span>{Math.round(d.progress*100)}% complete</span><span>{d.currentLat?.toFixed(4)}, {d.currentLon?.toFixed(4)}</span></div></article>)}</div></section>
+  <section className="warehouseBoard"><div className="warehouseHeader"><div><p className="eyebrow">WAREHOUSE / INVENTORY</p><h2>Stock control</h2></div><div className="warehouseActions"><button disabled={warehouseBusy} onClick={receiveStock}>+ RECEIVE 10</button><button disabled={warehouseBusy} onClick={pickAndDispatch}>PICK & DISPATCH 4</button></div></div>
+   <div className="warehouseGrid"><div className="stockPane"><h4>AVAILABLE STOCK</h4>{stocks.length===0?<p className="warehouseEmpty">No inventory yet. Receive demo stock to begin.</p>:<div className="stockTable"><div className="stockRow head"><span>LOCATION / SKU</span><span>ON HAND</span><span>RESERVED</span><span>AVAILABLE</span></div>{stocks.slice(0,8).map(s=><div className="stockRow" key={s.id}><span><b>{s.warehouseId}</b><small>{s.sku}</small></span><strong>{s.onHand}</strong><strong>{s.reserved}</strong><strong className="available">{s.available}</strong></div>)}</div>}</div>
+   <div className="ledgerPane"><h4>RECENT LEDGER</h4>{ledger.length===0?<p className="warehouseEmpty">Inventory movements will appear here.</p>:ledger.slice(0,7).map(e=><div className="ledgerRow" key={e.id}><span className={`movement ${e.transactionType.toLowerCase()}`}>{e.transactionType}</span><span><b>{e.sku}</b><small>{e.warehouseId}</small></span><span className="delta">{e.onHandDelta>0?`+${e.onHandDelta}`:e.onHandDelta||`R +${e.reservedDelta}`}</span></div>)}</div></div>
+   <div className="taskStrip"><span>{tasks.filter(t=>t.status==="PICKED").length} awaiting dispatch</span><span>{tasks.filter(t=>t.status==="DISPATCHED").length} dispatched</span><span>{ledger.length} ledger movements loaded</span></div>
+  </section>
  </main>
 }
