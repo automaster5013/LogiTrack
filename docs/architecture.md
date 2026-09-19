@@ -56,13 +56,13 @@ PostgreSQL KPI projection -> control-api -> analytics PDF renderer -> operator d
 
 ### delivery_alerts
 
-배송별 `DELAY`, `ROUTE_DEVIATION` 경고의 심각도와 lifecycle을 저장한다. 활성 경고는 배송·유형별 하나만 허용하고 반복 관측은 `occurrence_count`와 최종 관측 시각을 갱신한다. 경로 이탈은 500m 발생/300m 해결, 지연은 계획 ETA 대비 10분 발생/5분 해결의 히스테리시스를 사용한다. 발생·심각도 상승·해결은 `delivery.alert.v1` outbox 이벤트로 발행한다.
+배송별 `DELAY`, `ROUTE_DEVIATION` 경고의 심각도와 lifecycle을 저장한다. 활성 경고는 배송·유형별 하나만 허용하고 반복 관측은 `occurrence_count`와 최종 관측 시각을 갱신한다. 경로 이탈은 500m 발생/300m 해결, 지연은 계획 ETA 대비 10분 발생/5분 해결의 히스테리시스를 사용한다. 발생·심각도 상승·운영자 확인·해결은 `delivery.alert.v1` outbox 이벤트로 발행한다. 확인은 `acknowledged_at`, `acknowledged_by`에 최초 한 번만 기록하며 비관적 잠금으로 동시 확인 요청도 하나의 감사 이벤트만 만든다.
 
 ### 추가 모델
 
 - `inventory_ledger`: SKU별 불변 수량 이동(+/-), warehouse, reason, correlation ID
 - `warehouse_tasks`: receiving/picking/dispatch 상태 머신
-- 향후 alert 정책: 차량·화물별 threshold, 운영자 확인(acknowledgement), notification routing
+- 향후 alert 정책: 차량·화물별 threshold와 notification routing
 
 ## 저장소 구조
 

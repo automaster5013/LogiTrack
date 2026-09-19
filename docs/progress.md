@@ -37,6 +37,7 @@
 - GitHub Actions 병렬 CI(API coverage, Python tests, Compose validation, TypeScript production build)와 최소 읽기 권한
 - production 컨테이너 4종의 잠금 의존성 build, commit SHA label, non-root runtime CI gate와 CD 도입 기준
 - production 컨테이너 4종의 CycloneDX SBOM artifact와 CRITICAL 취약점 0건 CI gate, Tomcat/Netty 보안 패치 고정
+- 비관적 잠금 기반 경고 운영자 확인, 최초 확인 감사 정보, 멱등 outbox 이벤트와 TypeScript 미확인 경고 UI
 
 ## 현재 상태
 

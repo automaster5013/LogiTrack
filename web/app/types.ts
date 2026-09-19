@@ -59,6 +59,8 @@ export type DeliveryAlert = {
   firstObservedAt: string;
   lastObservedAt: string;
   resolvedAt?: string;
+  acknowledgedAt?: string;
+  acknowledgedBy?: string;
 };
 
 export type WarehouseStock = { id:string; warehouseId:string; sku:string; onHand:number; reserved:number; available:number; updatedAt:string };

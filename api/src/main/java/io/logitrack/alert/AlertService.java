@@ -7,6 +7,7 @@ import io.logitrack.outbox.*;
 import io.logitrack.route.RouteSnapshotRepository;
 import io.logitrack.stream.DeliveryStream;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
 import java.util.*;
 
@@ -32,6 +33,14 @@ public class AlertService {
                 delaySeconds>0?String.format(Locale.ROOT,"계획 ETA 대비 %d분 지연",delaySeconds/60):"운행 상태에서 지연 감지",traceId);
         });
     }
+    @Transactional
+    public DeliveryAlert acknowledge(UUID id,String actor,String traceId){
+        var normalizedActor=actor==null?"":actor.trim();
+        if(normalizedActor.isBlank()||normalizedActor.length()>120)throw new IllegalArgumentException("X-Operator must be 1-120 characters");
+        var alert=alerts.findByIdForUpdate(id).orElseThrow(()->new NoSuchElementException("Delivery alert not found"));
+        if(alert.acknowledge(normalizedActor))emit(alert,"ACKNOWLEDGED",traceId==null||traceId.isBlank()?UUID.randomUUID().toString():traceId);
+        return alert;
+    }
     private void reconcile(Delivery delivery,DeliveryAlert.Type type,double value,boolean shouldOpen,boolean shouldClose,
         DeliveryAlert.Severity severity,double threshold,String message,String traceId){
         var active=alerts.findByDeliveryIdAndAlertTypeAndStatus(delivery.getId(),type,DeliveryAlert.Status.ACTIVE);
@@ -41,8 +50,12 @@ public class AlertService {
     }
     private void emit(DeliveryAlert alert,String action,String traceId){
         try{
-            var payload=mapper.valueToTree(Map.of("alertId",alert.getId(),"deliveryId",alert.getDeliveryId(),"alertType",alert.getAlertType(),
-                "severity",alert.getSeverity(),"status",alert.getStatus(),"action",action,"observedValue",alert.getObservedValue(),"message",alert.getMessage()));
+            Map<String,Object> values=new LinkedHashMap<>();
+            values.put("alertId",alert.getId());values.put("deliveryId",alert.getDeliveryId());values.put("alertType",alert.getAlertType());
+            values.put("severity",alert.getSeverity());values.put("status",alert.getStatus());values.put("action",action);
+            values.put("observedValue",alert.getObservedValue());values.put("message",alert.getMessage());
+            if(alert.getAcknowledgedAt()!=null){values.put("acknowledgedAt",alert.getAcknowledgedAt());values.put("acknowledgedBy",alert.getAcknowledgedBy());}
+            var payload=mapper.valueToTree(values);
             var event=new EventEnvelope(UUID.randomUUID(),"delivery.alert.v1",Instant.now(),traceId,1,payload);
             outbox.save(new OutboxEvent(event.eventId(),"DELIVERY_ALERT",alert.getId(),event.eventType(),"delivery.alert.v1",alert.getDeliveryId().toString(),mapper.writeValueAsString(event)));
             stream.publishAlert(alert);

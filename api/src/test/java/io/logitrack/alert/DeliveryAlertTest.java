@@ -24,4 +24,29 @@ class DeliveryAlertTest {
         assertNotNull(alert.getResolvedAt());
         assertEquals(alert.getLastObservedAt(),alert.getResolvedAt());
     }
+
+    @Test void activeAlertAcknowledgementIsImmutableAndIdempotent() {
+        var alert=new DeliveryAlert(UUID.randomUUID(),DeliveryAlert.Type.DELAY,
+            DeliveryAlert.Severity.WARNING,"late",700,600);
+
+        assertTrue(alert.acknowledge("  control-tower  "));
+        var acknowledgedAt=alert.getAcknowledgedAt();
+        assertFalse(alert.acknowledge("another-operator"));
+
+        assertEquals("control-tower",alert.getAcknowledgedBy());
+        assertEquals(acknowledgedAt,alert.getAcknowledgedAt());
+    }
+
+    @Test void resolvedAlertCannotBeAcknowledged() {
+        var alert=new DeliveryAlert(UUID.randomUUID(),DeliveryAlert.Type.DELAY,
+            DeliveryAlert.Severity.WARNING,"late",700,600);
+        alert.resolve(0);
+        assertThrows(IllegalStateException.class,()->alert.acknowledge("control-tower"));
+    }
+
+    @Test void acknowledgementRequiresAnOperator() {
+        var alert=new DeliveryAlert(UUID.randomUUID(),DeliveryAlert.Type.DELAY,
+            DeliveryAlert.Severity.WARNING,"late",700,600);
+        assertThrows(IllegalArgumentException.class,()->alert.acknowledge("  "));
+    }
 }

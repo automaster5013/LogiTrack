@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import DailyKpiPanel from "./components/DailyKpiPanel";
 import OrderFlowPanel from "./components/OrderFlowPanel";
 import ReplayOperationsPanel from "./components/ReplayOperationsPanel";
+import AlertOperationsPanel from "./components/AlertOperationsPanel";
 import type { CustomerOrder, DailyDeliveryKpi, DeadLetterEvent, Delivery, DeliveryAlert, LedgerEntry, ReplayAudit, RouteSnapshot, WarehouseStock, WarehouseTask } from "./types";
 
 const FleetMap=dynamic(()=>import("./components/FleetMap"),{ssr:false});
@@ -13,6 +14,7 @@ export default function Home(){
  const [items,setItems]=useState<Delivery[]>([]); const [connected,setConnected]=useState(false); const [error,setError]=useState(""); const [selected,setSelected]=useState<string>();
  const [routes,setRoutes]=useState<RouteSnapshot[]>([]);
  const [alerts,setAlerts]=useState<DeliveryAlert[]>([]);
+ const [alertBusy,setAlertBusy]=useState<string>();
  const [orders,setOrders]=useState<CustomerOrder[]>([]); const [orderBusy,setOrderBusy]=useState<string>();
  const [kpis,setKpis]=useState<DailyDeliveryKpi[]>([]);
  const [deadLetters,setDeadLetters]=useState<DeadLetterEvent[]>([]); const [replayAudits,setReplayAudits]=useState<ReplayAudit[]>([]); const [replayBusy,setReplayBusy]=useState<string>();
@@ -36,6 +38,7 @@ export default function Home(){
  async function receiveStock(){setWarehouseBusy(true);setError("");try{const suffix=Date.now().toString().slice(-6);const r=await fetch(`${API}/api/warehouse/receipts`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({referenceNumber:`ASN-${suffix}`,warehouseId:"SEOUL-HUB-A",sku:"COLD-BOX-01",quantity:10})});if(!r.ok)throw new Error();await loadWarehouse()}catch{setError("입고 처리에 실패했습니다.")}finally{setWarehouseBusy(false)}}
  async function pickAndDispatch(){setWarehouseBusy(true);setError("");try{const suffix=Date.now().toString().slice(-6);const pick=await fetch(`${API}/api/warehouse/outbounds`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({referenceNumber:`OUT-${suffix}`,warehouseId:"SEOUL-HUB-A",sku:"COLD-BOX-01",quantity:4})});if(!pick.ok)throw new Error();const task:WarehouseTask=await pick.json();const dispatched=await fetch(`${API}/api/warehouse/outbounds/${task.id}/dispatch`,{method:"POST"});if(!dispatched.ok)throw new Error();await loadWarehouse()}catch{setError("출고 처리에 실패했습니다. 먼저 재고를 입고해 주세요.")}finally{setWarehouseBusy(false)}}
  async function replay(id:string){setReplayBusy(id);setError("");try{const response=await fetch(`${API}/api/operations/dlq/${id}/replay`,{method:"POST",headers:{"X-Operator":"control-tower"}});if(!response.ok)throw new Error();await loadReplay()}catch{setError("DLQ 이벤트 재처리에 실패했습니다.")}finally{setReplayBusy(undefined)}}
+ async function acknowledgeAlert(id:string){setAlertBusy(id);setError("");try{const response=await fetch(`${API}/api/alerts/${id}/acknowledgement`,{method:"POST",headers:{"X-Operator":"control-tower","X-Trace-Id":crypto.randomUUID()}});if(!response.ok)throw new Error();const next:DeliveryAlert=await response.json();setAlerts(old=>[next,...old.filter(alert=>alert.id!==next.id)])}catch{setError("경고 확인 처리에 실패했습니다.")}finally{setAlertBusy(undefined)}}
  const focus=items.find(x=>x.id===selected);
  const focusRoute=routes.find(x=>x.deliveryId===selected);
  const activeAlerts=alerts.filter(alert=>alert.status==="ACTIVE");
@@ -46,9 +49,7 @@ export default function Home(){
   <DailyKpiPanel rows={kpis} csvUrl={`${API}/api/reports/daily-kpis.csv?days=30`} pdfUrl={`${API}/api/reports/daily-kpis.pdf?days=30`}/>
   <section className="mapBoard"><div className="mapHeader"><div><p className="eyebrow">GEOSPATIAL OVERVIEW</p><h2>Live fleet map</h2></div>{focus&&<div className="focusStats"><span><small>FOCUS</small>{focus.vehicleId}</span><span><small>PROGRESS</small>{Math.round(focus.progress*100)}%</span><span><small>ROUTE</small>{focusRoute?`${(focusRoute.distanceMeters/1000).toFixed(1)} km · ${focusRoute.provider.toUpperCase()}`:"CALCULATING"}</span><span><small>ETA</small>{focus.eta?new Date(focus.eta).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}):focus.status==="DELIVERED"?"ARRIVED":focusRoute?new Date(focusRoute.plannedEta).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}):"—"}</span></div>}</div>
    <FleetMap deliveries={items} routes={routes} selectedId={selected} onSelect={setSelected}/></section>
-  <section className="alertBoard"><div className="alertHeader"><div><p className="eyebrow">EXCEPTION MANAGEMENT</p><h2>Delivery alerts</h2></div><div><b>{activeAlerts.length}</b><span>ACTIVE</span></div></div>
-   <div className="alertGrid">{alerts.length===0?<div className="alertEmpty">현재 감지된 지연 또는 경로 이탈이 없습니다.</div>:alerts.slice(0,8).map(alert=>{const delivery=items.find(item=>item.id===alert.deliveryId);return <button key={alert.id} className={`alertCard ${alert.status.toLowerCase()} ${alert.severity.toLowerCase()}`} onClick={()=>setSelected(alert.deliveryId)}><span className="alertState">{alert.status}</span><span className="alertKind">{alert.alertType.replace("_"," ")}</span><strong>{delivery?.vehicleId||alert.deliveryId.slice(0,8)}</strong><p>{alert.message}</p><small>{alert.occurrenceCount} observations · {new Date(alert.lastObservedAt).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</small></button>})}</div>
-  </section>
+  <AlertOperationsPanel alerts={alerts} deliveries={items} busyId={alertBusy} onSelect={setSelected} onAcknowledge={acknowledgeAlert}/>
   <section className="board"><div className="boardTitle"><h2>Fleet telemetry</h2><span>{items.length} shipments · select to focus map</span></div>
   <div className="grid">{items.length===0?<div className="empty">배송을 생성하면 차량 위치 이벤트가 지도와 목록에 표시됩니다.</div>:items.map(d=>{const count=activeAlerts.filter(alert=>alert.deliveryId===d.id).length;return <article key={d.id} onClick={()=>setSelected(d.id)} className={selected===d.id?"selected":""}><div className="row"><span className={`badge ${d.status.toLowerCase()}`}>{d.status.replace("_"," ")}</span><b>{count>0&&<i className="cardAlert">{count}</i>}{d.vehicleId}</b></div><h3>{d.orderNumber}</h3><p>{d.originName} <em>→</em> {d.destinationName}</p><div className="track"><i style={{width:`${d.progress*100}%`}}/></div><div className="meta"><span>{Math.round(d.progress*100)}% complete</span><span>{d.currentLat?.toFixed(4)}, {d.currentLon?.toFixed(4)}</span></div></article>})}</div></section>
   <section className="warehouseBoard"><div className="warehouseHeader"><div><p className="eyebrow">WAREHOUSE / INVENTORY</p><h2>Stock control</h2></div><div className="warehouseActions"><button disabled={warehouseBusy} onClick={receiveStock}>+ RECEIVE 10</button><button disabled={warehouseBusy} onClick={pickAndDispatch}>PICK & DISPATCH 4</button></div></div>

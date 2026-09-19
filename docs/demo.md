@@ -17,7 +17,7 @@ docker compose ps
 1. `+ SIMULATE DELIVERY`로 배송을 만들고 MapLibre 지도에서 실제 도로 geometry, 차량 이동, ETA를 확인한다.
 2. `Delivery performance`에서 UTC 일별 cohort, 정시율, 평균 cycle을 확인하고 CSV를 다운로드한다.
 3. 창고에서 `RECEIVE 10` 후 `PICK & DISPATCH 4`를 실행해 stock, reserved, 불변 ledger를 설명한다.
-4. `./scripts/alert-smoke.ps1`을 실행해 지연·경로 이탈 alert 발생·상향·해결과 실시간 UI를 확인한다.
+4. `./scripts/alert-smoke.ps1`을 실행해 지연·경로 이탈 alert 발생·운영자 확인·중복 확인 멱등성·해결과 실시간 UI를 확인한다.
 5. `./scripts/tracing-smoke.ps1` 결과의 trace ID를 Grafana Explore의 Tempo에서 조회해 Spring API→Python analytics span을 확인한다.
 6. `./scripts/replay-smoke.ps1`을 실행하고 `Selective event replay`에서 poison event 격리, replay 상태, 운영자 감사를 확인한다.
 7. `./scripts/load-smoke.ps1`과 `./scripts/telemetry-load.ps1`로 API p95와 Kafka 반영 p95/lag 기준선을 보여준다.
