@@ -96,7 +96,7 @@ export default function Home(){
 
 function pollAfterCompletion(task:()=>Promise<unknown>,delayMs:number){
  let stopped=false;let timer:number|undefined;
- const poll=async()=>{await task();if(!stopped)timer=window.setTimeout(poll,delayMs)};
+ const poll=async()=>{try{await task()}catch{}finally{if(!stopped)timer=window.setTimeout(poll,delayMs)}};
  void poll();
  return()=>{stopped=true;if(timer!==undefined)window.clearTimeout(timer)};
 }
