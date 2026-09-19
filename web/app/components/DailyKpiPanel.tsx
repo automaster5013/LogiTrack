@@ -1,17 +1,17 @@
 import type { DailyDeliveryKpi } from "../types";
 
-type Props = { rows: DailyDeliveryKpi[]; csvUrl: string };
+type Props = { rows: DailyDeliveryKpi[]; csvUrl: string; pdfUrl: string };
 
 const number = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 0 });
 
-export default function DailyKpiPanel({ rows, csvUrl }: Props) {
+export default function DailyKpiPanel({ rows, csvUrl, pdfUrl }: Props) {
   const latest = rows.at(-1);
   const maxTotal = Math.max(1, ...rows.map((row) => row.totalDeliveries));
 
   return <section className="kpiBoard">
     <div className="kpiHeader">
       <div><p className="eyebrow">REPORTING / UTC DAILY COHORT</p><h2>Delivery performance</h2></div>
-      <a href={csvUrl} download>DOWNLOAD CSV ↓</a>
+      <div className="kpiDownloads"><a href={pdfUrl} download>DOWNLOAD PDF ↓</a><a href={csvUrl} download>CSV</a></div>
     </div>
     <div className="kpiSummary">
       <div><span>TODAY&apos;S VOLUME</span><strong>{number.format(latest?.totalDeliveries ?? 0)}</strong><small>{latest?.activeDeliveries ?? 0} active</small></div>
@@ -40,4 +40,3 @@ export default function DailyKpiPanel({ rows, csvUrl }: Props) {
     <div className="kpiLegend"><span><i className="total"/>TOTAL</span><span><i className="done"/>DELIVERED</span><span><i className="late"/>DELAYED</span><small>Projection refreshes every 60 seconds</small></div>
   </section>;
 }
-

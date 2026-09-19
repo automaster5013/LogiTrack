@@ -2,7 +2,7 @@ import os
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from pydantic import BaseModel, Field
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -13,6 +13,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from .routing import Coordinate, RoutePlanner
+from .reporting import render_daily_kpi_report
 
 
 class Location(BaseModel):
@@ -35,6 +36,18 @@ class RouteResponse(BaseModel):
     plannedEta: datetime
     geometryHash: str
     generatedAt: datetime
+
+
+class DailyKpiRow(BaseModel):
+    metricDate: str
+    totalDeliveries: int = Field(ge=0)
+    activeDeliveries: int = Field(ge=0)
+    deliveredDeliveries: int = Field(ge=0)
+    delayedDeliveries: int = Field(ge=0)
+    averageProgressPercent: float
+    averageCycleMinutes: float
+    onTimeRatePercent: float
+    projectedAt: datetime
 
 
 app = FastAPI(title="LogiTrack Route Analytics", version="1.0.0")
@@ -82,4 +95,13 @@ async def analyze(request: RouteRequest) -> RouteResponse:
         durationSeconds=result.duration_seconds,
         plannedEta=generated + timedelta(seconds=result.duration_seconds),
         geometryHash=result.geometry_hash, generatedAt=generated,
+    )
+
+
+@app.post("/reports/daily-kpis.pdf")
+def daily_kpi_pdf(rows: list[DailyKpiRow]) -> Response:
+    return Response(
+        content=render_daily_kpi_report(rows),
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=logitrack-daily-kpi-report.pdf"},
     )

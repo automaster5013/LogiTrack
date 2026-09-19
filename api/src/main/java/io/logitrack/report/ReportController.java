@@ -14,9 +14,11 @@ import java.util.List;
 @RequestMapping("/api/reports")
 public class ReportController {
     private final DailyKpiService service;
+    private final DailyKpiReportClient reportClient;
 
-    public ReportController(DailyKpiService service) {
+    public ReportController(DailyKpiService service, DailyKpiReportClient reportClient) {
         this.service = service;
+        this.reportClient = reportClient;
     }
 
     @GetMapping("/daily-kpis")
@@ -32,5 +34,14 @@ public class ReportController {
             .contentType(new MediaType("text", "csv", java.nio.charset.StandardCharsets.UTF_8))
             .body(body);
     }
-}
 
+    @GetMapping(value = "/daily-kpis.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> dailyKpisPdf(@RequestParam(defaultValue = "30") int days) {
+        var body = reportClient.render(service.getDailyKpis(days));
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=logitrack-daily-kpi-report.pdf")
+            .contentType(MediaType.APPLICATION_PDF)
+            .contentLength(body.length)
+            .body(body);
+    }
+}

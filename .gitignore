@@ -9,3 +9,5 @@ __pycache__/
 *.log
 work/
 outputs/
+output/pdf/*.pdf
+tmp/pdfs/
