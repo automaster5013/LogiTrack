@@ -109,6 +109,7 @@
 - 창고 task 비관적 잠금 기반 동시 출고 확정의 단일 재고·ledger·outbox 변경
 - 창고·SKU advisory lock 기반 최초 재고 행 동시 생성과 병렬 입고 정확 합산
 - 주문 좌표·필수 식별자·시각 순서 PostgreSQL 제약으로 애플리케이션 우회 데이터 오염 방지
+- 재고 ledger와 경고 정책 감사 snapshot의 PostgreSQL UPDATE·DELETE 차단으로 불변 이력 보장
 
 ## 현재 상태
 
