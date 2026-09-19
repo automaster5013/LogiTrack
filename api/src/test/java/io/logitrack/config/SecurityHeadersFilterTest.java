@@ -17,4 +17,12 @@ class SecurityHeadersFilterTest {
         assertEquals("camera=(), microphone=(), geolocation=()",response.getHeader("Permissions-Policy"));
         verify(chain).doFilter(request,response);
     }
+    @Test void preventsApiResponsesFromBeingStored() throws Exception {
+        var filter=new SecurityHeadersFilter();var request=new MockHttpServletRequest("GET","/api/deliveries");var response=new MockHttpServletResponse();
+        filter.doFilter(request,response,mock(FilterChain.class));assertEquals("no-store",response.getHeader("Cache-Control"));
+    }
+    @Test void leavesNonApiCachePolicyToTheResourceHandler() throws Exception {
+        var filter=new SecurityHeadersFilter();var request=new MockHttpServletRequest("GET","/actuator/prometheus");var response=new MockHttpServletResponse();
+        filter.doFilter(request,response,mock(FilterChain.class));assertNull(response.getHeader("Cache-Control"));
+    }
 }

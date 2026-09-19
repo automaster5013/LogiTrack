@@ -16,6 +16,7 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
         response.setHeader("X-Frame-Options","DENY");
         response.setHeader("Referrer-Policy","no-referrer");
         response.setHeader("Permissions-Policy","camera=(), microphone=(), geolocation=()");
+        if(request.getRequestURI().equals("/api")||request.getRequestURI().startsWith("/api/"))response.setHeader("Cache-Control","no-store");
         chain.doFilter(request,response);
     }
 }

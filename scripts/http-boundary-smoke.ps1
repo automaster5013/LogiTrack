@@ -19,6 +19,7 @@ foreach($header in @("Content-Security-Policy: frame-ancestors 'none'","X-Conten
   if($web -notmatch "(?im)^$([regex]::Escape($header))\s*$") { throw "Web security header is missing: $header" }
 }
 if($api -notmatch "(?im)^Access-Control-Allow-Origin:\s*http://localhost:3000\s*$") { throw "Trusted web origin was not allowed" }
+if($api -notmatch "(?im)^Cache-Control:\s*no-store\s*$") { throw "API responses were not protected from intermediary caching" }
 if($untrusted -match "(?im)^Access-Control-Allow-Origin:") { throw "Untrusted origin was allowed" }
 $allowedPreflight=Preflight "Content-Type, Idempotency-Key, X-Trace-Id"
 if($allowedPreflight -notmatch "(?im)^Access-Control-Allow-Methods:.*POST" -or $allowedPreflight -notmatch "(?im)^Access-Control-Allow-Headers:.*Idempotency-Key") { throw "Required CORS preflight headers were not allowed" }
