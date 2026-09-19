@@ -24,6 +24,7 @@ public class RouteAnalysisClient {
         @Value("${logitrack.analytics.route-connect-timeout:1s}") Duration connectTimeout,
         @Value("${logitrack.analytics.route-read-timeout:4s}") Duration readTimeout,
         MeterRegistry metrics) {
+        if(connectTimeout.isZero()||connectTimeout.isNegative()||readTimeout.isZero()||readTimeout.isNegative())throw new IllegalArgumentException("Analytics route timeouts must be positive");
         var requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(connectTimeout);
         requestFactory.setReadTimeout(readTimeout);

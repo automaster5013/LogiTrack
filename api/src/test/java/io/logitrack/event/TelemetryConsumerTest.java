@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class TelemetryConsumerTest {
+    @Test void rejectsNegativeFutureSkew(){assertThrows(IllegalArgumentException.class,()->new TelemetryConsumer(new ObjectMapper(),mock(DeliveryRepository.class),mock(ProcessedEventRepository.class),mock(DeliveryStream.class),mock(AlertService.class),mock(OrderService.class),mock(TelemetryPointRepository.class),Duration.ofSeconds(-1),new SimpleMeterRegistry()));}
     @Test void persistsImmutablePointWithDeliveryUpdate() throws Exception {
         var deliveries=mock(DeliveryRepository.class);var processed=mock(ProcessedEventRepository.class);
         var stream=mock(DeliveryStream.class);var alerts=mock(AlertService.class);var orders=mock(OrderService.class);var points=mock(TelemetryPointRepository.class);

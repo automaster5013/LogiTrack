@@ -89,6 +89,7 @@
 - 예상하지 못한 예외의 상세 비노출 500 응답과 trace 연계 서버 stack trace
 - Micrometer HTTP 상태 지표 기반 반복 API 5xx Prometheus warning
 - HTTP server SLO histogram과 5분 지속 p95 2초 초과 warning
+- analytics timeout·PDF 크기·telemetry 미래 허용 오차의 fail-fast 구성 검증
 
 ## 현재 상태
 

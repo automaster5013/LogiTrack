@@ -38,6 +38,8 @@ Kafka 텔레메트리는 `eventType=vehicle.telemetry.v1`, 정수 `schemaVersion
 
 API→analytics 호출은 경로 분석 connect/read 1초/4초, PDF connect/read 1초/15초로 제한한다. 각각 `ANALYTICS_ROUTE_*_TIMEOUT`, `ANALYTICS_REPORT_*_TIMEOUT` 환경변수로 조정하며 경로 timeout은 geodesic fallback으로 전환된다.
 
+route/report timeout은 양수, PDF 응답 한도는 최소 5 bytes, telemetry 미래 허용 오차는 0 이상이어야 하며 안전하지 않은 설정이면 API가 시작을 거부한다.
+
 KPI PDF 응답은 `%PDF` 서명과 기본 10MB 크기 상한을 모두 통과해야 전달한다. 상한은 `ANALYTICS_REPORT_MAX_RESPONSE_SIZE`로 조정할 수 있다.
 
 PDF 렌더링 성공·실패는 `logitrack_report_pdf_total{outcome="success|failure"}`로 확인한다. 10분 동안 2회를 초과해 실패하면 `LogiTrackPdfRenderingFailing` warning이 발생하며 analytics health와 timeout, 응답 크기 제한을 함께 확인한다.

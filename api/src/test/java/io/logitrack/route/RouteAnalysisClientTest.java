@@ -10,6 +10,7 @@ import java.time.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class RouteAnalysisClientTest {
+    @Test void rejectsDisabledTimeouts(){assertThrows(IllegalArgumentException.class,()->new RouteAnalysisClient(RestClient.builder(),"http://localhost",Duration.ZERO,Duration.ofSeconds(1),new SimpleMeterRegistry()));}
     @Test void fallsBackWithinConfiguredReadTimeout() throws Exception {
         var server=HttpServer.create(new InetSocketAddress(0),0);
         server.createContext("/routes/analyze",exchange->{try{Thread.sleep(1000);}catch(InterruptedException ignored){}exchange.sendResponseHeaders(503,-1);exchange.close();});server.start();

@@ -24,6 +24,8 @@ public class DailyKpiReportClient {
                                 @Value("${logitrack.analytics.report-read-timeout:15s}") Duration readTimeout,
                                 @Value("${logitrack.analytics.report-max-response-size:10MB}") DataSize maxResponseSize,
                                 MeterRegistry metrics) {
+        if(connectTimeout.isZero()||connectTimeout.isNegative()||readTimeout.isZero()||readTimeout.isNegative())throw new IllegalArgumentException("Analytics report timeouts must be positive");
+        if(maxResponseSize.toBytes()<5)throw new IllegalArgumentException("Analytics report response limit must be at least 5 bytes");
         var requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(connectTimeout);
         requestFactory.setReadTimeout(readTimeout);
