@@ -5,5 +5,6 @@ import java.util.*;
 
 public interface AlertPolicyRepository extends JpaRepository<AlertPolicy,UUID> {
     Optional<AlertPolicy> findByVehicleId(String vehicleId);
-    List<AlertPolicy> findAllByOrderByVehicleIdAsc();
+    Optional<AlertPolicy> findByVehicleIdAndActiveTrue(String vehicleId);
+    List<AlertPolicy> findAllByActiveTrueOrderByVehicleIdAsc();
 }

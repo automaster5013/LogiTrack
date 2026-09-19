@@ -81,13 +81,13 @@ python -m unittest discover analytics/tests
 
 통합 smoke test는 전체 스택 실행 후 `./scripts/smoke.ps1`로 수행합니다.
 
-핵심 도메인의 line/branch coverage 80% gate는 `./scripts/domain-coverage.ps1`로 실행합니다. 현재 기준선은 line 92.25%, branch 88.33%이며 기준 미달 시 빌드가 실패합니다.
+핵심 도메인의 line/branch coverage 80% gate는 `./scripts/domain-coverage.ps1`로 실행합니다. 현재 기준선은 line 92.37%, branch 88.71%이며 기준 미달 시 빌드가 실패합니다.
 
 GitHub Actions의 `CI` workflow는 main push와 pull request마다 API 테스트·coverage gate, Python analytics/simulator 테스트, Docker Compose 구성 검증, TypeScript production build를 병렬 실행합니다. workflow 권한은 저장소 읽기로 제한됩니다.
 
 배포 가능한 production image와 non-root runtime은 `./scripts/container-build.ps1`로 검증합니다. 실제 CD는 배포 대상·비용 상한·비밀정보·rollback 정책 승인 후 스테이징부터 연결합니다.
 
-차량별 경고 정책은 관제 화면의 `Vehicle threshold policies`에서 설정합니다. `GLOBAL DEFAULT`를 기준으로 차량별 경로 이탈(m)과 ETA 지연(s)의 `CLOSE < OPEN ≤ CRITICAL` 값을 재정의하며, 모든 저장은 PostgreSQL 감사 이력에 운영자와 함께 남습니다. 종단 간 검증은 `./scripts/alert-policy-smoke.ps1`로 수행합니다.
+차량별 경고 정책은 관제 화면의 `Vehicle threshold policies`에서 설정합니다. `GLOBAL DEFAULT`를 기준으로 차량별 경로 이탈(m)과 ETA 지연(s)의 `CLOSE < OPEN ≤ CRITICAL` 값을 재정의하며, `RESET TO GLOBAL`로 안전하게 상속 상태로 되돌릴 수 있습니다. 저장과 reset은 PostgreSQL 감사 이력에 운영자와 함께 남습니다. 종단 간 검증은 `./scripts/alert-policy-smoke.ps1`로 수행합니다.
 
 production image 네 개의 CycloneDX SBOM 생성과 CRITICAL 취약점 0건 검증은 image build 후 `./scripts/container-security.ps1`로 재현합니다. CI의 SBOM은 commit SHA별 artifact로 30일 보관됩니다.
 

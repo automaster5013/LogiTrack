@@ -28,18 +28,19 @@ try {
   $suppressed = @((Invoke-RestMethod http://localhost:8080/api/alerts) | Where-Object {$_.deliveryId -eq $created.id})
   if ($suppressed.Count -ne 0) { throw "Vehicle override did not suppress alerts" }
 
-  Save-Policy $vehicle 500 300 1500 600 300 1800 | Out-Null
+  Invoke-RestMethod "http://localhost:8080/api/alert-policies/$vehicle" -Method Delete -Headers @{"X-Operator"="policy-smoke"} | Out-Null
   $event.eventId=[guid]::NewGuid().ToString();$event.traceId=[guid]::NewGuid().ToString()
   Send-Telemetry $event
   Start-Sleep -Seconds 3
   $active = @((Invoke-RestMethod http://localhost:8080/api/alerts) | Where-Object {$_.deliveryId -eq $created.id -and $_.status -eq "ACTIVE"})
-  if ($active.Count -ne 2) { throw "Updated vehicle policy was not applied; active alerts=$($active.Count)" }
+  if ($active.Count -ne 2) { throw "Global policy was not applied after reset; active alerts=$($active.Count)" }
   if (($active | Where-Object {$_.thresholdValue -notin @(500,600)}).Count -ne 0) { throw "Alerts did not record the effective policy thresholds" }
 
   $policy = (Invoke-RestMethod http://localhost:8080/api/alert-policies) | Where-Object vehicleId -eq $vehicle
   $audits = @((Invoke-RestMethod http://localhost:8080/api/alert-policies/audits) | Where-Object vehicleId -eq $vehicle)
-  if ($policy.updatedBy -ne "policy-smoke" -or $audits.Count -ne 2) { throw "Policy or immutable audit history was not persisted" }
-  Write-Host "PASS: vehicle=$vehicle, high thresholds suppressed alerts, updated thresholds opened 2 alerts, audits=2"
+  if ($policy) { throw "Reset vehicle policy remained active" }
+  if ($audits.Count -ne 2 -or @($audits | Where-Object action -eq "RESET").Count -ne 1) { throw "Policy reset audit history was not persisted" }
+  Write-Host "PASS: vehicle=$vehicle, override suppressed alerts, reset restored global thresholds, audits=2"
 }
 finally {
   docker compose start simulator | Out-Null

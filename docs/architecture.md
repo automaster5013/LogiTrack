@@ -62,7 +62,7 @@ PostgreSQL KPI projection -> control-api -> analytics PDF renderer -> operator d
 
 - `inventory_ledger`: SKU별 불변 수량 이동(+/-), warehouse, reason, correlation ID
 - `warehouse_tasks`: receiving/picking/dispatch 상태 머신
-- alert 정책: PostgreSQL 전역 기본값과 차량별 threshold 재정의, 운영자 변경 감사 이력
+- alert 정책: PostgreSQL 전역 기본값과 차량별 threshold 재정의, soft reset, 운영자 변경 감사 이력
 - 향후 확장: 화물·운송 계약별 threshold와 승인된 notification routing
 
 ## 저장소 구조

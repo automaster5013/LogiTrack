@@ -14,8 +14,8 @@ JaCoCo가 핵심 상태 전이와 불변식을 소유한 도메인 클래스의 
 
 | 항목 | 결과 | 실패 기준 |
 |---|---:|---:|
-| Line coverage | 92.25% (119/129) | 80% 미만 |
-| Branch coverage | 88.33% (53/60) | 80% 미만 |
+| Line coverage | 92.37% (121/131) | 80% 미만 |
+| Branch coverage | 88.71% (55/62) | 80% 미만 |
 
 `./scripts/domain-coverage.ps1`은 고정된 Maven/JDK 21 컨테이너에서 전체 API 테스트와 JaCoCo 검사를 실행한다. 기준을 충족하지 못하면 `mvn verify`와 스크립트가 모두 실패하므로 회귀를 커밋 전에 차단할 수 있다. HTML 상세 보고서는 실행 후 `api/target/site/jacoco/index.html`에 생성된다.
 

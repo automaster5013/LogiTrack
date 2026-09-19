@@ -18,6 +18,7 @@ public class AlertPolicy {
     @Column(name="critical_delay_seconds",nullable=false) private long criticalDelaySeconds;
     @Column(name="updated_at",nullable=false) private Instant updatedAt;
     @Column(name="updated_by",nullable=false) private String updatedBy;
+    @Column(nullable=false) private boolean active;
     @Version private long version;
 
     protected AlertPolicy() {}
@@ -31,8 +32,10 @@ public class AlertPolicy {
         validate(deviationOpenMeters,deviationCloseMeters,criticalDeviationMeters,delayOpenSeconds,delayCloseSeconds,criticalDelaySeconds);
         this.deviationOpenMeters=deviationOpenMeters;this.deviationCloseMeters=deviationCloseMeters;this.criticalDeviationMeters=criticalDeviationMeters;
         this.delayOpenSeconds=delayOpenSeconds;this.delayCloseSeconds=delayCloseSeconds;this.criticalDelaySeconds=criticalDelaySeconds;
-        updatedAt=Instant.now();updatedBy=actor;
+        updatedAt=Instant.now();updatedBy=actor;active=true;
     }
+    public void deactivate(String actor){if(DEFAULT_VEHICLE.equals(vehicleId))throw new IllegalArgumentException("Global default policy cannot be reset");
+        active=false;updatedAt=Instant.now();updatedBy=actor;}
     static void validate(double deviationOpenMeters,double deviationCloseMeters,double criticalDeviationMeters,
         long delayOpenSeconds,long delayCloseSeconds,long criticalDelaySeconds){
         if(!Double.isFinite(deviationOpenMeters)||!Double.isFinite(deviationCloseMeters)||!Double.isFinite(criticalDeviationMeters)
@@ -45,5 +48,5 @@ public class AlertPolicy {
     public double getDeviationOpenMeters(){return deviationOpenMeters;} public double getDeviationCloseMeters(){return deviationCloseMeters;}
     public double getCriticalDeviationMeters(){return criticalDeviationMeters;} public long getDelayOpenSeconds(){return delayOpenSeconds;}
     public long getDelayCloseSeconds(){return delayCloseSeconds;} public long getCriticalDelaySeconds(){return criticalDelaySeconds;}
-    public Instant getUpdatedAt(){return updatedAt;} public String getUpdatedBy(){return updatedBy;}
+    public Instant getUpdatedAt(){return updatedAt;} public String getUpdatedBy(){return updatedBy;} public boolean isActive(){return active;}
 }

@@ -11,4 +11,5 @@ public class AlertPolicyController {
     @GetMapping public List<AlertPolicy> list(){return service.list();}
     @GetMapping("/audits") public List<AlertPolicyAudit> audits(){return service.auditTrail();}
     @PostMapping public AlertPolicy upsert(@RequestBody UpsertAlertPolicyRequest request,@RequestHeader("X-Operator") String actor){return service.upsert(request,actor);}
+    @DeleteMapping("/{vehicleId}") public void reset(@PathVariable String vehicleId,@RequestHeader("X-Operator") String actor){service.reset(vehicleId,actor);}
 }

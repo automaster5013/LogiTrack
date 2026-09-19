@@ -14,15 +14,15 @@ class AlertPolicyServiceTest {
 
     @Test void resolvesVehicleOverrideBeforeDefault() {
         var override=new AlertPolicy("TRUCK-01",700,400,1700,800,400,2000,"op");
-        when(policies.findByVehicleId("TRUCK-01")).thenReturn(Optional.of(override));
-        assertSame(override,service.resolve("TRUCK-01"));verify(policies,never()).findByVehicleId(AlertPolicy.DEFAULT_VEHICLE);
+        when(policies.findByVehicleIdAndActiveTrue("TRUCK-01")).thenReturn(Optional.of(override));
+        assertSame(override,service.resolve("TRUCK-01"));verify(policies,never()).findByVehicleIdAndActiveTrue(AlertPolicy.DEFAULT_VEHICLE);
     }
     @Test void fallsBackToDefaultAndSignalsMissingDefault() {
         var fallback=new AlertPolicy(AlertPolicy.DEFAULT_VEHICLE,500,300,1500,600,300,1800,"system");
-        when(policies.findByVehicleId("TRUCK-02")).thenReturn(Optional.empty());
-        when(policies.findByVehicleId(AlertPolicy.DEFAULT_VEHICLE)).thenReturn(Optional.of(fallback));
+        when(policies.findByVehicleIdAndActiveTrue("TRUCK-02")).thenReturn(Optional.empty());
+        when(policies.findByVehicleIdAndActiveTrue(AlertPolicy.DEFAULT_VEHICLE)).thenReturn(Optional.of(fallback));
         assertSame(fallback,service.resolve("TRUCK-02"));
-        when(policies.findByVehicleId(AlertPolicy.DEFAULT_VEHICLE)).thenReturn(Optional.empty());
+        when(policies.findByVehicleIdAndActiveTrue(AlertPolicy.DEFAULT_VEHICLE)).thenReturn(Optional.empty());
         assertThrows(IllegalStateException.class,()->service.resolve("TRUCK-02"));
     }
     @Test void createsPolicyAndImmutableAuditSnapshot() {
@@ -30,7 +30,7 @@ class AlertPolicyServiceTest {
         var policy=service.upsert(request(" TRUCK-03 ")," operator-a ");
         assertEquals("TRUCK-03",policy.getVehicleId());assertEquals("operator-a",policy.getUpdatedBy());
         var audit=ArgumentCaptor.forClass(AlertPolicyAudit.class);verify(audits).save(audit.capture());
-        assertEquals(policy.getId(),audit.getValue().getPolicyId());assertEquals("operator-a",audit.getValue().getActor());
+        assertEquals(policy.getId(),audit.getValue().getPolicyId());assertEquals("operator-a",audit.getValue().getActor());assertEquals(AlertPolicyAudit.Action.UPSERT,audit.getValue().getAction());
     }
     @Test void updatesExistingPolicyAndRejectsInvalidIdentity() {
         var policy=new AlertPolicy("TRUCK-04",500,300,1500,600,300,1800,"old");
@@ -40,8 +40,16 @@ class AlertPolicyServiceTest {
         assertThrows(IllegalArgumentException.class,()->service.upsert(request(" "),"op"));
         assertThrows(IllegalArgumentException.class,()->service.upsert(request("TRUCK-05")," "));
     }
+    @Test void resetsVehicleOverrideWithAuditedSnapshot() {
+        var policy=new AlertPolicy("TRUCK-06",500,300,1500,600,300,1800,"old");
+        when(policies.findByVehicleIdAndActiveTrue("TRUCK-06")).thenReturn(Optional.of(policy));when(policies.save(policy)).thenReturn(policy);
+        assertSame(policy,service.reset(" TRUCK-06 "," operator-r "));assertFalse(policy.isActive());assertEquals("operator-r",policy.getUpdatedBy());
+        var audit=ArgumentCaptor.forClass(AlertPolicyAudit.class);verify(audits).save(audit.capture());assertEquals(AlertPolicyAudit.Action.RESET,audit.getValue().getAction());
+        assertThrows(IllegalArgumentException.class,()->service.reset(AlertPolicy.DEFAULT_VEHICLE,"operator"));
+        assertThrows(NoSuchElementException.class,()->service.reset("TRUCK-MISSING","operator"));
+    }
     @Test void delegatesLists() {
-        when(policies.findAllByOrderByVehicleIdAsc()).thenReturn(List.of());when(audits.findTop50ByOrderByOccurredAtDesc()).thenReturn(List.of());
+        when(policies.findAllByActiveTrueOrderByVehicleIdAsc()).thenReturn(List.of());when(audits.findTop50ByOrderByOccurredAtDesc()).thenReturn(List.of());
         assertTrue(service.list().isEmpty());assertTrue(service.auditTrail().isEmpty());
     }
 }

@@ -78,6 +78,7 @@ export type AlertPolicy = {
 
 export type AlertPolicyAudit = Omit<AlertPolicy,"updatedAt"|"updatedBy"> & {
   policyId: string;
+  action: "UPSERT" | "RESET";
   actor: string;
   occurredAt: string;
 };
