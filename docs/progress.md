@@ -84,6 +84,7 @@
 - analytics KPI PDF 서명·구성 가능 응답 크기 상한 검증
 - KPI PDF 렌더링 성공·실패 Micrometer counter
 - 반복 KPI PDF 렌더링 실패 Prometheus warning과 구성 회귀 검증
+- 필수 요청값·타입·HTTP method·media type 오류의 trace 연계 표준 body
 
 ## 현재 상태
 
