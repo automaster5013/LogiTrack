@@ -27,8 +27,9 @@ def percentile(values: list[float], fraction: float) -> float:
 
 def main() -> int:
     suffix = uuid.uuid4().hex[:8]
+    vehicle_id = f"TRUCK-TELEMETRY-{suffix}"
     delivery = request_json(f"{API}/api/deliveries", "POST", {
-        "orderNumber": f"ORD-TELEMETRY-{suffix}", "vehicleId": f"TRUCK-TELEMETRY-{suffix}",
+        "orderNumber": f"ORD-TELEMETRY-{suffix}", "vehicleId": vehicle_id,
         "origin": {"name": "Seoul", "lat": 37.5665, "lon": 126.978},
         "destination": {"name": "Incheon", "lat": 37.4563, "lon": 126.7052},
     }, {"Idempotency-Key": f"telemetry-{suffix}"})
@@ -46,7 +47,8 @@ def main() -> int:
                 "eventId": str(uuid.uuid4()), "eventType": "vehicle.telemetry.v1",
                 "occurredAt": datetime.now(timezone.utc).isoformat(), "traceId": f"telemetry-{suffix}-{sequence}",
                 "schemaVersion": 1, "payload": {
-                    "deliveryId": delivery["id"], "lat": 37.5665 + (37.4563 - 37.5665) * progress,
+                    "deliveryId": delivery["id"], "vehicleId": vehicle_id,
+                    "lat": 37.5665 + (37.4563 - 37.5665) * progress,
                     "lon": 126.978 + (126.7052 - 126.978) * progress, "progress": progress,
                     "eta": (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat(), "status": "IN_TRANSIT",
                 },
@@ -76,4 +78,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
