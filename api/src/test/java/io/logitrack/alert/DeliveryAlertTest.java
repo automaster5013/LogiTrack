@@ -12,4 +12,16 @@ class DeliveryAlertTest {
         assertEquals(DeliveryAlert.Severity.CRITICAL,alert.getSeverity());
         assertEquals(3,alert.getOccurrenceCount());
     }
+
+    @Test void resolutionCapturesFinalObservation() {
+        var alert=new DeliveryAlert(UUID.randomUUID(),DeliveryAlert.Type.ROUTE_DEVIATION,
+            DeliveryAlert.Severity.WARNING,"off route",850,500);
+
+        alert.resolve(120);
+
+        assertEquals(DeliveryAlert.Status.RESOLVED,alert.getStatus());
+        assertEquals(120,alert.getObservedValue());
+        assertNotNull(alert.getResolvedAt());
+        assertEquals(alert.getLastObservedAt(),alert.getResolvedAt());
+    }
 }

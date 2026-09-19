@@ -19,5 +19,12 @@ class ReplayPlanTest {
         plan.complete(1,1);
         assertThat(plan.getStatus()).isEqualTo(ReplayPlan.Status.PARTIAL);
     }
-}
 
+    @Test void expirationIsTerminalAndIdempotent() {
+        var plan=new ReplayPlan("operator",List.of(UUID.randomUUID()));
+        plan.expire();
+        plan.expire();
+        assertThat(plan.getStatus()).isEqualTo(ReplayPlan.Status.EXPIRED);
+        assertThatThrownBy(()->plan.complete(1,0)).isInstanceOf(IllegalStateException.class);
+    }
+}

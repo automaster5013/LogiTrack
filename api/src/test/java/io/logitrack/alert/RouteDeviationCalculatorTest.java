@@ -18,4 +18,13 @@ class RouteDeviationCalculatorTest {
     @Test void invalidGeometryIsNotSilentlyAccepted() throws Exception {
         assertEquals(Double.POSITIVE_INFINITY,RouteDeviationCalculator.distanceMeters(0,0,mapper.readTree("{}")));
     }
+
+    @Test void supportsDegenerateSegmentsAndClosestEndpoints() throws Exception {
+        var repeated=mapper.readTree("{\"coordinates\":[[126.9,37.5],[126.9,37.5]]}");
+        assertTrue(RouteDeviationCalculator.distanceMeters(37.5,126.9,repeated)<1);
+
+        var route=mapper.readTree("{\"coordinates\":[[126.9,37.5],[127.0,37.5]]}");
+        assertTrue(RouteDeviationCalculator.distanceMeters(37.5,126.8,route)>8_000);
+        assertTrue(RouteDeviationCalculator.distanceMeters(37.5,127.1,route)>8_000);
+    }
 }

@@ -64,6 +64,7 @@ curl -X POST http://localhost:8080/api/orders/{orderId}/dispatch \
 - [운영 및 장애 처리](docs/operations.md)
 - [장애 주입 및 복구 runbook](docs/failure-recovery-runbook.md)
 - [로컬 성능 기준선](docs/performance.md)
+- [테스트 품질 기준선](docs/quality.md)
 - [10분 데모 시나리오](docs/demo.md)
 - [구현 진행 현황](docs/progress.md)
 
@@ -76,6 +77,8 @@ python -m unittest discover analytics/tests
 ```
 
 통합 smoke test는 전체 스택 실행 후 `./scripts/smoke.ps1`로 수행합니다.
+
+핵심 도메인의 line/branch coverage 80% gate는 `./scripts/domain-coverage.ps1`로 실행합니다. 현재 기준선은 line 90.38%, branch 96.88%이며 기준 미달 시 빌드가 실패합니다.
 
 배송과 이벤트는 PostgreSQL에 같은 트랜잭션으로 기록됩니다. outbox publisher가 대기 이벤트를 Kafka에 전달하므로 broker가 일시 중단되어도 생성 이벤트가 유실되지 않습니다.
 

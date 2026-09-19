@@ -33,6 +33,7 @@
 - analytics/consumer/Redis 장애 주입, Kafka 보존·정확히 한 번 복구와 자동 원상 복구 runbook
 - PostgreSQL 독립 주문 aggregate, 주문-배송 1:1 연결, `READY → DISPATCHED → FULFILLED` lifecycle과 TypeScript 배차 패널
 - 배포 runtime version 감지와 자동 새로고침으로 오래 열린 운영 탭의 구형 CSS/JavaScript 및 검은 지도 상태 자동 복구
+- JaCoCo 핵심 도메인 line/branch 80% 빌드 gate와 재현 가능한 Docker 검증(line 90.38%, branch 96.88%)
 
 ## 현재 상태
 
