@@ -27,10 +27,12 @@ public class OutboxEvent {
     }
     public void published(){status=Status.PUBLISHED;publishedAt=Instant.now();lastError=null;}
     public void failed(Throwable error){attempts++;lastError=truncate(error.getMessage());if(attempts>=20)status=Status.FAILED;}
+    public void retry(){if(status!=Status.FAILED)throw new IllegalStateException("Only FAILED outbox events can be retried");status=Status.PENDING;attempts=0;lastError=null;publishedAt=null;}
     private String truncate(String value){if(value==null)return errorName();return value.substring(0,Math.min(1000,value.length()));}
     private String errorName(){return "Unknown publishing error";}
-    public UUID getId(){return id;} public String getTopic(){return topic;} public String getEventKey(){return eventKey;}
+    public UUID getId(){return id;} public String getAggregateType(){return aggregateType;} public UUID getAggregateId(){return aggregateId;}
+    public String getEventType(){return eventType;} public String getTopic(){return topic;} public String getEventKey(){return eventKey;}
     public String getPayload(){return payload;} public Status getStatus(){return status;} public int getAttempts(){return attempts;}
+    public String getLastError(){return lastError;} public Instant getCreatedAt(){return createdAt;} public Instant getPublishedAt(){return publishedAt;}
     public enum Status { PENDING, PUBLISHED, FAILED }
 }
-

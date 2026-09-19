@@ -51,6 +51,7 @@
 - JSON·GeoJSON·CSV gzip 콘텐츠 협상과 자동 압축률 검증으로 대용량 경로 전송량 절감
 - 환경변수 기반 exact-origin CORS allowlist와 API·웹 공통 브라우저 보안 헤더 검증
 - PostgreSQL 연동 readiness와 Redis graceful degradation을 실제 장애·복구로 검증
+- FAILED transactional outbox 조회·비관적 잠금 재시도·운영자 감사와 TypeScript 복구 패널
 
 ## 현재 상태
 

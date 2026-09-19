@@ -125,3 +125,5 @@ export type DeadLetterEvent = {
 };
 
 export type ReplayAudit = { id:string; deadLetterEventId:string; action:"REPLAY"; actor:string; occurredAt:string };
+export type OutboxFailure = { id:string; aggregateType:string; aggregateId:string; eventType:string; topic:string; attempts:number; lastError?:string; createdAt:string; status:"FAILED"|"PENDING" };
+export type OutboxRetryAudit = { id:string; outboxEventId:string; actor:string; occurredAt:string };

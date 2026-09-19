@@ -4,9 +4,10 @@ import dynamic from "next/dynamic";
 import DailyKpiPanel from "./components/DailyKpiPanel";
 import OrderFlowPanel from "./components/OrderFlowPanel";
 import ReplayOperationsPanel from "./components/ReplayOperationsPanel";
+import OutboxRecoveryPanel from "./components/OutboxRecoveryPanel";
 import AlertOperationsPanel from "./components/AlertOperationsPanel";
 import AlertPolicyPanel, { PolicyInput } from "./components/AlertPolicyPanel";
-import type { AlertPolicy, AlertPolicyAudit, CustomerOrder, DailyDeliveryKpi, DeadLetterEvent, Delivery, DeliveryAlert, LedgerEntry, ReplayAudit, RouteSnapshot, TelemetryPoint, WarehouseStock, WarehouseTask } from "./types";
+import type { AlertPolicy, AlertPolicyAudit, CustomerOrder, DailyDeliveryKpi, DeadLetterEvent, Delivery, DeliveryAlert, LedgerEntry, OutboxFailure, OutboxRetryAudit, ReplayAudit, RouteSnapshot, TelemetryPoint, WarehouseStock, WarehouseTask } from "./types";
 
 const FleetMap=dynamic(()=>import("./components/FleetMap"),{ssr:false});
 const API=process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -24,6 +25,7 @@ export default function Home(){
  const [orders,setOrders]=useState<CustomerOrder[]>([]); const [orderBusy,setOrderBusy]=useState<string>();
  const [kpis,setKpis]=useState<DailyDeliveryKpi[]>([]);
  const [deadLetters,setDeadLetters]=useState<DeadLetterEvent[]>([]); const [replayAudits,setReplayAudits]=useState<ReplayAudit[]>([]); const [replayBusy,setReplayBusy]=useState<string>();
+ const [outboxFailures,setOutboxFailures]=useState<OutboxFailure[]>([]); const [outboxAudits,setOutboxAudits]=useState<OutboxRetryAudit[]>([]); const [outboxBusy,setOutboxBusy]=useState<string>();
  const [stocks,setStocks]=useState<WarehouseStock[]>([]); const [tasks,setTasks]=useState<WarehouseTask[]>([]); const [ledger,setLedger]=useState<LedgerEntry[]>([]); const [warehouseBusy,setWarehouseBusy]=useState(false);
  const loadMapData=async(deliveryIds:string[])=>{
   const ids=[...new Set(deliveryIds)].filter(id=>!requestedMapIds.current.has(id));if(!ids.length)return;
@@ -38,6 +40,7 @@ export default function Home(){
  const loadKpis=()=>fetch(`${API}/api/reports/daily-kpis?days=14`).then(r=>r.json()).then(setKpis).catch(()=>setError("KPI 보고서를 불러올 수 없습니다."));
  const loadOrders=()=>fetch(`${API}/api/orders`).then(r=>r.json()).then(setOrders).catch(()=>setError("주문 데이터를 불러올 수 없습니다."));
  const loadReplay=()=>Promise.all([fetch(`${API}/api/operations/dlq`).then(r=>r.json()),fetch(`${API}/api/operations/replay-audits`).then(r=>r.json())]).then(([events,audits])=>{setDeadLetters(events);setReplayAudits(audits);setError(current=>current==="복구 큐를 불러올 수 없습니다."?"":current)}).catch(()=>setError("복구 큐를 불러올 수 없습니다."));
+ const loadOutbox=()=>Promise.all([fetch(`${API}/api/operations/outbox/failures`).then(r=>r.json()),fetch(`${API}/api/operations/outbox/retry-audits`).then(r=>r.json())]).then(([failures,audits])=>{setOutboxFailures(failures);setOutboxAudits(audits)}).catch(()=>setError("Outbox 복구 큐를 불러올 수 없습니다."));
  const loadPolicies=()=>Promise.all([fetch(`${API}/api/alert-policies`).then(r=>r.json()),fetch(`${API}/api/alert-policies/audits`).then(r=>r.json())]).then(([nextPolicies,nextAudits])=>{setPolicies(nextPolicies);setPolicyAudits(nextAudits)}).catch(()=>setError("경고 정책을 불러올 수 없습니다."));
  useEffect(()=>{load(); const source=new EventSource(`${API}/api/stream/deliveries`); source.onopen=()=>setConnected(true); source.onerror=()=>setConnected(false);
   source.addEventListener("delivery-update",e=>{const next:Delivery=JSON.parse((e as MessageEvent).data);if(!knownDeliveryIds.current.has(next.id)){knownDeliveryIds.current.add(next.id);loadMapData([next.id]).catch(()=>{})}setItems(old=>[next,...old.filter(x=>x.id!==next.id)]);loadOrders().catch(()=>{})});
@@ -53,12 +56,14 @@ export default function Home(){
  useEffect(()=>{loadOrders();const timer=window.setInterval(loadOrders,15000);return()=>window.clearInterval(timer)},[]);
  useEffect(()=>{loadKpis();const timer=window.setInterval(loadKpis,30000);return()=>window.clearInterval(timer)},[]);
  useEffect(()=>{loadReplay();const timer=window.setInterval(loadReplay,15000);return()=>window.clearInterval(timer)},[]);
+ useEffect(()=>{loadOutbox();const timer=window.setInterval(loadOutbox,15000);return()=>window.clearInterval(timer)},[]);
  useEffect(()=>{loadPolicies();const timer=window.setInterval(loadPolicies,30000);return()=>window.clearInterval(timer)},[]);
  async function createOrder(e?:FormEvent){e?.preventDefault();setOrderBusy("create");setError("");try{const suffix=Date.now().toString().slice(-6);const response=await fetch(`${API}/api/orders`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({orderNumber:`ORD-${suffix}`,origin:{name:"Seoul Hub",lat:37.5665,lon:126.978},destination:{name:"Incheon DC",lat:37.4563,lon:126.7052}})});if(!response.ok)throw new Error();await loadOrders()}catch{setError("주문 생성에 실패했습니다.")}finally{setOrderBusy(undefined)}}
  async function dispatchOrder(id:string){setOrderBusy(id);setError("");try{const response=await fetch(`${API}/api/orders/${id}/dispatch`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({vehicleId:`TRUCK-${Math.ceil(Math.random()*9).toString().padStart(2,"0")}`})});if(!response.ok)throw new Error();const order:CustomerOrder=await response.json();if(order.deliveryId)setSelected(order.deliveryId);await Promise.all([loadOrders(),load()])}catch{setError("주문 배차에 실패했습니다.")}finally{setOrderBusy(undefined)}}
  async function receiveStock(){setWarehouseBusy(true);setError("");try{const suffix=Date.now().toString().slice(-6);const r=await fetch(`${API}/api/warehouse/receipts`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({referenceNumber:`ASN-${suffix}`,warehouseId:"SEOUL-HUB-A",sku:"COLD-BOX-01",quantity:10})});if(!r.ok)throw new Error();await loadWarehouse()}catch{setError("입고 처리에 실패했습니다.")}finally{setWarehouseBusy(false)}}
  async function pickAndDispatch(){setWarehouseBusy(true);setError("");try{const suffix=Date.now().toString().slice(-6);const pick=await fetch(`${API}/api/warehouse/outbounds`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({referenceNumber:`OUT-${suffix}`,warehouseId:"SEOUL-HUB-A",sku:"COLD-BOX-01",quantity:4})});if(!pick.ok)throw new Error();const task:WarehouseTask=await pick.json();const dispatched=await fetch(`${API}/api/warehouse/outbounds/${task.id}/dispatch`,{method:"POST"});if(!dispatched.ok)throw new Error();await loadWarehouse()}catch{setError("출고 처리에 실패했습니다. 먼저 재고를 입고해 주세요.")}finally{setWarehouseBusy(false)}}
  async function replay(id:string){setReplayBusy(id);setError("");try{const response=await fetch(`${API}/api/operations/dlq/${id}/replay`,{method:"POST",headers:{"X-Operator":"control-tower"}});if(!response.ok)throw new Error();await loadReplay()}catch{setError("DLQ 이벤트 재처리에 실패했습니다.")}finally{setReplayBusy(undefined)}}
+ async function retryOutbox(id:string){setOutboxBusy(id);setError("");try{const response=await fetch(`${API}/api/operations/outbox/failures/${id}/retry`,{method:"POST",headers:{"X-Operator":"control-tower"}});if(!response.ok)throw new Error();await loadOutbox()}catch{setError("Outbox 이벤트 재발행에 실패했습니다.")}finally{setOutboxBusy(undefined)}}
  async function acknowledgeAlert(id:string){setAlertBusy(id);setError("");try{const response=await fetch(`${API}/api/alerts/${id}/acknowledgement`,{method:"POST",headers:{"X-Operator":"control-tower","X-Trace-Id":crypto.randomUUID()}});if(!response.ok)throw new Error();const next:DeliveryAlert=await response.json();setAlerts(old=>[next,...old.filter(alert=>alert.id!==next.id)])}catch{setError("경고 확인 처리에 실패했습니다.")}finally{setAlertBusy(undefined)}}
  async function savePolicy(policy:PolicyInput){setPolicyBusy(true);setError("");try{const response=await fetch(`${API}/api/alert-policies`,{method:"POST",headers:{"Content-Type":"application/json","X-Operator":"control-tower"},body:JSON.stringify(policy)});if(!response.ok)throw new Error();await loadPolicies()}catch{setError("경고 정책 저장에 실패했습니다. CLOSE < OPEN ≤ CRITICAL 순서를 확인해 주세요.")}finally{setPolicyBusy(false)}}
  async function resetPolicy(vehicleId:string){setPolicyBusy(true);setError("");try{const response=await fetch(`${API}/api/alert-policies/${encodeURIComponent(vehicleId)}`,{method:"DELETE",headers:{"X-Operator":"control-tower"}});if(!response.ok)throw new Error();await loadPolicies()}catch{setError("차량 정책을 전역 기본값으로 되돌리지 못했습니다.")}finally{setPolicyBusy(false)}}
@@ -83,5 +88,6 @@ export default function Home(){
    <div className="taskStrip"><span>{tasks.filter(t=>t.status==="PICKED").length} awaiting dispatch</span><span>{tasks.filter(t=>t.status==="DISPATCHED").length} dispatched</span><span>{ledger.length} ledger movements loaded</span></div>
   </section>
   <ReplayOperationsPanel events={deadLetters} audits={replayAudits} busyId={replayBusy} onReplay={replay}/>
+  <OutboxRecoveryPanel failures={outboxFailures} audits={outboxAudits} busyId={outboxBusy} onRetry={retryOutbox}/>
  </main>
 }

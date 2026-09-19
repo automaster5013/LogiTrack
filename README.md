@@ -93,6 +93,8 @@ production image 네 개의 CycloneDX SBOM 생성과 CRITICAL 취약점 0건 검
 
 배송과 이벤트는 PostgreSQL에 같은 트랜잭션으로 기록됩니다. outbox publisher가 대기 이벤트를 Kafka에 전달하므로 broker가 일시 중단되어도 생성 이벤트가 유실되지 않습니다.
 
+20회 발행 실패로 격리된 outbox 이벤트는 관제 화면의 `Failed event recovery` 또는 `POST /api/operations/outbox/failures/{id}/retry`와 필수 `X-Operator` 헤더로 재시도합니다. 재시도는 비관적 잠금 아래 `PENDING`으로 초기화되고 불변 운영자 감사 이력을 남기며 `./scripts/outbox-recovery-smoke.ps1`로 검증합니다.
+
 주문과 배송의 독립 lifecycle은 `./scripts/order-smoke.ps1`로 검증합니다. 이 테스트는 주문 생성 멱등성, 단일 배송 연결, `READY → DISPATCHED → FULFILLED`, 주문 outbox 이벤트 3종과 simulator 원상 복구를 확인합니다.
 
 창고 흐름 검증은 `./scripts/warehouse-smoke.ps1`로 실행합니다. API는 `POST /api/warehouse/receipts`, `POST /api/warehouse/outbounds`, `POST /api/warehouse/outbounds/{id}/dispatch`와 재고·작업·ledger 조회를 제공합니다.
