@@ -64,6 +64,7 @@
 - 경고·창고 재고·작업 조회의 500건 상한과 최신 경고·작업 PostgreSQL 정렬 인덱스
 - API scrape 중단과 복구 queue 지표 stale 상태를 포함한 Prometheus 핵심 운영 경보 5종
 - 감사 완료된 outbox retry·DLQ replay 운영자 복구 활동 Micrometer counter
+- DLQ 단건 replay 비관적 row lock으로 동시 운영 요청의 중복 Kafka 발행 방지
 
 ## 현재 상태
 

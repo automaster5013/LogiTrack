@@ -50,7 +50,7 @@ PostgreSQL KPI projection -> control-api -> analytics PDF renderer -> operator d
 
 ### outbox_events
 
-`id UUID PK`는 event ID와 같고, aggregate/type/topic/key/payload를 배송과 같은 DB 트랜잭션에 기록한다. publisher는 `FOR UPDATE SKIP LOCKED`로 batch를 선점하여 다중 인스턴스 중복 경쟁을 막고, 성공 시 `PUBLISHED`, 반복 실패 시 `FAILED`로 전환한다. 운영자 재시도는 대상 row를 비관적으로 잠그고 `PENDING`으로 초기화하며 `outbox_retry_audits`에 행위자를 불변 기록한다.
+`id UUID PK`는 event ID와 같고, aggregate/type/topic/key/payload를 배송과 같은 DB 트랜잭션에 기록한다. publisher는 `FOR UPDATE SKIP LOCKED`로 batch를 선점하여 다중 인스턴스 중복 경쟁을 막고, 성공 시 `PUBLISHED`, 반복 실패 시 `FAILED`로 전환한다. 운영자 outbox 재시도와 DLQ replay는 대상 row를 비관적으로 잠가 동시 요청의 중복 발행을 막고 불변 감사 이력을 기록한다.
 
 ### route_snapshots
 
