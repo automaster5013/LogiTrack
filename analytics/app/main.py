@@ -16,6 +16,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from .routing import Coordinate, RoutePlanner
 from .reporting import render_daily_kpi_report
+from .body_limit import RequestBodyLimitMiddleware
 
 
 class Location(BaseModel):
@@ -79,6 +80,7 @@ async def lifespan(_: FastAPI):
     await planner.close()
 
 app = FastAPI(title="LogiTrack Route Analytics", version="1.0.0", lifespan=lifespan)
+app.add_middleware(RequestBodyLimitMiddleware, max_bytes=int(os.getenv("MAX_REQUEST_BODY_BYTES", str(2 * 1024 * 1024))))
 configure_tracing()
 
 

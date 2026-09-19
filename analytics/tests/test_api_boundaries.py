@@ -23,6 +23,11 @@ class ApiBoundaryTest(unittest.TestCase):
         invalid = dict(self.row, averageProgressPercent=101)
         self.assertEqual(422, self.client.post("/reports/daily-kpis.pdf", json=[invalid]).status_code)
 
+    def test_oversized_raw_body_is_rejected_before_validation(self):
+        response = self.client.post("/reports/daily-kpis.pdf", content=b" " * (2 * 1024 * 1024 + 1), headers={"Content-Type": "application/json"})
+        self.assertEqual(413, response.status_code)
+        self.assertEqual("Request body is too large", response.json()["detail"])
+
     def test_valid_pdf_is_rendered(self):
         response = self.client.post("/reports/daily-kpis.pdf", json=[self.row])
         self.assertEqual(200, response.status_code)

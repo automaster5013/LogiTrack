@@ -71,6 +71,7 @@ services:
       OSRM_BASE_URL: ${OSRM_BASE_URL:-https://router.project-osrm.org}
       ROUTING_TIMEOUT_SECONDS: ${ROUTING_TIMEOUT_SECONDS:-2.5}
       ROUTING_CACHE_TTL_SECONDS: ${ROUTING_CACHE_TTL_SECONDS:-300}
+      MAX_REQUEST_BODY_BYTES: ${ANALYTICS_MAX_REQUEST_BODY_BYTES:-2097152}
       OTEL_SERVICE_NAME: logitrack-route-analytics
       INSTANCE_ID: analytics-1
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://otel-collector:4318/v1/traces
