@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
-$names = docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT conname FROM pg_constraint WHERE conname IN ('outbox_status_values','outbox_attempts_nonnegative','outbox_publication_state','warehouse_task_type_status','inventory_delta_shape','delivery_alert_resolution_state','dead_letter_replay_state','replay_plan_execution_state') ORDER BY conname"
-if (($names | Where-Object { $_.Trim() }).Count -ne 8) { throw "Expected 8 operational state constraints, got: $names" }
+$names = docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT conname FROM pg_constraint WHERE conname IN ('outbox_status_values','outbox_attempts_nonnegative','outbox_publication_state','warehouse_task_type_status','inventory_delta_shape','delivery_alert_resolution_state','dead_letter_replay_state','replay_plan_execution_state','deliveries_status_values','deliveries_completion_state') ORDER BY conname"
+if (($names | Where-Object { $_.Trim() }).Count -ne 10) { throw "Expected 10 operational state constraints, got: $names" }
 $cascade = (docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT confdeltype FROM pg_constraint WHERE conname='outbox_retry_audits_outbox_event_id_fkey'").Trim()
 if ($cascade -ne "c") { throw "Outbox retry audit FK must cascade with retained parent deletion" }
 $replayCascade = (docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT confdeltype FROM pg_constraint WHERE conname='replay_audits_dead_letter_event_id_fkey'").Trim()
@@ -9,4 +9,8 @@ if ($replayCascade -ne "c") { throw "Replay audit FK must cascade with retained 
 $invalidId = [guid]::NewGuid().ToString()
 & docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U logitrack -d logitrack -c "INSERT INTO outbox_events(id,aggregate_type,aggregate_id,event_type,topic,event_key,payload,status,attempts,created_at,next_attempt_at) VALUES ('$invalidId','SMOKE','$invalidId','smoke.v1','smoke.v1','key','{}','PENDING',-1,now(),now())" 2>$null | Out-Null
 if ($LASTEXITCODE -eq 0) { throw "Invalid negative outbox attempts unexpectedly passed DB constraints" }
-Write-Host "PASS: operational state constraints loaded and invalid outbox state rejected"
+$deliveryId = (docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT id FROM deliveries LIMIT 1").Trim()
+if (!$deliveryId) { throw "A delivery is required for the integrity smoke test" }
+& docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U logitrack -d logitrack -c "UPDATE deliveries SET status='DELIVERED',progress=0.5 WHERE id='$deliveryId'" 2>$null | Out-Null
+if ($LASTEXITCODE -eq 0) { throw "Inconsistent delivery completion unexpectedly passed DB constraints" }
+Write-Host "PASS: operational state constraints loaded and invalid outbox/delivery states rejected"

@@ -47,8 +47,10 @@ public class Delivery {
         if(!Double.isFinite(lat)||!Double.isFinite(lon)||!Double.isFinite(progress)||lat < -90||lat > 90||lon < -180||lon > 180||progress < 0||progress > 1)
             throw new IllegalArgumentException("Invalid telemetry coordinates or progress");
         if(status==null||status==Status.CREATED)throw new IllegalArgumentException("Invalid telemetry status");
+        if((status==Status.DELIVERED)!=(Double.compare(progress,1d)==0))throw new IllegalArgumentException("DELIVERED telemetry must have complete progress");
         if(occurredAt==null)throw new IllegalArgumentException("Telemetry occurredAt is required");
         if(this.status==Status.DELIVERED||(lastTelemetryAt!=null&&!lastTelemetryAt.isBefore(occurredAt)))return false;
+        if(progress<this.progress)throw new IllegalArgumentException("Telemetry progress cannot decrease");
         this.currentLat=lat;this.currentLon=lon;this.progress=progress;this.eta=eta;this.status=status;this.lastTelemetryAt=occurredAt;this.updatedAt=Instant.now();return true;
     }
     public UUID getId(){return id;} public UUID getOrderId(){return orderId;} public String getOrderNumber(){return orderNumber;} public String getVehicleId(){return vehicleId;}
