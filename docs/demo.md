@@ -14,7 +14,7 @@ docker compose ps
 
 ## 진행 순서
 
-1. `+ SIMULATE DELIVERY`로 배송을 만들고 MapLibre 지도의 기본 `LIVE` 범위에서 실제 도로 geometry, 차량 이동, ETA와 선택 차량 halo를 확인한다. `ALL`은 완료 이력까지 살펴볼 때만 사용한다.
+1. `+ SIMULATE DELIVERY`로 배송을 만들고 MapLibre 지도의 기본 `LIVE` 범위에서 실제 도로 geometry, 차량 이동, ETA와 선택 차량 halo를 확인한다. 검색으로 차량·주문·위치를 좁히면 지도와 telemetry 목록이 함께 필터링되고, `ALL`은 완료 이력까지 살펴볼 때 사용한다.
 2. `Delivery performance`에서 UTC 일별 cohort, 정시율, 평균 cycle을 확인하고 CSV를 다운로드한다.
 3. 창고에서 `RECEIVE 10` 후 `PICK & DISPATCH 4`를 실행해 stock, reserved, 불변 ledger를 설명한다.
 4. `./scripts/alert-smoke.ps1`을 실행해 지연·경로 이탈 alert 발생·운영자 확인·중복 확인 멱등성·해결과 실시간 UI를 확인한다.

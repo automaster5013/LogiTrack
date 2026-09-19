@@ -42,6 +42,7 @@
 - 차량별 경고 정책 soft reset, 전역 상속 즉시 복원, `UPSERT`/`RESET` 감사 분류와 TypeScript reset 제어
 - PostgreSQL 감사 snapshot 기반 경고 정책 복원, `RESTORE` 감사 분류와 TypeScript 원클릭 복원 제어
 - 지도 기본 LIVE 범위, 전체 이력 전환, 선택 차량 강조로 누적 배송 데이터에서도 경로·마커 가독성 유지
+- 지도·telemetry 통합 LIVE/ALL 범위와 차량·주문·위치 검색으로 누적 운행 이력의 탐색성과 렌더링 밀도 개선
 
 ## 현재 상태
 
