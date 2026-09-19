@@ -87,6 +87,7 @@
 - 필수 요청값·타입·HTTP method·media type 오류의 trace 연계 표준 body
 - 알 수 없는 API 경로의 내부 경로 정보 비노출 표준 404 body
 - 예상하지 못한 예외의 상세 비노출 500 응답과 trace 연계 서버 stack trace
+- Micrometer HTTP 상태 지표 기반 반복 API 5xx Prometheus warning
 
 ## 현재 상태
 

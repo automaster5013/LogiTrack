@@ -57,3 +57,11 @@ groups:
         annotations:
           summary: KPI PDF rendering is repeatedly failing
           description: "{{ $value }} KPI PDF requests failed during the last ten minutes."
+      - alert: LogiTrackApiServerErrors
+        expr: sum(increase(http_server_requests_seconds_count{application="logitrack-control-api",status=~"5.."}[5m])) > 5
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: LogiTrack API is returning repeated server errors
+          description: "{{ $value }} API requests returned 5xx during the last five minutes."
