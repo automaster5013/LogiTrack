@@ -46,6 +46,12 @@ class OrderServiceTest {
         verifyNoInteractions(orders,deliveries,outbox);
     }
 
+    @Test void rejectsNonFiniteCoordinatesBeforeLookup(){
+        var bad=new CreateOrderRequest("ORD-1",new CreateOrderRequest.Location("X",0,Double.POSITIVE_INFINITY),request().destination());
+        assertThrows(IllegalArgumentException.class,()->service.create(bad,"order-key","trace"));
+        verifyNoInteractions(orders,deliveries,outbox);
+    }
+
     @Test
     void dispatchCreatesOneLinkedDeliveryAndIsIdempotent() {
         var order=CustomerOrder.create(request(),"order-key");

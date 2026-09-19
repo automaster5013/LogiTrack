@@ -64,6 +64,6 @@ public class DeliveryService {
         InputLimits.required(r.orderNumber(),"orderNumber",80);InputLimits.required(r.vehicleId(),"vehicleId",80);
         check(r.origin()); check(r.destination());
     }
-    private void check(CreateDeliveryRequest.Location p){InputLimits.required(p.name(),"location name",160);if(p.lat() < -90||p.lat()>90||p.lon() < -180||p.lon()>180) throw new IllegalArgumentException("Invalid coordinates");}
+    private void check(CreateDeliveryRequest.Location p){InputLimits.required(p.name(),"location name",160);if(!Double.isFinite(p.lat())||!Double.isFinite(p.lon())||p.lat() < -90||p.lat()>90||p.lon() < -180||p.lon()>180) throw new IllegalArgumentException("Invalid coordinates");}
     private boolean matches(Delivery d,CreateDeliveryRequest r){return d.getOrderNumber().equals(r.orderNumber())&&d.getVehicleId().equals(r.vehicleId())&&d.getOriginName().equals(r.origin().name())&&Double.compare(d.getOriginLat(),r.origin().lat())==0&&Double.compare(d.getOriginLon(),r.origin().lon())==0&&d.getDestinationName().equals(r.destination().name())&&Double.compare(d.getDestinationLat(),r.destination().lat())==0&&Double.compare(d.getDestinationLon(),r.destination().lon())==0;}
 }

@@ -60,6 +60,11 @@ class DeliveryServiceTest {
         when(deliveries.findByIdempotencyKey("key-1")).thenReturn(Optional.empty());
         assertThrows(IllegalArgumentException.class,()->service.create(bad,"key-1","trace-3"));
     }
+    @Test void rejectsNonFiniteCoordinates(){
+        var bad=new CreateDeliveryRequest("ORD-1","TRUCK-1",new CreateDeliveryRequest.Location("X",Double.NaN,0),request().destination());
+        assertThrows(IllegalArgumentException.class,()->service.create(bad,"key-1","trace-3"));
+        verifyNoInteractions(deliveries);
+    }
     @Test void rejectsOversizedInputsBeforeRepositoryAccess(){
         var bad=new CreateDeliveryRequest("X".repeat(81),"TRUCK-1",request().origin(),request().destination());
         assertThrows(IllegalArgumentException.class,()->service.create(bad,"key-1","trace"));

@@ -107,7 +107,7 @@ public class OrderService {
     }
     private void check(CreateOrderRequest.Location location) {
         InputLimits.required(location.name(),"location name",160);
-        if(location.lat() < -90||location.lat()>90||location.lon() < -180||location.lon()>180)
+        if(!Double.isFinite(location.lat())||!Double.isFinite(location.lon())||location.lat() < -90||location.lat()>90||location.lon() < -180||location.lon()>180)
             throw new IllegalArgumentException("Invalid order location");
     }
     private boolean matches(CustomerOrder order,CreateOrderRequest request){return order.getOrderNumber().equals(request.orderNumber())&&order.getOriginName().equals(request.origin().name())&&Double.compare(order.getOriginLat(),request.origin().lat())==0&&Double.compare(order.getOriginLon(),request.origin().lon())==0&&order.getDestinationName().equals(request.destination().name())&&Double.compare(order.getDestinationLat(),request.destination().lat())==0&&Double.compare(order.getDestinationLon(),request.destination().lon())==0;}
