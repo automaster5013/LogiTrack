@@ -42,6 +42,7 @@ class RoutingTest(unittest.TestCase):
 
 class RoutePlannerCacheTest(unittest.IsolatedAsyncioTestCase):
     async def test_rejects_unsafe_client_configuration(self):
+        with self.assertRaises(ValueError): RoutePlanner("typo", "http://localhost")
         with self.assertRaises(ValueError): RoutePlanner("osrm", "http://localhost", timeout_seconds=0)
         with self.assertRaises(ValueError): RoutePlanner("osrm", "http://localhost", cache_ttl_seconds=86_401)
 

@@ -39,7 +39,7 @@ public class RouteAnalysisClient {
                 "destination",Map.of("lat",delivery.getDestinationLat(),"lon",delivery.getDestinationLon()));
             var result=client.post().uri("/routes/analyze").body(request).retrieve().body(RoutePlan.class);
             if(!valid(result))throw new IllegalStateException("Invalid route response");
-            successes.increment();
+            (result.provider().toLowerCase(Locale.ROOT).contains("fallback")?fallbacks:successes).increment();
             return result;
         } catch(Exception ignored) {
             fallbacks.increment();

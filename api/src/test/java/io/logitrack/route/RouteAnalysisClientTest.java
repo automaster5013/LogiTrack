@@ -33,5 +33,10 @@ class RouteAnalysisClientTest {
             assertEquals(1,metrics.get("logitrack.route.analysis").tag("outcome","fallback").counter().count());
         }finally{server.stop(0);}
     }
+    @Test void countsAnalyticsProviderFallbackAsDegraded() throws Exception {
+        var server=HttpServer.create(new InetSocketAddress(0),0);var now=Instant.now();
+        server.createContext("/routes/analyze",exchange->{var body=("{\"routeId\":\"%s\",\"provider\":\"geodesic-fallback\",\"algorithmVersion\":\"route-v1\",\"coordinates\":[[127,37.5],[126.7,37.4]],\"distanceMeters\":1000,\"durationSeconds\":100,\"plannedEta\":\"%s\",\"geometryHash\":\"%s\",\"generatedAt\":\"%s\"}").formatted(java.util.UUID.randomUUID(),now.plusSeconds(100),"a".repeat(64),now);exchange.getResponseHeaders().add("Content-Type","application/json");exchange.sendResponseHeaders(200,body.getBytes().length);exchange.getResponseBody().write(body.getBytes());exchange.close();});server.start();
+        try{var metrics=new SimpleMeterRegistry();var client=new RouteAnalysisClient(RestClient.builder(),"http://localhost:"+server.getAddress().getPort(),Duration.ofSeconds(1),Duration.ofSeconds(1),metrics);assertEquals("geodesic-fallback",client.analyze(delivery()).provider());assertEquals(1,metrics.get("logitrack.route.analysis").tag("outcome","fallback").counter().count());}finally{server.stop(0);}
+    }
     private Delivery delivery(){return Delivery.create(new CreateDeliveryRequest("ORD-1","TRUCK-1",new CreateDeliveryRequest.Location("Seoul",37.5,127),new CreateDeliveryRequest.Location("Incheon",37.4,126.7)),"key");}
 }

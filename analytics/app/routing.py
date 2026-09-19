@@ -67,6 +67,8 @@ class RoutePlanner:
     def __init__(self, provider: str, osrm_base_url: str, timeout_seconds: float = 2.5,
                  cache_ttl_seconds: float = 300):
         self.provider = provider.lower()
+        if self.provider not in {"osrm", "geodesic"}:
+            raise ValueError("routing provider must be osrm or geodesic")
         self.osrm_base_url = osrm_base_url.rstrip("/")
         if not 0 < timeout_seconds <= 30:
             raise ValueError("routing timeout must be greater than 0 and at most 30 seconds")
