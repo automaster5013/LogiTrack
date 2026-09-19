@@ -60,4 +60,11 @@ logitrack:
   stream:
     channel: ${STREAM_CHANNEL:logitrack.stream.v1}
     heartbeat-ms: ${SSE_HEARTBEAT_MS:15000}
+  retention:
+    processed-events: ${PROCESSED_EVENT_RETENTION:30d}
+    published-outbox: ${PUBLISHED_OUTBOX_RETENTION:7d}
+    telemetry: ${TELEMETRY_RETENTION:30d}
+    batch-size: ${RETENTION_BATCH_SIZE:1000}
+    initial-delay-ms: ${RETENTION_INITIAL_DELAY_MS:60000}
+    poll-delay-ms: ${RETENTION_POLL_DELAY_MS:300000}
   cors.allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}

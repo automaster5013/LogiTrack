@@ -113,6 +113,12 @@ Redis 장애가 Kafka consumer 트랜잭션을 오래 점유하지 않도록 연
 
 원본 payload, 오류 유형, 최초/최종 실패 시간, trace ID를 보존한다. 운영자가 원인을 수정하고 event ID를 새로 만들지 않은 채 replay하여 consumer 멱등성을 검증한다. 자동 무한 replay는 금지한다.
 
+## 데이터 보존
+
+- 처리 완료 event ID와 GPS 이력은 기본 30일, PUBLISHED outbox는 7일 보존한다. Kafka 기본 보존보다 긴 멱등성 창을 유지하며 PENDING/FAILED outbox, DLQ, replay·정책·복구 감사와 업무 aggregate는 자동 삭제하지 않는다.
+- 정리 작업은 5분마다 테이블별 최대 1,000건만 오래된 순서로 삭제해 긴 트랜잭션과 vacuum 부담을 제한한다. `FOR UPDATE SKIP LOCKED`로 여러 API 인스턴스의 정리 작업이 같은 행에서 대기하지 않는다. 보존 기간은 `PROCESSED_EVENT_RETENTION`, `PUBLISHED_OUTBOX_RETENTION`, `TELEMETRY_RETENTION`, batch는 `RETENTION_BATCH_SIZE`로 조정하며 기간은 최소 하루, batch는 1~10,000만 허용한다.
+- `logitrack_retention_deleted_total{table=...}`에서 실제 정리량을 확인한다. cutoff 전용 부분/정렬 인덱스로 전체 테이블 scan을 피한다.
+
 - 목록: `GET /api/operations/dlq?status=PENDING`
 - 단일 replay: `POST /api/operations/dlq/{id}/replay`와 필수 `X-Operator` 헤더
 - 감사: `GET /api/operations/replay-audits`

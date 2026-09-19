@@ -14,6 +14,8 @@ public interface OutboxRepository extends JpaRepository<OutboxEvent, UUID> {
     long countByStatus(OutboxEvent.Status status);
     @Query(value="SELECT COALESCE(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - MIN(created_at))),0) FROM outbox_events WHERE status = 'PENDING'",nativeQuery=true)
     double oldestPendingAgeSeconds();
+    @Modifying @Query(value="DELETE FROM outbox_events WHERE id IN (SELECT id FROM outbox_events WHERE status='PUBLISHED' AND published_at < :cutoff ORDER BY published_at LIMIT :batchSize FOR UPDATE SKIP LOCKED)",nativeQuery=true)
+    int deletePublishedBatchBefore(@Param("cutoff") java.time.Instant cutoff,@Param("batchSize") int batchSize);
     @Lock(LockModeType.PESSIMISTIC_WRITE) @Query("select event from OutboxEvent event where event.id=:id")
     Optional<OutboxEvent> lockById(@Param("id") UUID id);
 }
