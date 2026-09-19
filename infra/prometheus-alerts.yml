@@ -1,6 +1,22 @@
 groups:
   - name: logitrack-recovery
     rules:
+      - alert: LogiTrackApiDown
+        expr: up{job="logitrack-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: LogiTrack API is unavailable to Prometheus
+          description: The API metrics endpoint has been unreachable for at least one minute.
+      - alert: LogiTrackRecoveryMetricRefreshFailing
+        expr: increase(logitrack_recovery_metrics_refresh_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Recovery queue metrics are stale
+          description: The API could not refresh recovery queue gauges from PostgreSQL.
       - alert: LogiTrackOutboxFailed
         expr: logitrack_outbox_backlog{status="failed"} > 0
         for: 2m
