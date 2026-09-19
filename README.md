@@ -1,5 +1,7 @@
 # LogiTrack
 
+[![CI](https://github.com/automaster5013/LogiTrack/actions/workflows/ci.yml/badge.svg)](https://github.com/automaster5013/LogiTrack/actions/workflows/ci.yml)
+
 실제 GPS 장비 없이 배송 차량, 창고, 주문의 상태 변화를 재현하는 이벤트 기반 물류 운영 플랫폼입니다.
 
 ## 주문부터 배송 완료까지
@@ -79,6 +81,8 @@ python -m unittest discover analytics/tests
 통합 smoke test는 전체 스택 실행 후 `./scripts/smoke.ps1`로 수행합니다.
 
 핵심 도메인의 line/branch coverage 80% gate는 `./scripts/domain-coverage.ps1`로 실행합니다. 현재 기준선은 line 90.38%, branch 96.88%이며 기준 미달 시 빌드가 실패합니다.
+
+GitHub Actions의 `CI` workflow는 main push와 pull request마다 API 테스트·coverage gate, Python analytics/simulator 테스트, Docker Compose 구성 검증, TypeScript production build를 병렬 실행합니다. workflow 권한은 저장소 읽기로 제한됩니다.
 
 배송과 이벤트는 PostgreSQL에 같은 트랜잭션으로 기록됩니다. outbox publisher가 대기 이벤트를 Kafka에 전달하므로 broker가 일시 중단되어도 생성 이벤트가 유실되지 않습니다.
 

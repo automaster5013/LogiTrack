@@ -24,3 +24,13 @@ JaCoCo가 핵심 상태 전이와 불변식을 소유한 도메인 클래스의 
 - Python analytics의 경로 계산과 PDF 생성은 `analytics/tests`에서 검증한다.
 - TypeScript 프론트엔드는 production build의 type check로 검증한다.
 - PostgreSQL, Kafka, Redis, SSE, 지도와 전체 이벤트 흐름은 각 `scripts/*-smoke.ps1` 및 실제 브라우저 검증으로 확인한다.
+
+## 지속적 통합
+
+`.github/workflows/ci.yml`은 `main` push와 모든 pull request에서 세 개의 독립 job을 병렬 실행한다.
+
+- Java 21 API 테스트와 JaCoCo domain coverage gate
+- Python 3.12 analytics/simulator 테스트와 Compose topology 검증
+- Node.js 22 TypeScript production build
+
+외부 배포나 secret은 사용하지 않으며 `GITHUB_TOKEN` 권한은 `contents: read`로 제한한다. 같은 branch에 새 실행이 시작되면 이전 실행을 취소해 불필요한 runner 사용도 줄인다.
