@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.connection.*;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -24,7 +25,7 @@ public class DeliveryStream implements MessageListener {
         metrics.gauge("logitrack.sse.connections",clients,CopyOnWriteArrayList::size);
     }
     public SseEmitter subscribe(){
-        var emitter=new SseEmitter(0L);clients.add(emitter);emitter.onCompletion(()->clients.remove(emitter));emitter.onTimeout(()->clients.remove(emitter));
+        var emitter=new SseEmitter(0L);clients.add(emitter);emitter.onCompletion(()->clients.remove(emitter));emitter.onTimeout(()->clients.remove(emitter));emitter.onError(error->clients.remove(emitter));
         try{emitter.send(SseEmitter.event().name("connected").data(Map.of("status","ok","instanceId",instanceId)));}
         catch(Exception error){clients.remove(emitter);}
         return emitter;
@@ -32,6 +33,10 @@ public class DeliveryStream implements MessageListener {
     public void publish(Object value){publish("delivery-update",value);}
     public void publishAlert(Object value){publish("alert-update",value);}
     public void publishTelemetry(Object value){publish("telemetry-point",value);}
+    @Scheduled(fixedDelayString="${logitrack.stream.heartbeat-ms:15000}")
+    public void heartbeat(){
+        for(var emitter:clients){try{emitter.send(SseEmitter.event().comment("keepalive"));}catch(Exception error){clients.remove(emitter);}}
+    }
     private void publish(String name,Object value){
         try{
             var envelope=mapper.writeValueAsString(Map.of("name",name,"data",value));

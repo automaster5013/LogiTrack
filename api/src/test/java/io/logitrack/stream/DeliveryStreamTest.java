@@ -30,4 +30,5 @@ class DeliveryStreamTest {
         verify(redis).convertAndSend(eq("logitrack.events"),contains("telemetry-point"));
         assertEquals(1,metrics.counter("logitrack.sse.redis.published","event","telemetry-point").count());
     }
+    @Test void keepsIdleSubscribersRegisteredAfterHeartbeat(){stream.subscribe();stream.heartbeat();assertEquals(1,stream.clientCount());}
 }
