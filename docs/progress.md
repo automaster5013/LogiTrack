@@ -75,6 +75,7 @@
 - Kafka 텔레메트리 event type·schema version·숫자 노드 엄격 계약 검증
 - 늦은 replay 텔레메트리의 이력 보존과 현재 배송·경고·주문 상태 회귀 방지
 - 배송 행 telemetry 워터마크로 stale 판정 쿼리 제거와 기존 이력 backfill
+- telemetry 차량 소유권 일치와 미래 timestamp 허용 오차 검증으로 워터마크 오염 방지
 
 ## 현재 상태
 

@@ -47,5 +47,6 @@ logitrack:
     report-connect-timeout: ${ANALYTICS_REPORT_CONNECT_TIMEOUT:1s}
     report-read-timeout: ${ANALYTICS_REPORT_READ_TIMEOUT:15s}
   instance-id: ${INSTANCE_ID:${random.uuid}}
+  telemetry.max-future-skew: ${TELEMETRY_MAX_FUTURE_SKEW:5m}
   stream.channel: ${STREAM_CHANNEL:logitrack.stream.v1}
   cors.allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
