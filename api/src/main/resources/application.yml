@@ -30,6 +30,7 @@ management:
     probes.enabled: true
     group.readiness.include: readinessState,db
   metrics.tags.application: ${spring.application.name}
+  metrics.distribution.slo.http.server.requests: 100ms,250ms,500ms,1s,2s,5s
   tracing.sampling.probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
   otlp.tracing.endpoint: ${OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}
 logging.pattern.correlation: "[traceId=%X{traceId:-} spanId=%X{spanId:-} requestId=%X{requestId:-}] "

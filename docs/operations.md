@@ -20,6 +20,8 @@ API 오류 body는 `error`, `traceId`, `timestamp`를 공통으로 반환한다.
 
 5분 동안 API 5xx 응답이 5회를 초과하면 `LogiTrackApiServerErrors` warning이 발생한다. 해당 시간대 로그를 응답 trace ID로 좁혀 원인을 확인한다.
 
+HTTP 요청은 100ms, 250ms, 500ms, 1s, 2s, 5s SLO bucket으로 집계한다. 전체 API p95가 2초를 5분간 초과하면 `LogiTrackApiLatencyHigh` warning이 발생한다.
+
 배송·주문·텔레메트리 좌표는 위도 -90~90, 경도 -180~180 범위의 유한 실수만 허용하고 텔레메트리 진행률은 0~1로 제한한다. `NaN`, 무한대, 범위 밖 값은 도메인 검증에서 거부하며 PostgreSQL CHECK 제약이 저장 경로도 이중 방어한다.
 
 Kafka 텔레메트리는 `eventType=vehicle.telemetry.v1`, 정수 `schemaVersion=1`, 배송과 일치하는 `vehicleId`, JSON number 좌표·진행률, 발생 시각을 요구한다. 문자열 숫자나 지원하지 않는 계약 버전은 정상 이벤트로 강제 변환하지 않고 재시도 후 DLQ로 격리한다. 발생 시각의 미래 허용 오차는 기본 5분이며 `TELEMETRY_MAX_FUTURE_SKEW`로 조정한다.
@@ -67,7 +69,7 @@ analytics 응답은 저장 전에 경로 ID, DB 길이에 맞는 provider·algor
 
 ## 복구 큐 경보
 
-API는 `logitrack_outbox_backlog{status="pending|failed"}`와 `logitrack_dlq_backlog` gauge를 10초마다 갱신한다. 조회 실패 시 마지막 정상 값을 유지하고 `logitrack_recovery_metrics_refresh_failures_total`을 누적하며, 로그는 장애·복구 전환에 한 번씩만 남긴다. Prometheus는 API scrape 1분 중단 또는 FAILED outbox 2분 지속 시 critical, metric refresh 실패·pending outbox 100건 초과·DLQ 존재·경로 fallback 반복·PDF 반복 실패·API 5xx 반복 시 warning을 발생시킨다. `./scripts/recovery-metrics-smoke.ps1`로 gauge 노출과 8개 규칙 로드를 함께 검증한다.
+API는 `logitrack_outbox_backlog{status="pending|failed"}`와 `logitrack_dlq_backlog` gauge를 10초마다 갱신한다. 조회 실패 시 마지막 정상 값을 유지하고 `logitrack_recovery_metrics_refresh_failures_total`을 누적하며, 로그는 장애·복구 전환에 한 번씩만 남긴다. Prometheus는 API scrape 1분 중단 또는 FAILED outbox 2분 지속 시 critical, metric refresh 실패·pending outbox 100건 초과·DLQ 존재·경로 fallback 반복·PDF 반복 실패·API 5xx 반복·p95 latency 상승 시 warning을 발생시킨다. `./scripts/recovery-metrics-smoke.ps1`로 지표 노출과 9개 규칙 로드를 함께 검증한다.
 
 운영자 복구 처리량은 `logitrack_outbox_retries_total`과 `logitrack_dlq_replays_total` counter로 확인한다. 두 counter는 감사 저장까지 성공한 요청만 증가한다.
 
