@@ -39,6 +39,16 @@ class DeliveryServiceTest {
         verifyNoInteractions(outbox);
     }
 
+    @Test void rejectsDispatchKeyOwnedByAnotherOrder(){
+        var firstOrder=UUID.randomUUID();
+        var existing=Delivery.create(request(),"dispatch-key",firstOrder);
+        when(deliveries.findByIdempotencyKey("dispatch-key")).thenReturn(Optional.of(existing));
+
+        assertThrows(IllegalStateException.class,()->service.createForOrder(
+            UUID.randomUUID(),request(),"dispatch-key","trace-2"));
+        verifyNoInteractions(outbox);
+    }
+
     @Test void rejectsInvalidCoordinates(){
         var bad=new CreateDeliveryRequest("ORD-1","TRUCK-1",new CreateDeliveryRequest.Location("X",91,0),request().destination());
         when(deliveries.findByIdempotencyKey("key-1")).thenReturn(Optional.empty());
