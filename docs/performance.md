@@ -23,6 +23,19 @@
 ## 해석과 한계
 
 - 이 결과는 단일 API 인스턴스의 로컬 기준선이며 운영 용량 보장을 의미하지 않는다.
-- 고유 생성 workload, Kafka consumer lag, telemetry 반영 지연은 다음 성능 단계에서 별도 측정한다.
+- 고유 배송 생성 write-heavy workload는 격리된 테스트 DB에서 별도 측정한다.
 - 측정 전후 컨테이너 health와 API 오류 로그를 확인한다.
 
+## Telemetry 반영 지연
+
+같은 `deliveryId` key로 10개씩 10 batch, 총 100개 Kafka telemetry를 persistent producer로 발행하고 각 batch의 최종 위치가 API에 반영될 때까지 측정했다. 시뮬레이터는 측정 중 자동 중지·복구한다.
+
+| 항목 | 결과 | 기준 |
+|---|---:|---:|
+| 이벤트 | 100 | 100 |
+| 처리량 | 36.64 events/s | 참고 |
+| batch 평균 반영 | 272.93 ms | 참고 |
+| batch p95 반영 | 307.95 ms | 1,000 ms 이하 |
+| 종료 시 consumer lag | 0 | 0 |
+
+명령은 `./scripts/telemetry-load.ps1`이다. 드라이버는 Compose 네트워크 내부에서 persistent Kafka producer를 사용하므로 매 batch의 CLI 프로세스 시작 시간은 측정값에 포함하지 않는다.

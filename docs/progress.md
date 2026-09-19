@@ -25,8 +25,10 @@
 - PostgreSQL 일별 배송 KPI projection, JSON/CSV 보고서와 TypeScript 14일 성과 차트
 - 동일 경로 TTL 캐시와 20 RPS 멱등 생성 API 부하 기준선(p95 35.63ms, 성공률 100%)
 - DLQ PostgreSQL catalog, 단일 replay API, 운영자 감사 이력과 TypeScript 복구 패널
+- Kafka telemetry 100건 batch 반영 p95 307.95ms, 처리량 36.64 events/s, 종료 lag 0 기준선
+- 10분 데모 순서와 전체 재현 명령 문서
 
 ## 다음 우선순위
 
-1. 고유 생성/Kafka lag/telemetry 반영 지연 부하 시험
-2. 데모 시나리오와 최종 검증 문서
+1. 고유 배송 생성 write-heavy 부하 시험 격리 환경
+2. 선택 범위 replay의 rate limit·승인·dry-run 설계
