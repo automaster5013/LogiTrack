@@ -8,7 +8,7 @@ import type { Delivery, RouteSnapshot } from "../types";
 setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
 const STYLE = process.env.NEXT_PUBLIC_MAP_STYLE_URL || "https://tiles.openfreemap.org/styles/liberty";
 
-type Props = { deliveries: Delivery[]; routes: RouteSnapshot[]; selectedId?: string; onSelect: (id: string) => void };
+type Props = { deliveries: Delivery[]; routes: RouteSnapshot[]; selectedId?: string; onSelect: (id: string) => void; emptyMessage?: string };
 
 function routeIndex(routes: RouteSnapshot[]) {
   const indexed=new globalThis.Map<string,[number,number][]>();
@@ -40,7 +40,7 @@ function features(deliveries: Delivery[], routes: RouteSnapshot[]): FeatureColle
   return { type:"FeatureCollection", features:result };
 }
 
-export default function FleetMap({deliveries,routes,selectedId,onSelect}:Props){
+export default function FleetMap({deliveries,routes,selectedId,onSelect,emptyMessage}:Props){
   const host=useRef<HTMLDivElement>(null); const mapRef=useRef<Map|null>(null); const loaded=useRef(false);
   const deliveriesRef=useRef(deliveries); const routesRef=useRef(routes); const selectedRef=useRef(selectedId);
   deliveriesRef.current=deliveries; routesRef.current=routes; selectedRef.current=selectedId;
@@ -87,7 +87,7 @@ export default function FleetMap({deliveries,routes,selectedId,onSelect}:Props){
     fitDelivery(map,d,routes);
   },[selectedId,routes]);
 
-  return <div className={`mapShell ${mapReady?"ready":""}`}><div ref={host} className="mapCanvas"/>{mapError&&<div className="mapError"><b>MAP OFFLINE</b><span>지도 타일 연결을 확인하세요. 배송 데이터 스트림은 계속 동작합니다.</span></div>}{!mapError&&deliveries.length===0&&<div className="mapEmpty"><b>NO VEHICLES IN THIS VIEW</b><span>범위를 전환하거나 새 배송을 생성해 주세요.</span></div>}<div className="mapLegend"><span><i className="liveDot"/> LIVE VEHICLE</span><span><i className="routeDot"/> PLANNED ROUTE</span><span className="mapReady"><i/> {mapReady?"VECTOR MAP READY":"LOADING MAP"}</span></div></div>;
+  return <div className={`mapShell ${mapReady?"ready":""}`}><div ref={host} className="mapCanvas"/>{mapError&&<div className="mapError"><b>MAP OFFLINE</b><span>지도 타일 연결을 확인하세요. 배송 데이터 스트림은 계속 동작합니다.</span></div>}{!mapError&&deliveries.length===0&&<div className="mapEmpty"><b>NO VEHICLES IN THIS VIEW</b><span>{emptyMessage||"범위를 전환하거나 새 배송을 생성해 주세요."}</span></div>}<div className="mapLegend"><span><i className="liveDot"/> LIVE VEHICLE</span><span><i className="routeDot"/> PLANNED ROUTE</span><span className="mapReady"><i/> {mapReady?"VECTOR MAP READY":"LOADING MAP"}</span></div></div>;
 }
 
 function fitDelivery(map:Map,delivery:Delivery,routes:RouteSnapshot[]) {

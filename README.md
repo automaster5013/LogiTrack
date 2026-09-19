@@ -46,7 +46,7 @@ curl -X POST http://localhost:8080/api/orders/{orderId}/dispatch \
 
 경로 스냅샷 조회는 `GET /api/routes`입니다. 개발 환경은 OSRM 호환 endpoint를 사용하며 2.5초 안에 응답하지 않거나 오류가 발생하면 로컬 geodesic 계산으로 자동 전환합니다. 공개 demo는 개발용이므로 운영에서는 `.env`의 `OSRM_BASE_URL`을 자체 호스팅 또는 계약된 공급자로 교체하세요. 완전한 오프라인 실행은 `ROUTING_PROVIDER=geodesic`으로 설정합니다.
 
-운영 콘솔은 MapLibre 기반 벡터 지도에서 계획 경로, 주행 완료 구간, 차량 상태와 ETA를 실시간으로 표시합니다. 지도와 telemetry 목록은 운행 중 차량만 표시하는 통합 `LIVE` 범위를 기본으로 사용해 누적 이력의 중첩을 피하고, `ALL`로 완료 배송까지 전환할 수 있습니다. 차량·주문·출발지·도착지 검색 결과가 지도와 목록에 동시에 반영되며 선택 차량은 밝은 halo로 강조합니다. 기본 OpenFreeMap 스타일은 별도 API key 없이 동작하며, 운영용 지도 공급자는 `.env`의 `NEXT_PUBLIC_MAP_STYLE_URL`로 교체할 수 있습니다.
+운영 콘솔은 MapLibre 기반 벡터 지도에서 계획 경로, 주행 완료 구간, 차량 상태와 ETA를 실시간으로 표시합니다. 지도와 telemetry 목록은 운행 중 차량만 표시하는 통합 `LIVE` 범위를 기본으로 사용해 누적 이력의 중첩을 피하고, `ALL`로 완료 배송까지 전환할 수 있습니다. 지도 헤더의 즉시 검색으로 차량·주문·출발지·도착지를 좁히면 지도와 목록이 동시에 반영되고, 검색 결과가 없을 때 복구 방법을 지도 위에 안내하며 선택 차량은 밝은 halo로 강조합니다. 기본 OpenFreeMap 스타일은 별도 API key 없이 동작하며, 운영용 지도 공급자는 `.env`의 `NEXT_PUBLIC_MAP_STYLE_URL`로 교체할 수 있습니다.
 
 ## 문서
 
