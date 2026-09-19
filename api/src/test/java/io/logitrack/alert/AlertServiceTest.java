@@ -3,7 +3,7 @@ package io.logitrack.alert;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.logitrack.outbox.*;
 import io.logitrack.route.RouteSnapshotRepository;
-import io.logitrack.stream.DeliveryStream;
+import io.logitrack.stream.CommittedDeliveryStream;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import java.util.*;
@@ -13,7 +13,7 @@ import static org.mockito.Mockito.*;
 class AlertServiceTest {
     private final DeliveryAlertRepository alerts=mock(DeliveryAlertRepository.class);
     private final OutboxRepository outbox=mock(OutboxRepository.class);
-    private final DeliveryStream stream=mock(DeliveryStream.class);
+    private final CommittedDeliveryStream stream=mock(CommittedDeliveryStream.class);
     private final AlertPolicyService policies=mock(AlertPolicyService.class);
     private final AlertService service=new AlertService(alerts,mock(RouteSnapshotRepository.class),outbox,
         new ObjectMapper().findAndRegisterModules(),stream,policies);

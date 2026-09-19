@@ -88,6 +88,7 @@ analytics 응답은 저장 전에 경로 ID, DB 길이에 맞는 provider·algor
 - 입고·피킹 요청 수량은 1~1,000,000으로 제한하며 DB 제약도 같은 범위를 강제한다. 누적 재고가 32비트 저장 범위를 넘으려 하면 변경 없이 409로 거부한다.
 - SSE 연결은 인스턴스당 기본 1,000개(`SSE_MAX_CONNECTIONS`, 허용 범위 1~10,000)로 제한한다. 초과 연결은 429로 거부하고 `logitrack_sse_rejected_total{reason="capacity"}`에 기록한다. heartbeat는 1~60초 범위만 허용한다.
 - Analytics PDF 렌더러는 요청당 1~90개 UTC 일별 행만 허용하고 건수·비율·기간 값을 유효 범위로 제한해 직접 호출에서도 CPU·메모리 사용을 경계 짓는다.
+- 배송·텔레메트리·경고 SSE payload는 트랜잭션 안에서 스냅샷하고 DB 커밋 성공 후에만 Redis fan-out으로 발행한다. 롤백된 변경이 UI에 먼저 보이는 phantom update를 방지한다.
 
 ## 복구 큐 경보
 

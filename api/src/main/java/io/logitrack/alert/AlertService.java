@@ -5,7 +5,7 @@ import io.logitrack.delivery.Delivery;
 import io.logitrack.event.EventEnvelope;
 import io.logitrack.outbox.*;
 import io.logitrack.route.RouteSnapshotRepository;
-import io.logitrack.stream.DeliveryStream;
+import io.logitrack.stream.CommittedDeliveryStream;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
@@ -14,8 +14,8 @@ import java.util.*;
 @Service
 public class AlertService {
     private final DeliveryAlertRepository alerts; private final RouteSnapshotRepository routes;
-    private final OutboxRepository outbox; private final ObjectMapper mapper; private final DeliveryStream stream; private final AlertPolicyService policies;
-    public AlertService(DeliveryAlertRepository alerts,RouteSnapshotRepository routes,OutboxRepository outbox,ObjectMapper mapper,DeliveryStream stream,AlertPolicyService policies){this.alerts=alerts;this.routes=routes;this.outbox=outbox;this.mapper=mapper;this.stream=stream;this.policies=policies;}
+    private final OutboxRepository outbox; private final ObjectMapper mapper; private final CommittedDeliveryStream stream; private final AlertPolicyService policies;
+    public AlertService(DeliveryAlertRepository alerts,RouteSnapshotRepository routes,OutboxRepository outbox,ObjectMapper mapper,CommittedDeliveryStream stream,AlertPolicyService policies){this.alerts=alerts;this.routes=routes;this.outbox=outbox;this.mapper=mapper;this.stream=stream;this.policies=policies;}
 
     public void evaluate(Delivery delivery,String traceId){
         var policy=policies.resolve(delivery.getVehicleId());

@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.logitrack.delivery.*;
 import io.logitrack.alert.AlertService;
 import io.logitrack.order.OrderService;
-import io.logitrack.stream.DeliveryStream;
+import io.logitrack.stream.CommittedDeliveryStream;
 import io.logitrack.telemetry.*;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -21,8 +21,8 @@ import java.util.regex.Pattern;
 @Component
 public class TelemetryConsumer {
     private static final Pattern SAFE_TRACE=Pattern.compile("[A-Za-z0-9._:-]{1,128}");
-    private final ObjectMapper mapper; private final DeliveryRepository deliveries; private final ProcessedEventRepository processed; private final DeliveryStream stream; private final AlertService alerts; private final OrderService orders; private final TelemetryPointRepository points;private final Duration maxFutureSkew;private final Counter appliedEvents;private final Counter staleEvents;
-    public TelemetryConsumer(ObjectMapper mapper,DeliveryRepository deliveries,ProcessedEventRepository processed,DeliveryStream stream,AlertService alerts,OrderService orders,TelemetryPointRepository points,
+    private final ObjectMapper mapper; private final DeliveryRepository deliveries; private final ProcessedEventRepository processed; private final CommittedDeliveryStream stream; private final AlertService alerts; private final OrderService orders; private final TelemetryPointRepository points;private final Duration maxFutureSkew;private final Counter appliedEvents;private final Counter staleEvents;
+    public TelemetryConsumer(ObjectMapper mapper,DeliveryRepository deliveries,ProcessedEventRepository processed,CommittedDeliveryStream stream,AlertService alerts,OrderService orders,TelemetryPointRepository points,
         @Value("${logitrack.telemetry.max-future-skew:5m}") Duration maxFutureSkew,MeterRegistry metrics){if(maxFutureSkew.isNegative())throw new IllegalArgumentException("Telemetry future skew must not be negative");this.mapper=mapper;this.deliveries=deliveries;this.processed=processed;this.stream=stream;this.alerts=alerts;this.orders=orders;this.points=points;this.maxFutureSkew=maxFutureSkew;this.appliedEvents=metrics.counter("logitrack.telemetry.events","outcome","applied");this.staleEvents=metrics.counter("logitrack.telemetry.events","outcome","stale");}
     @KafkaListener(topics="vehicle.telemetry.v1") @Transactional
     public void consume(String raw) throws Exception {
@@ -43,7 +43,7 @@ public class TelemetryConsumer {
         (applied?appliedEvents:staleEvents).increment();
         var point=points.save(new TelemetryPoint(id,delivery,lat,lon,progress,occurredAt));
         if(applied){alerts.evaluate(delivery,traceId);orders.fulfillFromDelivery(delivery,traceId);}
-        processed.save(new ProcessedEvent(id,"control-api-telemetry-v1"));if(applied)stream.publish(delivery);stream.publishTelemetry(point);
+        processed.save(new ProcessedEvent(id,"control-api-telemetry-v1"));if(applied)stream.publishDelivery(delivery);stream.publishTelemetry(point);
     }
     private double number(JsonNode payload,String field){var value=payload.required(field);if(!value.isNumber())throw new IllegalArgumentException(field+" must be a number");return value.doubleValue();}
 }
