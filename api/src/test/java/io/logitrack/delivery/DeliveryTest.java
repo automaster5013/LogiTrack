@@ -26,6 +26,7 @@ class DeliveryTest {
 
         assertThrows(IllegalArgumentException.class, () -> delivery.applyTelemetry(Double.NaN, 126.9, 0.2, null, Delivery.Status.IN_TRANSIT));
         assertThrows(IllegalArgumentException.class, () -> delivery.applyTelemetry(37.5, 126.9, 1.01, null, Delivery.Status.IN_TRANSIT));
+        assertThrows(IllegalArgumentException.class, () -> delivery.applyTelemetry(37.5, 126.9, 0.1, null, Delivery.Status.CREATED));
 
         assertEquals(Delivery.Status.CREATED, delivery.getStatus());
         assertEquals(0, delivery.getProgress());

@@ -46,7 +46,7 @@ public class Delivery {
     public boolean applyTelemetry(double lat, double lon, double progress, Instant eta, Status status,Instant occurredAt) {
         if(!Double.isFinite(lat)||!Double.isFinite(lon)||!Double.isFinite(progress)||lat < -90||lat > 90||lon < -180||lon > 180||progress < 0||progress > 1)
             throw new IllegalArgumentException("Invalid telemetry coordinates or progress");
-        if(status==null)throw new IllegalArgumentException("Telemetry status is required");
+        if(status==null||status==Status.CREATED)throw new IllegalArgumentException("Invalid telemetry status");
         if(occurredAt==null)throw new IllegalArgumentException("Telemetry occurredAt is required");
         if(this.status==Status.DELIVERED||(lastTelemetryAt!=null&&!lastTelemetryAt.isBefore(occurredAt)))return false;
         this.currentLat=lat;this.currentLon=lon;this.progress=progress;this.eta=eta;this.status=status;this.lastTelemetryAt=occurredAt;this.updatedAt=Instant.now();return true;

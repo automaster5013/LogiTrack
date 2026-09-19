@@ -78,6 +78,7 @@
 - telemetry 차량 소유권 일치와 미래 timestamp 허용 오차 검증으로 워터마크 오염 방지
 - 적용·stale 텔레메트리 결과별 Micrometer counter
 - 동일 telemetry timestamp first-writer 우선 처리로 비결정적 상태 덮어쓰기 방지
+- telemetry `CREATED` 상태 회귀 거부와 `DELIVERED` terminal 상태 불변식
 
 ## 현재 상태
 
