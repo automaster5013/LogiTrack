@@ -29,7 +29,7 @@ try {
   if ($suppressed.Count -ne 0) { throw "Vehicle override did not suppress alerts" }
 
   Invoke-RestMethod "http://localhost:8080/api/alert-policies/$vehicle" -Method Delete -Headers @{"X-Operator"="policy-smoke"} | Out-Null
-  $event.eventId=[guid]::NewGuid().ToString();$event.traceId=[guid]::NewGuid().ToString()
+  $event.eventId=[guid]::NewGuid().ToString();$event.traceId=[guid]::NewGuid().ToString();$event.occurredAt=(Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
   Send-Telemetry $event
   Start-Sleep -Seconds 3
   $active = @((Invoke-RestMethod http://localhost:8080/api/alerts) | Where-Object {$_.deliveryId -eq $created.id -and $_.status -eq "ACTIVE"})
