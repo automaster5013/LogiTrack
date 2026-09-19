@@ -30,6 +30,7 @@ public class OrderService {
     public OrderSummary create(CreateOrderRequest request, String idempotencyKey, String traceId) {
         InputLimits.required(idempotencyKey,"Idempotency-Key",160);
         validate(request);
+        orders.lockIdempotencyKey(idempotencyKey);
         var existing=orders.findByIdempotencyKey(idempotencyKey);
         if(existing.isPresent()){
             if(!matches(existing.get(),request))throw new IllegalStateException("Idempotency key was used with a different order request");

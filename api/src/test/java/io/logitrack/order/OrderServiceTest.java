@@ -32,6 +32,7 @@ class OrderServiceTest {
         var event=ArgumentCaptor.forClass(OutboxEvent.class);
         verify(outbox).save(event.capture());
         assertEquals("order.created.v1",event.getValue().getTopic());
+        verify(orders).lockIdempotencyKey("order-key");
     }
 
     @Test void sameIdempotencyKeyRejectsDifferentOrderRequest(){

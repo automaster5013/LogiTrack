@@ -29,6 +29,7 @@ public class DeliveryService {
     private Delivery create(CreateDeliveryRequest request, String key, String traceId, UUID orderId) {
         InputLimits.required(key,"Idempotency-Key",160);
         validate(request);
+        repository.lockIdempotencyKey(key);
         var existing=repository.findByIdempotencyKey(key);
         if(existing.isPresent()) {
             if(orderId!=null&&!orderId.equals(existing.get().getOrderId()))

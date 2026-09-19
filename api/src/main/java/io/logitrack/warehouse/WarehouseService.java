@@ -16,12 +16,12 @@ public class WarehouseService {
  public WarehouseService(WarehouseStockRepository stocks,WarehouseTaskRepository tasks,InventoryLedgerRepository ledger,OutboxRepository outbox,ObjectMapper mapper){this.stocks=stocks;this.tasks=tasks;this.ledger=ledger;this.outbox=outbox;this.mapper=mapper;}
 
  @Transactional public WarehouseTask receive(WarehouseCommand command,String key,String traceId){
-  validate(command,key);var existing=tasks.findByIdempotencyKey(key);if(existing.isPresent()){if(!matches(existing.get(),command,WarehouseTask.Type.INBOUND))throw new IllegalStateException("Idempotency key was used with a different warehouse request");return existing.get();}
+  validate(command,key);tasks.lockIdempotencyKey(key);var existing=tasks.findByIdempotencyKey(key);if(existing.isPresent()){if(!matches(existing.get(),command,WarehouseTask.Type.INBOUND))throw new IllegalStateException("Idempotency key was used with a different warehouse request");return existing.get();}
   var stock=lockedStock(command);stock.receive(command.quantity());var task=tasks.save(WarehouseTask.receipt(command,key));stocks.save(stock);
   ledger.save(new InventoryLedgerEntry(task,InventoryLedgerEntry.Type.RECEIPT,command.quantity(),0,stock));event(task,stock,"inventory.received.v1",traceId);return task;
  }
  @Transactional public WarehouseTask pick(WarehouseCommand command,String key,String traceId){
-  validate(command,key);var existing=tasks.findByIdempotencyKey(key);if(existing.isPresent()){if(!matches(existing.get(),command,WarehouseTask.Type.OUTBOUND))throw new IllegalStateException("Idempotency key was used with a different warehouse request");return existing.get();}
+  validate(command,key);tasks.lockIdempotencyKey(key);var existing=tasks.findByIdempotencyKey(key);if(existing.isPresent()){if(!matches(existing.get(),command,WarehouseTask.Type.OUTBOUND))throw new IllegalStateException("Idempotency key was used with a different warehouse request");return existing.get();}
   var stock=stocks.lockByWarehouseAndSku(command.warehouseId(),command.sku()).orElseThrow(()->new IllegalStateException("Stock not found"));stock.pick(command.quantity());
   var task=tasks.save(WarehouseTask.outbound(command,key));ledger.save(new InventoryLedgerEntry(task,InventoryLedgerEntry.Type.PICK,0,command.quantity(),stock));event(task,stock,"warehouse.outbound.picked.v1",traceId);return task;
  }

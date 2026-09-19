@@ -29,6 +29,7 @@ class DeliveryServiceTest {
         assertEquals("delivery.created.v1",event.getValue().getTopic());
         assertTrue(event.getValue().getPayload().contains(result.getId().toString()));
         assertTrue(event.getValue().getPayload().contains("plannedDurationSeconds"));
+        verify(deliveries).lockIdempotencyKey("key-1");
         verify(routes).save(any());
     }
 
