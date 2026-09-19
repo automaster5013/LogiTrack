@@ -97,6 +97,7 @@
 - KPI 1~90일 요청의 명시적 400과 projection 설정 fail-fast 검증
 - outbox batch 20건·Kafka 대기 5초 상한과 1~100/최대 30초 fail-fast 설정
 - PostgreSQL `next_attempt_at` 기반 outbox 1초~5분 지수 backoff와 due index
+- 가장 오래된 PENDING outbox age gauge와 5분 지속 warning
 
 ## 현재 상태
 

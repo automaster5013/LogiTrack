@@ -12,18 +12,21 @@ class RecoveryQueueMetricsTest {
         var outbox=mock(OutboxRepository.class);var deadLetters=mock(DeadLetterEventRepository.class);var registry=new SimpleMeterRegistry();
         when(outbox.countByStatus(OutboxEvent.Status.PENDING)).thenReturn(7L);
         when(outbox.countByStatus(OutboxEvent.Status.FAILED)).thenReturn(2L);
+        var oldest=new OutboxEvent(java.util.UUID.randomUUID(),"DELIVERY",java.util.UUID.randomUUID(),"test","topic","key","{}");when(outbox.findFirstByStatusOrderByCreatedAtAsc(OutboxEvent.Status.PENDING)).thenReturn(java.util.Optional.of(oldest));
         when(deadLetters.countByStatus(DeadLetterEvent.Status.PENDING)).thenReturn(3L);
         var metrics=new RecoveryQueueMetrics(outbox,deadLetters,registry);metrics.refresh();
         assertEquals(7,registry.get("logitrack.outbox.backlog").tag("status","pending").gauge().value());
         assertEquals(2,registry.get("logitrack.outbox.backlog").tag("status","failed").gauge().value());
         assertEquals(3,registry.get("logitrack.dlq.backlog").gauge().value());
-        verify(outbox,times(2)).countByStatus(any());verify(deadLetters).countByStatus(DeadLetterEvent.Status.PENDING);
+        assertTrue(registry.get("logitrack.outbox.oldest.age.seconds").gauge().value()>=0);
+        verify(outbox,times(2)).countByStatus(any());verify(outbox).findFirstByStatusOrderByCreatedAtAsc(OutboxEvent.Status.PENDING);verify(deadLetters).countByStatus(DeadLetterEvent.Status.PENDING);
     }
 
     @Test void retainsLastKnownValuesWhenRefreshFails(){
         var outbox=mock(OutboxRepository.class);var deadLetters=mock(DeadLetterEventRepository.class);var registry=new SimpleMeterRegistry();
         when(outbox.countByStatus(OutboxEvent.Status.PENDING)).thenReturn(1L).thenThrow(new IllegalStateException("database offline"));
         when(outbox.countByStatus(OutboxEvent.Status.FAILED)).thenReturn(0L);
+        when(outbox.findFirstByStatusOrderByCreatedAtAsc(OutboxEvent.Status.PENDING)).thenReturn(java.util.Optional.empty());
         when(deadLetters.countByStatus(DeadLetterEvent.Status.PENDING)).thenReturn(4L);
         var metrics=new RecoveryQueueMetrics(outbox,deadLetters,registry);metrics.refresh();metrics.refresh();metrics.refresh();
         assertEquals(1,registry.get("logitrack.outbox.backlog").tag("status","pending").gauge().value());

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.time.*;
 
 @Component
 public class RecoveryQueueMetrics {
@@ -21,6 +22,7 @@ public class RecoveryQueueMetrics {
     private final DeadLetterEventRepository deadLetters;
     private final AtomicLong pendingOutbox=new AtomicLong();
     private final AtomicLong failedOutbox=new AtomicLong();
+    private final AtomicLong oldestPendingOutboxSeconds=new AtomicLong();
     private final AtomicLong pendingDeadLetters=new AtomicLong();
     private final AtomicBoolean refreshHealthy=new AtomicBoolean(true);
     private final Counter refreshFailures;
@@ -29,6 +31,7 @@ public class RecoveryQueueMetrics {
         this.outbox=outbox;this.deadLetters=deadLetters;
         registry.gauge("logitrack.outbox.backlog",java.util.List.of(io.micrometer.core.instrument.Tag.of("status","pending")),pendingOutbox,AtomicLong::get);
         registry.gauge("logitrack.outbox.backlog",java.util.List.of(io.micrometer.core.instrument.Tag.of("status","failed")),failedOutbox,AtomicLong::get);
+        registry.gauge("logitrack.outbox.oldest.age.seconds",oldestPendingOutboxSeconds);
         registry.gauge("logitrack.dlq.backlog",pendingDeadLetters);
         refreshFailures=registry.counter("logitrack.recovery.metrics.refresh.failures");
     }
@@ -38,6 +41,7 @@ public class RecoveryQueueMetrics {
         try{
             pendingOutbox.set(outbox.countByStatus(OutboxEvent.Status.PENDING));
             failedOutbox.set(outbox.countByStatus(OutboxEvent.Status.FAILED));
+            oldestPendingOutboxSeconds.set(outbox.findFirstByStatusOrderByCreatedAtAsc(OutboxEvent.Status.PENDING).map(event->Math.max(0,Duration.between(event.getCreatedAt(),Instant.now()).toSeconds())).orElse(0L));
             pendingDeadLetters.set(deadLetters.countByStatus(DeadLetterEvent.Status.PENDING));
             if(!refreshHealthy.getAndSet(true))log.info("Recovery queue metric refresh recovered");
         }catch(Exception error){

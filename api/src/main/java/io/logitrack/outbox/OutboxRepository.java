@@ -12,6 +12,7 @@ public interface OutboxRepository extends JpaRepository<OutboxEvent, UUID> {
     List<OutboxEvent> lockPendingBatch(@Param("batchSize") int batchSize);
     List<OutboxEvent> findTop50ByStatusOrderByCreatedAtDesc(OutboxEvent.Status status);
     long countByStatus(OutboxEvent.Status status);
+    Optional<OutboxEvent> findFirstByStatusOrderByCreatedAtAsc(OutboxEvent.Status status);
     @Lock(LockModeType.PESSIMISTIC_WRITE) @Query("select event from OutboxEvent event where event.id=:id")
     Optional<OutboxEvent> lockById(@Param("id") UUID id);
 }

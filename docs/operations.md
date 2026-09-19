@@ -77,7 +77,7 @@ analytics 응답은 저장 전에 경로 ID, DB 길이에 맞는 provider·algor
 
 ## 복구 큐 경보
 
-API는 `logitrack_outbox_backlog{status="pending|failed"}`와 `logitrack_dlq_backlog` gauge를 10초마다 갱신한다. 조회 실패 시 마지막 정상 값을 유지하고 `logitrack_recovery_metrics_refresh_failures_total`을 누적하며, 로그는 장애·복구 전환에 한 번씩만 남긴다. Prometheus는 API scrape 1분 중단 또는 FAILED outbox 2분 지속 시 critical, metric refresh 실패·pending outbox 100건 초과·DLQ 존재·경로 fallback 반복·PDF 반복 실패·API 5xx 반복·p95 latency 상승 시 warning을 발생시킨다. `./scripts/recovery-metrics-smoke.ps1`로 지표 노출과 9개 규칙 로드를 함께 검증한다.
+API는 `logitrack_outbox_backlog{status="pending|failed"}`, `logitrack_outbox_oldest_age_seconds`, `logitrack_dlq_backlog` gauge를 10초마다 갱신한다. 조회 실패 시 마지막 정상 값을 유지하고 `logitrack_recovery_metrics_refresh_failures_total`을 누적하며, 로그는 장애·복구 전환에 한 번씩만 남긴다. Prometheus는 API scrape 1분 중단 또는 FAILED outbox 2분 지속 시 critical, metric refresh 실패·pending outbox 100건 초과·가장 오래된 pending 5분 초과·DLQ 존재·경로 fallback 반복·PDF 반복 실패·API 5xx 반복·p95 latency 상승 시 warning을 발생시킨다. `./scripts/recovery-metrics-smoke.ps1`로 지표 노출과 10개 규칙 로드를 함께 검증한다.
 
 운영자 복구 처리량은 `logitrack_outbox_retries_total`과 `logitrack_dlq_replays_total` counter로 확인한다. 두 counter는 감사 저장까지 성공한 요청만 증가한다.
 

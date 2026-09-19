@@ -33,6 +33,14 @@ groups:
         annotations:
           summary: Transactional outbox backlog is elevated
           description: "{{ $value }} outbox event(s) are waiting to be published."
+      - alert: LogiTrackOutboxOldestPending
+        expr: logitrack_outbox_oldest_age_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: An outbox event has been pending too long
+          description: "The oldest pending outbox event is {{ $value }} seconds old."
       - alert: LogiTrackDeadLetterBacklog
         expr: logitrack_dlq_backlog > 0
         for: 5m
