@@ -16,6 +16,8 @@ Grafana Explore에서 `Tempo` datasource를 선택해 service name 또는 trace 
 
 API 오류 body는 `error`, `traceId`, `timestamp`를 공통으로 반환한다. 중복 키·DB 제약 및 동시 수정 충돌은 내부 엔티티·SQL 정보를 노출하지 않는 409, 잘못된 JSON·필수 요청값 누락·타입 불일치는 400, 없는 리소스·경로는 404, 지원하지 않는 메서드는 405, 미디어 타입은 415로 변환한다.
 
+POST·PUT·PATCH body는 스트리밍 읽기 단계에서 기본 1MB로 제한하며 초과 시 413을 반환한다. `HTTP_MAX_REQUEST_BODY_SIZE`로 조정할 수 있고 1 byte 미만 설정은 시작 시 거부한다.
+
 예상하지 못한 예외는 상세 내용을 응답에 노출하지 않는 500으로 변환하고, 동일한 trace ID와 stack trace를 서버 로그에 기록한다.
 
 5분 동안 API 5xx 응답이 5회를 초과하면 `LogiTrackApiServerErrors` warning이 발생한다. 해당 시간대 로그를 응답 trace ID로 좁혀 원인을 확인한다.

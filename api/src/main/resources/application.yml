@@ -41,6 +41,7 @@ server:
     min-response-size: 1024
     mime-types: application/json,application/geo+json,text/csv
 logitrack:
+  http.max-request-body-size: ${HTTP_MAX_REQUEST_BODY_SIZE:1MB}
   analytics:
     url: ${ANALYTICS_URL:http://localhost:8090}
     route-connect-timeout: ${ANALYTICS_ROUTE_CONNECT_TIMEOUT:1s}

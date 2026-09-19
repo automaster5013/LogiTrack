@@ -90,6 +90,7 @@
 - Micrometer HTTP 상태 지표 기반 반복 API 5xx Prometheus warning
 - HTTP server SLO histogram과 5분 지속 p95 2초 초과 warning
 - analytics timeout·PDF 크기·telemetry 미래 허용 오차의 fail-fast 구성 검증
+- chunked 요청을 포함한 변경 요청 body 스트리밍 1MB 상한과 표준 413 경계
 
 ## 현재 상태
 
