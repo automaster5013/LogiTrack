@@ -16,12 +16,12 @@ public class WarehouseService {
  public WarehouseService(WarehouseStockRepository stocks,WarehouseTaskRepository tasks,InventoryLedgerRepository ledger,OutboxRepository outbox,ObjectMapper mapper){this.stocks=stocks;this.tasks=tasks;this.ledger=ledger;this.outbox=outbox;this.mapper=mapper;}
 
  @Transactional public WarehouseTask receive(WarehouseCommand command,String key,String traceId){
-  validate(command,key);var existing=tasks.findByIdempotencyKey(key);if(existing.isPresent())return existing.get();
+  validate(command,key);var existing=tasks.findByIdempotencyKey(key);if(existing.isPresent()){if(!matches(existing.get(),command,WarehouseTask.Type.INBOUND))throw new IllegalStateException("Idempotency key was used with a different warehouse request");return existing.get();}
   var stock=lockedStock(command);stock.receive(command.quantity());var task=tasks.save(WarehouseTask.receipt(command,key));stocks.save(stock);
   ledger.save(new InventoryLedgerEntry(task,InventoryLedgerEntry.Type.RECEIPT,command.quantity(),0,stock));event(task,stock,"inventory.received.v1",traceId);return task;
  }
  @Transactional public WarehouseTask pick(WarehouseCommand command,String key,String traceId){
-  validate(command,key);var existing=tasks.findByIdempotencyKey(key);if(existing.isPresent())return existing.get();
+  validate(command,key);var existing=tasks.findByIdempotencyKey(key);if(existing.isPresent()){if(!matches(existing.get(),command,WarehouseTask.Type.OUTBOUND))throw new IllegalStateException("Idempotency key was used with a different warehouse request");return existing.get();}
   var stock=stocks.lockByWarehouseAndSku(command.warehouseId(),command.sku()).orElseThrow(()->new IllegalStateException("Stock not found"));stock.pick(command.quantity());
   var task=tasks.save(WarehouseTask.outbound(command,key));ledger.save(new InventoryLedgerEntry(task,InventoryLedgerEntry.Type.PICK,0,command.quantity(),stock));event(task,stock,"warehouse.outbound.picked.v1",traceId);return task;
  }
@@ -36,5 +36,6 @@ public class WarehouseService {
   if(c==null||c.quantity()<=0)throw new IllegalArgumentException("referenceNumber, warehouseId, sku and positive quantity are required");
   InputLimits.required(c.referenceNumber(),"referenceNumber",100);InputLimits.required(c.warehouseId(),"warehouseId",80);InputLimits.required(c.sku(),"sku",100);InputLimits.required(key,"Idempotency-Key",160);
  }
+ private boolean matches(WarehouseTask task,WarehouseCommand command,WarehouseTask.Type type){return task.getTaskType()==type&&task.getReferenceNumber().equals(command.referenceNumber())&&task.getWarehouseId().equals(command.warehouseId())&&task.getSku().equals(command.sku())&&task.getQuantity()==command.quantity();}
  private void event(WarehouseTask task,WarehouseStock stock,String type,String traceId){try{var payload=mapper.valueToTree(Map.of("taskId",task.getId(),"warehouseId",task.getWarehouseId(),"sku",task.getSku(),"quantity",task.getQuantity(),"status",task.getStatus(),"onHand",stock.getOnHand(),"reserved",stock.getReserved()));var e=new EventEnvelope(UUID.randomUUID(),type,Instant.now(),traceId,1,payload);outbox.save(new OutboxEvent(e.eventId(),"WAREHOUSE_TASK",task.getId(),type,type,task.getWarehouseId()+":"+task.getSku(),mapper.writeValueAsString(e)));}catch(Exception e){throw new IllegalStateException("Could not create warehouse event",e);}}
 }

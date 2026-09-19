@@ -38,6 +38,11 @@ class DeliveryServiceTest {
         assertSame(existing,service.create(request(),"key-1","trace-2"));
         verifyNoInteractions(outbox);
     }
+    @Test void sameIdempotencyKeyRejectsDifferentRequest(){
+        var existing=Delivery.create(request(),"key-1");when(deliveries.findByIdempotencyKey("key-1")).thenReturn(Optional.of(existing));
+        var changed=new CreateDeliveryRequest("ORD-1","TRUCK-2",request().origin(),request().destination());
+        assertThrows(IllegalStateException.class,()->service.create(changed,"key-1","trace-2"));verifyNoInteractions(outbox);
+    }
 
     @Test void rejectsDispatchKeyOwnedByAnotherOrder(){
         var firstOrder=UUID.randomUUID();
@@ -58,7 +63,7 @@ class DeliveryServiceTest {
         var bad=new CreateDeliveryRequest("X".repeat(81),"TRUCK-1",request().origin(),request().destination());
         assertThrows(IllegalArgumentException.class,()->service.create(bad,"key-1","trace"));
         assertThrows(IllegalArgumentException.class,()->service.create(request(),"K".repeat(161),"trace"));
-        verify(deliveries).findByIdempotencyKey("key-1");verify(deliveries,never()).save(any());
+        verifyNoInteractions(deliveries);
     }
 
     private CreateDeliveryRequest request(){return new CreateDeliveryRequest("ORD-1","TRUCK-1",

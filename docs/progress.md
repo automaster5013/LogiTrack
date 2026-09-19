@@ -65,6 +65,7 @@
 - API scrape 중단과 복구 queue 지표 stale 상태를 포함한 Prometheus 핵심 운영 경보 5종
 - 감사 완료된 outbox retry·DLQ replay 운영자 복구 활동 Micrometer counter
 - DLQ 단건 replay 비관적 row lock으로 동시 운영 요청의 중복 Kafka 발행 방지
+- 주문·배송·창고 멱등 키 재사용 시 원본 명령 일치 검증과 불일치 409 처리
 
 ## 현재 상태
 

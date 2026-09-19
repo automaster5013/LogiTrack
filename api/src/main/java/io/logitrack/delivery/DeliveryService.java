@@ -28,13 +28,14 @@ public class DeliveryService {
     }
     private Delivery create(CreateDeliveryRequest request, String key, String traceId, UUID orderId) {
         InputLimits.required(key,"Idempotency-Key",160);
+        validate(request);
         var existing=repository.findByIdempotencyKey(key);
         if(existing.isPresent()) {
             if(orderId!=null&&!orderId.equals(existing.get().getOrderId()))
                 throw new IllegalStateException("Idempotency key belongs to another order");
+            if(!matches(existing.get(),request))throw new IllegalStateException("Idempotency key was used with a different delivery request");
             return existing.get();
         }
-        validate(request);
         if(orderId!=null){var linked=repository.findByOrderId(orderId);if(linked.isPresent())return linked.get();}
         var saved=repository.save(Delivery.create(request,key,orderId));
         var route=routeAnalysis.analyze(saved);
@@ -63,4 +64,5 @@ public class DeliveryService {
         check(r.origin()); check(r.destination());
     }
     private void check(CreateDeliveryRequest.Location p){InputLimits.required(p.name(),"location name",160);if(p.lat() < -90||p.lat()>90||p.lon() < -180||p.lon()>180) throw new IllegalArgumentException("Invalid coordinates");}
+    private boolean matches(Delivery d,CreateDeliveryRequest r){return d.getOrderNumber().equals(r.orderNumber())&&d.getVehicleId().equals(r.vehicleId())&&d.getOriginName().equals(r.origin().name())&&Double.compare(d.getOriginLat(),r.origin().lat())==0&&Double.compare(d.getOriginLon(),r.origin().lon())==0&&d.getDestinationName().equals(r.destination().name())&&Double.compare(d.getDestinationLat(),r.destination().lat())==0&&Double.compare(d.getDestinationLon(),r.destination().lon())==0;}
 }

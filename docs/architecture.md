@@ -34,6 +34,8 @@ PostgreSQL KPI projection -> control-api -> analytics PDF renderer -> operator d
 
 배송 이벤트의 Kafka key는 `deliveryId`, 주문 이벤트의 key는 `orderId`이며 aggregate별 순서를 보존한다. 모든 이벤트 envelope는 `eventId`, `eventType`, `occurredAt`, `traceId`, `schemaVersion`, `payload`를 가진다. consumer는 `eventId`를 처리 이력에 기록해 at-least-once 전달에서도 멱등하게 동작한다.
 
+HTTP 멱등 키는 주문·배송·창고 명령의 원본 필드와 함께 검증한다. 같은 키와 동일 명령은 기존 aggregate를 반환하지만, 같은 키에 다른 주문·차량·좌표·재고 명령을 보내면 409로 거부해 키 충돌이 데이터를 조용히 덮지 않게 한다.
+
 ## 핵심 데이터 모델
 
 ### deliveries

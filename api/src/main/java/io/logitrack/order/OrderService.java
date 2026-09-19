@@ -29,9 +29,12 @@ public class OrderService {
     @Transactional
     public OrderSummary create(CreateOrderRequest request, String idempotencyKey, String traceId) {
         InputLimits.required(idempotencyKey,"Idempotency-Key",160);
-        var existing=orders.findByIdempotencyKey(idempotencyKey);
-        if(existing.isPresent()) return summary(existing.get(),deliveries.findByOrderId(existing.get().getId()).orElse(null));
         validate(request);
+        var existing=orders.findByIdempotencyKey(idempotencyKey);
+        if(existing.isPresent()){
+            if(!matches(existing.get(),request))throw new IllegalStateException("Idempotency key was used with a different order request");
+            return summary(existing.get(),deliveries.findByOrderId(existing.get().getId()).orElse(null));
+        }
         var order=orders.save(CustomerOrder.create(request,idempotencyKey));
         saveEvent(order,"order.created.v1",traceId,Map.of("orderNumber",order.getOrderNumber(),"status",order.getStatus()));
         return summary(order,null);
@@ -51,8 +54,11 @@ public class OrderService {
         InputLimits.required(idempotencyKey,"Idempotency-Key",160);
         var order=orders.findForUpdateById(orderId).orElseThrow(()->new NoSuchElementException("Order not found"));
         var existing=deliveries.findByOrderId(orderId);
-        if(existing.isPresent()) return summary(order,existing.get());
         if(request==null)throw new IllegalArgumentException("vehicleId is required");InputLimits.required(request.vehicleId(),"vehicleId",80);
+        if(existing.isPresent()){
+            if(!existing.get().getVehicleId().equals(request.vehicleId()))throw new IllegalStateException("Order was already dispatched to a different vehicle");
+            return summary(order,existing.get());
+        }
         if(order.getStatus()!=CustomerOrder.Status.READY) throw new IllegalStateException("Order is not ready for dispatch");
         var deliveryRequest=new CreateDeliveryRequest(order.getOrderNumber(),request.vehicleId(),
             new CreateDeliveryRequest.Location(order.getOriginName(),order.getOriginLat(),order.getOriginLon()),
@@ -103,4 +109,5 @@ public class OrderService {
         if(location.lat() < -90||location.lat()>90||location.lon() < -180||location.lon()>180)
             throw new IllegalArgumentException("Invalid order location");
     }
+    private boolean matches(CustomerOrder order,CreateOrderRequest request){return order.getOrderNumber().equals(request.orderNumber())&&order.getOriginName().equals(request.origin().name())&&Double.compare(order.getOriginLat(),request.origin().lat())==0&&Double.compare(order.getOriginLon(),request.origin().lon())==0&&order.getDestinationName().equals(request.destination().name())&&Double.compare(order.getDestinationLat(),request.destination().lat())==0&&Double.compare(order.getDestinationLon(),request.destination().lon())==0;}
 }

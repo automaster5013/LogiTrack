@@ -34,6 +34,12 @@ class OrderServiceTest {
         assertEquals("order.created.v1",event.getValue().getTopic());
     }
 
+    @Test void sameIdempotencyKeyRejectsDifferentOrderRequest(){
+        var existing=CustomerOrder.create(request(),"order-key");when(orders.findByIdempotencyKey("order-key")).thenReturn(Optional.of(existing));
+        var changed=new CreateOrderRequest("ORD-CHANGED",request().origin(),request().destination());
+        assertThrows(IllegalStateException.class,()->service.create(changed,"order-key","trace"));verifyNoInteractions(outbox);
+    }
+
     @Test void rejectsOversizedIdempotencyKeyBeforeLookup(){
         assertThrows(IllegalArgumentException.class,()->service.create(request(),"K".repeat(161),"trace"));
         verifyNoInteractions(orders,deliveries,outbox);
