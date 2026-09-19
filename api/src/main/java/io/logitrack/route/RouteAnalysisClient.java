@@ -1,6 +1,8 @@
 package io.logitrack.route;
 
 import io.logitrack.delivery.Delivery;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -15,13 +17,19 @@ import java.util.*;
 @Component
 public class RouteAnalysisClient {
     private final RestClient client;
+    private final Counter successes;
+    private final Counter fallbacks;
+
     public RouteAnalysisClient(RestClient.Builder builder, @Value("${logitrack.analytics.url}") String url,
         @Value("${logitrack.analytics.route-connect-timeout:1s}") Duration connectTimeout,
-        @Value("${logitrack.analytics.route-read-timeout:4s}") Duration readTimeout) {
+        @Value("${logitrack.analytics.route-read-timeout:4s}") Duration readTimeout,
+        MeterRegistry metrics) {
         var requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(connectTimeout);
         requestFactory.setReadTimeout(readTimeout);
         client = builder.baseUrl(url).requestFactory(requestFactory).build();
+        successes = metrics.counter("logitrack.route.analysis", "outcome", "success");
+        fallbacks = metrics.counter("logitrack.route.analysis", "outcome", "fallback");
     }
     public RoutePlan analyze(Delivery delivery) {
         try {
@@ -30,8 +38,10 @@ public class RouteAnalysisClient {
                 "destination",Map.of("lat",delivery.getDestinationLat(),"lon",delivery.getDestinationLon()));
             var result=client.post().uri("/routes/analyze").body(request).retrieve().body(RoutePlan.class);
             if(result==null||result.coordinates()==null||result.coordinates().size()<2) throw new IllegalStateException("Invalid route response");
+            successes.increment();
             return result;
         } catch(Exception ignored) {
+            fallbacks.increment();
             return fallback(delivery);
         }
     }

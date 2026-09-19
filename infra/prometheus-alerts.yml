@@ -41,3 +41,11 @@ groups:
         annotations:
           summary: Telemetry dead-letter events require attention
           description: "{{ $value }} telemetry event(s) are waiting for replay."
+      - alert: LogiTrackRouteAnalysisDegraded
+        expr: increase(logitrack_route_analysis_total{outcome="fallback"}[5m]) > 5
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Route analysis is repeatedly using the local fallback
+          description: "{{ $value }} route requests used the fallback during the last five minutes."
