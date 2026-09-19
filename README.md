@@ -104,3 +104,5 @@ Kafka telemetry 100건의 API 반영 p95와 consumer lag는 `./scripts/telemetry
 서로 다른 배송을 지속 생성하는 write-heavy 기준선은 `./scripts/load-unique-isolated.ps1`로 실행합니다. 별도 Compose project와 임시 PostgreSQL volume을 사용하고 종료 시 자동 제거합니다.
 
 분석 서비스, 단일 Kafka consumer, Redis 장애와 자동 복구는 `./scripts/recovery-drill.ps1`로 재현합니다. 스크립트는 장애 중 DB/Kafka 보존과 복구 후 정확히 한 번 반영을 확인하고 모든 서비스를 원상 복구합니다.
+
+오래 열린 운영 탭의 배포 감지와 자동 새로고침은 `./scripts/runtime-version-smoke.ps1`로 검증합니다. 같은 웹 runtime에서는 식별자가 안정적이고 컨테이너 교체 후에는 바뀌어야 합니다.
