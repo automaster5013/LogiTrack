@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import json
 import time
+from collections import OrderedDict
 from dataclasses import dataclass
 from math import asin, cos, isfinite, radians, sin, sqrt
 
@@ -76,22 +77,26 @@ class RoutePlanner:
             raise ValueError("routing cache TTL must be between 0 and 86400 seconds")
         self.timeout_seconds = timeout_seconds
         self.cache_ttl_seconds = cache_ttl_seconds
-        self._cache: dict[tuple[float, float, float, float], tuple[float, RouteResult]] = {}
+        self._cache: OrderedDict[tuple[float, float, float, float], tuple[float, RouteResult]] = OrderedDict()
         self._cache_lock = asyncio.Lock()
 
     async def plan(self, origin: Coordinate, destination: Coordinate) -> RouteResult:
         key = (origin.lat, origin.lon, destination.lat, destination.lon)
         cached = self._cache.get(key)
         if cached and cached[0] > time.monotonic():
+            self._cache.move_to_end(key)
             return cached[1]
         async with self._cache_lock:
             cached = self._cache.get(key)
             if cached and cached[0] > time.monotonic():
+                self._cache.move_to_end(key)
                 return cached[1]
             result = await self._plan_uncached(origin, destination)
-            if len(self._cache) >= 1024:
-                self._cache.clear()
-            self._cache[key] = (time.monotonic() + self.cache_ttl_seconds, result)
+            if self.cache_ttl_seconds > 0:
+                self._cache[key] = (time.monotonic() + self.cache_ttl_seconds, result)
+                self._cache.move_to_end(key)
+                while len(self._cache) > 1024:
+                    self._cache.popitem(last=False)
             return result
 
     async def _plan_uncached(self, origin: Coordinate, destination: Coordinate) -> RouteResult:

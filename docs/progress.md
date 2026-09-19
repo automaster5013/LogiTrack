@@ -101,6 +101,7 @@
 - outbox age refresh의 payload row 로드 제거와 PostgreSQL scalar 집계
 - analytics OSRM 좌표·거리·시간 응답 검증과 timeout/cache TTL fail-fast 설정
 - routing provider allowlist와 analytics geodesic fallback의 API degraded 계측 연동
+- analytics 전체 flush 없는 1,024-entry LRU 경로 캐시와 TTL 0 비활성화
 
 ## 현재 상태
 

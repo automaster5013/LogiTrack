@@ -56,5 +56,18 @@ class RoutePlannerCacheTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIs(first, second)
 
+    async def test_cache_is_bounded_without_full_flush(self):
+        planner = RoutePlanner("geodesic", "http://unused", cache_ttl_seconds=300)
+        for index in range(1025):
+            await planner.plan(Coordinate(0, index / 10_000), Coordinate(1, 1))
+        self.assertEqual(1024, len(planner._cache))
+        self.assertNotIn((0, 0.0, 1, 1), planner._cache)
+        self.assertIn((0, 0.1024, 1, 1), planner._cache)
+
+    async def test_zero_ttl_disables_cache(self):
+        planner = RoutePlanner("geodesic", "http://unused", cache_ttl_seconds=0)
+        await planner.plan(Coordinate(0, 0), Coordinate(1, 1))
+        self.assertEqual(0, len(planner._cache))
+
 
 if __name__ == "__main__": unittest.main()

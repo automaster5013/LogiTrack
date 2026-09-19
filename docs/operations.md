@@ -38,7 +38,7 @@ Kafka 텔레메트리는 `eventType=vehicle.telemetry.v1`, 정수 `schemaVersion
 
 일별 KPI는 UTC 배송 생성일 cohort 기준으로 60초마다 갱신한다. `GET /api/reports/daily-kpis?days=14`는 JSON, `GET /api/reports/daily-kpis.csv?days=30`은 UTF-8 CSV, `GET /api/reports/daily-kpis.pdf?days=30`은 A4 가로형 운영 보고서를 반환하며 요청 범위는 1~90일이다. 범위 밖 요청은 조용히 보정하지 않고 400으로 거부하고 `logitrack.reports.projection-days`가 범위 밖이면 시작을 거부한다. PDF는 API가 PostgreSQL projection을 조회한 뒤 analytics 서비스의 ReportLab 렌더러에 전달하므로 PDF만 실패할 때는 먼저 `http://localhost:8090/health`와 analytics 로그를 확인한다.
 
-공개 route provider 보호와 반복 경로 응답 안정화를 위해 analytics는 동일 좌표 결과를 기본 300초 캐시한다. `ROUTING_CACHE_TTL_SECONDS`로 조정하며 최대 1,024개를 넘으면 캐시를 비운다.
+공개 route provider 보호와 반복 경로 응답 안정화를 위해 analytics는 동일 좌표 결과를 기본 300초 캐시한다. `ROUTING_CACHE_TTL_SECONDS`로 조정하며 최대 1,024개 bounded LRU에서 가장 오래 사용하지 않은 항목만 축출한다. TTL 0은 캐시를 비활성화한다.
 
 analytics는 OSRM 응답의 2~10,000개 유한 경위도 좌표와 양수 유한 거리·시간을 검증하고 위반 시 geodesic fallback을 사용한다. `ROUTING_PROVIDER`는 `osrm|geodesic`, `ROUTING_TIMEOUT_SECONDS`는 0초 초과 30초 이하, cache TTL은 0~86,400초만 허용한다. analytics가 정상 응답으로 반환한 `geodesic-fallback`도 API fallback counter와 경보에 포함된다.
 
