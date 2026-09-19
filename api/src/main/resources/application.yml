@@ -33,6 +33,10 @@ management:
 logging.pattern.correlation: "[traceId=%X{traceId:-} spanId=%X{spanId:-}] "
 server:
   shutdown: graceful
+  compression:
+    enabled: true
+    min-response-size: 1024
+    mime-types: application/json,application/geo+json,text/csv
 logitrack:
   analytics.url: ${ANALYTICS_URL:http://localhost:8090}
   instance-id: ${INSTANCE_ID:${random.uuid}}

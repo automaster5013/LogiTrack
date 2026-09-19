@@ -8,6 +8,7 @@
 - `web`: 관제 운영 콘솔. API와 SSE만 사용하고 브로커에는 접근하지 않음
 - `warehouse` 모듈: 비관적 잠금 기반 재고, 입고·피킹·출고 workflow와 불변 ledger. 초기에는 control-api에 모듈로 배치하고 부하/팀 경계가 필요할 때 별도 서비스로 추출
 - 일별 KPI projection: PostgreSQL cohort 집계, JSON/CSV/PDF 보고서, TypeScript 성과 차트
+- API 전송 계층: 1KB 이상의 JSON·GeoJSON·CSV 응답에 gzip 콘텐츠 협상을 적용해 대용량 경로 좌표와 보고서 전송량을 제한
 
 초기에는 과도한 분산을 피하기 위해 주문과 배송 모듈을 하나의 배포 단위로 두되, 별도 aggregate/table/repository와 Kafka 계약으로 lifecycle 경계를 명확히 한다.
 
