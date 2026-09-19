@@ -2,10 +2,10 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { AlertPolicy, AlertPolicyAudit, Delivery } from "../types";
 
-type Props = { policies:AlertPolicy[]; audits:AlertPolicyAudit[]; deliveries:Delivery[]; busy:boolean; onSave:(policy:PolicyInput)=>Promise<void>; onReset:(vehicleId:string)=>Promise<void> };
+type Props = { policies:AlertPolicy[]; audits:AlertPolicyAudit[]; deliveries:Delivery[]; busy:boolean; onSave:(policy:PolicyInput)=>Promise<void>; onReset:(vehicleId:string)=>Promise<void>; onRestore:(auditId:string)=>Promise<void> };
 export type PolicyInput = Pick<AlertPolicy,"vehicleId"|"deviationOpenMeters"|"deviationCloseMeters"|"criticalDeviationMeters"|"delayOpenSeconds"|"delayCloseSeconds"|"criticalDelaySeconds">;
 
-export default function AlertPolicyPanel({policies,audits,deliveries,busy,onSave,onReset}:Props){
+export default function AlertPolicyPanel({policies,audits,deliveries,busy,onSave,onReset,onRestore}:Props){
   const vehicles=useMemo(()=>Array.from(new Set(deliveries.map(item=>item.vehicleId))).sort(),[deliveries]);
   const [vehicleId,setVehicleId]=useState("*");
   const fallback=policies.find(policy=>policy.vehicleId==="*");
@@ -37,7 +37,7 @@ export default function AlertPolicyPanel({policies,audits,deliveries,busy,onSave
       <div className="policyActions"><button disabled={busy||!selected}>{busy?"UPDATING POLICY…":"SAVE AUDITED POLICY"}</button>
         {vehicleId!=="*"&&overridden&&<button type="button" className="policyReset" disabled={busy} onClick={()=>onReset(vehicleId)}>RESET TO GLOBAL</button>}</div>
     </form><aside><h4>RECENT POLICY AUDIT</h4>{audits.length===0?<p className="policyEmpty">No operator changes yet.</p>:audits.slice(0,6).map(audit=><div className="policyAudit" key={audit.id}>
-      <span>{audit.vehicleId==="*"?"GLOBAL":audit.vehicleId}</span><div><b>{audit.action} · {audit.actor}</b><small>{new Date(audit.occurredAt).toLocaleString("ko-KR",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}</small></div>
-      <em>{audit.deviationOpenMeters}m / {Math.round(audit.delayOpenSeconds/60)}m</em></div>)}</aside></div>
+      <span>{audit.vehicleId==="*"?"GLOBAL":audit.vehicleId}</span><div><b>{audit.action} · {audit.actor}</b><small>{new Date(audit.occurredAt).toLocaleString("ko-KR",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}</small><em>OPEN {audit.deviationOpenMeters}m · {Math.round(audit.delayOpenSeconds/60)}min</em></div>
+      <button type="button" className="policyRestore" disabled={busy} onClick={()=>onRestore(audit.id)}>RESTORE</button></div>)}</aside></div>
   </section>;
 }

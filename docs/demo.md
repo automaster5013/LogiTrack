@@ -18,7 +18,7 @@ docker compose ps
 2. `Delivery performance`에서 UTC 일별 cohort, 정시율, 평균 cycle을 확인하고 CSV를 다운로드한다.
 3. 창고에서 `RECEIVE 10` 후 `PICK & DISPATCH 4`를 실행해 stock, reserved, 불변 ledger를 설명한다.
 4. `./scripts/alert-smoke.ps1`을 실행해 지연·경로 이탈 alert 발생·운영자 확인·중복 확인 멱등성·해결과 실시간 UI를 확인한다.
-5. `Vehicle threshold policies`에서 전역 정책과 차량별 재정의를 비교하고 `./scripts/alert-policy-smoke.ps1`로 정책 적용과 감사 이력을 확인한다.
+5. `Vehicle threshold policies`에서 전역 정책과 차량별 재정의를 비교하고 감사 이력의 `RESTORE`로 과거 임계값을 복원한다. `./scripts/alert-policy-smoke.ps1`로 저장·reset·복원과 감사 이력을 확인한다.
 6. `./scripts/tracing-smoke.ps1` 결과의 trace ID를 Grafana Explore의 Tempo에서 조회해 Spring API→Python analytics span을 확인한다.
 7. `./scripts/replay-smoke.ps1`을 실행하고 `Selective event replay`에서 poison event 격리, replay 상태, 운영자 감사를 확인한다.
 8. `./scripts/load-smoke.ps1`과 `./scripts/telemetry-load.ps1`로 API p95와 Kafka 반영 p95/lag 기준선을 보여준다.

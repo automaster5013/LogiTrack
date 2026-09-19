@@ -48,6 +48,27 @@ class AlertPolicyServiceTest {
         assertThrows(IllegalArgumentException.class,()->service.reset(AlertPolicy.DEFAULT_VEHICLE,"operator"));
         assertThrows(NoSuchElementException.class,()->service.reset("TRUCK-MISSING","operator"));
     }
+    @Test void restoresPolicyFromImmutableAuditSnapshot() {
+        var source=new AlertPolicy("TRUCK-07",200000,150000,250000,200000,150000,250000,"old");
+        var snapshot=new AlertPolicyAudit(source,"original");
+        var current=new AlertPolicy("TRUCK-07",500,300,1500,600,300,1800,"new");current.deactivate("new");
+        when(audits.findById(snapshot.getId())).thenReturn(Optional.of(snapshot));when(policies.findByVehicleId("TRUCK-07")).thenReturn(Optional.of(current));
+        when(policies.save(current)).thenReturn(current);
+        assertSame(current,service.restore(snapshot.getId()," operator-restore "));
+        assertTrue(current.isActive());assertEquals(200000,current.getDeviationOpenMeters());assertEquals(200000,current.getDelayOpenSeconds());
+        assertEquals("operator-restore",current.getUpdatedBy());
+        var restored=ArgumentCaptor.forClass(AlertPolicyAudit.class);verify(audits).save(restored.capture());
+        assertEquals(AlertPolicyAudit.Action.RESTORE,restored.getValue().getAction());assertEquals("operator-restore",restored.getValue().getActor());
+    }
+    @Test void restoresMissingPolicyAndRejectsMissingSnapshotOrActor() {
+        var source=new AlertPolicy("TRUCK-08",800,400,1800,900,400,2200,"old");var snapshot=new AlertPolicyAudit(source,"original");
+        when(audits.findById(snapshot.getId())).thenReturn(Optional.of(snapshot));when(policies.findByVehicleId("TRUCK-08")).thenReturn(Optional.empty());
+        when(policies.save(any())).thenAnswer(invocation->invocation.getArgument(0));
+        var created=service.restore(snapshot.getId(),"restorer");assertEquals("TRUCK-08",created.getVehicleId());assertEquals(800,created.getDeviationOpenMeters());
+        var missing=UUID.randomUUID();when(audits.findById(missing)).thenReturn(Optional.empty());
+        assertThrows(NoSuchElementException.class,()->service.restore(missing,"restorer"));
+        assertThrows(IllegalArgumentException.class,()->service.restore(snapshot.getId()," "));
+    }
     @Test void delegatesLists() {
         when(policies.findAllByActiveTrueOrderByVehicleIdAsc()).thenReturn(List.of());when(audits.findTop50ByOrderByOccurredAtDesc()).thenReturn(List.of());
         assertTrue(service.list().isEmpty());assertTrue(service.auditTrail().isEmpty());

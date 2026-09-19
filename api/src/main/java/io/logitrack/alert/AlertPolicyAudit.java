@@ -30,5 +30,5 @@ public class AlertPolicyAudit {
     public double getCriticalDeviationMeters(){return criticalDeviationMeters;} public long getDelayOpenSeconds(){return delayOpenSeconds;}
     public long getDelayCloseSeconds(){return delayCloseSeconds;} public long getCriticalDelaySeconds(){return criticalDelaySeconds;}
     public Action getAction(){return action;} public String getActor(){return actor;} public Instant getOccurredAt(){return occurredAt;}
-    public enum Action { UPSERT, RESET }
+    public enum Action { UPSERT, RESET, RESTORE }
 }

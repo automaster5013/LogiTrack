@@ -40,7 +40,26 @@ try {
   $audits = @((Invoke-RestMethod http://localhost:8080/api/alert-policies/audits) | Where-Object vehicleId -eq $vehicle)
   if ($policy) { throw "Reset vehicle policy remained active" }
   if ($audits.Count -ne 2 -or @($audits | Where-Object action -eq "RESET").Count -ne 1) { throw "Policy reset audit history was not persisted" }
-  Write-Host "PASS: vehicle=$vehicle, override suppressed alerts, reset restored global thresholds, audits=2"
+
+  $normal = @{eventId=[guid]::NewGuid().ToString();eventType="vehicle.telemetry.v1";occurredAt=(Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");traceId=[guid]::NewGuid().ToString();schemaVersion=1;payload=@{deliveryId=$created.id;vehicleId=$vehicle;lat=37.5665;lon=126.978;progress=0.3;status="IN_TRANSIT";eta=(Get-Date).ToUniversalTime().AddMinutes(1).ToString("yyyy-MM-ddTHH:mm:ss.fffZ")}}
+  Send-Telemetry $normal
+  Start-Sleep -Seconds 3
+  $stillActive = @((Invoke-RestMethod http://localhost:8080/api/alerts) | Where-Object {$_.deliveryId -eq $created.id -and $_.status -eq "ACTIVE"})
+  if ($stillActive.Count -ne 0) { throw "Normal telemetry did not resolve alerts before restore" }
+
+  $upsertAudit = @($audits | Where-Object action -eq "UPSERT")[0]
+  if (-not $upsertAudit) { throw "Original policy snapshot was not found" }
+  $restored = Invoke-RestMethod "http://localhost:8080/api/alert-policies/audits/$($upsertAudit.id)/restore" -Method Post -Headers @{"X-Operator"="policy-smoke"}
+  if ($restored.vehicleId -ne $vehicle -or $restored.deviationOpenMeters -ne 200000 -or $restored.delayOpenSeconds -ne 200000) { throw "Restored policy did not match the audited snapshot" }
+
+  $event.eventId=[guid]::NewGuid().ToString();$event.traceId=[guid]::NewGuid().ToString();$event.occurredAt=(Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+  Send-Telemetry $event
+  Start-Sleep -Seconds 3
+  $afterRestore = @((Invoke-RestMethod http://localhost:8080/api/alerts) | Where-Object {$_.deliveryId -eq $created.id -and $_.status -eq "ACTIVE"})
+  if ($afterRestore.Count -ne 0) { throw "Restored vehicle policy did not suppress alerts" }
+  $audits = @((Invoke-RestMethod http://localhost:8080/api/alert-policies/audits) | Where-Object vehicleId -eq $vehicle)
+  if ($audits.Count -ne 3 -or @($audits | Where-Object action -eq "RESTORE").Count -ne 1) { throw "Policy restore audit history was not persisted" }
+  Write-Host "PASS: vehicle=$vehicle, override/reset/restore behavior verified, audits=3"
 }
 finally {
   docker compose start simulator | Out-Null

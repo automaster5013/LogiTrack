@@ -30,6 +30,18 @@ public class AlertPolicyService {
         var policy=policies.findByVehicleIdAndActiveTrue(vehicle).orElseThrow(()->new NoSuchElementException("Active vehicle alert policy not found"));
         policy.deactivate(operator);policy=policies.save(policy);audits.save(new AlertPolicyAudit(policy,operator,AlertPolicyAudit.Action.RESET));return policy;
     }
+    @Transactional
+    public AlertPolicy restore(UUID auditId,String actor){
+        var operator=normalize("X-Operator",actor);
+        var snapshot=audits.findById(Objects.requireNonNull(auditId,"auditId must be provided"))
+            .orElseThrow(()->new NoSuchElementException("Alert policy audit snapshot not found"));
+        var existing=policies.findByVehicleId(snapshot.getVehicleId());
+        var policy=existing.orElseGet(()->new AlertPolicy(snapshot.getVehicleId(),snapshot.getDeviationOpenMeters(),snapshot.getDeviationCloseMeters(),
+            snapshot.getCriticalDeviationMeters(),snapshot.getDelayOpenSeconds(),snapshot.getDelayCloseSeconds(),snapshot.getCriticalDelaySeconds(),operator));
+        if(existing.isPresent())policy.update(snapshot.getDeviationOpenMeters(),snapshot.getDeviationCloseMeters(),snapshot.getCriticalDeviationMeters(),
+            snapshot.getDelayOpenSeconds(),snapshot.getDelayCloseSeconds(),snapshot.getCriticalDelaySeconds(),operator);
+        policy=policies.save(policy);audits.save(new AlertPolicyAudit(policy,operator,AlertPolicyAudit.Action.RESTORE));return policy;
+    }
     private String normalize(String field,String value){var normalized=value==null?"":value.trim();
         if(normalized.isBlank()||normalized.length()>120)throw new IllegalArgumentException(field+" must be 1-120 characters");return normalized;}
 }

@@ -87,7 +87,7 @@ GitHub Actions의 `CI` workflow는 main push와 pull request마다 API 테스트
 
 배포 가능한 production image와 non-root runtime은 `./scripts/container-build.ps1`로 검증합니다. 실제 CD는 배포 대상·비용 상한·비밀정보·rollback 정책 승인 후 스테이징부터 연결합니다.
 
-차량별 경고 정책은 관제 화면의 `Vehicle threshold policies`에서 설정합니다. `GLOBAL DEFAULT`를 기준으로 차량별 경로 이탈(m)과 ETA 지연(s)의 `CLOSE < OPEN ≤ CRITICAL` 값을 재정의하며, `RESET TO GLOBAL`로 안전하게 상속 상태로 되돌릴 수 있습니다. 저장과 reset은 PostgreSQL 감사 이력에 운영자와 함께 남습니다. 종단 간 검증은 `./scripts/alert-policy-smoke.ps1`로 수행합니다.
+차량별 경고 정책은 관제 화면의 `Vehicle threshold policies`에서 설정합니다. `GLOBAL DEFAULT`를 기준으로 차량별 경로 이탈(m)과 ETA 지연(s)의 `CLOSE < OPEN ≤ CRITICAL` 값을 재정의하며, `RESET TO GLOBAL`로 안전하게 상속 상태로 되돌릴 수 있습니다. 저장과 reset은 PostgreSQL 불변 감사 이력에 운영자와 함께 남고, 각 감사 snapshot의 `RESTORE`로 과거 임계값을 다시 적용할 수 있습니다. 복원 자체도 `RESTORE` 감사 기록을 생성합니다. 종단 간 검증은 `./scripts/alert-policy-smoke.ps1`로 수행합니다.
 
 production image 네 개의 CycloneDX SBOM 생성과 CRITICAL 취약점 0건 검증은 image build 후 `./scripts/container-security.ps1`로 재현합니다. CI의 SBOM은 commit SHA별 artifact로 30일 보관됩니다.
 

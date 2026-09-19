@@ -40,6 +40,7 @@
 - 비관적 잠금 기반 경고 운영자 확인, 최초 확인 감사 정보, 멱등 outbox 이벤트와 TypeScript 미확인 경고 UI
 - PostgreSQL 전역/차량별 경고 임계값 정책, 불변 변경 감사 이력, 텔레메트리 평가 연동과 TypeScript 운영 패널
 - 차량별 경고 정책 soft reset, 전역 상속 즉시 복원, `UPSERT`/`RESET` 감사 분류와 TypeScript reset 제어
+- PostgreSQL 감사 snapshot 기반 경고 정책 복원, `RESTORE` 감사 분류와 TypeScript 원클릭 복원 제어
 
 ## 현재 상태
 
