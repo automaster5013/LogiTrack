@@ -20,7 +20,7 @@ class TelemetryConsumerTest {
         when(deliveries.findById(delivery.getId())).thenReturn(Optional.of(delivery));
         when(points.save(any())).thenAnswer(invocation->invocation.getArgument(0));
         var consumer=new TelemetryConsumer(new ObjectMapper().findAndRegisterModules(),deliveries,processed,stream,alerts,orders,points);
-        consumer.consume("{\"eventId\":\""+eventId+"\",\"occurredAt\":\"2026-09-19T10:00:00Z\",\"payload\":{"+
+        consumer.consume("{\"eventId\":\""+eventId+"\",\"eventType\":\"vehicle.telemetry.v1\",\"schemaVersion\":1,\"occurredAt\":\"2026-09-19T10:00:00Z\",\"payload\":{"+
             "\"deliveryId\":\""+delivery.getId()+"\",\"lat\":37.5,\"lon\":126.9,\"progress\":0.25,\"status\":\"IN_TRANSIT\",\"eta\":null}}");
         var saved=ArgumentCaptor.forClass(TelemetryPoint.class);verify(points).save(saved.capture());
         assertEquals(eventId,saved.getValue().getEventId());assertEquals(delivery.getId(),saved.getValue().getDeliveryId());
@@ -33,6 +33,17 @@ class TelemetryConsumerTest {
         var consumer=new TelemetryConsumer(new ObjectMapper(),mock(DeliveryRepository.class),processed,mock(DeliveryStream.class),mock(AlertService.class),mock(OrderService.class),points);
         consumer.consume("{\"eventId\":\""+UUID.randomUUID()+"\"}");
         verifyNoInteractions(points);
+    }
+
+    @Test void rejectsStringEncodedNumbersBeforeMutation() {
+        var deliveries=mock(DeliveryRepository.class);var processed=mock(ProcessedEventRepository.class);var points=mock(TelemetryPointRepository.class);
+        var delivery=Delivery.create(request(),"key");var eventId=UUID.randomUUID();
+        when(deliveries.findById(delivery.getId())).thenReturn(Optional.of(delivery));
+        var consumer=new TelemetryConsumer(new ObjectMapper(),deliveries,processed,mock(DeliveryStream.class),mock(AlertService.class),mock(OrderService.class),points);
+        var raw="{\"eventId\":\""+eventId+"\",\"eventType\":\"vehicle.telemetry.v1\",\"schemaVersion\":1,\"payload\":{"+
+            "\"deliveryId\":\""+delivery.getId()+"\",\"lat\":\"37.5\",\"lon\":126.9,\"progress\":0.25,\"status\":\"IN_TRANSIT\"}}";
+        assertThrows(IllegalArgumentException.class,()->consumer.consume(raw));
+        assertEquals(Delivery.Status.CREATED,delivery.getStatus());verifyNoInteractions(points);verify(processed,never()).save(any());
     }
 
     private CreateDeliveryRequest request(){return new CreateDeliveryRequest("ORD-1","TRUCK-1",new CreateDeliveryRequest.Location("Seoul",37.5665,126.978),new CreateDeliveryRequest.Location("Incheon",37.4563,126.7052));}
