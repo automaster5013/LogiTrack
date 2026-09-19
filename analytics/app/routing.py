@@ -41,7 +41,7 @@ def geodesic_fallback(origin: Coordinate, destination: Coordinate, points: int =
          origin.lat + (destination.lat - origin.lat) * i / points]
         for i in range(points + 1)
     ]
-    distance = round(haversine_meters(origin, destination) * 1.18)
+    distance = max(1, round(haversine_meters(origin, destination) * 1.18))
     duration = max(60, round(distance / (42_000 / 3_600)))
     return RouteResult("geodesic-fallback", coordinates, distance, duration)
 

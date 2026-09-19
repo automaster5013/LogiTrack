@@ -55,7 +55,7 @@ public class RouteAnalysisClient {
         for(int i=0;i<=24;i++) points.add(List.of(
             d.getOriginLon()+(d.getDestinationLon()-d.getOriginLon())*i/24,
             d.getOriginLat()+(d.getDestinationLat()-d.getOriginLat())*i/24));
-        var distance=Math.round(haversine(d.getOriginLat(),d.getOriginLon(),d.getDestinationLat(),d.getDestinationLon())*1.18);
+        var distance=Math.max(1,Math.round(haversine(d.getOriginLat(),d.getOriginLon(),d.getDestinationLat(),d.getDestinationLon())*1.18));
         var duration=Math.max(60,Math.round(distance/(42_000d/3_600d))); var now=Instant.now();
         return new RoutePlan(UUID.randomUUID(),"spring-fallback","route-v1",points,distance,duration,now.plusSeconds(duration),hash(points),now);
     }

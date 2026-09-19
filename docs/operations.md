@@ -132,6 +132,7 @@ Redis 장애가 Kafka consumer 트랜잭션을 오래 점유하지 않도록 연
 - Replay plan batch 설정은 1~100개로 제한한다. 잘못된 대규모 설정이 단일 실행에서 장시간 DB connection과 plan lock을 점유하지 못하게 한다.
 - 콘솔의 주문·KPI·복구 큐·정책 poller는 이전 요청 완료 후 다음 타이머를 예약한다. API 지연이나 장애 시 interval 요청이 중첩되어 회복 중인 서버를 더 압박하지 않는다.
 - GPS simulator는 기본 8개 worker와 최대 16개 실행/대기 slot만 허용한다. interval·step·worker 범위와 작업당 최대 120초를 시작 시 검증하며, malformed delivery 이벤트나 개별 simulation 실패가 consumer 프로세스를 종료하지 않는다.
+- 출발지와 목적지가 같거나 1m 미만인 요청도 fallback 경로 거리를 최소 1m로 정규화한다. route snapshot의 양수 거리 DB 불변식을 지키면서 지역 내 배송을 500/409로 실패시키지 않는다.
 
 - 목록: `GET /api/operations/dlq?status=PENDING`
 - 단일 replay: `POST /api/operations/dlq/{id}/replay`와 필수 `X-Operator` 헤더

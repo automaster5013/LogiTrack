@@ -19,6 +19,12 @@ class RoutingTest(unittest.TestCase):
         self.assertGreater(first.distance_meters, 20_000)
         self.assertGreater(first.duration_seconds, 0)
 
+    def test_zero_length_fallback_remains_persistable(self):
+        point = Coordinate(37.5, 127.0)
+        result = geodesic_fallback(point, point)
+        self.assertEqual(1, result.distance_meters)
+        self.assertGreater(result.duration_seconds, 0)
+
     def test_parses_osrm_geojson(self):
         route = parse_osrm({"code":"Ok","routes":[{"distance":1234.4,"duration":90.2,
             "geometry":{"coordinates":[[126.9,37.5],[127.0,37.6]]}}]})
