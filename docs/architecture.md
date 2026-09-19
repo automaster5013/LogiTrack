@@ -65,10 +65,14 @@ api/             Spring Boot 제어/API 서비스
 simulator/       Python GPS/상태 이벤트 생성기
 analytics/       Python 경로/ETA 분석 서비스
 web/             Next.js 운영 콘솔
-infra/           Prometheus/Grafana 설정
+infra/           Prometheus, OpenTelemetry Collector, Tempo, Grafana 설정
 docs/            요구사항, ADR, 운영 문서
 scripts/         재현 가능한 smoke test
 ```
+
+## 관측 경로
+
+Spring API와 Python analytics는 OTLP/HTTP로 OpenTelemetry Collector에 span을 보낸다. Collector는 batch와 memory limiter를 거쳐 Tempo에 OTLP/gRPC로 전달하고 Grafana Explore가 Tempo를 조회한다. HTTP `traceparent`는 API에서 RestClient를 통해 analytics와 OSRM 호출까지 전파된다.
 
 ## 확장/격리 전략
 

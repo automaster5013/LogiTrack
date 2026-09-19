@@ -23,6 +23,8 @@ docker compose up --build
 - 경로 분석 health: http://localhost:8090/health
 - Prometheus: http://localhost:9090
 - Grafana: http://localhost:3001 (`admin` / `admin`)
+- Tempo API: http://localhost:3200 (`Grafana → Explore → Tempo`에서 trace 조회)
+- OpenTelemetry Collector health: http://localhost:13133
 
 샘플 배송 생성:
 
@@ -48,6 +50,7 @@ curl -X POST http://localhost:8080/api/deliveries \
 - [실시간 지도 ADR](docs/adr/0002-live-map.md)
 - [경로 분석 ADR](docs/adr/0003-route-analytics.md)
 - [배송 경고 lifecycle ADR](docs/adr/0004-alert-lifecycle.md)
+- [분산 추적 ADR](docs/adr/0005-distributed-tracing.md)
 - [운영 및 장애 처리](docs/operations.md)
 - [구현 진행 현황](docs/progress.md)
 
@@ -70,3 +73,5 @@ python -m unittest discover analytics/tests
 지연·경로 이탈 lifecycle 검증은 `./scripts/alert-smoke.ps1`로 실행합니다. 이 검증은 결정론적 telemetry 주입을 위해 simulator를 일시 중단한 뒤 자동으로 다시 시작합니다.
 
 Redis 기반 다중 API SSE fan-out은 `./scripts/sse-fanout-smoke.ps1`로 검증합니다. 스크립트가 `scale-test` profile의 API replica를 8081 포트에 일시 실행하고 primary에서 발생한 이벤트가 replica 구독자에게 전달되는지 확인한 뒤 종료합니다.
+
+API에서 Python analytics까지 이어지는 trace는 `./scripts/tracing-smoke.ps1`로 검증합니다. 알려진 W3C trace ID를 주입하고 Tempo에서 두 서비스의 span을 직접 조회합니다.

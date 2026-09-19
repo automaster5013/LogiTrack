@@ -5,8 +5,12 @@
 - API liveness/readiness: `/actuator/health/liveness`, `/actuator/health/readiness`
 - analytics health: `http://localhost:8090/health`
 - Prometheus scrape: `/actuator/prometheus`
+- OpenTelemetry Collector health: `http://localhost:13133/`
+- Tempo readiness: `http://localhost:3200/ready`
 - 로그 필드: timestamp, level, logger, message, trace/correlation 식별자
 - 주요 지표: API latency/error, Kafka consumer lag, telemetry 처리량, DLQ 수, 활성 SSE 연결
+
+Grafana Explore에서 `Tempo` datasource를 선택해 service name 또는 trace ID로 조회한다. 로컬은 모든 trace를 sampling하며 운영 환경에서는 `TRACING_SAMPLING_PROBABILITY`를 트래픽과 비용에 맞게 조정한다. Collector 장애는 요청 처리를 막지 않으며 exporter가 bounded queue와 retry를 사용한다.
 
 ## 실패 시나리오
 

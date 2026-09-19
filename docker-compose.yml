@@ -67,6 +67,9 @@ services:
       ROUTING_PROVIDER: ${ROUTING_PROVIDER:-osrm}
       OSRM_BASE_URL: ${OSRM_BASE_URL:-https://router.project-osrm.org}
       ROUTING_TIMEOUT_SECONDS: ${ROUTING_TIMEOUT_SECONDS:-2.5}
+      OTEL_SERVICE_NAME: logitrack-route-analytics
+      INSTANCE_ID: analytics-1
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://otel-collector:4318/v1/traces
     ports: ["8090:8090"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8090/health')"]
@@ -84,6 +87,7 @@ services:
       REDIS_HOST: redis
       ANALYTICS_URL: http://analytics:8090
       INSTANCE_ID: api-primary
+      OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports: ["8080:8080"]
     depends_on:
       postgres: {condition: service_healthy}
@@ -91,6 +95,7 @@ services:
       kafka: {condition: service_healthy}
       kafka-init: {condition: service_completed_successfully}
       analytics: {condition: service_healthy}
+      otel-collector: {condition: service_started}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/readiness | grep UP"]
       interval: 10s
@@ -108,6 +113,7 @@ services:
       REDIS_HOST: redis
       ANALYTICS_URL: http://analytics:8090
       INSTANCE_ID: api-replica
+      OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports: ["8081:8080"]
     depends_on:
       postgres: {condition: service_healthy}
@@ -115,6 +121,7 @@ services:
       kafka: {condition: service_healthy}
       kafka-init: {condition: service_completed_successfully}
       analytics: {condition: service_healthy}
+      otel-collector: {condition: service_started}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/readiness | grep UP"]
       interval: 10s
@@ -143,6 +150,21 @@ services:
     depends_on:
       api: {condition: service_healthy}
 
+  tempo:
+    image: grafana/tempo:2.7.2
+    command: ["-config.file=/etc/tempo.yml"]
+    volumes:
+      - ./infra/otel/tempo.yml:/etc/tempo.yml:ro
+      - tempo-data:/var/tempo
+    ports: ["3200:3200"]
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.135.0
+    command: ["--config=/etc/otelcol-contrib/config.yml"]
+    volumes: ["./infra/otel/collector.yml:/etc/otelcol-contrib/config.yml:ro"]
+    ports: ["4317:4317", "4318:4318", "13133:13133"]
+    depends_on: [tempo]
+
   prometheus:
     image: prom/prometheus:v3.5.0
     command: ["--config.file=/etc/prometheus/prometheus.yml"]
@@ -156,7 +178,8 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
     ports: ["3001:3000"]
     volumes: ["./infra/grafana/provisioning:/etc/grafana/provisioning:ro"]
-    depends_on: [prometheus]
+    depends_on: [prometheus, tempo]
 
 volumes:
   postgres-data:
+  tempo-data:
