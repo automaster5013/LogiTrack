@@ -41,3 +41,11 @@ Grafana Explore에서 `Tempo` datasource를 선택해 service name 또는 trace 
 - 단일 replay: `POST /api/operations/dlq/{id}/replay`와 필수 `X-Operator` 헤더
 - 감사: `GET /api/operations/replay-audits`
 - 동일 catalog 항목은 한 번만 replay할 수 있다. 영구 오류가 다시 DLQ로 가면 새 항목으로 조사한다.
+
+### 선택 범위 replay
+
+1. `POST /api/operations/replay-plans`에 `{"eventIds":[...]}`와 `X-Operator`를 보내 dry-run plan을 만든다.
+2. 응답의 대상과 10분 만료 시각을 검토한다.
+3. `POST /api/operations/replay-plans/{id}/execute`에 같은 `X-Operator`와 `X-Replay-Approval: APPROVE`를 보낸다.
+
+기본 최대 20건, 5 events/s이며 각각 `logitrack.replay.batch-max-size`, `logitrack.replay.batch-rate-per-second`로 조정한다. 중복 실행은 거절하고 이벤트별 감사 행을 유지한다.

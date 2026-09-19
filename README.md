@@ -53,6 +53,7 @@ curl -X POST http://localhost:8080/api/deliveries \
 - [분산 추적 ADR](docs/adr/0005-distributed-tracing.md)
 - [일별 KPI projection ADR](docs/adr/0006-daily-kpi-projection.md)
 - [DLQ replay와 감사 ADR](docs/adr/0007-dlq-replay.md)
+- [선택 범위 replay 승인 ADR](docs/adr/0008-batch-replay-approval.md)
 - [운영 및 장애 처리](docs/operations.md)
 - [로컬 성능 기준선](docs/performance.md)
 - [10분 데모 시나리오](docs/demo.md)
@@ -85,6 +86,8 @@ PostgreSQL 일별 KPI projection과 CSV 보고서는 `./scripts/kpi-smoke.ps1`�
 멱등 배송 생성 API의 20 RPS 기준선은 `./scripts/load-smoke.ps1`로 재현합니다. 99% 성공률과 p95 500ms 기준을 넘지 못하면 스크립트가 실패합니다.
 
 DLQ 격리, 선택 replay, 감사 기록과 중복 방지는 `./scripts/replay-smoke.ps1`로 검증합니다. 영구 poison event는 replay 뒤 새 DLQ 항목으로 다시 격리되는 것이 정상입니다.
+
+최대 20건 범위의 dry-run plan, 명시적 승인, 5 events/s 제한은 `./scripts/replay-plan-smoke.ps1`로 검증합니다.
 
 Kafka telemetry 100건의 API 반영 p95와 consumer lag는 `./scripts/telemetry-load.ps1`로 측정합니다.
 

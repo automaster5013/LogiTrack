@@ -28,7 +28,8 @@
 - Kafka telemetry 100건 batch 반영 p95 307.95ms, 처리량 36.64 events/s, 종료 lag 0 기준선
 - 10분 데모 순서와 전체 재현 명령 문서
 - 별도 Compose/PostgreSQL/Kafka 격리 환경의 고유 배송 생성 10 RPS 기준선(p95 62.80ms, 성공률 100%)
+- 최대 20건 DLQ replay dry-run plan, 10분 승인 창, 운영자 일치와 5 events/s 속도 제한
 
-## 다음 우선순위
+## 현재 상태
 
-1. 선택 범위 replay의 rate limit·승인·dry-run 설계
+모든 예정 우선순위 완료. 이후 작업은 새 요구사항 또는 운영 검증 결과에 따라 결정한다.
