@@ -99,6 +99,8 @@ class RoutePlanner:
             async with self._cache_lock:
                 if task.done() and self._inflight.get(key) is task:
                     self._inflight.pop(key, None)
+                elif not task.done() and self._inflight.get(key) is task:
+                    asyncio.create_task(self._finalize_abandoned(key, task))
             raise
         async with self._cache_lock:
             if self._inflight.get(key) is task:
@@ -109,6 +111,21 @@ class RoutePlanner:
                 while len(self._cache) > 1024:
                     self._cache.popitem(last=False)
         return result
+
+    async def _finalize_abandoned(self, key, task: asyncio.Task[RouteResult]) -> None:
+        try:
+            result = await asyncio.shield(task)
+        except BaseException:
+            result = None
+        async with self._cache_lock:
+            if self._inflight.get(key) is not task:
+                return
+            self._inflight.pop(key, None)
+            if result is not None and self.cache_ttl_seconds > 0:
+                self._cache[key] = (time.monotonic() + self.cache_ttl_seconds, result)
+                self._cache.move_to_end(key)
+                while len(self._cache) > 1024:
+                    self._cache.popitem(last=False)
 
     async def _plan_uncached(self, origin: Coordinate, destination: Coordinate) -> RouteResult:
         if self.provider != "osrm":

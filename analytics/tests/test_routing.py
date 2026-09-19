@@ -109,5 +109,17 @@ class RoutePlannerCacheTest(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(asyncio.CancelledError): await cancelled
         self.assertEqual("geodesic-fallback",(await survivor).provider)
 
+    async def test_abandoned_route_is_finalized(self):
+        planner = RoutePlanner("geodesic", "http://unused", cache_ttl_seconds=300)
+        async def fake(origin, destination):
+            await asyncio.sleep(0.02)
+            return geodesic_fallback(origin, destination)
+        planner._plan_uncached = fake
+        request=asyncio.create_task(planner.plan(Coordinate(0,0),Coordinate(1,1)))
+        await asyncio.sleep(0.005);request.cancel()
+        with self.assertRaises(asyncio.CancelledError): await request
+        await asyncio.sleep(0.03)
+        self.assertEqual(0,len(planner._inflight));self.assertEqual(1,len(planner._cache))
+
 
 if __name__ == "__main__": unittest.main()
