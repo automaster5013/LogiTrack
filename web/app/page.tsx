@@ -14,6 +14,7 @@ const API=process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 export default function Home(){
  const [items,setItems]=useState<Delivery[]>([]); const [connected,setConnected]=useState(false); const [error,setError]=useState(""); const [selected,setSelected]=useState<string>();
  const knownDeliveryIds=useRef(new Set<string>());
+ const requestedMapIds=useRef(new Set<string>());
  const [fleetScope,setFleetScope]=useState<"LIVE"|"ALL">("LIVE"); const [fleetQuery,setFleetQuery]=useState("");
  const [routes,setRoutes]=useState<RouteSnapshot[]>([]);
  const [telemetry,setTelemetry]=useState<TelemetryPoint[]>([]);
@@ -24,21 +25,29 @@ export default function Home(){
  const [kpis,setKpis]=useState<DailyDeliveryKpi[]>([]);
  const [deadLetters,setDeadLetters]=useState<DeadLetterEvent[]>([]); const [replayAudits,setReplayAudits]=useState<ReplayAudit[]>([]); const [replayBusy,setReplayBusy]=useState<string>();
  const [stocks,setStocks]=useState<WarehouseStock[]>([]); const [tasks,setTasks]=useState<WarehouseTask[]>([]); const [ledger,setLedger]=useState<LedgerEntry[]>([]); const [warehouseBusy,setWarehouseBusy]=useState(false);
- const loadRoutes=()=>fetch(`${API}/api/routes`).then(r=>r.json()).then(setRoutes);
- const load=()=>Promise.all([fetch(`${API}/api/deliveries`).then(r=>r.json()),fetch(`${API}/api/routes`).then(r=>r.json()),fetch(`${API}/api/telemetry/points`).then(r=>r.json()),fetch(`${API}/api/alerts`).then(r=>r.json())]).then(([d,r,t,a]:[Delivery[],RouteSnapshot[],TelemetryPoint[],DeliveryAlert[]])=>{knownDeliveryIds.current=new Set(d.map(item=>item.id));setItems(d);setRoutes(r);setTelemetry(t);setAlerts(a)}).catch(()=>setError("API에 연결할 수 없습니다."));
+ const loadMapData=async(deliveryIds:string[])=>{
+  const ids=[...new Set(deliveryIds)].filter(id=>!requestedMapIds.current.has(id));if(!ids.length)return;
+  ids.forEach(id=>requestedMapIds.current.add(id));
+  try{const nextRoutes:RouteSnapshot[]=[];const nextTelemetry:TelemetryPoint[]=[];
+   for(let offset=0;offset<ids.length;offset+=100){const batch=ids.slice(offset,offset+100);const query=new URLSearchParams({deliveryIds:batch.join(",")});const [r,t]=await Promise.all([fetch(`${API}/api/routes?${query}`).then(response=>response.json()),fetch(`${API}/api/telemetry/points?${query}`).then(response=>response.json())]);nextRoutes.push(...r);nextTelemetry.push(...t)}
+   const idSet=new Set(ids);setRoutes(old=>[...nextRoutes,...old.filter(route=>!idSet.has(route.deliveryId))]);setTelemetry(old=>{const merged=new Map([...nextTelemetry,...old].map(point=>[point.eventId,point]));return [...merged.values()].slice(0,5000)})
+  }catch(error){ids.forEach(id=>requestedMapIds.current.delete(id));throw error}
+ };
+ const load=()=>Promise.all([fetch(`${API}/api/deliveries`).then(r=>r.json()),fetch(`${API}/api/alerts`).then(r=>r.json())]).then(async([d,a]:[Delivery[],DeliveryAlert[]])=>{knownDeliveryIds.current=new Set(d.map(item=>item.id));setItems(d);setAlerts(a);await loadMapData(d.filter(item=>item.status!=="DELIVERED").map(item=>item.id))}).catch(()=>setError("API에 연결할 수 없습니다."));
  const loadWarehouse=()=>Promise.all([fetch(`${API}/api/warehouse/stock`).then(r=>r.json()),fetch(`${API}/api/warehouse/tasks`).then(r=>r.json()),fetch(`${API}/api/warehouse/ledger`).then(r=>r.json())]).then(([s,t,l])=>{setStocks(s);setTasks(t);setLedger(l)}).catch(()=>setError("창고 데이터에 연결할 수 없습니다."));
  const loadKpis=()=>fetch(`${API}/api/reports/daily-kpis?days=14`).then(r=>r.json()).then(setKpis).catch(()=>setError("KPI 보고서를 불러올 수 없습니다."));
  const loadOrders=()=>fetch(`${API}/api/orders`).then(r=>r.json()).then(setOrders).catch(()=>setError("주문 데이터를 불러올 수 없습니다."));
  const loadReplay=()=>Promise.all([fetch(`${API}/api/operations/dlq`).then(r=>r.json()),fetch(`${API}/api/operations/replay-audits`).then(r=>r.json())]).then(([events,audits])=>{setDeadLetters(events);setReplayAudits(audits);setError(current=>current==="복구 큐를 불러올 수 없습니다."?"":current)}).catch(()=>setError("복구 큐를 불러올 수 없습니다."));
  const loadPolicies=()=>Promise.all([fetch(`${API}/api/alert-policies`).then(r=>r.json()),fetch(`${API}/api/alert-policies/audits`).then(r=>r.json())]).then(([nextPolicies,nextAudits])=>{setPolicies(nextPolicies);setPolicyAudits(nextAudits)}).catch(()=>setError("경고 정책을 불러올 수 없습니다."));
  useEffect(()=>{load(); const source=new EventSource(`${API}/api/stream/deliveries`); source.onopen=()=>setConnected(true); source.onerror=()=>setConnected(false);
-  source.addEventListener("delivery-update",e=>{const next:Delivery=JSON.parse((e as MessageEvent).data);if(!knownDeliveryIds.current.has(next.id)){knownDeliveryIds.current.add(next.id);loadRoutes().catch(()=>{})}setItems(old=>[next,...old.filter(x=>x.id!==next.id)]);loadOrders().catch(()=>{})});
+  source.addEventListener("delivery-update",e=>{const next:Delivery=JSON.parse((e as MessageEvent).data);if(!knownDeliveryIds.current.has(next.id)){knownDeliveryIds.current.add(next.id);loadMapData([next.id]).catch(()=>{})}setItems(old=>[next,...old.filter(x=>x.id!==next.id)]);loadOrders().catch(()=>{})});
   source.addEventListener("telemetry-point",e=>{const next:TelemetryPoint=JSON.parse((e as MessageEvent).data);setTelemetry(old=>old.some(point=>point.eventId===next.eventId)?old:[next,...old].slice(0,5000))});
   source.addEventListener("alert-update",e=>{const next:DeliveryAlert=JSON.parse((e as MessageEvent).data);setAlerts(old=>[next,...old.filter(x=>x.id!==next.id)])});return()=>source.close()},[]);
  const liveItems=useMemo(()=>items.filter(item=>item.status!=="DELIVERED"),[items]);
  const scopedItems=fleetScope==="LIVE"?liveItems:items;
  const visibleItems=useMemo(()=>{const query=fleetQuery.trim().toLowerCase();return query?scopedItems.filter(item=>[item.vehicleId,item.orderNumber,item.originName,item.destinationName].some(value=>value.toLowerCase().includes(query))):scopedItems},[scopedItems,fleetQuery]);
  useEffect(()=>{if(visibleItems.length&&!visibleItems.some(item=>item.id===selected))setSelected(visibleItems.find(item=>routes.some(route=>route.deliveryId===item.id))?.id||visibleItems[0].id)},[visibleItems,routes,selected]);
+ useEffect(()=>{loadMapData(scopedItems.map(item=>item.id)).catch(()=>setError("지도 경로를 불러올 수 없습니다."))},[fleetScope,items]);
  function focusDelivery(id:string){if(items.find(item=>item.id===id)?.status==="DELIVERED")setFleetScope("ALL");setFleetQuery("");setSelected(id)}
  useEffect(()=>{loadWarehouse()},[]);
  useEffect(()=>{loadOrders();const timer=window.setInterval(loadOrders,15000);return()=>window.clearInterval(timer)},[]);

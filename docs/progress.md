@@ -46,6 +46,7 @@
 - 지도 헤더 즉시 검색, 범위별 결과 수와 검색 무결과 안내로 대규모 fleet 탐색 동선 개선
 - PostgreSQL 불변 GPS telemetry 이력, 조회 API와 계획 경로 대비 실제 주행 궤적 지도 시각화
 - Redis fan-out `telemetry-point` SSE와 TypeScript 증분 병합으로 GPS 이벤트별 전체 궤적 재조회 제거
+- 배송 ID 범위 기반 지도 API와 LIVE 우선 지연 로딩으로 기본 화면의 누적 경로 전송량 격리
 
 ## 현재 상태
 

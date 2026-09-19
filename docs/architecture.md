@@ -56,7 +56,7 @@ PostgreSQL KPI projection -> control-api -> analytics PDF renderer -> operator d
 
 ### telemetry_points
 
-Kafka telemetry의 `event_id`를 기본 키로 사용하고 `delivery_id`, 차량, 위경도, 진행률, 발생 시각을 불변 이력으로 저장한다. 같은 트랜잭션에서 현재 배송 위치와 processed-event 멱등 표식을 함께 반영하므로 재전달은 궤적을 중복 생성하지 않는다. 조회 API는 최근 5,000개 점으로 초기 응답 크기를 제한하고, 이후 좌표는 Redis Pub/Sub 기반 `telemetry-point` SSE로 API 인스턴스 사이에 fan-out한다. TypeScript 클라이언트는 event ID로 점을 멱등 병합하며, 지도는 실제 점이 있을 때 계획 진행률 추정선 대신 발생 시각 순의 GPS 궤적을 표시한다.
+Kafka telemetry의 `event_id`를 기본 키로 사용하고 `delivery_id`, 차량, 위경도, 진행률, 발생 시각을 불변 이력으로 저장한다. 같은 트랜잭션에서 현재 배송 위치와 processed-event 멱등 표식을 함께 반영하므로 재전달은 궤적을 중복 생성하지 않는다. 조회 API는 최근 5,000개 점과 요청당 최대 100개 배송 ID로 초기 응답 크기를 제한하고, 이후 좌표는 Redis Pub/Sub 기반 `telemetry-point` SSE로 API 인스턴스 사이에 fan-out한다. TypeScript 클라이언트는 기본 LIVE 배송만 먼저 조회하고 ALL 범위는 필요할 때 지연 로드하며 event ID로 점을 멱등 병합한다. 지도는 실제 점이 있을 때 계획 진행률 추정선 대신 발생 시각 순의 GPS 궤적을 표시한다.
 
 ### delivery_alerts
 
