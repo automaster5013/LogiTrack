@@ -82,6 +82,7 @@
 - analytics 경로 응답의 좌표·거리·시간·식별자 계약 검증과 안전한 fallback
 - 경로 응답 좌표 수·문자열 DB 길이·SHA-256·시각 순서 및 미래 시각 경계
 - analytics KPI PDF 서명·구성 가능 응답 크기 상한 검증
+- KPI PDF 렌더링 성공·실패 Micrometer counter
 
 ## 현재 상태
 

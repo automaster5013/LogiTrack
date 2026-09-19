@@ -34,6 +34,8 @@ API→analytics 호출은 경로 분석 connect/read 1초/4초, PDF connect/read
 
 KPI PDF 응답은 `%PDF` 서명과 기본 10MB 크기 상한을 모두 통과해야 전달한다. 상한은 `ANALYTICS_REPORT_MAX_RESPONSE_SIZE`로 조정할 수 있다.
 
+PDF 렌더링 성공·실패는 `logitrack_report_pdf_total{outcome="success|failure"}`로 확인한다. 실패 증가 시 analytics health와 timeout, 응답 크기 제한을 함께 확인한다.
+
 경로 분석 결과는 `logitrack_route_analysis_total{outcome="success|fallback"}`로 집계한다. 5분 동안 fallback이 5회를 초과하면 `LogiTrackRouteAnalysisDegraded` warning이 발생하므로 analytics health와 로그, 외부 route provider 상태를 순서대로 확인한다.
 
 analytics 응답은 저장 전에 경로 ID, DB 길이에 맞는 provider·algorithm과 SHA-256 hash, 생성·도착 시각 순서, 2~10,000개 좌표, 유한한 경위도 범위, 양수 거리·소요 시간을 검증한다. 생성 시각은 서버보다 5분을 초과해 미래일 수 없다. HTTP 성공이어도 이 계약을 위반하면 `spring-fallback`으로 전환하고 fallback counter를 증가시킨다.
