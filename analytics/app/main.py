@@ -1,5 +1,6 @@
 import os
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI, Response
@@ -50,9 +51,6 @@ class DailyKpiRow(BaseModel):
     projectedAt: datetime
 
 
-app = FastAPI(title="LogiTrack Route Analytics", version="1.0.0")
-
-
 def configure_tracing() -> None:
     if os.getenv("OTEL_SDK_DISABLED", "false").lower() == "true":
         return
@@ -67,14 +65,20 @@ def configure_tracing() -> None:
     FastAPIInstrumentor.instrument_app(app, excluded_urls="health")
     HTTPXClientInstrumentor().instrument()
 
-
-configure_tracing()
 planner = RoutePlanner(
     os.getenv("ROUTING_PROVIDER", "osrm"),
     os.getenv("OSRM_BASE_URL", "https://router.project-osrm.org"),
     float(os.getenv("ROUTING_TIMEOUT_SECONDS", "2.5")),
     float(os.getenv("ROUTING_CACHE_TTL_SECONDS", "300")),
 )
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    yield
+    await planner.close()
+
+app = FastAPI(title="LogiTrack Route Analytics", version="1.0.0", lifespan=lifespan)
+configure_tracing()
 
 
 @app.get("/health")

@@ -1,5 +1,6 @@
 import sys
 import unittest
+import asyncio
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
@@ -68,6 +69,32 @@ class RoutePlannerCacheTest(unittest.IsolatedAsyncioTestCase):
         planner = RoutePlanner("geodesic", "http://unused", cache_ttl_seconds=0)
         await planner.plan(Coordinate(0, 0), Coordinate(1, 1))
         self.assertEqual(0, len(planner._cache))
+
+    async def test_deduplicates_identical_inflight_requests(self):
+        planner = RoutePlanner("geodesic", "http://unused", cache_ttl_seconds=0)
+        calls = 0
+        async def fake(origin, destination):
+            nonlocal calls
+            calls += 1
+            await asyncio.sleep(0.02)
+            return geodesic_fallback(origin, destination)
+        planner._plan_uncached = fake
+        origin, destination = Coordinate(0, 0), Coordinate(1, 1)
+        await asyncio.gather(planner.plan(origin, destination), planner.plan(origin, destination))
+        self.assertEqual(1, calls)
+
+    async def test_processes_different_routes_concurrently(self):
+        planner = RoutePlanner("geodesic", "http://unused", cache_ttl_seconds=0)
+        active = peak = 0
+        async def fake(origin, destination):
+            nonlocal active, peak
+            active += 1; peak = max(peak, active)
+            await asyncio.sleep(0.02)
+            active -= 1
+            return geodesic_fallback(origin, destination)
+        planner._plan_uncached = fake
+        await asyncio.gather(planner.plan(Coordinate(0, 0), Coordinate(1, 1)), planner.plan(Coordinate(0, 0.1), Coordinate(1, 1)))
+        self.assertEqual(2, peak)
 
 
 if __name__ == "__main__": unittest.main()

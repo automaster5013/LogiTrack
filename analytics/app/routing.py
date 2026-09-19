@@ -79,25 +79,36 @@ class RoutePlanner:
         self.cache_ttl_seconds = cache_ttl_seconds
         self._cache: OrderedDict[tuple[float, float, float, float], tuple[float, RouteResult]] = OrderedDict()
         self._cache_lock = asyncio.Lock()
+        self._inflight: dict[tuple[float, float, float, float], asyncio.Task[RouteResult]] = {}
+        self._client: httpx.AsyncClient | None = None
 
     async def plan(self, origin: Coordinate, destination: Coordinate) -> RouteResult:
         key = (origin.lat, origin.lon, destination.lat, destination.lon)
-        cached = self._cache.get(key)
-        if cached and cached[0] > time.monotonic():
-            self._cache.move_to_end(key)
-            return cached[1]
         async with self._cache_lock:
             cached = self._cache.get(key)
             if cached and cached[0] > time.monotonic():
                 self._cache.move_to_end(key)
                 return cached[1]
-            result = await self._plan_uncached(origin, destination)
+            task = self._inflight.get(key)
+            if task is None:
+                task = asyncio.create_task(self._plan_uncached(origin, destination))
+                self._inflight[key] = task
+        try:
+            result = await task
+        except BaseException:
+            async with self._cache_lock:
+                if self._inflight.get(key) is task:
+                    self._inflight.pop(key, None)
+            raise
+        async with self._cache_lock:
+            if self._inflight.get(key) is task:
+                self._inflight.pop(key, None)
             if self.cache_ttl_seconds > 0:
                 self._cache[key] = (time.monotonic() + self.cache_ttl_seconds, result)
                 self._cache.move_to_end(key)
                 while len(self._cache) > 1024:
                     self._cache.popitem(last=False)
-            return result
+        return result
 
     async def _plan_uncached(self, origin: Coordinate, destination: Coordinate) -> RouteResult:
         if self.provider != "osrm":
@@ -105,9 +116,15 @@ class RoutePlanner:
         url = (f"{self.osrm_base_url}/route/v1/driving/"
                f"{origin.lon},{origin.lat};{destination.lon},{destination.lat}")
         try:
-            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-                response = await client.get(url, params={"overview": "full", "geometries": "geojson", "steps": "false"})
-                response.raise_for_status()
-                return parse_osrm(response.json())
+            if self._client is None:
+                self._client = httpx.AsyncClient(timeout=self.timeout_seconds)
+            response = await self._client.get(url, params={"overview": "full", "geometries": "geojson", "steps": "false"})
+            response.raise_for_status()
+            return parse_osrm(response.json())
         except (httpx.HTTPError, ValueError, KeyError, TypeError):
             return geodesic_fallback(origin, destination)
+
+    async def close(self) -> None:
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None

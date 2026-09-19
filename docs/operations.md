@@ -40,6 +40,8 @@ Kafka 텔레메트리는 `eventType=vehicle.telemetry.v1`, 정수 `schemaVersion
 
 공개 route provider 보호와 반복 경로 응답 안정화를 위해 analytics는 동일 좌표 결과를 기본 300초 캐시한다. `ROUTING_CACHE_TTL_SECONDS`로 조정하며 최대 1,024개 bounded LRU에서 가장 오래 사용하지 않은 항목만 축출한다. TTL 0은 캐시를 비활성화한다.
 
+동일 좌표의 동시 cache miss는 하나의 in-flight OSRM 작업을 공유하고, 서로 다른 좌표는 전역 lock 없이 병렬 처리한다. analytics 프로세스는 하나의 `httpx.AsyncClient` connection pool을 재사용하고 graceful shutdown 시 닫는다.
+
 analytics는 OSRM 응답의 2~10,000개 유한 경위도 좌표와 양수 유한 거리·시간을 검증하고 위반 시 geodesic fallback을 사용한다. `ROUTING_PROVIDER`는 `osrm|geodesic`, `ROUTING_TIMEOUT_SECONDS`는 0초 초과 30초 이하, cache TTL은 0~86,400초만 허용한다. analytics가 정상 응답으로 반환한 `geodesic-fallback`도 API fallback counter와 경보에 포함된다.
 
 API→analytics 호출은 경로 분석 connect/read 1초/4초, PDF connect/read 1초/15초로 제한한다. 각각 `ANALYTICS_ROUTE_*_TIMEOUT`, `ANALYTICS_REPORT_*_TIMEOUT` 환경변수로 조정하며 경로 timeout은 geodesic fallback으로 전환된다.
