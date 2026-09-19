@@ -36,6 +36,7 @@
 - JaCoCo 핵심 도메인 line/branch 80% 빌드 gate와 재현 가능한 Docker 검증(line 90.38%, branch 96.88%)
 - GitHub Actions 병렬 CI(API coverage, Python tests, Compose validation, TypeScript production build)와 최소 읽기 권한
 - production 컨테이너 4종의 잠금 의존성 build, commit SHA label, non-root runtime CI gate와 CD 도입 기준
+- production 컨테이너 4종의 CycloneDX SBOM artifact와 CRITICAL 취약점 0건 CI gate, Tomcat/Netty 보안 패치 고정
 
 ## 현재 상태
 

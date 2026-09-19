@@ -78,10 +78,10 @@ jobs:
         run: npm run build
 
   containers:
-    name: Production container images
+    name: Production images and supply-chain security
     needs: [api, python, web]
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
@@ -101,4 +101,44 @@ jobs:
               exit 1
             fi
             echo "$image runtime user: $user"
+          done
+      - name: Generate CycloneDX SBOMs
+        env:
+          TRIVY_IMAGE: ghcr.io/aquasecurity/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969
+        run: |
+          mkdir -p work/sbom
+          for service in api analytics simulator web; do
+            docker run --rm \
+              --volume /var/run/docker.sock:/var/run/docker.sock \
+              --volume trivy-cache:/root/.cache/ \
+              --volume "$GITHUB_WORKSPACE/work/sbom:/output" \
+              "$TRIVY_IMAGE" image --scanners vuln --format cyclonedx \
+              --output "/output/logitrack-$service.cdx.json" --no-progress \
+              "logitrack-$service:ci"
+            test -s "work/sbom/logitrack-$service.cdx.json"
+          done
+      - name: Upload immutable image SBOMs
+        uses: actions/upload-artifact@v7
+        with:
+          name: container-sboms-${{ github.sha }}
+          path: work/sbom/*.cdx.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Reject critical image vulnerabilities
+        env:
+          TRIVY_IMAGE: ghcr.io/aquasecurity/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969
+        run: |
+          for service in api analytics simulator web; do
+            image="logitrack-$service:ci"
+            if ! docker run --rm \
+              --volume /var/run/docker.sock:/var/run/docker.sock \
+              --volume trivy-cache:/root/.cache/ \
+              --volume "$GITHUB_WORKSPACE/work/sbom:/output" \
+              "$TRIVY_IMAGE" image --scanners vuln --severity CRITICAL \
+              --format json --output "/output/logitrack-$service.critical.json" \
+              --exit-code 1 --no-progress "$image"; then
+              cat "work/sbom/logitrack-$service.critical.json"
+              exit 1
+            fi
+            echo "$image critical vulnerabilities: 0"
           done

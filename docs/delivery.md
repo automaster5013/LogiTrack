@@ -4,6 +4,7 @@
 
 - CI는 구현되어 있다. GitHub Actions가 API 테스트와 coverage, Python 테스트, Compose 구성, TypeScript build를 검증한다.
 - production Docker image 네 개도 clean runner에서 빌드하고 모든 runtime이 non-root인지 검사한다.
+- 각 image의 CycloneDX SBOM을 30일 보관하고, 수정 가능 여부와 관계없이 CRITICAL 취약점이 하나라도 있으면 CI를 차단한다.
 - CD는 아직 구현하지 않았다. 승인된 배포 대상이 없으므로 image registry push나 외부 인프라 변경을 수행하지 않는다.
 
 ## CD를 시작할 시점
@@ -36,4 +37,8 @@ pull request
 
 ## 로컬 릴리스 검증
 
-`./scripts/container-build.ps1`은 API, analytics, simulator, web production image를 현재 commit SHA label과 함께 빌드하고 root runtime을 거부한다. 실제 registry push나 배포는 수행하지 않는다.
+`./scripts/container-build.ps1`은 API, analytics, simulator, web production image를 현재 commit SHA label과 함께 빌드하고 root runtime을 거부한다. 이어서 `./scripts/container-security.ps1`을 실행하면 digest로 고정한 Trivy 0.74.0이 `work/sbom/*.cdx.json`을 만들고 네 image의 CRITICAL 취약점 0건을 강제한다. 실제 registry push나 배포는 수행하지 않는다.
+
+API는 Spring Boot 3.4.13을 사용하며, 2026년 공개 취약점이 수정된 정식 릴리스 Tomcat 10.1.60과 Netty 4.1.137.Final을 명시적으로 고정한다. 프레임워크의 기본 관리 버전으로 되돌릴 때도 image scan이 통과해야 한다.
+
+웹 production runtime에는 `node` 실행 파일과 standalone 산출물만 남기고, 빌드 단계에서만 필요한 npm, Corepack, Yarn은 제거한다. 패키지 설치와 TypeScript/Next.js build는 앞선 격리 stage에서 계속 잠금 파일을 기준으로 수행한다.

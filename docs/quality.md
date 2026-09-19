@@ -33,5 +33,8 @@ JaCoCo가 핵심 상태 전이와 불변식을 소유한 도메인 클래스의 
 - Python 3.12 analytics/simulator 테스트와 Compose topology 검증
 - Node.js 22 TypeScript production build
 - API, analytics, simulator, web production image build와 non-root runtime 검사
+- digest로 고정한 Trivy를 통한 CycloneDX SBOM artifact 생성과 CRITICAL 취약점 0건 gate
 
 외부 배포나 secret은 사용하지 않으며 `GITHUB_TOKEN` 권한은 `contents: read`로 제한한다. 같은 branch에 새 실행이 시작되면 이전 실행을 취소해 불필요한 runner 사용도 줄인다.
+
+SBOM artifact는 commit SHA가 포함된 이름으로 30일 보관한다. 로컬에서는 production image를 `./scripts/container-build.ps1`로 만든 다음 `./scripts/container-security.ps1`로 같은 정책을 재현한다.
