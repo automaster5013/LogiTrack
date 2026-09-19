@@ -7,6 +7,7 @@ import ReplayOperationsPanel from "./components/ReplayOperationsPanel";
 import OutboxRecoveryPanel from "./components/OutboxRecoveryPanel";
 import AlertOperationsPanel from "./components/AlertOperationsPanel";
 import AlertPolicyPanel, { PolicyInput } from "./components/AlertPolicyPanel";
+import { fetchJson } from "./api";
 import type { AlertPolicy, AlertPolicyAudit, CustomerOrder, DailyDeliveryKpi, DeadLetterEvent, Delivery, DeliveryAlert, LedgerEntry, OutboxFailure, OutboxRetryAudit, ReplayAudit, RouteSnapshot, TelemetryPoint, WarehouseStock, WarehouseTask } from "./types";
 
 const FleetMap=dynamic(()=>import("./components/FleetMap"),{ssr:false});
@@ -31,17 +32,17 @@ export default function Home(){
   const ids=[...new Set(deliveryIds)].filter(id=>!requestedMapIds.current.has(id));if(!ids.length)return;
   ids.forEach(id=>requestedMapIds.current.add(id));
   try{const nextRoutes:RouteSnapshot[]=[];const nextTelemetry:TelemetryPoint[]=[];
-   for(let offset=0;offset<ids.length;offset+=100){const batch=ids.slice(offset,offset+100);const query=new URLSearchParams({deliveryIds:batch.join(",")});const [r,t]=await Promise.all([fetch(`${API}/api/routes?${query}`).then(response=>response.json()),fetch(`${API}/api/telemetry/points?${query}`).then(response=>response.json())]);nextRoutes.push(...r);nextTelemetry.push(...t)}
+   for(let offset=0;offset<ids.length;offset+=100){const batch=ids.slice(offset,offset+100);const query=new URLSearchParams({deliveryIds:batch.join(",")});const [r,t]=await Promise.all([fetchJson<RouteSnapshot[]>(`${API}/api/routes?${query}`),fetchJson<TelemetryPoint[]>(`${API}/api/telemetry/points?${query}`)]);nextRoutes.push(...r);nextTelemetry.push(...t)}
    const idSet=new Set(ids);setRoutes(old=>[...nextRoutes,...old.filter(route=>!idSet.has(route.deliveryId))]);setTelemetry(old=>{const merged=new Map([...nextTelemetry,...old].map(point=>[point.eventId,point]));return [...merged.values()].slice(0,5000)})
   }catch(error){ids.forEach(id=>requestedMapIds.current.delete(id));throw error}
  };
- const load=()=>Promise.all([fetch(`${API}/api/deliveries`).then(r=>r.json()),fetch(`${API}/api/alerts`).then(r=>r.json())]).then(async([d,a]:[Delivery[],DeliveryAlert[]])=>{knownDeliveryIds.current=new Set(d.map(item=>item.id));setItems(d);setAlerts(a);await loadMapData(d.filter(item=>item.status!=="DELIVERED").map(item=>item.id))}).catch(()=>setError("API에 연결할 수 없습니다."));
- const loadWarehouse=()=>Promise.all([fetch(`${API}/api/warehouse/stock`).then(r=>r.json()),fetch(`${API}/api/warehouse/tasks`).then(r=>r.json()),fetch(`${API}/api/warehouse/ledger`).then(r=>r.json())]).then(([s,t,l])=>{setStocks(s);setTasks(t);setLedger(l)}).catch(()=>setError("창고 데이터에 연결할 수 없습니다."));
- const loadKpis=()=>fetch(`${API}/api/reports/daily-kpis?days=14`).then(r=>r.json()).then(setKpis).catch(()=>setError("KPI 보고서를 불러올 수 없습니다."));
- const loadOrders=()=>fetch(`${API}/api/orders`).then(r=>r.json()).then(setOrders).catch(()=>setError("주문 데이터를 불러올 수 없습니다."));
- const loadReplay=()=>Promise.all([fetch(`${API}/api/operations/dlq`).then(r=>r.json()),fetch(`${API}/api/operations/replay-audits`).then(r=>r.json())]).then(([events,audits])=>{setDeadLetters(events);setReplayAudits(audits);setError(current=>current==="복구 큐를 불러올 수 없습니다."?"":current)}).catch(()=>setError("복구 큐를 불러올 수 없습니다."));
- const loadOutbox=()=>Promise.all([fetch(`${API}/api/operations/outbox/failures`).then(r=>r.json()),fetch(`${API}/api/operations/outbox/retry-audits`).then(r=>r.json())]).then(([failures,audits])=>{setOutboxFailures(failures);setOutboxAudits(audits)}).catch(()=>setError("Outbox 복구 큐를 불러올 수 없습니다."));
- const loadPolicies=()=>Promise.all([fetch(`${API}/api/alert-policies`).then(r=>r.json()),fetch(`${API}/api/alert-policies/audits`).then(r=>r.json())]).then(([nextPolicies,nextAudits])=>{setPolicies(nextPolicies);setPolicyAudits(nextAudits)}).catch(()=>setError("경고 정책을 불러올 수 없습니다."));
+ const load=()=>Promise.all([fetchJson<Delivery[]>(`${API}/api/deliveries`),fetchJson<DeliveryAlert[]>(`${API}/api/alerts`)]).then(async([d,a])=>{knownDeliveryIds.current=new Set(d.map(item=>item.id));setItems(d);setAlerts(a);await loadMapData(d.filter(item=>item.status!=="DELIVERED").map(item=>item.id))}).catch(()=>setError("API에 연결할 수 없습니다."));
+ const loadWarehouse=()=>Promise.all([fetchJson<WarehouseStock[]>(`${API}/api/warehouse/stock`),fetchJson<WarehouseTask[]>(`${API}/api/warehouse/tasks`),fetchJson<LedgerEntry[]>(`${API}/api/warehouse/ledger`)]).then(([s,t,l])=>{setStocks(s);setTasks(t);setLedger(l)}).catch(()=>setError("창고 데이터에 연결할 수 없습니다."));
+ const loadKpis=()=>fetchJson<DailyDeliveryKpi[]>(`${API}/api/reports/daily-kpis?days=14`).then(setKpis).catch(()=>setError("KPI 보고서를 불러올 수 없습니다."));
+ const loadOrders=()=>fetchJson<CustomerOrder[]>(`${API}/api/orders`).then(setOrders).catch(()=>setError("주문 데이터를 불러올 수 없습니다."));
+ const loadReplay=()=>Promise.all([fetchJson<DeadLetterEvent[]>(`${API}/api/operations/dlq`),fetchJson<ReplayAudit[]>(`${API}/api/operations/replay-audits`)]).then(([events,audits])=>{setDeadLetters(events);setReplayAudits(audits);setError(current=>current==="복구 큐를 불러올 수 없습니다."?"":current)}).catch(()=>setError("복구 큐를 불러올 수 없습니다."));
+ const loadOutbox=()=>Promise.all([fetchJson<OutboxFailure[]>(`${API}/api/operations/outbox/failures`),fetchJson<OutboxRetryAudit[]>(`${API}/api/operations/outbox/retry-audits`)]).then(([failures,audits])=>{setOutboxFailures(failures);setOutboxAudits(audits)}).catch(()=>setError("Outbox 복구 큐를 불러올 수 없습니다."));
+ const loadPolicies=()=>Promise.all([fetchJson<AlertPolicy[]>(`${API}/api/alert-policies`),fetchJson<AlertPolicyAudit[]>(`${API}/api/alert-policies/audits`)]).then(([nextPolicies,nextAudits])=>{setPolicies(nextPolicies);setPolicyAudits(nextAudits)}).catch(()=>setError("경고 정책을 불러올 수 없습니다."));
  useEffect(()=>{load(); const source=new EventSource(`${API}/api/stream/deliveries`); source.onopen=()=>setConnected(true); source.onerror=()=>setConnected(false);
   source.addEventListener("delivery-update",e=>{const next:Delivery=JSON.parse((e as MessageEvent).data);if(!knownDeliveryIds.current.has(next.id)){knownDeliveryIds.current.add(next.id);loadMapData([next.id]).catch(()=>{})}setItems(old=>[next,...old.filter(x=>x.id!==next.id)]);loadOrders().catch(()=>{})});
   source.addEventListener("telemetry-point",e=>{const next:TelemetryPoint=JSON.parse((e as MessageEvent).data);setTelemetry(old=>old.some(point=>point.eventId===next.eventId)?old:[next,...old].slice(0,5000))});

@@ -60,6 +60,7 @@
 - trace 연계 표준 오류 body와 DB 제약 정보 비노출 409·잘못된 JSON 400 변환
 - 복구 queue metric 실패 counter와 장애·복구 전환 로그로 반복 stack trace 범람 방지
 - CI `promtool` 기반 Prometheus scrape·alert rule 구성 회귀 차단
+- TypeScript 공통 HTTP JSON 오류 경계로 4xx/5xx body의 배열 state 오염과 화면 crash 방지
 
 ## 현재 상태
 
