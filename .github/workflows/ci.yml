@@ -76,3 +76,29 @@ jobs:
         run: npm ci
       - name: Build and type-check production console
         run: npm run build
+
+  containers:
+    name: Production container images
+    needs: [api, python, web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Build deployable service images
+        run: |
+          docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-api:ci ./api
+          docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-analytics:ci ./analytics
+          docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-simulator:ci ./simulator
+          docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-web:ci ./web
+      - name: Enforce non-root runtime users
+        run: |
+          for image in logitrack-api:ci logitrack-analytics:ci logitrack-simulator:ci logitrack-web:ci; do
+            user="$(docker image inspect --format '{{.Config.User}}' "$image")"
+            if [ -z "$user" ] || [ "$user" = "0" ] || [ "$user" = "root" ]; then
+              echo "::error::$image runs as root"
+              exit 1
+            fi
+            echo "$image runtime user: $user"
+          done

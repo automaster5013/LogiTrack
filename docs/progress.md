@@ -35,6 +35,7 @@
 - 배포 runtime version 감지와 자동 새로고침으로 오래 열린 운영 탭의 구형 CSS/JavaScript 및 검은 지도 상태 자동 복구
 - JaCoCo 핵심 도메인 line/branch 80% 빌드 gate와 재현 가능한 Docker 검증(line 90.38%, branch 96.88%)
 - GitHub Actions 병렬 CI(API coverage, Python tests, Compose validation, TypeScript production build)와 최소 읽기 권한
+- production 컨테이너 4종의 잠금 의존성 build, commit SHA label, non-root runtime CI gate와 CD 도입 기준
 
 ## 현재 상태
 

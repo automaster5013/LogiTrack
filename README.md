@@ -67,6 +67,7 @@ curl -X POST http://localhost:8080/api/orders/{orderId}/dispatch \
 - [장애 주입 및 복구 runbook](docs/failure-recovery-runbook.md)
 - [로컬 성능 기준선](docs/performance.md)
 - [테스트 품질 기준선](docs/quality.md)
+- [CI/CD와 릴리스 전략](docs/delivery.md)
 - [10분 데모 시나리오](docs/demo.md)
 - [구현 진행 현황](docs/progress.md)
 
@@ -83,6 +84,8 @@ python -m unittest discover analytics/tests
 핵심 도메인의 line/branch coverage 80% gate는 `./scripts/domain-coverage.ps1`로 실행합니다. 현재 기준선은 line 90.38%, branch 96.88%이며 기준 미달 시 빌드가 실패합니다.
 
 GitHub Actions의 `CI` workflow는 main push와 pull request마다 API 테스트·coverage gate, Python analytics/simulator 테스트, Docker Compose 구성 검증, TypeScript production build를 병렬 실행합니다. workflow 권한은 저장소 읽기로 제한됩니다.
+
+배포 가능한 production image와 non-root runtime은 `./scripts/container-build.ps1`로 검증합니다. 실제 CD는 배포 대상·비용 상한·비밀정보·rollback 정책 승인 후 스테이징부터 연결합니다.
 
 배송과 이벤트는 PostgreSQL에 같은 트랜잭션으로 기록됩니다. outbox publisher가 대기 이벤트를 Kafka에 전달하므로 broker가 일시 중단되어도 생성 이벤트가 유실되지 않습니다.
 
