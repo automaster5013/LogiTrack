@@ -58,3 +58,20 @@ export type DailyDeliveryKpi = {
   onTimeRatePercent: number;
   projectedAt: string;
 };
+
+export type DeadLetterEvent = {
+  id: string;
+  originalTopic: string;
+  messageKey?: string;
+  payload: string;
+  traceId?: string;
+  exceptionMessage?: string;
+  dlqPartition: number;
+  dlqOffset: number;
+  status: "PENDING" | "REPLAYED";
+  failedAt: string;
+  replayedAt?: string;
+  replayedBy?: string;
+};
+
+export type ReplayAudit = { id:string; deadLetterEventId:string; action:"REPLAY"; actor:string; occurredAt:string };

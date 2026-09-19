@@ -52,6 +52,7 @@ curl -X POST http://localhost:8080/api/deliveries \
 - [배송 경고 lifecycle ADR](docs/adr/0004-alert-lifecycle.md)
 - [분산 추적 ADR](docs/adr/0005-distributed-tracing.md)
 - [일별 KPI projection ADR](docs/adr/0006-daily-kpi-projection.md)
+- [DLQ replay와 감사 ADR](docs/adr/0007-dlq-replay.md)
 - [운영 및 장애 처리](docs/operations.md)
 - [로컬 성능 기준선](docs/performance.md)
 - [구현 진행 현황](docs/progress.md)
@@ -81,3 +82,5 @@ API에서 Python analytics까지 이어지는 trace는 `./scripts/tracing-smoke.
 PostgreSQL 일별 KPI projection과 CSV 보고서는 `./scripts/kpi-smoke.ps1`로 검증합니다. 대시보드의 `Delivery performance` 패널은 최근 14일 지표를 30초마다 갱신합니다.
 
 멱등 배송 생성 API의 20 RPS 기준선은 `./scripts/load-smoke.ps1`로 재현합니다. 99% 성공률과 p95 500ms 기준을 넘지 못하면 스크립트가 실패합니다.
+
+DLQ 격리, 선택 replay, 감사 기록과 중복 방지는 `./scripts/replay-smoke.ps1`로 검증합니다. 영구 poison event는 replay 뒤 새 DLQ 항목으로 다시 격리되는 것이 정상입니다.

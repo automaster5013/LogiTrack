@@ -36,3 +36,8 @@ Grafana Explore에서 `Tempo` datasource를 선택해 service name 또는 trace 
 ## DLQ 재처리 정책
 
 원본 payload, 오류 유형, 최초/최종 실패 시간, trace ID를 보존한다. 운영자가 원인을 수정하고 event ID를 새로 만들지 않은 채 replay하여 consumer 멱등성을 검증한다. 자동 무한 replay는 금지한다.
+
+- 목록: `GET /api/operations/dlq?status=PENDING`
+- 단일 replay: `POST /api/operations/dlq/{id}/replay`와 필수 `X-Operator` 헤더
+- 감사: `GET /api/operations/replay-audits`
+- 동일 catalog 항목은 한 번만 replay할 수 있다. 영구 오류가 다시 DLQ로 가면 새 항목으로 조사한다.

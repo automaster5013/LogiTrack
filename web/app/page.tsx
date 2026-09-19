@@ -2,7 +2,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import DailyKpiPanel from "./components/DailyKpiPanel";
-import type { DailyDeliveryKpi, Delivery, DeliveryAlert, LedgerEntry, RouteSnapshot, WarehouseStock, WarehouseTask } from "./types";
+import ReplayOperationsPanel from "./components/ReplayOperationsPanel";
+import type { DailyDeliveryKpi, DeadLetterEvent, Delivery, DeliveryAlert, LedgerEntry, ReplayAudit, RouteSnapshot, WarehouseStock, WarehouseTask } from "./types";
 
 const FleetMap=dynamic(()=>import("./components/FleetMap"),{ssr:false});
 const API=process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -12,20 +13,24 @@ export default function Home(){
  const [routes,setRoutes]=useState<RouteSnapshot[]>([]);
  const [alerts,setAlerts]=useState<DeliveryAlert[]>([]);
  const [kpis,setKpis]=useState<DailyDeliveryKpi[]>([]);
+ const [deadLetters,setDeadLetters]=useState<DeadLetterEvent[]>([]); const [replayAudits,setReplayAudits]=useState<ReplayAudit[]>([]); const [replayBusy,setReplayBusy]=useState<string>();
  const [stocks,setStocks]=useState<WarehouseStock[]>([]); const [tasks,setTasks]=useState<WarehouseTask[]>([]); const [ledger,setLedger]=useState<LedgerEntry[]>([]); const [warehouseBusy,setWarehouseBusy]=useState(false);
  const loadRoutes=()=>fetch(`${API}/api/routes`).then(r=>r.json()).then(setRoutes);
  const load=()=>Promise.all([fetch(`${API}/api/deliveries`).then(r=>r.json()),fetch(`${API}/api/routes`).then(r=>r.json()),fetch(`${API}/api/alerts`).then(r=>r.json())]).then(([d,r,a])=>{setItems(d);setRoutes(r);setAlerts(a)}).catch(()=>setError("API에 연결할 수 없습니다."));
  const loadWarehouse=()=>Promise.all([fetch(`${API}/api/warehouse/stock`).then(r=>r.json()),fetch(`${API}/api/warehouse/tasks`).then(r=>r.json()),fetch(`${API}/api/warehouse/ledger`).then(r=>r.json())]).then(([s,t,l])=>{setStocks(s);setTasks(t);setLedger(l)}).catch(()=>setError("창고 데이터에 연결할 수 없습니다."));
  const loadKpis=()=>fetch(`${API}/api/reports/daily-kpis?days=14`).then(r=>r.json()).then(setKpis).catch(()=>setError("KPI 보고서를 불러올 수 없습니다."));
+ const loadReplay=()=>Promise.all([fetch(`${API}/api/operations/dlq`).then(r=>r.json()),fetch(`${API}/api/operations/replay-audits`).then(r=>r.json())]).then(([events,audits])=>{setDeadLetters(events);setReplayAudits(audits);setError(current=>current==="복구 큐를 불러올 수 없습니다."?"":current)}).catch(()=>setError("복구 큐를 불러올 수 없습니다."));
  useEffect(()=>{load(); const source=new EventSource(`${API}/api/stream/deliveries`); source.onopen=()=>setConnected(true); source.onerror=()=>setConnected(false);
   source.addEventListener("delivery-update",e=>{const next=JSON.parse((e as MessageEvent).data);setItems(old=>[next,...old.filter(x=>x.id!==next.id)]);loadRoutes().catch(()=>{})});
   source.addEventListener("alert-update",e=>{const next:DeliveryAlert=JSON.parse((e as MessageEvent).data);setAlerts(old=>[next,...old.filter(x=>x.id!==next.id)])});return()=>source.close()},[]);
  useEffect(()=>{if(!selected&&items.length)setSelected(items.find(item=>routes.some(route=>route.deliveryId===item.id))?.id||items[0].id)},[items,routes,selected]);
  useEffect(()=>{loadWarehouse()},[]);
  useEffect(()=>{loadKpis();const timer=window.setInterval(loadKpis,30000);return()=>window.clearInterval(timer)},[]);
+ useEffect(()=>{loadReplay();const timer=window.setInterval(loadReplay,15000);return()=>window.clearInterval(timer)},[]);
  async function create(e:FormEvent){e.preventDefault();setError("");const response=await fetch(`${API}/api/deliveries`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({orderNumber:`ORD-${Date.now().toString().slice(-6)}`,vehicleId:`TRUCK-${Math.ceil(Math.random()*9).toString().padStart(2,"0")}`,origin:{name:"Seoul Hub",lat:37.5665,lon:126.978},destination:{name:"Incheon DC",lat:37.4563,lon:126.7052}})});if(!response.ok)setError("배송 생성에 실패했습니다.");else{const created:Delivery=await response.json();setSelected(created.id);await load()}}
  async function receiveStock(){setWarehouseBusy(true);setError("");try{const suffix=Date.now().toString().slice(-6);const r=await fetch(`${API}/api/warehouse/receipts`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({referenceNumber:`ASN-${suffix}`,warehouseId:"SEOUL-HUB-A",sku:"COLD-BOX-01",quantity:10})});if(!r.ok)throw new Error();await loadWarehouse()}catch{setError("입고 처리에 실패했습니다.")}finally{setWarehouseBusy(false)}}
  async function pickAndDispatch(){setWarehouseBusy(true);setError("");try{const suffix=Date.now().toString().slice(-6);const pick=await fetch(`${API}/api/warehouse/outbounds`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({referenceNumber:`OUT-${suffix}`,warehouseId:"SEOUL-HUB-A",sku:"COLD-BOX-01",quantity:4})});if(!pick.ok)throw new Error();const task:WarehouseTask=await pick.json();const dispatched=await fetch(`${API}/api/warehouse/outbounds/${task.id}/dispatch`,{method:"POST"});if(!dispatched.ok)throw new Error();await loadWarehouse()}catch{setError("출고 처리에 실패했습니다. 먼저 재고를 입고해 주세요.")}finally{setWarehouseBusy(false)}}
+ async function replay(id:string){setReplayBusy(id);setError("");try{const response=await fetch(`${API}/api/operations/dlq/${id}/replay`,{method:"POST",headers:{"X-Operator":"control-tower"}});if(!response.ok)throw new Error();await loadReplay()}catch{setError("DLQ 이벤트 재처리에 실패했습니다.")}finally{setReplayBusy(undefined)}}
  const focus=items.find(x=>x.id===selected);
  const focusRoute=routes.find(x=>x.deliveryId===selected);
  const activeAlerts=alerts.filter(alert=>alert.status==="ACTIVE");
@@ -45,5 +50,6 @@ export default function Home(){
    <div className="ledgerPane"><h4>RECENT LEDGER</h4>{ledger.length===0?<p className="warehouseEmpty">Inventory movements will appear here.</p>:ledger.slice(0,7).map(e=><div className="ledgerRow" key={e.id}><span className={`movement ${e.transactionType.toLowerCase()}`}>{e.transactionType}</span><span><b>{e.sku}</b><small>{e.warehouseId}</small></span><span className="delta">{e.onHandDelta>0?`+${e.onHandDelta}`:e.onHandDelta||`R +${e.reservedDelta}`}</span></div>)}</div></div>
    <div className="taskStrip"><span>{tasks.filter(t=>t.status==="PICKED").length} awaiting dispatch</span><span>{tasks.filter(t=>t.status==="DISPATCHED").length} dispatched</span><span>{ledger.length} ledger movements loaded</span></div>
   </section>
+  <ReplayOperationsPanel events={deadLetters} audits={replayAudits} busyId={replayBusy} onReplay={replay}/>
  </main>
 }

@@ -82,3 +82,4 @@ Spring API와 Python analytics는 OTLP/HTTP로 OpenTelemetry Collector에 span�
 - simulator와 analytics 장애는 command API를 막지 않는다.
 - DB pool, Kafka consumer, SSE subscriber에 각각 제한을 두어 연쇄 고갈을 막는다.
 - 재시도는 지수 backoff와 최대 횟수를 사용하며 영구 오류는 DLQ로 보낸다.
+- DLQ catalog consumer는 실패 payload/예외/offset을 PostgreSQL에 보존하고 운영 API가 원본 topic으로 단일 replay하며 감사 행을 기록한다.
