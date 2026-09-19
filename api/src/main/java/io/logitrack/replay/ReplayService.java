@@ -3,6 +3,7 @@ package io.logitrack.replay;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import io.micrometer.core.instrument.*;
 
 import java.util.List;
 import java.util.UUID;
@@ -13,9 +14,10 @@ public class ReplayService {
     private final DeadLetterEventRepository events;
     private final ReplayAuditRepository audits;
     private final KafkaTemplate<Object, Object> kafka;
+    private final Counter replayCounter;
 
-    public ReplayService(DeadLetterEventRepository events, ReplayAuditRepository audits, KafkaTemplate<Object, Object> kafka) {
-        this.events=events; this.audits=audits; this.kafka=kafka;
+    public ReplayService(DeadLetterEventRepository events, ReplayAuditRepository audits, KafkaTemplate<Object, Object> kafka,MeterRegistry metrics) {
+        this.events=events; this.audits=audits; this.kafka=kafka;this.replayCounter=metrics.counter("logitrack.dlq.replays");
     }
 
     public List<DeadLetterEvent> list(DeadLetterEvent.Status status) {
@@ -36,7 +38,7 @@ public class ReplayService {
         }
         event.markReplayed(normalizedActor);
         audits.save(new ReplayAudit(event.getId(), normalizedActor));
+        replayCounter.increment();
         return event;
     }
 }
-

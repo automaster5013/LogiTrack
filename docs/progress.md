@@ -63,6 +63,7 @@
 - TypeScript 공통 HTTP JSON 오류 경계로 4xx/5xx body의 배열 state 오염·화면 crash 방지와 polling 복구 시 오류 자동 해제
 - 경고·창고 재고·작업 조회의 500건 상한과 최신 경고·작업 PostgreSQL 정렬 인덱스
 - API scrape 중단과 복구 queue 지표 stale 상태를 포함한 Prometheus 핵심 운영 경보 5종
+- 감사 완료된 outbox retry·DLQ replay 운영자 복구 활동 Micrometer counter
 
 ## 현재 상태
 

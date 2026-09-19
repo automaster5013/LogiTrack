@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 $metrics=Invoke-WebRequest http://localhost:8080/actuator/prometheus -UseBasicParsing
-foreach($name in @("logitrack_outbox_backlog","logitrack_dlq_backlog")){
+foreach($name in @("logitrack_outbox_backlog","logitrack_dlq_backlog","logitrack_outbox_retries_total","logitrack_dlq_replays_total")){
   if($metrics.Content-notmatch $name){throw "Missing recovery metric: $name"}
 }
 $rules=Invoke-RestMethod http://localhost:9090/api/v1/rules
