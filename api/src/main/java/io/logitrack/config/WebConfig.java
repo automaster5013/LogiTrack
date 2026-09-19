@@ -9,5 +9,5 @@ import java.util.*;
     this.allowedOrigins=Arrays.stream(allowedOrigins.split(",")).map(String::trim).filter(value->!value.isEmpty()).distinct().toArray(String[]::new);
     if(this.allowedOrigins.length==0)throw new IllegalArgumentException("At least one CORS allowed origin is required");
   }
-  public void addCorsMappings(CorsRegistry r){r.addMapping("/api/**").allowedOrigins(allowedOrigins).allowedMethods("GET","POST","DELETE").allowedHeaders("*");}
+  public void addCorsMappings(CorsRegistry r){r.addMapping("/api/**").allowedOrigins(allowedOrigins).allowedMethods("GET","POST","DELETE").allowedHeaders("*").exposedHeaders(RequestTraceFilter.HEADER);}
 }

@@ -54,6 +54,7 @@
 - FAILED transactional outbox 조회·비관적 잠금 재시도·운영자 감사와 TypeScript 복구 패널
 - outbox·DLQ backlog cache gauge와 Prometheus 지속시간 기반 운영 경보
 - 주문·배송·범위 없는 경로 조회의 최신순 500건 상한과 주문-배송 batch join으로 무제한 응답·N+1 제거
+- 전체 HTTP API의 생성·전파·응답 `X-Trace-Id`, MDC 상관관계와 안전한 입력 경계
 
 ## 현재 상태
 
