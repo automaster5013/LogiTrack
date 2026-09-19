@@ -69,6 +69,7 @@
 - PostgreSQL transaction advisory lock 기반 동시 최초 멱등 요청 단일 aggregate 생성
 - API→analytics 경로·PDF connect/read timeout과 경로 분석 bounded fallback 검증
 - 경로 분석 성공·fallback 결과 counter와 반복 fallback Prometheus 경보
+- JPA 동시 수정 예외의 내부 식별자 비노출 표준 409 응답
 
 ## 현재 상태
 
