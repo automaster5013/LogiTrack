@@ -40,6 +40,9 @@ public class Delivery {
         return d;
     }
     public void applyTelemetry(double lat, double lon, double progress, Instant eta, Status status) {
+        if(!Double.isFinite(lat)||!Double.isFinite(lon)||!Double.isFinite(progress)||lat < -90||lat > 90||lon < -180||lon > 180||progress < 0||progress > 1)
+            throw new IllegalArgumentException("Invalid telemetry coordinates or progress");
+        if(status==null)throw new IllegalArgumentException("Telemetry status is required");
         if (this.status == Status.DELIVERED) return;
         this.currentLat=lat; this.currentLon=lon; this.progress=progress; this.eta=eta; this.status=status; this.updatedAt=Instant.now();
     }

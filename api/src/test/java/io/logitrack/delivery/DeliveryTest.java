@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 class DeliveryTest {
     @Test
@@ -18,6 +18,18 @@ class DeliveryTest {
         assertEquals(1, delivery.getProgress());
         assertEquals(37.4563, delivery.getCurrentLat());
         assertEquals(126.7052, delivery.getCurrentLon());
+    }
+
+    @Test
+    void rejectsInvalidTelemetryWithoutMutatingState() {
+        var delivery = Delivery.create(request(), "delivery-invalid");
+
+        assertThrows(IllegalArgumentException.class, () -> delivery.applyTelemetry(Double.NaN, 126.9, 0.2, null, Delivery.Status.IN_TRANSIT));
+        assertThrows(IllegalArgumentException.class, () -> delivery.applyTelemetry(37.5, 126.9, 1.01, null, Delivery.Status.IN_TRANSIT));
+
+        assertEquals(Delivery.Status.CREATED, delivery.getStatus());
+        assertEquals(0, delivery.getProgress());
+        assertEquals(delivery.getOriginLat(), delivery.getCurrentLat());
     }
 
     private CreateDeliveryRequest request() {

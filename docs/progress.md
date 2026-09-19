@@ -71,6 +71,7 @@
 - 경로 분석 성공·fallback 결과 counter와 반복 fallback Prometheus 경보
 - JPA 동시 수정 예외의 내부 식별자 비노출 표준 409 응답
 - 배송·주문 좌표의 `NaN`·무한대 사전 거부와 저장소 접근 전 회귀 검증
+- 텔레메트리 좌표·진행률 도메인 불변식과 PostgreSQL CHECK 이중 방어
 
 ## 현재 상태
 
