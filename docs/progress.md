@@ -59,6 +59,7 @@
 - 주문·배송·창고 문자열 및 멱등 키의 DB 길이 일치 사전 검증과 400 오류 경계
 - trace 연계 표준 오류 body와 DB 제약 정보 비노출 409·잘못된 JSON 400 변환
 - 복구 queue metric 실패 counter와 장애·복구 전환 로그로 반복 stack trace 범람 방지
+- CI `promtool` 기반 Prometheus scrape·alert rule 구성 회귀 차단
 
 ## 현재 상태
 

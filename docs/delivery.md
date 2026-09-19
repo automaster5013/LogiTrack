@@ -2,7 +2,7 @@
 
 ## 현재 상태
 
-- CI는 구현되어 있다. GitHub Actions가 API 테스트와 coverage, Python 테스트, Compose 구성, TypeScript build를 검증한다.
+- CI는 구현되어 있다. GitHub Actions가 API 테스트와 coverage, Python 테스트, Compose 구성, Prometheus alert rule 문법, TypeScript build를 검증한다.
 - production Docker image 네 개도 clean runner에서 빌드하고 모든 runtime이 non-root인지 검사한다.
 - 각 image의 CycloneDX SBOM을 30일 보관하고, 수정 가능 여부와 관계없이 CRITICAL 취약점이 하나라도 있으면 CI를 차단한다.
 - CD는 아직 구현하지 않았다. 승인된 배포 대상이 없으므로 image registry push나 외부 인프라 변경을 수행하지 않는다.

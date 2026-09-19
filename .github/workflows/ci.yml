@@ -55,6 +55,8 @@ jobs:
         run: python -m unittest discover simulator/tests
       - name: Validate Compose topology
         run: docker compose config --quiet
+      - name: Validate Prometheus configuration and alert rules
+        run: docker run --rm --entrypoint promtool --volume "$PWD/infra:/etc/prometheus:ro" prom/prometheus:v3.5.0 check config /etc/prometheus/prometheus.yml
 
   web:
     name: TypeScript production build
