@@ -83,6 +83,7 @@
 - 경로 응답 좌표 수·문자열 DB 길이·SHA-256·시각 순서 및 미래 시각 경계
 - analytics KPI PDF 서명·구성 가능 응답 크기 상한 검증
 - KPI PDF 렌더링 성공·실패 Micrometer counter
+- 반복 KPI PDF 렌더링 실패 Prometheus warning과 구성 회귀 검증
 
 ## 현재 상태
 

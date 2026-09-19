@@ -34,7 +34,7 @@ API→analytics 호출은 경로 분석 connect/read 1초/4초, PDF connect/read
 
 KPI PDF 응답은 `%PDF` 서명과 기본 10MB 크기 상한을 모두 통과해야 전달한다. 상한은 `ANALYTICS_REPORT_MAX_RESPONSE_SIZE`로 조정할 수 있다.
 
-PDF 렌더링 성공·실패는 `logitrack_report_pdf_total{outcome="success|failure"}`로 확인한다. 실패 증가 시 analytics health와 timeout, 응답 크기 제한을 함께 확인한다.
+PDF 렌더링 성공·실패는 `logitrack_report_pdf_total{outcome="success|failure"}`로 확인한다. 10분 동안 2회를 초과해 실패하면 `LogiTrackPdfRenderingFailing` warning이 발생하며 analytics health와 timeout, 응답 크기 제한을 함께 확인한다.
 
 경로 분석 결과는 `logitrack_route_analysis_total{outcome="success|fallback"}`로 집계한다. 5분 동안 fallback이 5회를 초과하면 `LogiTrackRouteAnalysisDegraded` warning이 발생하므로 analytics health와 로그, 외부 route provider 상태를 순서대로 확인한다.
 
@@ -63,7 +63,7 @@ analytics 응답은 저장 전에 경로 ID, DB 길이에 맞는 provider·algor
 
 ## 복구 큐 경보
 
-API는 `logitrack_outbox_backlog{status="pending|failed"}`와 `logitrack_dlq_backlog` gauge를 10초마다 갱신한다. 조회 실패 시 마지막 정상 값을 유지하고 `logitrack_recovery_metrics_refresh_failures_total`을 누적하며, 로그는 장애·복구 전환에 한 번씩만 남긴다. Prometheus는 API scrape 1분 중단 또는 FAILED outbox 2분 지속 시 critical, metric refresh 실패·pending outbox 100건 초과·DLQ 존재·경로 fallback 반복 시 warning을 발생시킨다. `./scripts/recovery-metrics-smoke.ps1`로 gauge 노출과 6개 규칙 로드를 함께 검증한다.
+API는 `logitrack_outbox_backlog{status="pending|failed"}`와 `logitrack_dlq_backlog` gauge를 10초마다 갱신한다. 조회 실패 시 마지막 정상 값을 유지하고 `logitrack_recovery_metrics_refresh_failures_total`을 누적하며, 로그는 장애·복구 전환에 한 번씩만 남긴다. Prometheus는 API scrape 1분 중단 또는 FAILED outbox 2분 지속 시 critical, metric refresh 실패·pending outbox 100건 초과·DLQ 존재·경로 fallback 반복·PDF 반복 실패 시 warning을 발생시킨다. `./scripts/recovery-metrics-smoke.ps1`로 gauge 노출과 7개 규칙 로드를 함께 검증한다.
 
 운영자 복구 처리량은 `logitrack_outbox_retries_total`과 `logitrack_dlq_replays_total` counter로 확인한다. 두 counter는 감사 저장까지 성공한 요청만 증가한다.
 

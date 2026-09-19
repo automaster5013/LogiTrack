@@ -49,3 +49,11 @@ groups:
         annotations:
           summary: Route analysis is repeatedly using the local fallback
           description: "{{ $value }} route requests used the fallback during the last five minutes."
+      - alert: LogiTrackPdfRenderingFailing
+        expr: increase(logitrack_report_pdf_total{outcome="failure"}[10m]) > 2
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: KPI PDF rendering is repeatedly failing
+          description: "{{ $value }} KPI PDF requests failed during the last ten minutes."
