@@ -54,6 +54,12 @@ class DeliveryServiceTest {
         when(deliveries.findByIdempotencyKey("key-1")).thenReturn(Optional.empty());
         assertThrows(IllegalArgumentException.class,()->service.create(bad,"key-1","trace-3"));
     }
+    @Test void rejectsOversizedInputsBeforeRepositoryAccess(){
+        var bad=new CreateDeliveryRequest("X".repeat(81),"TRUCK-1",request().origin(),request().destination());
+        assertThrows(IllegalArgumentException.class,()->service.create(bad,"key-1","trace"));
+        assertThrows(IllegalArgumentException.class,()->service.create(request(),"K".repeat(161),"trace"));
+        verify(deliveries).findByIdempotencyKey("key-1");verify(deliveries,never()).save(any());
+    }
 
     private CreateDeliveryRequest request(){return new CreateDeliveryRequest("ORD-1","TRUCK-1",
         new CreateDeliveryRequest.Location("Seoul",37.5665,126.978),new CreateDeliveryRequest.Location("Incheon",37.4563,126.7052));}

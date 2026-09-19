@@ -34,6 +34,11 @@ class OrderServiceTest {
         assertEquals("order.created.v1",event.getValue().getTopic());
     }
 
+    @Test void rejectsOversizedIdempotencyKeyBeforeLookup(){
+        assertThrows(IllegalArgumentException.class,()->service.create(request(),"K".repeat(161),"trace"));
+        verifyNoInteractions(orders,deliveries,outbox);
+    }
+
     @Test
     void dispatchCreatesOneLinkedDeliveryAndIsIdempotent() {
         var order=CustomerOrder.create(request(),"order-key");

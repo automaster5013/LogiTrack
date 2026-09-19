@@ -2,6 +2,7 @@ package io.logitrack.delivery;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.logitrack.event.EventEnvelope;
+import io.logitrack.config.InputLimits;
 import io.logitrack.outbox.*;
 import io.logitrack.route.*;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ public class DeliveryService {
         return create(request,key,traceId,orderId);
     }
     private Delivery create(CreateDeliveryRequest request, String key, String traceId, UUID orderId) {
+        InputLimits.required(key,"Idempotency-Key",160);
         var existing=repository.findByIdempotencyKey(key);
         if(existing.isPresent()) {
             if(orderId!=null&&!orderId.equals(existing.get().getOrderId()))
@@ -56,9 +58,9 @@ public class DeliveryService {
     @Transactional(readOnly=true)
     public List<Delivery> list(int limit){return repository.findAll(PageRequest.of(0,limit,Sort.by(Sort.Direction.DESC,"createdAt"))).getContent();}
     private void validate(CreateDeliveryRequest r){
-        if(r==null||blank(r.orderNumber())||blank(r.vehicleId())||r.origin()==null||r.destination()==null) throw new IllegalArgumentException("orderNumber, vehicleId, origin and destination are required");
+        if(r==null||r.origin()==null||r.destination()==null)throw new IllegalArgumentException("orderNumber, vehicleId, origin and destination are required");
+        InputLimits.required(r.orderNumber(),"orderNumber",80);InputLimits.required(r.vehicleId(),"vehicleId",80);
         check(r.origin()); check(r.destination());
     }
-    private void check(CreateDeliveryRequest.Location p){if(p.lat() < -90||p.lat()>90||p.lon() < -180||p.lon()>180) throw new IllegalArgumentException("Invalid coordinates");}
-    private boolean blank(String s){return s==null||s.isBlank();}
+    private void check(CreateDeliveryRequest.Location p){InputLimits.required(p.name(),"location name",160);if(p.lat() < -90||p.lat()>90||p.lon() < -180||p.lon()>180) throw new IllegalArgumentException("Invalid coordinates");}
 }

@@ -2,6 +2,7 @@ package io.logitrack.order;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.logitrack.delivery.*;
+import io.logitrack.config.InputLimits;
 import io.logitrack.event.EventEnvelope;
 import io.logitrack.outbox.*;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ public class OrderService {
 
     @Transactional
     public OrderSummary create(CreateOrderRequest request, String idempotencyKey, String traceId) {
+        InputLimits.required(idempotencyKey,"Idempotency-Key",160);
         var existing=orders.findByIdempotencyKey(idempotencyKey);
         if(existing.isPresent()) return summary(existing.get(),deliveries.findByOrderId(existing.get().getId()).orElse(null));
         validate(request);
@@ -46,10 +48,11 @@ public class OrderService {
 
     @Transactional
     public OrderSummary dispatch(UUID orderId, DispatchOrderRequest request, String idempotencyKey, String traceId) {
+        InputLimits.required(idempotencyKey,"Idempotency-Key",160);
         var order=orders.findForUpdateById(orderId).orElseThrow(()->new NoSuchElementException("Order not found"));
         var existing=deliveries.findByOrderId(orderId);
         if(existing.isPresent()) return summary(order,existing.get());
-        if(request==null||blank(request.vehicleId())) throw new IllegalArgumentException("vehicleId is required");
+        if(request==null)throw new IllegalArgumentException("vehicleId is required");InputLimits.required(request.vehicleId(),"vehicleId",80);
         if(order.getStatus()!=CustomerOrder.Status.READY) throw new IllegalStateException("Order is not ready for dispatch");
         var deliveryRequest=new CreateDeliveryRequest(order.getOrderNumber(),request.vehicleId(),
             new CreateDeliveryRequest.Location(order.getOriginName(),order.getOriginLat(),order.getOriginLon()),
@@ -90,13 +93,14 @@ public class OrderService {
     }
 
     private void validate(CreateOrderRequest request) {
-        if(request==null||blank(request.orderNumber())||request.origin()==null||request.destination()==null)
+        if(request==null||request.origin()==null||request.destination()==null)
             throw new IllegalArgumentException("orderNumber, origin and destination are required");
+        InputLimits.required(request.orderNumber(),"orderNumber",80);
         check(request.origin()); check(request.destination());
     }
     private void check(CreateOrderRequest.Location location) {
-        if(blank(location.name())||location.lat() < -90||location.lat()>90||location.lon() < -180||location.lon()>180)
+        InputLimits.required(location.name(),"location name",160);
+        if(location.lat() < -90||location.lat()>90||location.lon() < -180||location.lon()>180)
             throw new IllegalArgumentException("Invalid order location");
     }
-    private boolean blank(String value){return value==null||value.isBlank();}
 }
