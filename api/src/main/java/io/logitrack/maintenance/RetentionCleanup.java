@@ -15,17 +15,19 @@ public class RetentionCleanup {
     private final Duration processedRetention;
     private final Duration outboxRetention;
     private final Duration telemetryRetention;
+    private final Duration replayedDlqRetention;
     private final int batchSize;
 
     public RetentionCleanup(RetentionCleanupAttempt attempt,MeterRegistry metrics,
         @Value("${logitrack.retention.processed-events:30d}") Duration processedRetention,
         @Value("${logitrack.retention.published-outbox:7d}") Duration outboxRetention,
         @Value("${logitrack.retention.telemetry:30d}") Duration telemetryRetention,
+        @Value("${logitrack.retention.replayed-dlq:90d}") Duration replayedDlqRetention,
         @Value("${logitrack.retention.batch-size:1000}") int batchSize){
-        validate(processedRetention,"Processed-event");validate(outboxRetention,"Published-outbox");validate(telemetryRetention,"Telemetry");
+        validate(processedRetention,"Processed-event");validate(outboxRetention,"Published-outbox");validate(telemetryRetention,"Telemetry");validate(replayedDlqRetention,"Replayed-DLQ");
         if(batchSize<1||batchSize>10_000)throw new IllegalArgumentException("Retention batch size must be between 1 and 10000");
-        this.attempt=attempt;this.metrics=metrics;this.processedRetention=processedRetention;this.outboxRetention=outboxRetention;this.telemetryRetention=telemetryRetention;this.batchSize=batchSize;
-        for(var table:new String[]{"processed_events","outbox_events","telemetry_points"})metrics.counter("logitrack.retention.deleted","table",table);
+        this.attempt=attempt;this.metrics=metrics;this.processedRetention=processedRetention;this.outboxRetention=outboxRetention;this.telemetryRetention=telemetryRetention;this.replayedDlqRetention=replayedDlqRetention;this.batchSize=batchSize;
+        for(var table:new String[]{"processed_events","outbox_events","telemetry_points","dead_letter_events"})metrics.counter("logitrack.retention.deleted","table",table);
         metrics.counter("logitrack.retention.failures");
     }
 
@@ -33,10 +35,11 @@ public class RetentionCleanup {
     public void cleanup(){
         var now=Instant.now();
         try {
-            var result=attempt.cleanup(now.minus(processedRetention),now.minus(outboxRetention),now.minus(telemetryRetention),batchSize);
+            var result=attempt.cleanup(now.minus(processedRetention),now.minus(outboxRetention),now.minus(telemetryRetention),now.minus(replayedDlqRetention),batchSize);
             record("processed_events",result.processedEvents());
             record("outbox_events",result.outboxEvents());
             record("telemetry_points",result.telemetryPoints());
+            record("dead_letter_events",result.deadLetterEvents());
         } catch(RuntimeException error){metrics.counter("logitrack.retention.failures").increment();throw error;}
     }
     private void record(String table,int count){metrics.counter("logitrack.retention.deleted","table",table).increment(count);}

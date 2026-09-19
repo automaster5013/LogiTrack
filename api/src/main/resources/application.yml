@@ -65,6 +65,7 @@ logitrack:
     processed-events: ${PROCESSED_EVENT_RETENTION:30d}
     published-outbox: ${PUBLISHED_OUTBOX_RETENTION:7d}
     telemetry: ${TELEMETRY_RETENTION:30d}
+    replayed-dlq: ${REPLAYED_DLQ_RETENTION:90d}
     batch-size: ${RETENTION_BATCH_SIZE:1000}
     initial-delay-ms: ${RETENTION_INITIAL_DELAY_MS:60000}
     poll-delay-ms: ${RETENTION_POLL_DELAY_MS:300000}

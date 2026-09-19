@@ -127,6 +127,7 @@ Redis 장애가 Kafka consumer 트랜잭션을 오래 점유하지 않도록 연
 - 정리 작업은 5분마다 테이블별 최대 1,000건만 오래된 순서로 삭제해 긴 트랜잭션과 vacuum 부담을 제한한다. `FOR UPDATE SKIP LOCKED`로 여러 API 인스턴스의 정리 작업이 같은 행에서 대기하지 않는다. 보존 기간은 `PROCESSED_EVENT_RETENTION`, `PUBLISHED_OUTBOX_RETENTION`, `TELEMETRY_RETENTION`, batch는 `RETENTION_BATCH_SIZE`로 조정하며 기간은 최소 하루, batch는 1~10,000만 허용한다.
 - `logitrack_retention_deleted_total{table=...}`에서 커밋된 실제 정리량을 확인하고 `logitrack_retention_failures_total`로 실패를 추적한다. cutoff 전용 부분/정렬 인덱스로 전체 테이블 scan을 피한다.
 - Published outbox가 보존 기한을 지나 삭제될 때 연결된 재시도 감사 행도 FK cascade로 함께 제거한다. 감사 FK가 전체 retention 트랜잭션을 막거나 고아 이력을 남기지 않으며 retention smoke가 이 경로를 포함한다.
+- 재처리 완료 DLQ와 연결 replay audit은 기본 90일(`REPLAYED_DLQ_RETENTION`) 후 bounded batch로 함께 삭제한다. 미처리 `PENDING` DLQ는 자동 삭제하지 않는다.
 
 - 목록: `GET /api/operations/dlq?status=PENDING`
 - 단일 replay: `POST /api/operations/dlq/{id}/replay`와 필수 `X-Operator` 헤더

@@ -3,6 +3,8 @@ $names = docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SE
 if (($names | Where-Object { $_.Trim() }).Count -ne 8) { throw "Expected 8 operational state constraints, got: $names" }
 $cascade = (docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT confdeltype FROM pg_constraint WHERE conname='outbox_retry_audits_outbox_event_id_fkey'").Trim()
 if ($cascade -ne "c") { throw "Outbox retry audit FK must cascade with retained parent deletion" }
+$replayCascade = (docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT confdeltype FROM pg_constraint WHERE conname='replay_audits_dead_letter_event_id_fkey'").Trim()
+if ($replayCascade -ne "c") { throw "Replay audit FK must cascade with retained parent deletion" }
 
 $invalidId = [guid]::NewGuid().ToString()
 & docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U logitrack -d logitrack -c "INSERT INTO outbox_events(id,aggregate_type,aggregate_id,event_type,topic,event_key,payload,status,attempts,created_at,next_attempt_at) VALUES ('$invalidId','SMOKE','$invalidId','smoke.v1','smoke.v1','key','{}','PENDING',-1,now(),now())" 2>$null | Out-Null
