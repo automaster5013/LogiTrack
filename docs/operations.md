@@ -71,6 +71,7 @@ analytics 응답은 저장 전에 경로 ID, DB 길이에 맞는 provider·algor
 - DLQ replay: 단건 replay는 이벤트 row를 비관적으로 잠그므로 동시 요청 중 하나만 발행·감사되고 나머지는 409를 받는다. `./scripts/replay-concurrency-smoke.ps1`로 경쟁 조건을 검증한다.
 - Kafka 중단: DB 조회/생성은 유지하고 생성 이벤트는 outbox에 남는다. publisher가 최대 20회 재시도하며 이후 `FAILED` 상태는 관제 화면 또는 `POST /api/operations/outbox/failures/{id}/retry`와 `X-Operator`로 재처리한다. 최근 실패·재시도 감사는 각각 `/api/operations/outbox/failures`, `/api/operations/outbox/retry-audits`에서 조회한다.
 - outbox publisher는 기본 20건을 잠그고 이벤트별 최대 5초 Kafka 응답을 기다린다. `OUTBOX_BATCH_SIZE`는 1~100, `OUTBOX_PUBLISH_TIMEOUT`은 0초 초과 30초 이하만 허용해 broker 장애 중 트랜잭션 잠금 시간을 제한한다.
+- 실패한 PENDING 이벤트는 1초부터 시작해 최대 5분인 지수 backoff의 `nextAttemptAt` 이후에만 다시 잠근다. 20회 실패 후 `FAILED`가 되며 운영자 retry는 시도 수를 초기화하고 즉시 재처리 대상으로 만든다.
 - Redis 중단: DB가 source of truth이며 cache miss로 처리한다. SSE 다중 인스턴스 fan-out은 degraded 상태가 되지만 API readiness는 유지한다.
 - DB 중단: API readiness가 실패하고 Kafka consumer가 재시도한다. broker의 이벤트는 보존된다.
 

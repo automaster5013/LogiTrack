@@ -96,6 +96,7 @@
 - DLQ batch 크기·처리율 범위의 fail-fast 구성 검증
 - KPI 1~90일 요청의 명시적 400과 projection 설정 fail-fast 검증
 - outbox batch 20건·Kafka 대기 5초 상한과 1~100/최대 30초 fail-fast 설정
+- PostgreSQL `next_attempt_at` 기반 outbox 1초~5분 지수 backoff와 due index
 
 ## 현재 상태
 

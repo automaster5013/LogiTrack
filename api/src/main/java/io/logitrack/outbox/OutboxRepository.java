@@ -8,7 +8,7 @@ import java.util.*;
 
 @Repository
 public interface OutboxRepository extends JpaRepository<OutboxEvent, UUID> {
-    @Query(value="SELECT * FROM outbox_events WHERE status = 'PENDING' ORDER BY created_at LIMIT :batchSize FOR UPDATE SKIP LOCKED",nativeQuery=true)
+    @Query(value="SELECT * FROM outbox_events WHERE status = 'PENDING' AND next_attempt_at <= CURRENT_TIMESTAMP ORDER BY next_attempt_at, created_at LIMIT :batchSize FOR UPDATE SKIP LOCKED",nativeQuery=true)
     List<OutboxEvent> lockPendingBatch(@Param("batchSize") int batchSize);
     List<OutboxEvent> findTop50ByStatusOrderByCreatedAtDesc(OutboxEvent.Status status);
     long countByStatus(OutboxEvent.Status status);
