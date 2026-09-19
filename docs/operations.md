@@ -34,6 +34,8 @@ API→analytics 호출은 경로 분석 connect/read 1초/4초, PDF connect/read
 
 경로 분석 결과는 `logitrack_route_analysis_total{outcome="success|fallback"}`로 집계한다. 5분 동안 fallback이 5회를 초과하면 `LogiTrackRouteAnalysisDegraded` warning이 발생하므로 analytics health와 로그, 외부 route provider 상태를 순서대로 확인한다.
 
+analytics 응답은 저장 전에 경로 ID·provider·algorithm·hash·시각, 최소 2개 좌표, 유한한 경위도 범위, 양수 거리·소요 시간을 검증한다. HTTP 성공이어도 이 계약을 위반하면 `spring-fallback`으로 전환하고 fallback counter를 증가시킨다.
+
 ## 주문 운영
 
 - 생성: `POST /api/orders`와 필수 `Idempotency-Key`; 주문은 배송 없이 `READY`로 저장된다.

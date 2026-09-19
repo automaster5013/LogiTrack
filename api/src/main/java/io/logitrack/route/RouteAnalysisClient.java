@@ -37,13 +37,17 @@ public class RouteAnalysisClient {
                 "origin",Map.of("lat",delivery.getOriginLat(),"lon",delivery.getOriginLon()),
                 "destination",Map.of("lat",delivery.getDestinationLat(),"lon",delivery.getDestinationLon()));
             var result=client.post().uri("/routes/analyze").body(request).retrieve().body(RoutePlan.class);
-            if(result==null||result.coordinates()==null||result.coordinates().size()<2) throw new IllegalStateException("Invalid route response");
+            if(!valid(result))throw new IllegalStateException("Invalid route response");
             successes.increment();
             return result;
         } catch(Exception ignored) {
             fallbacks.increment();
             return fallback(delivery);
         }
+    }
+    private boolean valid(RoutePlan result) {
+        if(result==null||result.routeId()==null||result.provider()==null||result.provider().isBlank()||result.algorithmVersion()==null||result.algorithmVersion().isBlank()||result.coordinates()==null||result.coordinates().size()<2||result.distanceMeters()<=0||result.durationSeconds()<=0||result.plannedEta()==null||result.geometryHash()==null||result.geometryHash().isBlank()||result.generatedAt()==null)return false;
+        return result.coordinates().stream().allMatch(point->point!=null&&point.size()==2&&point.get(0)!=null&&point.get(1)!=null&&Double.isFinite(point.get(0))&&Double.isFinite(point.get(1))&&point.get(0)>=-180&&point.get(0)<=180&&point.get(1)>=-90&&point.get(1)<=90);
     }
     private RoutePlan fallback(Delivery d) {
         var points=new ArrayList<List<Double>>();

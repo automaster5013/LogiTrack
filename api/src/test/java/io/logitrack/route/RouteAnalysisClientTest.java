@@ -23,4 +23,14 @@ class RouteAnalysisClientTest {
             assertEquals(0,metrics.get("logitrack.route.analysis").tag("outcome","success").counter().count());
         }finally{server.stop(0);}
     }
+    @Test void fallsBackWhenAnalyticsReturnsInvalidRoute() throws Exception {
+        var server=HttpServer.create(new InetSocketAddress(0),0);
+        server.createContext("/routes/analyze",exchange->{var body=("{\"routeId\":\"%s\",\"provider\":\"bad\",\"algorithmVersion\":\"x\",\"coordinates\":[[999,999],[0,0]],\"distanceMeters\":-1,\"durationSeconds\":0,\"plannedEta\":\"2026-09-19T10:00:00Z\",\"geometryHash\":\"x\",\"generatedAt\":\"2026-09-19T09:00:00Z\"}").formatted(java.util.UUID.randomUUID());exchange.getResponseHeaders().add("Content-Type","application/json");exchange.sendResponseHeaders(200,body.getBytes().length);exchange.getResponseBody().write(body.getBytes());exchange.close();});server.start();
+        try{
+            var metrics=new SimpleMeterRegistry();var client=new RouteAnalysisClient(RestClient.builder(),"http://localhost:"+server.getAddress().getPort(),Duration.ofSeconds(1),Duration.ofSeconds(1),metrics);
+            assertEquals("spring-fallback",client.analyze(delivery()).provider());
+            assertEquals(1,metrics.get("logitrack.route.analysis").tag("outcome","fallback").counter().count());
+        }finally{server.stop(0);}
+    }
+    private Delivery delivery(){return Delivery.create(new CreateDeliveryRequest("ORD-1","TRUCK-1",new CreateDeliveryRequest.Location("Seoul",37.5,127),new CreateDeliveryRequest.Location("Incheon",37.4,126.7)),"key");}
 }
