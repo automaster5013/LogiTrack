@@ -18,6 +18,6 @@ class RequestTraceFilterTest {
     }
     @Test void rejectsUnsafeTraceId() throws Exception {
         var request=new MockHttpServletRequest();request.addHeader(RequestTraceFilter.HEADER,"bad trace id");var response=new MockHttpServletResponse();var chain=mock(FilterChain.class);filter.doFilter(request,response,chain);
-        assertEquals(400,response.getStatus());assertTrue(response.getContentAsString().contains("1-128"));verifyNoInteractions(chain);
+        var body=new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());assertEquals(400,response.getStatus());assertTrue(body.get("error").asText().contains("1-128"));assertEquals(response.getHeader(RequestTraceFilter.HEADER),body.get("traceId").asText());assertNotNull(body.get("timestamp"));verifyNoInteractions(chain);
     }
 }

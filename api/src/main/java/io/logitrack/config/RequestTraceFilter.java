@@ -8,6 +8,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -18,8 +19,8 @@ public class RequestTraceFilter extends OncePerRequestFilter {
     @Override protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain chain) throws ServletException,IOException {
         var supplied=request.getHeader(HEADER);
         if(supplied!=null&&!SAFE.matcher(supplied).matches()){
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"X-Trace-Id must contain 1-128 safe characters\"}");return;
+            var traceId=UUID.randomUUID().toString();response.setHeader(HEADER,traceId);response.setStatus(HttpServletResponse.SC_BAD_REQUEST);response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"X-Trace-Id must contain 1-128 safe characters\",\"traceId\":\""+traceId+"\",\"timestamp\":\""+Instant.now()+"\"}");return;
         }
         var traceId=supplied==null?UUID.randomUUID().toString():supplied;
         response.setHeader(HEADER,traceId);MDC.put("requestId",traceId);

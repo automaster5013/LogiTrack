@@ -14,6 +14,8 @@ Grafana Explore에서 `Tempo` datasource를 선택해 service name 또는 trace 
 
 모든 API 응답의 `X-Trace-Id`는 지원 문의와 HTTP 로그 상관관계에 사용한다. 호출자가 보내지 않으면 API가 UUID를 생성하고, 허용 문자 밖의 값이나 128자 초과 값은 400으로 거부한다. 애플리케이션 로그의 `requestId` MDC에도 같은 값이 기록된다.
 
+잘못된 caller trace ID를 거부할 때도 API가 새 안전한 UUID를 응답 header와 표준 오류 body에 함께 넣어 해당 거부 응답 자체를 추적할 수 있다.
+
 API 오류 body는 `error`, `traceId`, `timestamp`를 공통으로 반환한다. 중복 키·DB 제약 및 동시 수정 충돌은 내부 엔티티·SQL 정보를 노출하지 않는 409, 잘못된 JSON·필수 요청값 누락·타입 불일치는 400, 없는 리소스·경로는 404, 지원하지 않는 메서드는 405, 미디어 타입은 415로 변환한다.
 
 POST·PUT·PATCH body는 스트리밍 읽기 단계에서 기본 1MB로 제한하며 초과 시 413을 반환한다. `HTTP_MAX_REQUEST_BODY_SIZE`로 조정할 수 있고 1 byte 미만 설정은 시작 시 거부한다.

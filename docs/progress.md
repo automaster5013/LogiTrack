@@ -91,6 +91,7 @@
 - HTTP server SLO histogram과 5분 지속 p95 2초 초과 warning
 - analytics timeout·PDF 크기·telemetry 미래 허용 오차의 fail-fast 구성 검증
 - chunked 요청을 포함한 변경 요청 body 스트리밍 1MB 상한과 표준 413 경계
+- 잘못된 caller trace ID 거부 응답의 안전한 대체 trace·timestamp 표준 body
 
 ## 현재 상태
 
