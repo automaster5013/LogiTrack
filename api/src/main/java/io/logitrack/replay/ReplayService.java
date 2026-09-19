@@ -3,6 +3,7 @@ package io.logitrack.replay;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 import io.micrometer.core.instrument.*;
 
 import java.util.List;
@@ -25,7 +26,7 @@ public class ReplayService {
     }
     public List<ReplayAudit> audits() { return audits.findTop100ByOrderByOccurredAtDesc(); }
 
-    @Transactional
+    @Transactional(propagation=Propagation.REQUIRES_NEW)
     public DeadLetterEvent replay(UUID id, String actor) {
         var normalizedActor = actor == null ? "unknown" : actor.trim();
         if (normalizedActor.isBlank() || normalizedActor.length() > 120) throw new IllegalArgumentException("X-Operator must be 1-120 characters");
