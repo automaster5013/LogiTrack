@@ -94,6 +94,7 @@
 - 잘못된 caller trace ID 거부 응답의 안전한 대체 trace·timestamp 표준 body
 - batch DLQ replay 이벤트별 `REQUIRES_NEW` 격리로 부분 실패 rollback 전파 방지
 - DLQ batch 크기·처리율 범위의 fail-fast 구성 검증
+- KPI 1~90일 요청의 명시적 400과 projection 설정 fail-fast 검증
 
 ## 현재 상태
 

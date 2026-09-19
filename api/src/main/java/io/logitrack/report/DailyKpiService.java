@@ -117,6 +117,7 @@ public class DailyKpiService {
     }
 
     private static int boundedDays(int days) {
-        return Math.max(1, Math.min(MAX_DAYS, days));
+        if(days<1||days>MAX_DAYS)throw new IllegalArgumentException("days must be between 1 and 90");
+        return days;
     }
 }

@@ -8,9 +8,13 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
 class DailyKpiServiceTest {
+    @Test void rejectsOutOfRangeProjectionConfiguration(){var jdbc=mock(org.springframework.jdbc.core.JdbcTemplate.class);assertThrows(IllegalArgumentException.class,()->new DailyKpiService(jdbc,0));assertThrows(IllegalArgumentException.class,()->new DailyKpiService(jdbc,91));}
+
+    @Test void rejectsOutOfRangeReportRequest(){var service=new DailyKpiService(mock(org.springframework.jdbc.core.JdbcTemplate.class),30);assertThrows(IllegalArgumentException.class,()->service.getDailyKpis(0));assertThrows(IllegalArgumentException.class,()->service.getDailyKpis(91));}
     @Test
     void rendersStableUtf8CsvReport() {
         var service = new DailyKpiService(mock(org.springframework.jdbc.core.JdbcTemplate.class), 30);
@@ -23,4 +27,3 @@ class DailyKpiServiceTest {
         assertThat(csv).contains("2026-09-19,12,5,7,1,72.50,48.25,85.71,2026-09-19T01:00:00Z");
     }
 }
-
