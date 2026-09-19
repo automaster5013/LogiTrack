@@ -37,13 +37,14 @@
             <id>domain-coverage-check</id><phase>verify</phase><goals><goal>check</goal></goals>
             <configuration>
               <includes>
-                <include>io.logitrack.delivery.Delivery</include>
-                <include>io.logitrack.order.CustomerOrder</include>
-                <include>io.logitrack.warehouse.WarehouseStock</include>
-                <include>io.logitrack.alert.DeliveryAlert</include>
-                <include>io.logitrack.alert.RouteDeviationCalculator</include>
-                <include>io.logitrack.replay.DeadLetterEvent</include>
-                <include>io.logitrack.replay.ReplayPlan</include>
+                <include>io/logitrack/delivery/Delivery.class</include>
+                <include>io/logitrack/order/CustomerOrder.class</include>
+                <include>io/logitrack/warehouse/WarehouseStock.class</include>
+                <include>io/logitrack/alert/DeliveryAlert.class</include>
+                <include>io/logitrack/alert/AlertPolicy.class</include>
+                <include>io/logitrack/alert/RouteDeviationCalculator.class</include>
+                <include>io/logitrack/replay/DeadLetterEvent.class</include>
+                <include>io/logitrack/replay/ReplayPlan.class</include>
               </includes>
               <rules>
                 <rule>

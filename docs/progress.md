@@ -33,11 +33,12 @@
 - analytics/consumer/Redis 장애 주입, Kafka 보존·정확히 한 번 복구와 자동 원상 복구 runbook
 - PostgreSQL 독립 주문 aggregate, 주문-배송 1:1 연결, `READY → DISPATCHED → FULFILLED` lifecycle과 TypeScript 배차 패널
 - 배포 runtime version 감지와 자동 새로고침으로 오래 열린 운영 탭의 구형 CSS/JavaScript 및 검은 지도 상태 자동 복구
-- JaCoCo 핵심 도메인 line/branch 80% 빌드 gate와 재현 가능한 Docker 검증(line 90.38%, branch 96.88%)
+- JaCoCo 핵심 도메인 line/branch 80% 빌드 gate와 재현 가능한 Docker 검증(line 92.25%, branch 88.33%)
 - GitHub Actions 병렬 CI(API coverage, Python tests, Compose validation, TypeScript production build)와 최소 읽기 권한
 - production 컨테이너 4종의 잠금 의존성 build, commit SHA label, non-root runtime CI gate와 CD 도입 기준
 - production 컨테이너 4종의 CycloneDX SBOM artifact와 CRITICAL 취약점 0건 CI gate, Tomcat/Netty 보안 패치 고정
 - 비관적 잠금 기반 경고 운영자 확인, 최초 확인 감사 정보, 멱등 outbox 이벤트와 TypeScript 미확인 경고 UI
+- PostgreSQL 전역/차량별 경고 임계값 정책, 불변 변경 감사 이력, 텔레메트리 평가 연동과 TypeScript 운영 패널
 
 ## 현재 상태
 

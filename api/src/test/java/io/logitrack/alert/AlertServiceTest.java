@@ -14,8 +14,9 @@ class AlertServiceTest {
     private final DeliveryAlertRepository alerts=mock(DeliveryAlertRepository.class);
     private final OutboxRepository outbox=mock(OutboxRepository.class);
     private final DeliveryStream stream=mock(DeliveryStream.class);
+    private final AlertPolicyService policies=mock(AlertPolicyService.class);
     private final AlertService service=new AlertService(alerts,mock(RouteSnapshotRepository.class),outbox,
-        new ObjectMapper().findAndRegisterModules(),stream);
+        new ObjectMapper().findAndRegisterModules(),stream,policies);
 
     @Test void acknowledgementEmitsOneAuditableEventAndIsIdempotent() {
         var alert=new DeliveryAlert(UUID.randomUUID(),DeliveryAlert.Type.ROUTE_DEVIATION,

@@ -1,0 +1,1 @@
+ALTER TABLE alert_policies ADD COLUMN version BIGINT NOT NULL DEFAULT 0;

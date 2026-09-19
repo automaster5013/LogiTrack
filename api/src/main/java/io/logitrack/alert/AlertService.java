@@ -13,23 +13,22 @@ import java.util.*;
 
 @Service
 public class AlertService {
-    static final double DEVIATION_OPEN_METERS=500; static final double DEVIATION_CLOSE_METERS=300;
-    static final long DELAY_OPEN_SECONDS=600; static final long DELAY_CLOSE_SECONDS=300;
     private final DeliveryAlertRepository alerts; private final RouteSnapshotRepository routes;
-    private final OutboxRepository outbox; private final ObjectMapper mapper; private final DeliveryStream stream;
-    public AlertService(DeliveryAlertRepository alerts,RouteSnapshotRepository routes,OutboxRepository outbox,ObjectMapper mapper,DeliveryStream stream){this.alerts=alerts;this.routes=routes;this.outbox=outbox;this.mapper=mapper;this.stream=stream;}
+    private final OutboxRepository outbox; private final ObjectMapper mapper; private final DeliveryStream stream; private final AlertPolicyService policies;
+    public AlertService(DeliveryAlertRepository alerts,RouteSnapshotRepository routes,OutboxRepository outbox,ObjectMapper mapper,DeliveryStream stream,AlertPolicyService policies){this.alerts=alerts;this.routes=routes;this.outbox=outbox;this.mapper=mapper;this.stream=stream;this.policies=policies;}
 
     public void evaluate(Delivery delivery,String traceId){
+        var policy=policies.resolve(delivery.getVehicleId());
         routes.findTopByDeliveryIdOrderByGeneratedAtDesc(delivery.getId()).ifPresent(route->{
             var deviation=RouteDeviationCalculator.distanceMeters(delivery.getCurrentLat(),delivery.getCurrentLon(),route.getGeometry());
-            reconcile(delivery,DeliveryAlert.Type.ROUTE_DEVIATION,deviation,deviation>=DEVIATION_OPEN_METERS,deviation<=DEVIATION_CLOSE_METERS,
-                deviation>=1500?DeliveryAlert.Severity.CRITICAL:DeliveryAlert.Severity.WARNING,DEVIATION_OPEN_METERS,
+            reconcile(delivery,DeliveryAlert.Type.ROUTE_DEVIATION,deviation,deviation>=policy.getDeviationOpenMeters(),deviation<=policy.getDeviationCloseMeters(),
+                deviation>=policy.getCriticalDeviationMeters()?DeliveryAlert.Severity.CRITICAL:DeliveryAlert.Severity.WARNING,policy.getDeviationOpenMeters(),
                 String.format(Locale.ROOT,"계획 경로에서 %.0fm 이탈",deviation),traceId);
             var delaySeconds=delivery.getEta()==null?0:Duration.between(route.getPlannedEta(),delivery.getEta()).toSeconds();
-            var delayed=delivery.getStatus()==Delivery.Status.DELAYED||delaySeconds>=DELAY_OPEN_SECONDS;
+            var delayed=delivery.getStatus()==Delivery.Status.DELAYED||delaySeconds>=policy.getDelayOpenSeconds();
             reconcile(delivery,DeliveryAlert.Type.DELAY,Math.max(0,delaySeconds),delayed,
-                delivery.getStatus()!=Delivery.Status.DELAYED&&delaySeconds<=DELAY_CLOSE_SECONDS,
-                delaySeconds>=1800?DeliveryAlert.Severity.CRITICAL:DeliveryAlert.Severity.WARNING,DELAY_OPEN_SECONDS,
+                delivery.getStatus()!=Delivery.Status.DELAYED&&delaySeconds<=policy.getDelayCloseSeconds(),
+                delaySeconds>=policy.getCriticalDelaySeconds()?DeliveryAlert.Severity.CRITICAL:DeliveryAlert.Severity.WARNING,policy.getDelayOpenSeconds(),
                 delaySeconds>0?String.format(Locale.ROOT,"계획 ETA 대비 %d분 지연",delaySeconds/60):"운행 상태에서 지연 감지",traceId);
         });
     }
