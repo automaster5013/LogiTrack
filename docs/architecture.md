@@ -23,7 +23,7 @@ Operator -> POST /deliveries -> analytics(route + ETA)
                                             |
                                   vehicle.telemetry.v1
                                             |
-Kafka -> control-api consumer -> PostgreSQL/Redis -> SSE -> Web console
+Kafka -> control-api consumer -> PostgreSQL -> Redis Pub/Sub -> every API SSE -> Web console
                     failures -> retry topics -> telemetry.dlq.v1
 ```
 
@@ -72,7 +72,8 @@ scripts/         재현 가능한 smoke test
 
 ## 확장/격리 전략
 
-- API는 stateless하게 수평 확장하고 SSE는 Redis pub/sub 또는 전용 gateway로 분리한다.
+- API 인스턴스는 로컬 SSE 연결만 보유한다. 배송·경고 갱신은 `logitrack.stream.v1` Redis Pub/Sub 채널로 모든 인스턴스에 fan-out하며, Redis publish 실패 시 발행 인스턴스의 로컬 연결에는 계속 전달한다.
+- Compose `scale-test` profile은 8081의 두 번째 API를 제공해 교차 인스턴스 전달을 검증한다. 더 큰 규모에서는 동일 계약을 전용 realtime gateway로 옮길 수 있다.
 - telemetry topic partition 수와 consumer replica 수를 함께 늘린다. key 기반 순서는 유지한다.
 - simulator와 analytics 장애는 command API를 막지 않는다.
 - DB pool, Kafka consumer, SSE subscriber에 각각 제한을 두어 연쇄 고갈을 막는다.

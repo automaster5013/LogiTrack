@@ -28,3 +28,5 @@ server:
   shutdown: graceful
 logitrack:
   analytics.url: ${ANALYTICS_URL:http://localhost:8090}
+  instance-id: ${INSTANCE_ID:${random.uuid}}
+  stream.channel: ${STREAM_CHANNEL:logitrack.stream.v1}

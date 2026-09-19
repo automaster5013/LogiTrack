@@ -83,7 +83,32 @@ services:
       KAFKA_BOOTSTRAP: kafka:29092
       REDIS_HOST: redis
       ANALYTICS_URL: http://analytics:8090
+      INSTANCE_ID: api-primary
     ports: ["8080:8080"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+      kafka-init: {condition: service_completed_successfully}
+      analytics: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/readiness | grep UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  api-replica:
+    profiles: ["scale-test"]
+    build: ./api
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/logitrack
+      DB_USER: logitrack
+      DB_PASSWORD: logitrack
+      KAFKA_BOOTSTRAP: kafka:29092
+      REDIS_HOST: redis
+      ANALYTICS_URL: http://analytics:8090
+      INSTANCE_ID: api-replica
+    ports: ["8081:8080"]
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}

@@ -68,3 +68,5 @@ python -m unittest discover analytics/tests
 도로 경로와 ETA 흐름 검증은 `./scripts/route-smoke.ps1`로 실행합니다.
 
 지연·경로 이탈 lifecycle 검증은 `./scripts/alert-smoke.ps1`로 실행합니다. 이 검증은 결정론적 telemetry 주입을 위해 simulator를 일시 중단한 뒤 자동으로 다시 시작합니다.
+
+Redis 기반 다중 API SSE fan-out은 `./scripts/sse-fanout-smoke.ps1`로 검증합니다. 스크립트가 `scale-test` profile의 API replica를 8081 포트에 일시 실행하고 primary에서 발생한 이벤트가 replica 구독자에게 전달되는지 확인한 뒤 종료합니다.
