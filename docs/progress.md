@@ -27,8 +27,8 @@
 - DLQ PostgreSQL catalog, 단일 replay API, 운영자 감사 이력과 TypeScript 복구 패널
 - Kafka telemetry 100건 batch 반영 p95 307.95ms, 처리량 36.64 events/s, 종료 lag 0 기준선
 - 10분 데모 순서와 전체 재현 명령 문서
+- 별도 Compose/PostgreSQL/Kafka 격리 환경의 고유 배송 생성 10 RPS 기준선(p95 62.80ms, 성공률 100%)
 
 ## 다음 우선순위
 
-1. 고유 배송 생성 write-heavy 부하 시험 격리 환경
-2. 선택 범위 replay의 rate limit·승인·dry-run 설계
+1. 선택 범위 replay의 rate limit·승인·dry-run 설계

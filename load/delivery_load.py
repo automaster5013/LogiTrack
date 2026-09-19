@@ -45,6 +45,7 @@ def main() -> int:
     parser.add_argument("--rate", type=int, default=20)
     parser.add_argument("--duration", type=int, default=15)
     parser.add_argument("--workers", type=int, default=32)
+    parser.add_argument("--warmup", type=int, default=0, help="Untimed unique requests used to warm the JVM and pools")
     parser.add_argument("--unique", action="store_true", help="Create a new delivery for every request")
     args = parser.parse_args()
 
@@ -52,6 +53,11 @@ def main() -> int:
     stable_key = f"load-{run_id}"
     total = args.rate * args.duration
     results: list[tuple[float, int, str | None]] = []
+    for index in range(args.warmup):
+        warmup = post_delivery(args.base_url, f"warmup-{run_id}-{index}", f"LOAD-WARMUP-{run_id}-{index}")
+        if warmup[1] != 201:
+            print(json.dumps({"error": "unique warmup failed", "result": warmup}))
+            return 1
     if not args.unique:
         warmup = post_delivery(args.base_url, stable_key, f"LOAD-{run_id}-0")
         if warmup[1] != 201:
@@ -75,6 +81,7 @@ def main() -> int:
     successes = [result for result in results if result[1] == 201]
     summary = {
         "scenario": "unique-create" if args.unique else "idempotent-create",
+        "warmupRequests": args.warmup,
         "requests": len(results),
         "targetRps": args.rate,
         "achievedRps": round(len(results) / elapsed, 2),

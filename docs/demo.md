@@ -21,6 +21,7 @@ docker compose ps
 5. `./scripts/tracing-smoke.ps1` 결과의 trace ID를 Grafana Explore의 Tempo에서 조회해 Spring API→Python analytics span을 확인한다.
 6. `./scripts/replay-smoke.ps1`을 실행하고 `Selective event replay`에서 poison event 격리, replay 상태, 운영자 감사를 확인한다.
 7. `./scripts/load-smoke.ps1`과 `./scripts/telemetry-load.ps1`로 API p95와 Kafka 반영 p95/lag 기준선을 보여준다.
+8. 기본 데이터를 보존한 고유 생성 시험이 필요하면 `./scripts/load-unique-isolated.ps1`을 실행한다.
 
 ## 핵심 설명
 
@@ -42,7 +43,7 @@ docker compose ps
 ./scripts/replay-smoke.ps1
 ./scripts/load-smoke.ps1
 ./scripts/telemetry-load.ps1
+./scripts/load-unique-isolated.ps1
 ```
 
 모든 smoke는 테스트용 데이터를 추가한다. `alert-smoke`와 `telemetry-load`는 simulator를 일시 중지하고 `finally`에서 다시 시작한다. AWS/ReleasePilot 자원은 이 데모 범위에 포함하지 않는다.
-
