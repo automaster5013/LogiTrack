@@ -3,5 +3,7 @@ import org.springframework.data.jpa.repository.*; import org.springframework.dat
 public interface WarehouseStockRepository extends JpaRepository<WarehouseStock,UUID>{
  @Lock(LockModeType.PESSIMISTIC_WRITE) @Query("select s from WarehouseStock s where s.warehouseId=:warehouseId and s.sku=:sku")
  Optional<WarehouseStock> lockByWarehouseAndSku(@Param("warehouseId") String warehouseId,@Param("sku") String sku);
+ @Query(value="SELECT pg_advisory_xact_lock(hashtextextended(concat(:warehouseId, ':', :sku),0))",nativeQuery=true)
+ void lockStockKey(@Param("warehouseId") String warehouseId,@Param("sku") String sku);
  List<WarehouseStock> findAllByOrderByWarehouseIdAscSkuAsc(Pageable pageable);
 }

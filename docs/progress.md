@@ -107,6 +107,7 @@
 - 모든 waiter 취소 시 in-flight route background 정리·성공 결과 캐시
 - telemetry trace ID 안전 문자 검증과 이벤트당 단일 생성·후속 처리 일관 전파
 - 창고 task 비관적 잠금 기반 동시 출고 확정의 단일 재고·ledger·outbox 변경
+- 창고·SKU advisory lock 기반 최초 재고 행 동시 생성과 병렬 입고 정확 합산
 
 ## 현재 상태
 
