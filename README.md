@@ -101,7 +101,7 @@ DLQ 격리, 선택 replay, 감사 기록과 중복 방지는 `./scripts/replay-s
 
 Kafka telemetry 100건의 API 반영 p95와 consumer lag는 `./scripts/telemetry-load.ps1`로 측정합니다.
 
-서로 다른 배송을 지속 생성하는 write-heavy 기준선은 `./scripts/load-unique-isolated.ps1`로 실행합니다. 별도 Compose project와 임시 PostgreSQL volume을 사용하고 종료 시 자동 제거합니다.
+서로 다른 배송을 초당 100건 생성하는 최종 write-heavy 기준선은 `./scripts/load-unique-isolated.ps1`로 실행합니다. 별도 Compose project와 임시 PostgreSQL volume을 사용하고 성공률 99% 이상, p95 300ms 이하를 판정한 뒤 종료 시 자동 제거합니다.
 
 분석 서비스, 단일 Kafka consumer, Redis 장애와 자동 복구는 `./scripts/recovery-drill.ps1`로 재현합니다. 스크립트는 장애 중 DB/Kafka 보존과 복구 후 정확히 한 번 반영을 확인하고 모든 서비스를 원상 복구합니다.
 

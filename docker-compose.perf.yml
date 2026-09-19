@@ -75,6 +75,8 @@ services:
       ANALYTICS_URL: http://analytics:8090
       INSTANCE_ID: api-perf
       TRACING_SAMPLING_PROBABILITY: "0"
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "32"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "8"
     ports: ["18080:8080"]
     depends_on:
       postgres: {condition: service_healthy}
@@ -90,4 +92,3 @@ services:
 
 volumes:
   postgres-perf-data:
-

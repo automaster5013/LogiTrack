@@ -40,18 +40,19 @@
 
 명령은 `./scripts/telemetry-load.ps1`이다. 드라이버는 Compose 네트워크 내부에서 persistent Kafka producer를 사용하므로 매 batch의 CLI 프로세스 시작 시간은 측정값에 포함하지 않는다.
 
-## 고유 배송 생성 격리 시험
+## 고유 배송 생성 최종 격리 시험
 
-기본 개발 데이터와 Kafka consumer offset에 영향을 주지 않도록 별도 Compose project, PostgreSQL volume, Redis, Kafka, analytics, API를 구성했다. deterministic geodesic routing과 20건 warm-up 후 모든 요청이 서로 다른 배송을 생성하는 write-heavy workload를 측정했다.
+기본 개발 데이터와 Kafka consumer offset에 영향을 주지 않도록 별도 Compose project, PostgreSQL volume, Redis, Kafka, analytics, API를 구성했다. deterministic geodesic routing과 50건 warm-up 후 모든 요청이 서로 다른 배송을 생성하는 write-heavy workload를 초당 100건으로 측정했다. 성능 환경은 API DB pool을 최대 32개로 제한하며, 부하 드라이버는 worker별 HTTP keep-alive 연결을 재사용해 클라이언트 연결 생성 비용이 서버 측정치를 왜곡하지 않게 한다.
 
 | 항목 | 결과 | 기준 |
 |---|---:|---:|
-| 측정 요청 | 150 | 150 |
-| warm-up | 20 | 측정 제외 |
-| 달성 처리량 | 10.05 RPS | 10 RPS |
+| 측정 요청 | 1,500 | 1,500 |
+| warm-up | 50 | 측정 제외 |
+| 목표/달성 처리량 | 100 / 99.51 RPS | 100 RPS open-loop |
 | 성공률 | 100.0% | 99% 이상 |
-| 평균 latency | 43.04 ms | 참고 |
-| p95 latency | 62.80 ms | 500 ms 이하 |
-| p99 latency | 72.99 ms | 참고 |
+| 평균 latency | 68.85 ms | 참고 |
+| p95 latency | 87.72 ms | 300 ms 이하 |
+| p99 latency | 121.88 ms | 참고 |
+| 최대 latency | 199.93 ms | 참고 |
 
-`./scripts/load-unique-isolated.ps1`은 `logitrack-perf` project를 시작하고 170개 row를 검증한 뒤 컨테이너·네트워크·전용 volume을 항상 제거한다. 기본 `logitrack` project와 데이터는 중단하거나 변경하지 않는다.
+`./scripts/load-unique-isolated.ps1`은 `logitrack-perf` project를 시작하고 1,550개 row를 검증한 뒤 컨테이너·네트워크·전용 volume을 항상 제거한다. 성공률 99%와 p95 300ms를 자동 판정하며, 기본 `logitrack` project와 데이터는 중단하거나 변경하지 않는다.

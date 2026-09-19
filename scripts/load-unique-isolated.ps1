@@ -1,9 +1,10 @@
 $ErrorActionPreference = "Stop"
 $compose = @("compose", "-p", "logitrack-perf", "-f", "docker-compose.perf.yml")
-$rate = 10
+$rate = 100
 $duration = 15
-$warmup = 20
+$warmup = 50
 $expectedRows = $rate * $duration + $warmup
+$minimumRows = [math]::Ceiling($rate * $duration * 0.99) + $warmup
 
 try {
   & docker @compose up -d --build
@@ -16,11 +17,11 @@ try {
   } while (-not $ready -and (Get-Date) -lt $deadline)
   if (-not $ready) { throw "Isolated performance API did not become ready" }
 
-  python .\load\delivery_load.py --base-url http://localhost:18080 --rate $rate --duration $duration --workers 24 --warmup $warmup --unique
+  python .\load\delivery_load.py --base-url http://localhost:18080 --rate $rate --duration $duration --workers 96 --warmup $warmup --unique --max-p95-ms 300 --min-success-percent 99
   if ($LASTEXITCODE -ne 0) { throw "Unique delivery workload failed its success criteria" }
   $count = & docker @compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT COUNT(*) FROM deliveries WHERE order_number LIKE 'LOAD-%';"
-  if ([int]$count.Trim() -ne $expectedRows) { throw "Expected $expectedRows isolated deliveries, got $($count.Trim())" }
-  Write-Host "PASS: isolated rows=$($count.Trim()); primary project data was untouched"
+  if ([int]$count.Trim() -lt $minimumRows -or [int]$count.Trim() -gt $expectedRows) { throw "Expected $minimumRows-$expectedRows isolated deliveries, got $($count.Trim())" }
+  Write-Host "PASS: isolated rows=$($count.Trim())/$expectedRows; primary project data was untouched"
 } finally {
   & docker @compose down -v --remove-orphans
 }

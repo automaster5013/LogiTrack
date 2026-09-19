@@ -1,12 +1,16 @@
 import argparse
+import http.client
 import json
 import math
 import statistics
+import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.parse import urlsplit
+
+
+connections = threading.local()
 
 
 def post_delivery(base_url: str, key: str, order_number: str) -> tuple[float, int, str | None]:
@@ -15,21 +19,30 @@ def post_delivery(base_url: str, key: str, order_number: str) -> tuple[float, in
         "vehicleId": "TRUCK-LOAD",
         "origin": {"name": "Seoul", "lat": 37.5665, "lon": 126.978},
         "destination": {"name": "Incheon", "lat": 37.4563, "lon": 126.7052},
-    }).encode()
-    request = Request(
-        f"{base_url}/api/deliveries",
-        data=body,
-        method="POST",
-        headers={"Content-Type": "application/json", "Idempotency-Key": key},
-    )
+    })
+    target = urlsplit(base_url)
+    connection_key = (target.scheme, target.hostname, target.port)
+    connection = getattr(connections, "connection", None)
+    if connection is None or getattr(connections, "key", None) != connection_key:
+        connection_type = http.client.HTTPSConnection if target.scheme == "https" else http.client.HTTPConnection
+        connection = connection_type(target.hostname, target.port, timeout=10)
+        connections.connection = connection
+        connections.key = connection_key
     started = time.perf_counter()
     try:
-        with urlopen(request, timeout=10) as response:
-            response.read()
-            return (time.perf_counter() - started) * 1000, response.status, None
-    except HTTPError as error:
-        return (time.perf_counter() - started) * 1000, error.code, str(error)
-    except (URLError, TimeoutError) as error:
+        connection.request(
+            "POST",
+            f"{target.path.rstrip('/')}/api/deliveries",
+            body=body,
+            headers={"Content-Type": "application/json", "Idempotency-Key": key},
+        )
+        response = connection.getresponse()
+        response.read()
+        error = None if response.status == 201 else f"HTTP {response.status} {response.reason}"
+        return (time.perf_counter() - started) * 1000, response.status, error
+    except (OSError, TimeoutError, http.client.HTTPException) as error:
+        connection.close()
+        connections.connection = None
         return (time.perf_counter() - started) * 1000, 0, str(error)
 
 
@@ -47,6 +60,8 @@ def main() -> int:
     parser.add_argument("--workers", type=int, default=32)
     parser.add_argument("--warmup", type=int, default=0, help="Untimed unique requests used to warm the JVM and pools")
     parser.add_argument("--unique", action="store_true", help="Create a new delivery for every request")
+    parser.add_argument("--max-p95-ms", type=float, default=500)
+    parser.add_argument("--min-success-percent", type=float, default=99)
     args = parser.parse_args()
 
     run_id = uuid.uuid4().hex[:10]
@@ -96,7 +111,10 @@ def main() -> int:
         "errors": [error for _, _, error in results if error][:5],
     }
     print(json.dumps(summary, indent=2))
-    return 0 if summary["successRatePercent"] >= 99 and summary["latencyMs"]["p95"] <= 500 else 1
+    return 0 if (
+        summary["successRatePercent"] >= args.min_success_percent
+        and summary["latencyMs"]["p95"] <= args.max_p95_ms
+    ) else 1
 
 
 if __name__ == "__main__":
