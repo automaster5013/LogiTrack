@@ -1,9 +1,10 @@
 import os
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from typing import Annotated
 
-from fastapi import FastAPI, Response
+from fastapi import Body, FastAPI, Response
 from pydantic import BaseModel, Field
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -40,14 +41,14 @@ class RouteResponse(BaseModel):
 
 
 class DailyKpiRow(BaseModel):
-    metricDate: str
-    totalDeliveries: int = Field(ge=0)
-    activeDeliveries: int = Field(ge=0)
-    deliveredDeliveries: int = Field(ge=0)
-    delayedDeliveries: int = Field(ge=0)
-    averageProgressPercent: float
-    averageCycleMinutes: float
-    onTimeRatePercent: float
+    metricDate: date
+    totalDeliveries: int = Field(ge=0, le=2_147_483_647)
+    activeDeliveries: int = Field(ge=0, le=2_147_483_647)
+    deliveredDeliveries: int = Field(ge=0, le=2_147_483_647)
+    delayedDeliveries: int = Field(ge=0, le=2_147_483_647)
+    averageProgressPercent: float = Field(ge=0, le=100)
+    averageCycleMinutes: float = Field(ge=0, le=525_600)
+    onTimeRatePercent: float = Field(ge=0, le=100)
     projectedAt: datetime
 
 
@@ -103,7 +104,7 @@ async def analyze(request: RouteRequest) -> RouteResponse:
 
 
 @app.post("/reports/daily-kpis.pdf")
-def daily_kpi_pdf(rows: list[DailyKpiRow]) -> Response:
+def daily_kpi_pdf(rows: Annotated[list[DailyKpiRow], Body(min_length=1, max_length=90)]) -> Response:
     return Response(
         content=render_daily_kpi_report(rows),
         media_type="application/pdf",
