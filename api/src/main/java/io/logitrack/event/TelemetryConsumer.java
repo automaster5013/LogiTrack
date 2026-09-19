@@ -16,9 +16,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Component
 public class TelemetryConsumer {
+    private static final Pattern SAFE_TRACE=Pattern.compile("[A-Za-z0-9._:-]{1,128}");
     private final ObjectMapper mapper; private final DeliveryRepository deliveries; private final ProcessedEventRepository processed; private final DeliveryStream stream; private final AlertService alerts; private final OrderService orders; private final TelemetryPointRepository points;private final Duration maxFutureSkew;private final Counter appliedEvents;private final Counter staleEvents;
     public TelemetryConsumer(ObjectMapper mapper,DeliveryRepository deliveries,ProcessedEventRepository processed,DeliveryStream stream,AlertService alerts,OrderService orders,TelemetryPointRepository points,
         @Value("${logitrack.telemetry.max-future-skew:5m}") Duration maxFutureSkew,MeterRegistry metrics){if(maxFutureSkew.isNegative())throw new IllegalArgumentException("Telemetry future skew must not be negative");this.mapper=mapper;this.deliveries=deliveries;this.processed=processed;this.stream=stream;this.alerts=alerts;this.orders=orders;this.points=points;this.maxFutureSkew=maxFutureSkew;this.appliedEvents=metrics.counter("logitrack.telemetry.events","outcome","applied");this.staleEvents=metrics.counter("logitrack.telemetry.events","outcome","stale");}
@@ -27,6 +29,8 @@ public class TelemetryConsumer {
         var event=mapper.readTree(raw); var id=UUID.fromString(event.required("eventId").asText()); if(processed.existsById(id)) return;
         if(!event.path("eventType").isTextual()||!"vehicle.telemetry.v1".equals(event.path("eventType").textValue()))throw new IllegalArgumentException("Invalid telemetry event type");
         if(!event.path("schemaVersion").isIntegralNumber()||event.path("schemaVersion").intValue()!=1)throw new IllegalArgumentException("Unsupported telemetry schema version");
+        var traceId=event.hasNonNull("traceId")?event.path("traceId").asText(null):UUID.randomUUID().toString();
+        if(traceId==null||!SAFE_TRACE.matcher(traceId).matches())throw new IllegalArgumentException("Invalid telemetry traceId");
         var p=event.required("payload"); var delivery=deliveries.findById(UUID.fromString(p.required("deliveryId").asText())).orElseThrow();
         if(!p.path("vehicleId").isTextual()||!delivery.getVehicleId().equals(p.path("vehicleId").textValue()))throw new IllegalArgumentException("Telemetry vehicle does not match delivery");
         var progress=number(p,"progress"); var status=Delivery.Status.valueOf(p.required("status").asText());
@@ -38,7 +42,7 @@ public class TelemetryConsumer {
         var applied=delivery.applyTelemetry(lat,lon,progress,eta,status,occurredAt);
         (applied?appliedEvents:staleEvents).increment();
         var point=points.save(new TelemetryPoint(id,delivery,lat,lon,progress,occurredAt));
-        if(applied){alerts.evaluate(delivery,event.path("traceId").asText(UUID.randomUUID().toString()));orders.fulfillFromDelivery(delivery,event.path("traceId").asText(UUID.randomUUID().toString()));}
+        if(applied){alerts.evaluate(delivery,traceId);orders.fulfillFromDelivery(delivery,traceId);}
         processed.save(new ProcessedEvent(id,"control-api-telemetry-v1"));if(applied)stream.publish(delivery);stream.publishTelemetry(point);
     }
     private double number(JsonNode payload,String field){var value=payload.required(field);if(!value.isNumber())throw new IllegalArgumentException(field+" must be a number");return value.doubleValue();}

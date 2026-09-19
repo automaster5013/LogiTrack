@@ -30,6 +30,8 @@ HTTP 요청은 100ms, 250ms, 500ms, 1s, 2s, 5s SLO bucket으로 집계한다. �
 
 Kafka 텔레메트리는 `eventType=vehicle.telemetry.v1`, 정수 `schemaVersion=1`, 배송과 일치하는 `vehicleId`, JSON number 좌표·진행률, 발생 시각을 요구한다. 문자열 숫자나 지원하지 않는 계약 버전은 정상 이벤트로 강제 변환하지 않고 재시도 후 DLQ로 격리한다. 발생 시각의 미래 허용 오차는 기본 5분이며 `TELEMETRY_MAX_FUTURE_SKEW`로 조정한다.
 
+telemetry `traceId`도 HTTP와 같은 1~128자 안전 문자만 허용한다. 없으면 이벤트당 UUID를 한 번 생성해 배송, 경고, 주문 후속 처리 전체에 동일하게 전파한다.
+
 텔레메트리가 적용할 수 있는 상태는 `IN_TRANSIT`, `DELAYED`, `DELIVERED`이며 `CREATED`로의 회귀는 거부한다. `DELIVERED`는 terminal 상태라 이후 이벤트는 위치 이력만 보존한다.
 
 배송 행의 `lastTelemetryAt`보다 오래되거나 같은 시각의 replay 이벤트는 불변 GPS 이력에는 저장하지만 현재 배송 상태·ETA, 경고 평가, 주문 완료 판단에는 적용하지 않는다. 워터마크는 기존 이력의 최대 `occurredAt`으로 migration backfill되며, 이벤트마다 최신 이력을 재조회하지 않는다. 따라서 운영자가 늦은 DLQ 이벤트를 복구해도 관제 상태가 과거로 회귀하지 않고 같은 timestamp의 도착 순서에 따라 상태가 흔들리지 않는다.

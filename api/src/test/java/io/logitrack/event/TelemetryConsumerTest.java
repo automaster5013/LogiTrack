@@ -30,6 +30,7 @@ class TelemetryConsumerTest {
         assertEquals(37.5,saved.getValue().getLatitude());assertEquals(0.25,delivery.getProgress());
         verify(processed).save(any());verify(stream).publish(delivery);verify(stream).publishTelemetry(saved.getValue());
         assertEquals(1,metrics.get("logitrack.telemetry.events").tag("outcome","applied").counter().count());
+        var trace=ArgumentCaptor.forClass(String.class);verify(alerts).evaluate(eq(delivery),trace.capture());verify(orders).fulfillFromDelivery(eq(delivery),trace.capture());assertEquals(trace.getAllValues().get(0),trace.getAllValues().get(1));assertDoesNotThrow(()->UUID.fromString(trace.getValue()));
     }
 
     @Test void duplicateEventDoesNotAppendPoint() throws Exception {
@@ -72,6 +73,8 @@ class TelemetryConsumerTest {
         assertThrows(IllegalArgumentException.class,()->consumer.consume(base.formatted(UUID.randomUUID(),java.time.Instant.now().plus(Duration.ofMinutes(10)),delivery.getId(),"TRUCK-1")));
         verifyNoInteractions(points);verify(processed,never()).save(any());
     }
+
+    @Test void rejectsUnsafeTraceIdBeforeDeliveryLookup(){var deliveries=mock(DeliveryRepository.class);var consumer=new TelemetryConsumer(new ObjectMapper(),deliveries,mock(ProcessedEventRepository.class),mock(DeliveryStream.class),mock(AlertService.class),mock(OrderService.class),mock(TelemetryPointRepository.class),Duration.ofMinutes(5),new SimpleMeterRegistry());var raw="{\"eventId\":\""+UUID.randomUUID()+"\",\"eventType\":\"vehicle.telemetry.v1\",\"schemaVersion\":1,\"traceId\":\"bad trace\",\"payload\":{}}";assertThrows(IllegalArgumentException.class,()->consumer.consume(raw));verifyNoInteractions(deliveries);}
 
     private CreateDeliveryRequest request(){return new CreateDeliveryRequest("ORD-1","TRUCK-1",new CreateDeliveryRequest.Location("Seoul",37.5665,126.978),new CreateDeliveryRequest.Location("Incheon",37.4563,126.7052));}
 }
