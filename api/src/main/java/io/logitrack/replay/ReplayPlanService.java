@@ -20,7 +20,7 @@ public class ReplayPlanService {
     public ReplayPlanService(ReplayPlanRepository plans, DeadLetterEventRepository events, ReplayService replay,
         @Value("${logitrack.replay.batch-max-size:20}") int maxBatchSize,
         @Value("${logitrack.replay.batch-rate-per-second:5}") int ratePerSecond) {
-        if(maxBatchSize<1)throw new IllegalArgumentException("Replay batch maximum must be positive");
+        if(maxBatchSize<1||maxBatchSize>100)throw new IllegalArgumentException("Replay batch maximum must be between 1 and 100");
         if(ratePerSecond<1||ratePerSecond>1000)throw new IllegalArgumentException("Replay rate must be between 1 and 1000 events per second");
         this.plans=plans;this.events=events;this.replay=replay;this.maxBatchSize=maxBatchSize;
         this.delayMillis=Math.max(1,1000/ratePerSecond);

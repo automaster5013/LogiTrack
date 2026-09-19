@@ -128,6 +128,7 @@ Redis 장애가 Kafka consumer 트랜잭션을 오래 점유하지 않도록 연
 - `logitrack_retention_deleted_total{table=...}`에서 커밋된 실제 정리량을 확인하고 `logitrack_retention_failures_total`로 실패를 추적한다. cutoff 전용 부분/정렬 인덱스로 전체 테이블 scan을 피한다.
 - Published outbox가 보존 기한을 지나 삭제될 때 연결된 재시도 감사 행도 FK cascade로 함께 제거한다. 감사 FK가 전체 retention 트랜잭션을 막거나 고아 이력을 남기지 않으며 retention smoke가 이 경로를 포함한다.
 - 재처리 완료 DLQ와 연결 replay audit은 기본 90일(`REPLAYED_DLQ_RETENTION`) 후 bounded batch로 함께 삭제한다. 미처리 `PENDING` DLQ는 자동 삭제하지 않는다.
+- Replay plan batch 설정은 1~100개로 제한한다. 잘못된 대규모 설정이 단일 실행에서 장시간 DB connection과 plan lock을 점유하지 못하게 한다.
 
 - 목록: `GET /api/operations/dlq?status=PENDING`
 - 단일 replay: `POST /api/operations/dlq/{id}/replay`와 필수 `X-Operator` 헤더
