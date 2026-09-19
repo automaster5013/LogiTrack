@@ -81,3 +81,19 @@ groups:
         annotations:
           summary: LogiTrack API p95 latency is elevated
           description: "API p95 latency has exceeded two seconds for five minutes."
+      - alert: LogiTrackTelemetryConsumerLagHigh
+        expr: sum(kafka_consumer_fetch_manager_records_lag{application="logitrack-control-api",topic="vehicle_telemetry_v1"}) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Telemetry consumer lag is elevated
+          description: "{{ $value }} telemetry event(s) are waiting across assigned Kafka partitions."
+      - alert: LogiTrackTelemetryConsumerMissing
+        expr: absent(kafka_consumer_fetch_manager_records_lag{application="logitrack-control-api",topic="vehicle_telemetry_v1"})
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Telemetry consumer metrics are missing
+          description: The API is reachable but no telemetry consumer partition metrics are being exported.
