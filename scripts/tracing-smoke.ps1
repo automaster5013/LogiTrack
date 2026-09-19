@@ -15,7 +15,7 @@ $suffix = $traceId.Substring(0,8)
 $body = @{orderNumber="ORD-TRACE-$suffix";vehicleId="TRUCK-TRACE-$suffix";origin=@{name="Seoul";lat=37.5665;lon=126.978};destination=@{name="Incheon";lat=37.4563;lon=126.7052}} | ConvertTo-Json -Depth 4
 $created = Invoke-RestMethod http://localhost:8080/api/deliveries -Method Post -Headers @{"Idempotency-Key"="trace-$suffix";traceparent="00-$traceId-$spanId-01"} -ContentType "application/json" -Body $body
 
-$deadline = (Get-Date).AddSeconds(40)
+$deadline = (Get-Date).AddSeconds(60)
 do {
   Start-Sleep -Seconds 2
   try { $trace = Invoke-RestMethod "http://localhost:3200/api/traces/$traceId"; $traceJson = $trace | ConvertTo-Json -Depth 20 -Compress } catch { $traceJson = "" }

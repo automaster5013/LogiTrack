@@ -56,6 +56,7 @@ curl -X POST http://localhost:8080/api/deliveries \
 - [선택 범위 replay 승인 ADR](docs/adr/0008-batch-replay-approval.md)
 - [KPI PDF 보고서 ADR](docs/adr/0009-kpi-pdf-reporting.md)
 - [운영 및 장애 처리](docs/operations.md)
+- [장애 주입 및 복구 runbook](docs/failure-recovery-runbook.md)
 - [로컬 성능 기준선](docs/performance.md)
 - [10분 데모 시나리오](docs/demo.md)
 - [구현 진행 현황](docs/progress.md)
@@ -93,3 +94,5 @@ DLQ 격리, 선택 replay, 감사 기록과 중복 방지는 `./scripts/replay-s
 Kafka telemetry 100건의 API 반영 p95와 consumer lag는 `./scripts/telemetry-load.ps1`로 측정합니다.
 
 서로 다른 배송을 지속 생성하는 write-heavy 기준선은 `./scripts/load-unique-isolated.ps1`로 실행합니다. 별도 Compose project와 임시 PostgreSQL volume을 사용하고 종료 시 자동 제거합니다.
+
+분석 서비스, 단일 Kafka consumer, Redis 장애와 자동 복구는 `./scripts/recovery-drill.ps1`로 재현합니다. 스크립트는 장애 중 DB/Kafka 보존과 복구 후 정확히 한 번 반영을 확인하고 모든 서비스를 원상 복구합니다.

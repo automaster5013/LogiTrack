@@ -22,6 +22,8 @@ spring:
     listener.observation-enabled: true
     template.observation-enabled: true
   data.redis.host: ${REDIS_HOST:localhost}
+  data.redis.connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
+  data.redis.timeout: ${REDIS_COMMAND_TIMEOUT:2s}
 management:
   endpoints.web.exposure.include: health,info,prometheus
   endpoint.health.probes.enabled: true
