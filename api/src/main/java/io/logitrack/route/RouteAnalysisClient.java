@@ -2,19 +2,26 @@ package io.logitrack.route;
 
 import io.logitrack.delivery.Delivery;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 
 @Component
 public class RouteAnalysisClient {
     private final RestClient client;
-    public RouteAnalysisClient(RestClient.Builder builder, @Value("${logitrack.analytics.url}") String url) {
-        client=builder.baseUrl(url).build();
+    public RouteAnalysisClient(RestClient.Builder builder, @Value("${logitrack.analytics.url}") String url,
+        @Value("${logitrack.analytics.route-connect-timeout:1s}") Duration connectTimeout,
+        @Value("${logitrack.analytics.route-read-timeout:4s}") Duration readTimeout) {
+        var requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(connectTimeout);
+        requestFactory.setReadTimeout(readTimeout);
+        client = builder.baseUrl(url).requestFactory(requestFactory).build();
     }
     public RoutePlan analyze(Delivery delivery) {
         try {
@@ -47,4 +54,3 @@ public class RouteAnalysisClient {
         catch(Exception e) { throw new IllegalStateException(e); }
     }
 }
-
