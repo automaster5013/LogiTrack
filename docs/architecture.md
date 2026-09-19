@@ -7,7 +7,7 @@
 - `analytics`: OSRM 호환 provider와 로컬 fallback을 사용하는 경로/ETA 계산, 공급자 장애 격리
 - `web`: 관제 운영 콘솔. API와 SSE만 사용하고 브로커에는 접근하지 않음
 - `warehouse` 모듈: 비관적 잠금 기반 재고, 입고·피킹·출고 workflow와 불변 ledger. 초기에는 control-api에 모듈로 배치하고 부하/팀 경계가 필요할 때 별도 서비스로 추출
-- 향후 analytics 확장: 지연/이탈 탐지, 일별 KPI projection
+- 일별 KPI projection: PostgreSQL cohort 집계, JSON/CSV 보고서, TypeScript 성과 차트
 
 초기에는 과도한 분산을 피하기 위해 배송 도메인의 command/query/consumer를 하나의 배포 단위로 두되, Kafka 계약과 DB 소유권으로 경계를 명확히 한다.
 

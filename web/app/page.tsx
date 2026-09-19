@@ -1,7 +1,8 @@
 "use client";
 import { FormEvent, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import type { Delivery, DeliveryAlert, LedgerEntry, RouteSnapshot, WarehouseStock, WarehouseTask } from "./types";
+import DailyKpiPanel from "./components/DailyKpiPanel";
+import type { DailyDeliveryKpi, Delivery, DeliveryAlert, LedgerEntry, RouteSnapshot, WarehouseStock, WarehouseTask } from "./types";
 
 const FleetMap=dynamic(()=>import("./components/FleetMap"),{ssr:false});
 const API=process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -10,15 +11,18 @@ export default function Home(){
  const [items,setItems]=useState<Delivery[]>([]); const [connected,setConnected]=useState(false); const [error,setError]=useState(""); const [selected,setSelected]=useState<string>();
  const [routes,setRoutes]=useState<RouteSnapshot[]>([]);
  const [alerts,setAlerts]=useState<DeliveryAlert[]>([]);
+ const [kpis,setKpis]=useState<DailyDeliveryKpi[]>([]);
  const [stocks,setStocks]=useState<WarehouseStock[]>([]); const [tasks,setTasks]=useState<WarehouseTask[]>([]); const [ledger,setLedger]=useState<LedgerEntry[]>([]); const [warehouseBusy,setWarehouseBusy]=useState(false);
  const loadRoutes=()=>fetch(`${API}/api/routes`).then(r=>r.json()).then(setRoutes);
  const load=()=>Promise.all([fetch(`${API}/api/deliveries`).then(r=>r.json()),fetch(`${API}/api/routes`).then(r=>r.json()),fetch(`${API}/api/alerts`).then(r=>r.json())]).then(([d,r,a])=>{setItems(d);setRoutes(r);setAlerts(a)}).catch(()=>setError("API에 연결할 수 없습니다."));
  const loadWarehouse=()=>Promise.all([fetch(`${API}/api/warehouse/stock`).then(r=>r.json()),fetch(`${API}/api/warehouse/tasks`).then(r=>r.json()),fetch(`${API}/api/warehouse/ledger`).then(r=>r.json())]).then(([s,t,l])=>{setStocks(s);setTasks(t);setLedger(l)}).catch(()=>setError("창고 데이터에 연결할 수 없습니다."));
+ const loadKpis=()=>fetch(`${API}/api/reports/daily-kpis?days=14`).then(r=>r.json()).then(setKpis).catch(()=>setError("KPI 보고서를 불러올 수 없습니다."));
  useEffect(()=>{load(); const source=new EventSource(`${API}/api/stream/deliveries`); source.onopen=()=>setConnected(true); source.onerror=()=>setConnected(false);
   source.addEventListener("delivery-update",e=>{const next=JSON.parse((e as MessageEvent).data);setItems(old=>[next,...old.filter(x=>x.id!==next.id)]);loadRoutes().catch(()=>{})});
   source.addEventListener("alert-update",e=>{const next:DeliveryAlert=JSON.parse((e as MessageEvent).data);setAlerts(old=>[next,...old.filter(x=>x.id!==next.id)])});return()=>source.close()},[]);
  useEffect(()=>{if(!selected&&items.length)setSelected(items.find(item=>routes.some(route=>route.deliveryId===item.id))?.id||items[0].id)},[items,routes,selected]);
  useEffect(()=>{loadWarehouse()},[]);
+ useEffect(()=>{loadKpis();const timer=window.setInterval(loadKpis,30000);return()=>window.clearInterval(timer)},[]);
  async function create(e:FormEvent){e.preventDefault();setError("");const response=await fetch(`${API}/api/deliveries`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({orderNumber:`ORD-${Date.now().toString().slice(-6)}`,vehicleId:`TRUCK-${Math.ceil(Math.random()*9).toString().padStart(2,"0")}`,origin:{name:"Seoul Hub",lat:37.5665,lon:126.978},destination:{name:"Incheon DC",lat:37.4563,lon:126.7052}})});if(!response.ok)setError("배송 생성에 실패했습니다.");else{const created:Delivery=await response.json();setSelected(created.id);await load()}}
  async function receiveStock(){setWarehouseBusy(true);setError("");try{const suffix=Date.now().toString().slice(-6);const r=await fetch(`${API}/api/warehouse/receipts`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({referenceNumber:`ASN-${suffix}`,warehouseId:"SEOUL-HUB-A",sku:"COLD-BOX-01",quantity:10})});if(!r.ok)throw new Error();await loadWarehouse()}catch{setError("입고 처리에 실패했습니다.")}finally{setWarehouseBusy(false)}}
  async function pickAndDispatch(){setWarehouseBusy(true);setError("");try{const suffix=Date.now().toString().slice(-6);const pick=await fetch(`${API}/api/warehouse/outbounds`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({referenceNumber:`OUT-${suffix}`,warehouseId:"SEOUL-HUB-A",sku:"COLD-BOX-01",quantity:4})});if(!pick.ok)throw new Error();const task:WarehouseTask=await pick.json();const dispatched=await fetch(`${API}/api/warehouse/outbounds/${task.id}/dispatch`,{method:"POST"});if(!dispatched.ok)throw new Error();await loadWarehouse()}catch{setError("출고 처리에 실패했습니다. 먼저 재고를 입고해 주세요.")}finally{setWarehouseBusy(false)}}
@@ -28,6 +32,7 @@ export default function Home(){
  return <main><header><div><p className="eyebrow">OPERATIONS / LIVE</p><h1>LogiTrack Control Tower</h1></div><div className={`signal ${connected?"on":""}`}><i/>{connected?"LIVE STREAM":"RECONNECTING"}</div></header>
   <section className="hero"><div><span>ACTIVE DELIVERIES</span><strong>{items.filter(x=>x.status!=="DELIVERED").length.toString().padStart(2,"0")}</strong></div><div><span>ACTIVE ALERTS</span><strong className={activeAlerts.length?"alertCount":""}>{activeAlerts.length.toString().padStart(2,"0")}</strong></div><div><span>FLEET PROGRESS</span><strong>{items.length?Math.round(items.reduce((n,x)=>n+x.progress,0)/items.length*100):0}%</strong></div><form onSubmit={create}><button>+ SIMULATE DELIVERY</button></form></section>
   {error&&<p className="error">{error}</p>}
+  <DailyKpiPanel rows={kpis} csvUrl={`${API}/api/reports/daily-kpis.csv?days=30`}/>
   <section className="mapBoard"><div className="mapHeader"><div><p className="eyebrow">GEOSPATIAL OVERVIEW</p><h2>Live fleet map</h2></div>{focus&&<div className="focusStats"><span><small>FOCUS</small>{focus.vehicleId}</span><span><small>PROGRESS</small>{Math.round(focus.progress*100)}%</span><span><small>ROUTE</small>{focusRoute?`${(focusRoute.distanceMeters/1000).toFixed(1)} km · ${focusRoute.provider.toUpperCase()}`:"CALCULATING"}</span><span><small>ETA</small>{focus.eta?new Date(focus.eta).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}):focus.status==="DELIVERED"?"ARRIVED":focusRoute?new Date(focusRoute.plannedEta).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}):"—"}</span></div>}</div>
    <FleetMap deliveries={items} routes={routes} selectedId={selected} onSelect={setSelected}/></section>
   <section className="alertBoard"><div className="alertHeader"><div><p className="eyebrow">EXCEPTION MANAGEMENT</p><h2>Delivery alerts</h2></div><div><b>{activeAlerts.length}</b><span>ACTIVE</span></div></div>
