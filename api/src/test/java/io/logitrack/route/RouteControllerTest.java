@@ -10,7 +10,7 @@ class RouteControllerTest {
     private final RouteController controller=new RouteController(repository);
     @Test void scopesRoutesToDistinctDeliveryIds(){
         var id=UUID.randomUUID();controller.list(List.of(id,id));
-        verify(repository).findAllByDeliveryIdInOrderByGeneratedAtDesc(new LinkedHashSet<>(List.of(id)));
+        verify(repository).findLatestByDeliveryIdIn(new LinkedHashSet<>(List.of(id)));
         verify(repository,never()).findAllByOrderByGeneratedAtDesc();
     }
     @Test void rejectsMoreThanOneHundredDeliveryIds(){

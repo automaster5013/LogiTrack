@@ -8,6 +8,6 @@ public class RouteController {
     @GetMapping public List<RouteSnapshot> list(@RequestParam(required=false) List<UUID> deliveryIds){
         if(deliveryIds==null)return repository.findAllByOrderByGeneratedAtDesc();
         var ids=new LinkedHashSet<>(deliveryIds);if(ids.size()>100)throw new IllegalArgumentException("At most 100 deliveryIds are allowed");
-        return ids.isEmpty()?List.of():repository.findAllByDeliveryIdInOrderByGeneratedAtDesc(ids);
+        return ids.isEmpty()?List.of():repository.findLatestByDeliveryIdIn(ids);
     }
 }

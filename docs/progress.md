@@ -47,6 +47,7 @@
 - PostgreSQL 불변 GPS telemetry 이력, 조회 API와 계획 경로 대비 실제 주행 궤적 지도 시각화
 - Redis fan-out `telemetry-point` SSE와 TypeScript 증분 병합으로 GPS 이벤트별 전체 궤적 재조회 제거
 - 배송 ID 범위 기반 지도 API와 LIVE 우선 지연 로딩으로 기본 화면의 누적 경로 전송량 격리
+- 배송별 최신 경로 스냅샷 범위 조회로 장기 누적 이력의 지도 전송량 상한 유지
 
 ## 현재 상태
 

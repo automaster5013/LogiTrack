@@ -52,7 +52,7 @@ PostgreSQL KPI projection -> control-api -> analytics PDF renderer -> operator d
 
 ### route_snapshots
 
-`delivery_id`, GeoJSON `geometry`, `provider`, `algorithm_version`, `geometry_hash`, `distance_meters`, `duration_seconds`, `planned_eta`, `generated_at`을 저장한다. 재계산 시 기존 스냅샷을 덮어쓰지 않아 계획 이력을 보존한다.
+`delivery_id`, GeoJSON `geometry`, `provider`, `algorithm_version`, `geometry_hash`, `distance_meters`, `duration_seconds`, `planned_eta`, `generated_at`을 저장한다. 재계산 시 기존 스냅샷을 덮어쓰지 않아 계획 이력을 보존한다. 전체 이력 API는 호환성을 유지하되 지도용 `deliveryIds` 범위 조회는 PostgreSQL `DISTINCT ON`과 `(delivery_id, generated_at DESC)` 인덱스를 사용해 배송별 최신 스냅샷 하나만 반환한다.
 
 ### telemetry_points
 
