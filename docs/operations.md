@@ -103,6 +103,7 @@ Redis 장애가 Kafka consumer 트랜잭션을 오래 점유하지 않도록 연
 - 인스턴스 식별: `INSTANCE_ID`; SSE `connected` 이벤트에 포함
 - 지표: `logitrack_sse_connections`, `logitrack_sse_redis_published_total`, `logitrack_sse_redis_received_total`, `logitrack_sse_fallback_total`
 - Redis 장애 중에는 이벤트를 처리한 API의 로컬 구독자만 갱신된다. PostgreSQL 상태는 계속 최신이므로 클라이언트 재연결/조회로 복구하며, Redis가 돌아오면 listener container가 재구독한다.
+- 브라우저 새로고침이나 네트워크 전환으로 클라이언트가 먼저 연결을 닫는 정상 상황은 500 오류로 집계하거나 JSON 오류 본문을 쓰지 않고 debug 수준에서 종료한다.
 
 ## DLQ 재처리 정책
 
