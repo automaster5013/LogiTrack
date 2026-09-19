@@ -15,6 +15,7 @@ public class AlertPolicyService {
     @Transactional(readOnly=true) public List<AlertPolicyAudit> auditTrail(){return audits.findTop50ByOrderByOccurredAtDesc();}
     @Transactional
     public AlertPolicy upsert(UpsertAlertPolicyRequest request,String actor){
+        if(request==null)throw new IllegalArgumentException("Alert policy request is required");
         var vehicle=normalize("vehicleId",request.vehicleId());var operator=normalize("X-Operator",actor);
         var existing=policies.findByVehicleId(vehicle);
         var policy=existing.orElseGet(()->new AlertPolicy(vehicle,request.deviationOpenMeters(),request.deviationCloseMeters(),

@@ -40,6 +40,10 @@ class AlertPolicyServiceTest {
         assertThrows(IllegalArgumentException.class,()->service.upsert(request(" "),"op"));
         assertThrows(IllegalArgumentException.class,()->service.upsert(request("TRUCK-05")," "));
     }
+    @Test void rejectsNullPolicyRequestBeforeRepositoryAccess(){
+        assertThrows(IllegalArgumentException.class,()->service.upsert(null,"operator"));
+        verifyNoInteractions(policies,audits);
+    }
     @Test void resetsVehicleOverrideWithAuditedSnapshot() {
         var policy=new AlertPolicy("TRUCK-06",500,300,1500,600,300,1800,"old");
         when(policies.findByVehicleIdAndActiveTrue("TRUCK-06")).thenReturn(Optional.of(policy));when(policies.save(policy)).thenReturn(policy);

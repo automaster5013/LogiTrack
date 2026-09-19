@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -30,6 +31,7 @@ public class ReplayPlanService {
     public ReplayPlan prepare(CreateReplayPlanRequest request, String actor) {
         var normalizedActor=normalizeActor(actor);
         if(request==null||request.eventIds()==null||request.eventIds().isEmpty()) throw new IllegalArgumentException("eventIds are required");
+        if(request.eventIds().stream().anyMatch(Objects::isNull)) throw new IllegalArgumentException("eventIds must not contain null");
         var ids=List.copyOf(new LinkedHashSet<>(request.eventIds()));
         if(ids.size()>maxBatchSize) throw new IllegalArgumentException("Replay batch exceeds maximum size " + maxBatchSize);
         var selected=events.findAllById(ids);

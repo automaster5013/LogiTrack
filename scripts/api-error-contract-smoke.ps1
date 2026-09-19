@@ -12,4 +12,14 @@ try{Invoke-WebRequest http://localhost:8080/api/orders -Method Post -Headers @{"
   if($_.Exception.Response.StatusCode.value__-ne 400){throw}
   if(($_.ErrorDetails.Message|ConvertFrom-Json).error-ne"Malformed request body"){throw "Unexpected malformed JSON error"}
 }
-Write-Host "PASS: duplicate=409 safe contract, malformed-json=400, trace correlation preserved"
+foreach($case in @(
+  @{url="http://localhost:8080/api/alert-policies";headers=@{"X-Operator"="boundary-smoke"};body='null'},
+  @{url="http://localhost:8080/api/operations/replay-plans";headers=@{"X-Operator"="boundary-smoke"};body='{"eventIds":[null]}'}
+)){
+  try{Invoke-WebRequest $case.url -Method Post -Headers $case.headers -ContentType application/json -Body $case.body -UseBasicParsing|Out-Null;throw "Invalid null request was accepted: $($case.url)"}catch{
+    if($_.Exception.Response.StatusCode.value__-ne 400){throw}
+    $error=$_.ErrorDetails.Message|ConvertFrom-Json
+    if(!$error.error-or!$error.traceId-or!$error.timestamp){throw "Null request did not return the standard error contract: $($case.url)"}
+  }
+}
+Write-Host "PASS: duplicate=409 safe contract, malformed/null inputs=400, trace correlation preserved"
