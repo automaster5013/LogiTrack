@@ -109,4 +109,6 @@ Redis 장애가 Kafka consumer 트랜잭션을 오래 점유하지 않도록 연
 
 기본 최대 20건, 5 events/s이며 각각 `logitrack.replay.batch-max-size`, `logitrack.replay.batch-rate-per-second`로 조정한다. 중복 실행은 거절하고 이벤트별 감사 행을 유지한다.
 
+batch 최대 크기는 양수, 처리율은 1~1,000 events/s여야 하며 범위를 벗어난 설정은 조용히 보정하지 않고 API 시작을 거부한다.
+
 batch의 각 이벤트 replay는 독립 `REQUIRES_NEW` 트랜잭션이다. 한 이벤트가 발행 실패해 rollback되어도 앞선 성공 이벤트와 감사는 유지되고 plan은 성공·실패 수를 `EXECUTED` 또는 `PARTIAL`로 기록한다.
