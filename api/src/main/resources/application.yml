@@ -46,6 +46,7 @@ logitrack:
     route-read-timeout: ${ANALYTICS_ROUTE_READ_TIMEOUT:4s}
     report-connect-timeout: ${ANALYTICS_REPORT_CONNECT_TIMEOUT:1s}
     report-read-timeout: ${ANALYTICS_REPORT_READ_TIMEOUT:15s}
+    report-max-response-size: ${ANALYTICS_REPORT_MAX_RESPONSE_SIZE:10MB}
   instance-id: ${INSTANCE_ID:${random.uuid}}
   telemetry.max-future-skew: ${TELEMETRY_MAX_FUTURE_SKEW:5m}
   stream.channel: ${STREAM_CHANNEL:logitrack.stream.v1}
