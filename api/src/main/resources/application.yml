@@ -49,6 +49,7 @@ logitrack:
     url: ${ANALYTICS_URL:http://localhost:8090}
     route-connect-timeout: ${ANALYTICS_ROUTE_CONNECT_TIMEOUT:1s}
     route-read-timeout: ${ANALYTICS_ROUTE_READ_TIMEOUT:4s}
+    route-max-response-size: ${ANALYTICS_ROUTE_MAX_RESPONSE_SIZE:2MB}
     report-connect-timeout: ${ANALYTICS_REPORT_CONNECT_TIMEOUT:1s}
     report-read-timeout: ${ANALYTICS_REPORT_READ_TIMEOUT:15s}
     report-max-response-size: ${ANALYTICS_REPORT_MAX_RESPONSE_SIZE:10MB}

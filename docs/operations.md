@@ -134,6 +134,7 @@ Redis 장애가 Kafka consumer 트랜잭션을 오래 점유하지 않도록 연
 - GPS simulator는 기본 8개 worker와 최대 16개 실행/대기 slot만 허용한다. interval·step·worker 범위와 작업당 최대 120초를 시작 시 검증하며, malformed delivery 이벤트나 개별 simulation 실패가 consumer 프로세스를 종료하지 않는다.
 - 출발지와 목적지가 같거나 1m 미만인 요청도 fallback 경로 거리를 최소 1m로 정규화한다. route snapshot의 양수 거리 DB 불변식을 지키면서 지역 내 배송을 500/409로 실패시키지 않는다.
 - Analytics PDF 응답은 전체를 메모리에 적재한 뒤 검사하지 않고 설정 상한+1 byte까지만 스트리밍으로 읽는다. 응답 상한 설정도 5 byte~50MB로 제한해 잘못된 값이 JVM heap을 무제한 노출하지 않는다.
+- 경로 분석 JSON도 기본 2MB(`ANALYTICS_ROUTE_MAX_RESPONSE_SIZE`, 허용 범위 1KB~10MB) 상한+1 byte까지만 읽고 역직렬화한다. 초과·비정상 응답은 기존 로컬 geodesic fallback으로 안전하게 전환한다.
 
 - 목록: `GET /api/operations/dlq?status=PENDING`
 - 단일 replay: `POST /api/operations/dlq/{id}/replay`와 필수 `X-Operator` 헤더
