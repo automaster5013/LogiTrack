@@ -6,6 +6,7 @@ import io.logitrack.outbox.*;
 import io.logitrack.route.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.*;
 import java.time.Instant;
 import java.util.*;
 
@@ -52,7 +53,8 @@ public class DeliveryService {
         } catch(Exception e){throw new IllegalStateException("Could not publish delivery event",e);}
         return saved;
     }
-    public List<Delivery> list(){return repository.findAll();}
+    @Transactional(readOnly=true)
+    public List<Delivery> list(int limit){return repository.findAll(PageRequest.of(0,limit,Sort.by(Sort.Direction.DESC,"createdAt"))).getContent();}
     private void validate(CreateDeliveryRequest r){
         if(r==null||blank(r.orderNumber())||blank(r.vehicleId())||r.origin()==null||r.destination()==null) throw new IllegalArgumentException("orderNumber, vehicleId, origin and destination are required");
         check(r.origin()); check(r.destination());

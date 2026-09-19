@@ -19,7 +19,7 @@ public class OrderController {
     }
 
     @GetMapping
-    public List<OrderSummary> list(){return service.list();}
+    public List<OrderSummary> list(@RequestParam(defaultValue="200") int limit){return service.list(validLimit(limit));}
 
     @PostMapping("/{id}/dispatch")
     public OrderSummary dispatch(@PathVariable UUID id, @RequestBody DispatchOrderRequest request,
@@ -27,4 +27,5 @@ public class OrderController {
         @RequestHeader(value="X-Trace-Id",required=false) String traceId) {
         return service.dispatch(id,request,key,traceId==null?UUID.randomUUID().toString():traceId);
     }
+    private int validLimit(int limit){if(limit<1||limit>500)throw new IllegalArgumentException("limit must be between 1 and 500");return limit;}
 }

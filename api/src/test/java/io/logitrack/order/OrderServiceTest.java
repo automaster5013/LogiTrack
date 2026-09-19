@@ -5,6 +5,7 @@ import io.logitrack.delivery.*;
 import io.logitrack.outbox.*;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.data.domain.*;
 
 import java.util.*;
 
@@ -65,6 +66,20 @@ class OrderServiceTest {
         assertEquals(CustomerOrder.Status.FULFILLED,order.getStatus());
         var event=ArgumentCaptor.forClass(OutboxEvent.class); verify(outbox).save(event.capture());
         assertEquals("order.fulfilled.v1",event.getValue().getTopic());
+    }
+
+    @Test void listsBoundedOrdersAndBatchLoadsLinkedDeliveries(){
+        var first=CustomerOrder.create(request(),"order-key-1");
+        var second=CustomerOrder.create(new CreateOrderRequest("ORD-2",request().origin(),request().destination()),"order-key-2");
+        var linked=Delivery.create(new CreateDeliveryRequest(first.getOrderNumber(),"TRUCK-1",
+            new CreateDeliveryRequest.Location("Seoul",37.5665,126.978),new CreateDeliveryRequest.Location("Incheon",37.4563,126.7052)),"dispatch-key",first.getId());
+        var pageable=PageRequest.of(0,25,Sort.by(Sort.Direction.DESC,"createdAt"));
+        when(orders.findAll(pageable)).thenReturn(new PageImpl<>(List.of(first,second)));
+        when(deliveries.findByOrderIdIn(any())).thenReturn(List.of(linked));
+        var result=service.list(25);
+        assertEquals(linked.getId(),result.get(0).deliveryId());assertNull(result.get(1).deliveryId());
+        verify(deliveries).findByOrderIdIn(List.of(first.getId(),second.getId()));
+        verify(deliveries,never()).findByOrderId(any());
     }
 
     private CreateOrderRequest request() {

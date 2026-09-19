@@ -6,6 +6,7 @@ import io.logitrack.event.EventEnvelope;
 import io.logitrack.outbox.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.*;
 
 import java.time.Instant;
 import java.util.*;
@@ -35,9 +36,12 @@ public class OrderService {
     }
 
     @Transactional(readOnly=true)
-    public List<OrderSummary> list() {
-        return orders.findAllByOrderByCreatedAtDesc().stream()
-            .map(order->summary(order,deliveries.findByOrderId(order.getId()).orElse(null))).toList();
+    public List<OrderSummary> list(int limit) {
+        var page=orders.findAll(PageRequest.of(0,limit,Sort.by(Sort.Direction.DESC,"createdAt"))).getContent();
+        if(page.isEmpty())return List.of();
+        var deliveryByOrder=deliveries.findByOrderIdIn(page.stream().map(CustomerOrder::getId).toList()).stream()
+            .collect(java.util.stream.Collectors.toMap(Delivery::getOrderId,delivery->delivery));
+        return page.stream().map(order->summary(order,deliveryByOrder.get(order.getId()))).toList();
     }
 
     @Transactional
