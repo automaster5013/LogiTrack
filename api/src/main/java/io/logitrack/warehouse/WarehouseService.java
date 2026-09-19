@@ -6,6 +6,7 @@ import io.logitrack.config.InputLimits;
 import io.logitrack.outbox.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.PageRequest;
 import java.time.Instant;
 import java.util.*;
 
@@ -29,7 +30,7 @@ public class WarehouseService {
   var stock=stocks.lockByWarehouseAndSku(task.getWarehouseId(),task.getSku()).orElseThrow();stock.dispatch(task.getQuantity());task.dispatch();
   ledger.save(new InventoryLedgerEntry(task,InventoryLedgerEntry.Type.DISPATCH,-task.getQuantity(),-task.getQuantity(),stock));event(task,stock,"warehouse.outbound.dispatched.v1",traceId);return task;
  }
- public List<WarehouseStock> stock(){return stocks.findAllByOrderByWarehouseIdAscSkuAsc();} public List<WarehouseTask> tasks(){return tasks.findAllByOrderByCreatedAtDesc();} public List<InventoryLedgerEntry> ledger(){return ledger.findTop100ByOrderByOccurredAtDesc();}
+ public List<WarehouseStock> stock(int limit){return stocks.findAllByOrderByWarehouseIdAscSkuAsc(PageRequest.of(0,limit));} public List<WarehouseTask> tasks(int limit){return tasks.findAllByOrderByCreatedAtDesc(PageRequest.of(0,limit));} public List<InventoryLedgerEntry> ledger(){return ledger.findTop100ByOrderByOccurredAtDesc();}
  private WarehouseStock lockedStock(WarehouseCommand c){return stocks.lockByWarehouseAndSku(c.warehouseId(),c.sku()).orElseGet(()->new WarehouseStock(c.warehouseId(),c.sku()));}
  private void validate(WarehouseCommand c,String key){
   if(c==null||c.quantity()<=0)throw new IllegalArgumentException("referenceNumber, warehouseId, sku and positive quantity are required");
