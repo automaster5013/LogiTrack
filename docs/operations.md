@@ -89,7 +89,7 @@ analytics 응답은 저장 전에 경로 ID, DB 길이에 맞는 provider·algor
 
 ## 복구 큐 경보
 
-API는 `logitrack_outbox_backlog{status="pending|failed"}`, `logitrack_outbox_oldest_age_seconds`, `logitrack_dlq_backlog` gauge를 10초마다 갱신한다. 조회 실패 시 마지막 정상 값을 유지하고 `logitrack_recovery_metrics_refresh_failures_total`을 누적하며, 로그는 장애·복구 전환에 한 번씩만 남긴다. Prometheus는 API scrape 1분 중단 또는 FAILED outbox 2분 지속 시 critical, metric refresh 실패·pending outbox 100건 초과·가장 오래된 pending 5분 초과·DLQ 존재·경로 fallback 반복·PDF 반복 실패·API 5xx 반복·p95 latency 상승 시 warning을 발생시킨다. Kafka client metric을 이용해 telemetry partition lag 합계가 100건을 5분간 넘으면 warning, consumer partition metric이 2분간 사라지면 critical을 발생시킨다. `./scripts/recovery-metrics-smoke.ps1`로 지표 노출과 12개 규칙 로드를 함께 검증한다.
+API는 `logitrack_outbox_backlog{status="pending|failed"}`, `logitrack_outbox_oldest_age_seconds`, `logitrack_dlq_backlog` gauge를 10초마다 갱신한다. 조회 실패 시 마지막 정상 값을 유지하고 `logitrack_recovery_metrics_refresh_failures_total`을 누적하며, 로그는 장애·복구 전환에 한 번씩만 남긴다. Prometheus는 API scrape 1분 중단 또는 FAILED outbox 2분 지속 시 critical, metric refresh 실패·pending outbox 100건 초과·가장 오래된 pending 5분 초과·DLQ 존재·경로 fallback 반복·PDF 반복 실패·API 5xx 반복·p95 latency 상승·보존 정리 실패 시 warning을 발생시킨다. Kafka client metric을 이용해 telemetry partition lag 합계가 100건을 5분간 넘으면 warning, consumer partition metric이 2분간 사라지면 critical을 발생시킨다. `./scripts/recovery-metrics-smoke.ps1`로 지표 노출과 13개 규칙 로드를 함께 검증한다.
 
 가장 오래된 outbox 나이는 payload 전체 행을 읽지 않고 PostgreSQL `MIN(created_at)` scalar 집계로 계산한다.
 
@@ -118,7 +118,7 @@ Redis 장애가 Kafka consumer 트랜잭션을 오래 점유하지 않도록 연
 
 - 처리 완료 event ID와 GPS 이력은 기본 30일, PUBLISHED outbox는 7일 보존한다. Kafka 기본 보존보다 긴 멱등성 창을 유지하며 PENDING/FAILED outbox, DLQ, replay·정책·복구 감사와 업무 aggregate는 자동 삭제하지 않는다.
 - 정리 작업은 5분마다 테이블별 최대 1,000건만 오래된 순서로 삭제해 긴 트랜잭션과 vacuum 부담을 제한한다. `FOR UPDATE SKIP LOCKED`로 여러 API 인스턴스의 정리 작업이 같은 행에서 대기하지 않는다. 보존 기간은 `PROCESSED_EVENT_RETENTION`, `PUBLISHED_OUTBOX_RETENTION`, `TELEMETRY_RETENTION`, batch는 `RETENTION_BATCH_SIZE`로 조정하며 기간은 최소 하루, batch는 1~10,000만 허용한다.
-- `logitrack_retention_deleted_total{table=...}`에서 실제 정리량을 확인한다. cutoff 전용 부분/정렬 인덱스로 전체 테이블 scan을 피한다.
+- `logitrack_retention_deleted_total{table=...}`에서 커밋된 실제 정리량을 확인하고 `logitrack_retention_failures_total`로 실패를 추적한다. cutoff 전용 부분/정렬 인덱스로 전체 테이블 scan을 피한다.
 
 - 목록: `GET /api/operations/dlq?status=PENDING`
 - 단일 replay: `POST /api/operations/dlq/{id}/replay`와 필수 `X-Operator` 헤더

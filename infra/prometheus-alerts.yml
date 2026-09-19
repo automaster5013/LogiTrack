@@ -97,3 +97,11 @@ groups:
         annotations:
           summary: Telemetry consumer metrics are missing
           description: The API is reachable but no telemetry consumer partition metrics are being exported.
+      - alert: LogiTrackRetentionCleanupFailing
+        expr: increase(logitrack_retention_failures_total[15m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Retention cleanup is failing
+          description: A scheduled operational data cleanup transaction failed during the last 15 minutes.
