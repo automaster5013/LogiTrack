@@ -3,6 +3,7 @@
 ## Health와 관측성
 
 - API liveness/readiness: `/actuator/health/liveness`, `/actuator/health/readiness`. Readiness는 애플리케이션 상태와 PostgreSQL을 포함하며 Redis는 로컬 SSE fallback이 있으므로 제외한다.
+- PostgreSQL 연결 획득은 기본 3초(`DB_CONNECTION_TIMEOUT_MS`), 연결 검증은 2초(`DB_VALIDATION_TIMEOUT_MS`) 안에 실패한다. DB 장애 중 요청·consumer·예약 작업이 JDBC 기본 30초 대기로 누적되는 것을 막고, 연결 풀이 복구되면 별도 재시작 없이 다시 처리한다.
 - analytics health: `http://localhost:8090/health`
 - Prometheus scrape: `/actuator/prometheus`
 - OpenTelemetry Collector health: `http://localhost:13133/`

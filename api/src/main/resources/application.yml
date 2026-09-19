@@ -4,6 +4,9 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/logitrack}
     username: ${DB_USER:logitrack}
     password: ${DB_PASSWORD:logitrack}
+    hikari:
+      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:3000}
+      validation-timeout: ${DB_VALIDATION_TIMEOUT_MS:2000}
   jpa:
     hibernate.ddl-auto: validate
     open-in-view: false

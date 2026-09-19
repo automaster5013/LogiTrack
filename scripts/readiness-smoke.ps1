@@ -25,12 +25,16 @@ try {
   $redisStopped=$false
   docker compose stop postgres | Out-Null
   $postgresStopped=$true
-  Wait-Code 503
+  $failureTimer=[Diagnostics.Stopwatch]::StartNew()
+  $failedReadiness=Status-Code
+  $failureTimer.Stop()
+  if($failedReadiness -ne 503){Wait-Code 503}
+  if($failureTimer.Elapsed.TotalSeconds -gt 6){throw "PostgreSQL outage readiness took $([math]::Round($failureTimer.Elapsed.TotalSeconds,2))s; expected at most 6s"}
   if((Liveness-Code) -ne 200){throw "PostgreSQL outage incorrectly failed process liveness"}
   docker compose start postgres | Out-Null
   $postgresStopped=$false
   Wait-Code 200 90
-  Write-Host "PASS: redis outage stayed ready, postgres outage returned readiness 503 with liveness 200, recovery returned 200"
+  Write-Host "PASS: redis outage stayed ready, postgres outage returned readiness 503 in $([math]::Round($failureTimer.Elapsed.TotalSeconds,2))s with liveness 200, recovery returned 200"
 }
 finally {
   if($postgresStopped){docker compose start postgres | Out-Null}
