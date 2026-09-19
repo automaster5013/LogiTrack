@@ -1,0 +1,27 @@
+groups:
+  - name: logitrack-recovery
+    rules:
+      - alert: LogiTrackOutboxFailed
+        expr: logitrack_outbox_backlog{status="failed"} > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Transactional outbox contains failed events
+          description: "{{ $value }} outbox event(s) exhausted retries and require operator recovery."
+      - alert: LogiTrackOutboxBacklogGrowing
+        expr: logitrack_outbox_backlog{status="pending"} > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Transactional outbox backlog is elevated
+          description: "{{ $value }} outbox event(s) are waiting to be published."
+      - alert: LogiTrackDeadLetterBacklog
+        expr: logitrack_dlq_backlog > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Telemetry dead-letter events require attention
+          description: "{{ $value }} telemetry event(s) are waiting for replay."

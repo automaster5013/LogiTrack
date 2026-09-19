@@ -174,7 +174,9 @@ services:
   prometheus:
     image: prom/prometheus:v3.5.0
     command: ["--config.file=/etc/prometheus/prometheus.yml"]
-    volumes: ["./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    volumes:
+      - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus-alerts.yml:/etc/prometheus/prometheus-alerts.yml:ro
     ports: ["9090:9090"]
     depends_on: [api]
 

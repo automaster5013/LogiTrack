@@ -7,5 +7,5 @@ public interface DeadLetterEventRepository extends JpaRepository<DeadLetterEvent
     boolean existsByDlqTopicAndDlqPartitionAndDlqOffset(String topic, int partition, long offset);
     List<DeadLetterEvent> findTop100ByOrderByFailedAtDesc();
     List<DeadLetterEvent> findTop100ByStatusOrderByFailedAtDesc(DeadLetterEvent.Status status);
+    long countByStatus(DeadLetterEvent.Status status);
 }
-
