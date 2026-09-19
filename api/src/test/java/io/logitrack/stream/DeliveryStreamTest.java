@@ -11,7 +11,7 @@ import static org.mockito.Mockito.*;
 class DeliveryStreamTest {
     private final StringRedisTemplate redis=mock(StringRedisTemplate.class);
     private final SimpleMeterRegistry metrics=new SimpleMeterRegistry();
-    private final DeliveryStream stream=new DeliveryStream(redis,new ObjectMapper(),metrics,"logitrack.events","test-api");
+    private final DeliveryStream stream=new DeliveryStream(redis,new ObjectMapper(),metrics,"logitrack.events","test-api",1000,15000);
     @Test void publishesDeliveryThroughRedis(){
         when(redis.convertAndSend(eq("logitrack.events"),anyString())).thenReturn(2L);
         stream.publish(java.util.Map.of("id","delivery-1"));
@@ -31,4 +31,6 @@ class DeliveryStreamTest {
         assertEquals(1,metrics.counter("logitrack.sse.redis.published","event","telemetry-point").count());
     }
     @Test void keepsIdleSubscribersRegisteredAfterHeartbeat(){stream.subscribe();stream.heartbeat();assertEquals(1,stream.clientCount());}
+    @Test void rejectsSubscribersBeyondConfiguredCapacity(){var limited=new DeliveryStream(redis,new ObjectMapper(),metrics,"logitrack.events","test-api",1,15000);limited.subscribe();assertThrows(StreamCapacityExceededException.class,limited::subscribe);assertEquals(1,limited.clientCount());assertEquals(1,metrics.counter("logitrack.sse.rejected","reason","capacity").count());}
+    @Test void rejectsUnsafeSchedulingConfiguration(){assertThrows(IllegalArgumentException.class,()->new DeliveryStream(redis,new ObjectMapper(),metrics,"events","api",0,15000));assertThrows(IllegalArgumentException.class,()->new DeliveryStream(redis,new ObjectMapper(),metrics,"events","api",100,999));}
 }

@@ -18,13 +18,18 @@ public class DeliveryStream implements MessageListener {
     private static final Logger log=LoggerFactory.getLogger(DeliveryStream.class);
     private final CopyOnWriteArrayList<SseEmitter> clients=new CopyOnWriteArrayList<>();
     private final StringRedisTemplate redis; private final ObjectMapper mapper; private final MeterRegistry metrics;
-    private final String channel; private final String instanceId;
+    private final String channel; private final String instanceId; private final int maxConnections;
     public DeliveryStream(StringRedisTemplate redis,ObjectMapper mapper,MeterRegistry metrics,
-        @Value("${logitrack.stream.channel}") String channel,@Value("${logitrack.instance-id}") String instanceId){
-        this.redis=redis;this.mapper=mapper;this.metrics=metrics;this.channel=channel;this.instanceId=instanceId;
+        @Value("${logitrack.stream.channel}") String channel,@Value("${logitrack.instance-id}") String instanceId,
+        @Value("${logitrack.stream.max-connections:1000}") int maxConnections,@Value("${logitrack.stream.heartbeat-ms:15000}") long heartbeatMs){
+        if(maxConnections<1||maxConnections>10_000)throw new IllegalArgumentException("SSE maximum connections must be between 1 and 10000");
+        if(heartbeatMs<1_000||heartbeatMs>60_000)throw new IllegalArgumentException("SSE heartbeat must be between 1000 and 60000 milliseconds");
+        this.redis=redis;this.mapper=mapper;this.metrics=metrics;this.channel=channel;this.instanceId=instanceId;this.maxConnections=maxConnections;
         metrics.gauge("logitrack.sse.connections",clients,CopyOnWriteArrayList::size);
+        metrics.counter("logitrack.sse.rejected","reason","capacity");
     }
-    public SseEmitter subscribe(){
+    public synchronized SseEmitter subscribe(){
+        if(clients.size()>=maxConnections){metrics.counter("logitrack.sse.rejected","reason","capacity").increment();throw new StreamCapacityExceededException();}
         var emitter=new SseEmitter(0L);clients.add(emitter);emitter.onCompletion(()->clients.remove(emitter));emitter.onTimeout(()->clients.remove(emitter));emitter.onError(error->clients.remove(emitter));
         try{emitter.send(SseEmitter.event().name("connected").data(Map.of("status","ok","instanceId",instanceId)));}
         catch(Exception error){clients.remove(emitter);}

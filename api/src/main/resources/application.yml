@@ -60,6 +60,7 @@ logitrack:
   stream:
     channel: ${STREAM_CHANNEL:logitrack.stream.v1}
     heartbeat-ms: ${SSE_HEARTBEAT_MS:15000}
+    max-connections: ${SSE_MAX_CONNECTIONS:1000}
   retention:
     processed-events: ${PROCESSED_EVENT_RETENTION:30d}
     published-outbox: ${PUBLISHED_OUTBOX_RETENTION:7d}

@@ -9,6 +9,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.http.HttpMethod;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+import io.logitrack.stream.StreamCapacityExceededException;
 import java.util.NoSuchElementException;
 import static org.junit.jupiter.api.Assertions.*;
 class ApiExceptionHandlerTest {
@@ -21,5 +22,6 @@ class ApiExceptionHandlerTest {
     @Test void standardizesUnsupportedMethods(){var response=handler.method(new HttpRequestMethodNotSupportedException("TRACE"),request());assertEquals(HttpStatus.METHOD_NOT_ALLOWED,response.getStatusCode());assertEquals("Request method is not supported",response.getBody().error());}
     @Test void hidesUnknownRouteDetails(){var response=handler.unknownRoute(new NoResourceFoundException(HttpMethod.GET,"private/path"),request());assertEquals(HttpStatus.NOT_FOUND,response.getStatusCode());assertEquals("Resource not found",response.getBody().error());assertEquals("trace-123",response.getBody().traceId());}
     @Test void ignoresDisconnectedStreamingClients(){assertDoesNotThrow(()->handler.disconnectedClient(new AsyncRequestNotUsableException("client disconnected")));}
+    @Test void reportsStreamCapacityAsTooManyRequests(){var response=handler.streamCapacity(new StreamCapacityExceededException(),request());assertEquals(HttpStatus.TOO_MANY_REQUESTS,response.getStatusCode());assertEquals("SSE connection capacity has been reached",response.getBody().error());}
     @Test void hidesUnexpectedExceptionDetails(){var response=handler.unexpected(new RuntimeException("secret internal detail"),request());assertEquals(HttpStatus.INTERNAL_SERVER_ERROR,response.getStatusCode());assertEquals("Internal server error",response.getBody().error());assertEquals("trace-123",response.getBody().traceId());}
 }

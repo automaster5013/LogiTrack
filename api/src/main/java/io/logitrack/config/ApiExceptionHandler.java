@@ -15,6 +15,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+import io.logitrack.stream.StreamCapacityExceededException;
 import java.time.Instant;
 import java.util.NoSuchElementException;
 
@@ -32,6 +33,7 @@ public class ApiExceptionHandler {
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class) ResponseEntity<ApiError> method(HttpRequestMethodNotSupportedException error,HttpServletRequest request){return response(HttpStatus.METHOD_NOT_ALLOWED,"Request method is not supported",request);}
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class) ResponseEntity<ApiError> mediaType(HttpMediaTypeNotSupportedException error,HttpServletRequest request){return response(HttpStatus.UNSUPPORTED_MEDIA_TYPE,"Request media type is not supported",request);}
     @ExceptionHandler(AsyncRequestNotUsableException.class) void disconnectedClient(AsyncRequestNotUsableException error){log.debug("Streaming client disconnected",error);}
+    @ExceptionHandler(StreamCapacityExceededException.class) ResponseEntity<ApiError> streamCapacity(StreamCapacityExceededException error,HttpServletRequest request){return response(HttpStatus.TOO_MANY_REQUESTS,error.getMessage(),request);}
     @ExceptionHandler(Exception.class) ResponseEntity<ApiError> unexpected(Exception error,HttpServletRequest request){log.error("Unexpected API failure traceId={}",request.getHeader(RequestTraceFilter.HEADER),error);return response(HttpStatus.INTERNAL_SERVER_ERROR,"Internal server error",request);}
     private ResponseEntity<ApiError> response(HttpStatus status,String message,HttpServletRequest request){return ResponseEntity.status(status).body(new ApiError(message,request.getHeader(RequestTraceFilter.HEADER),Instant.now()));}
     private String message(RuntimeException error,String fallback){return error.getMessage()==null||error.getMessage().isBlank()?fallback:error.getMessage();}

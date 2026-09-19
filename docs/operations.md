@@ -86,6 +86,7 @@ analytics 응답은 저장 전에 경로 ID, DB 길이에 맞는 provider·algor
 - 창고 출고 확정: warehouse task 행을 먼저 비관적으로 잠가 동시 요청을 멱등 `DISPATCHED` 응답으로 직렬화하며 재고·ledger·outbox는 한 번만 변경한다. `./scripts/warehouse-dispatch-concurrency-smoke.ps1`로 검증한다.
 - 최초 창고·SKU 재고 행 생성은 해당 문자열 키의 PostgreSQL transaction advisory lock으로 직렬화한다. 서로 다른 idempotency key의 동시 입고도 unique 충돌 없이 각각 한 번 합산되며 `./scripts/warehouse-receipt-concurrency-smoke.ps1`로 검증한다.
 - 입고·피킹 요청 수량은 1~1,000,000으로 제한하며 DB 제약도 같은 범위를 강제한다. 누적 재고가 32비트 저장 범위를 넘으려 하면 변경 없이 409로 거부한다.
+- SSE 연결은 인스턴스당 기본 1,000개(`SSE_MAX_CONNECTIONS`, 허용 범위 1~10,000)로 제한한다. 초과 연결은 429로 거부하고 `logitrack_sse_rejected_total{reason="capacity"}`에 기록한다. heartbeat는 1~60초 범위만 허용한다.
 
 ## 복구 큐 경보
 
