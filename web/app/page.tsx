@@ -6,7 +6,7 @@ import OrderFlowPanel from "./components/OrderFlowPanel";
 import ReplayOperationsPanel from "./components/ReplayOperationsPanel";
 import AlertOperationsPanel from "./components/AlertOperationsPanel";
 import AlertPolicyPanel, { PolicyInput } from "./components/AlertPolicyPanel";
-import type { AlertPolicy, AlertPolicyAudit, CustomerOrder, DailyDeliveryKpi, DeadLetterEvent, Delivery, DeliveryAlert, LedgerEntry, ReplayAudit, RouteSnapshot, WarehouseStock, WarehouseTask } from "./types";
+import type { AlertPolicy, AlertPolicyAudit, CustomerOrder, DailyDeliveryKpi, DeadLetterEvent, Delivery, DeliveryAlert, LedgerEntry, ReplayAudit, RouteSnapshot, TelemetryPoint, WarehouseStock, WarehouseTask } from "./types";
 
 const FleetMap=dynamic(()=>import("./components/FleetMap"),{ssr:false});
 const API=process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -15,6 +15,7 @@ export default function Home(){
  const [items,setItems]=useState<Delivery[]>([]); const [connected,setConnected]=useState(false); const [error,setError]=useState(""); const [selected,setSelected]=useState<string>();
  const [fleetScope,setFleetScope]=useState<"LIVE"|"ALL">("LIVE"); const [fleetQuery,setFleetQuery]=useState("");
  const [routes,setRoutes]=useState<RouteSnapshot[]>([]);
+ const [telemetry,setTelemetry]=useState<TelemetryPoint[]>([]);
  const [alerts,setAlerts]=useState<DeliveryAlert[]>([]);
  const [alertBusy,setAlertBusy]=useState<string>();
  const [policies,setPolicies]=useState<AlertPolicy[]>([]); const [policyAudits,setPolicyAudits]=useState<AlertPolicyAudit[]>([]); const [policyBusy,setPolicyBusy]=useState(false);
@@ -22,15 +23,15 @@ export default function Home(){
  const [kpis,setKpis]=useState<DailyDeliveryKpi[]>([]);
  const [deadLetters,setDeadLetters]=useState<DeadLetterEvent[]>([]); const [replayAudits,setReplayAudits]=useState<ReplayAudit[]>([]); const [replayBusy,setReplayBusy]=useState<string>();
  const [stocks,setStocks]=useState<WarehouseStock[]>([]); const [tasks,setTasks]=useState<WarehouseTask[]>([]); const [ledger,setLedger]=useState<LedgerEntry[]>([]); const [warehouseBusy,setWarehouseBusy]=useState(false);
- const loadRoutes=()=>fetch(`${API}/api/routes`).then(r=>r.json()).then(setRoutes);
- const load=()=>Promise.all([fetch(`${API}/api/deliveries`).then(r=>r.json()),fetch(`${API}/api/routes`).then(r=>r.json()),fetch(`${API}/api/alerts`).then(r=>r.json())]).then(([d,r,a])=>{setItems(d);setRoutes(r);setAlerts(a)}).catch(()=>setError("API에 연결할 수 없습니다."));
+ const loadMapData=()=>Promise.all([fetch(`${API}/api/routes`).then(r=>r.json()),fetch(`${API}/api/telemetry/points`).then(r=>r.json())]).then(([r,t])=>{setRoutes(r);setTelemetry(t)});
+ const load=()=>Promise.all([fetch(`${API}/api/deliveries`).then(r=>r.json()),fetch(`${API}/api/routes`).then(r=>r.json()),fetch(`${API}/api/telemetry/points`).then(r=>r.json()),fetch(`${API}/api/alerts`).then(r=>r.json())]).then(([d,r,t,a])=>{setItems(d);setRoutes(r);setTelemetry(t);setAlerts(a)}).catch(()=>setError("API에 연결할 수 없습니다."));
  const loadWarehouse=()=>Promise.all([fetch(`${API}/api/warehouse/stock`).then(r=>r.json()),fetch(`${API}/api/warehouse/tasks`).then(r=>r.json()),fetch(`${API}/api/warehouse/ledger`).then(r=>r.json())]).then(([s,t,l])=>{setStocks(s);setTasks(t);setLedger(l)}).catch(()=>setError("창고 데이터에 연결할 수 없습니다."));
  const loadKpis=()=>fetch(`${API}/api/reports/daily-kpis?days=14`).then(r=>r.json()).then(setKpis).catch(()=>setError("KPI 보고서를 불러올 수 없습니다."));
  const loadOrders=()=>fetch(`${API}/api/orders`).then(r=>r.json()).then(setOrders).catch(()=>setError("주문 데이터를 불러올 수 없습니다."));
  const loadReplay=()=>Promise.all([fetch(`${API}/api/operations/dlq`).then(r=>r.json()),fetch(`${API}/api/operations/replay-audits`).then(r=>r.json())]).then(([events,audits])=>{setDeadLetters(events);setReplayAudits(audits);setError(current=>current==="복구 큐를 불러올 수 없습니다."?"":current)}).catch(()=>setError("복구 큐를 불러올 수 없습니다."));
  const loadPolicies=()=>Promise.all([fetch(`${API}/api/alert-policies`).then(r=>r.json()),fetch(`${API}/api/alert-policies/audits`).then(r=>r.json())]).then(([nextPolicies,nextAudits])=>{setPolicies(nextPolicies);setPolicyAudits(nextAudits)}).catch(()=>setError("경고 정책을 불러올 수 없습니다."));
  useEffect(()=>{load(); const source=new EventSource(`${API}/api/stream/deliveries`); source.onopen=()=>setConnected(true); source.onerror=()=>setConnected(false);
-  source.addEventListener("delivery-update",e=>{const next=JSON.parse((e as MessageEvent).data);setItems(old=>[next,...old.filter(x=>x.id!==next.id)]);loadRoutes().catch(()=>{});loadOrders().catch(()=>{})});
+  source.addEventListener("delivery-update",e=>{const next=JSON.parse((e as MessageEvent).data);setItems(old=>[next,...old.filter(x=>x.id!==next.id)]);loadMapData().catch(()=>{});loadOrders().catch(()=>{})});
   source.addEventListener("alert-update",e=>{const next:DeliveryAlert=JSON.parse((e as MessageEvent).data);setAlerts(old=>[next,...old.filter(x=>x.id!==next.id)])});return()=>source.close()},[]);
  const liveItems=useMemo(()=>items.filter(item=>item.status!=="DELIVERED"),[items]);
  const scopedItems=fleetScope==="LIVE"?liveItems:items;
@@ -60,7 +61,7 @@ export default function Home(){
   <OrderFlowPanel orders={orders} busyId={orderBusy} onCreate={()=>createOrder()} onDispatch={dispatchOrder}/>
   <DailyKpiPanel rows={kpis} csvUrl={`${API}/api/reports/daily-kpis.csv?days=30`} pdfUrl={`${API}/api/reports/daily-kpis.pdf?days=30`}/>
   <section className="mapBoard"><div className="mapHeader"><div className="mapTitle"><p className="eyebrow">GEOSPATIAL OVERVIEW</p><h2>Live fleet map</h2><div className="mapControls"><div className="mapScope" aria-label="Fleet scope"><button type="button" aria-pressed={fleetScope==="LIVE"} className={fleetScope==="LIVE"?"active":""} onClick={()=>setFleetScope("LIVE")}>LIVE {liveItems.length}</button><button type="button" aria-pressed={fleetScope==="ALL"} className={fleetScope==="ALL"?"active":""} onClick={()=>setFleetScope("ALL")}>ALL {items.length}</button></div><label className="mapSearch" htmlFor="fleetSearch"><span>FIND</span><input id="fleetSearch" type="search" value={fleetQuery} onChange={event=>setFleetQuery(event.target.value)} placeholder="vehicle, order or place"/></label></div></div>{focus&&visibleItems.some(item=>item.id===focus.id)&&<div className="focusStats"><span><small>FOCUS</small>{focus.vehicleId}</span><span><small>PROGRESS</small>{Math.round(focus.progress*100)}%</span><span><small>ROUTE</small>{focusRoute?`${(focusRoute.distanceMeters/1000).toFixed(1)} km · ${focusRoute.provider.toUpperCase()}`:"CALCULATING"}</span><span><small>ETA</small>{focus.eta?new Date(focus.eta).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}):focus.status==="DELIVERED"?"ARRIVED":focusRoute?new Date(focusRoute.plannedEta).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}):"—"}</span></div>}</div>
-   <FleetMap deliveries={visibleItems} routes={routes} selectedId={selected} onSelect={setSelected} emptyMessage={fleetQuery?`“${fleetQuery}” 검색 결과가 없습니다. 검색어를 지우거나 범위를 전환해 주세요.`:undefined}/></section>
+   <FleetMap deliveries={visibleItems} routes={routes} telemetry={telemetry} selectedId={selected} onSelect={setSelected} emptyMessage={fleetQuery?`“${fleetQuery}” 검색 결과가 없습니다. 검색어를 지우거나 범위를 전환해 주세요.`:undefined}/></section>
   <AlertOperationsPanel alerts={alerts} deliveries={items} busyId={alertBusy} onSelect={focusDelivery} onAcknowledge={acknowledgeAlert}/>
   <AlertPolicyPanel policies={policies} audits={policyAudits} deliveries={items} busy={policyBusy} onSave={savePolicy} onReset={resetPolicy} onRestore={restorePolicy}/>
   <section className="board"><div className="boardTitle"><h2>Fleet telemetry</h2><span>{visibleItems.length} shown · {items.length} total · {fleetScope} scope</span></div>

@@ -46,7 +46,7 @@ curl -X POST http://localhost:8080/api/orders/{orderId}/dispatch \
 
 경로 스냅샷 조회는 `GET /api/routes`입니다. 개발 환경은 OSRM 호환 endpoint를 사용하며 2.5초 안에 응답하지 않거나 오류가 발생하면 로컬 geodesic 계산으로 자동 전환합니다. 공개 demo는 개발용이므로 운영에서는 `.env`의 `OSRM_BASE_URL`을 자체 호스팅 또는 계약된 공급자로 교체하세요. 완전한 오프라인 실행은 `ROUTING_PROVIDER=geodesic`으로 설정합니다.
 
-운영 콘솔은 MapLibre 기반 벡터 지도에서 계획 경로, 주행 완료 구간, 차량 상태와 ETA를 실시간으로 표시합니다. 지도와 telemetry 목록은 운행 중 차량만 표시하는 통합 `LIVE` 범위를 기본으로 사용해 누적 이력의 중첩을 피하고, `ALL`로 완료 배송까지 전환할 수 있습니다. 지도 헤더의 즉시 검색으로 차량·주문·출발지·도착지를 좁히면 지도와 목록이 동시에 반영되고, 검색 결과가 없을 때 복구 방법을 지도 위에 안내하며 선택 차량은 밝은 halo로 강조합니다. 기본 OpenFreeMap 스타일은 별도 API key 없이 동작하며, 운영용 지도 공급자는 `.env`의 `NEXT_PUBLIC_MAP_STYLE_URL`로 교체할 수 있습니다.
+운영 콘솔은 MapLibre 기반 벡터 지도에서 계획 경로, PostgreSQL에 저장된 실제 GPS 주행 궤적, 차량 상태와 ETA를 실시간으로 표시합니다. 지도와 telemetry 목록은 운행 중 차량만 표시하는 통합 `LIVE` 범위를 기본으로 사용해 누적 이력의 중첩을 피하고, `ALL`로 완료 배송까지 전환할 수 있습니다. 지도 헤더의 즉시 검색으로 차량·주문·출발지·도착지를 좁히면 지도와 목록이 동시에 반영되고, 검색 결과가 없을 때 복구 방법을 지도 위에 안내하며 선택 차량은 밝은 halo로 강조합니다. 기본 OpenFreeMap 스타일은 별도 API key 없이 동작하며, 운영용 지도 공급자는 `.env`의 `NEXT_PUBLIC_MAP_STYLE_URL`로 교체할 수 있습니다.
 
 ## 문서
 
@@ -98,6 +98,8 @@ production image 네 개의 CycloneDX SBOM 생성과 CRITICAL 취약점 0건 검
 창고 흐름 검증은 `./scripts/warehouse-smoke.ps1`로 실행합니다. API는 `POST /api/warehouse/receipts`, `POST /api/warehouse/outbounds`, `POST /api/warehouse/outbounds/{id}/dispatch`와 재고·작업·ledger 조회를 제공합니다.
 
 도로 경로와 ETA 흐름 검증은 `./scripts/route-smoke.ps1`로 실행합니다.
+
+불변 GPS 이력 저장과 실제 주행 궤적 조회는 `./scripts/telemetry-track-smoke.ps1`로 검증합니다. `GET /api/telemetry/points`는 최근 5,000개 좌표를 최신순으로 반환하며 지도는 이를 시간순으로 연결해 계획 경로와 구분합니다.
 
 지연·경로 이탈 lifecycle과 운영자 확인은 `./scripts/alert-smoke.ps1`로 검증합니다. 활성 경고는 `POST /api/alerts/{id}/acknowledgement`와 `X-Operator` 헤더로 멱등 확인할 수 있으며, 콘솔에서도 미확인 경고 수와 최초 확인자를 표시합니다. 검증은 결정론적 telemetry 주입을 위해 simulator를 일시 중단한 뒤 자동으로 다시 시작합니다.
 

@@ -46,6 +46,16 @@ export type RouteSnapshot = {
   generatedAt: string;
 };
 
+export type TelemetryPoint = {
+  eventId: string;
+  deliveryId: string;
+  vehicleId: string;
+  latitude: number;
+  longitude: number;
+  progress: number;
+  occurredAt: string;
+};
+
 export type DeliveryAlert = {
   id: string;
   deliveryId: string;
