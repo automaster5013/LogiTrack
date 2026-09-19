@@ -26,6 +26,7 @@ public class OutboxPublishAttempt {
             kafka.send(event.getTopic(),event.getEventKey(),event.getPayload()).get(timeoutMillis,TimeUnit.MILLISECONDS);
             event.published();metrics.counter("logitrack.outbox.published","event_type",event.getTopic()).increment();
         }catch(Exception error){
+            if(error instanceof InterruptedException)Thread.currentThread().interrupt();
             event.failed(error);metrics.counter("logitrack.outbox.failures","event_type",event.getTopic()).increment();
         }
         return true;

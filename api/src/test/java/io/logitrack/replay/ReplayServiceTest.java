@@ -15,4 +15,9 @@ class ReplayServiceTest {
         service.replay(event.getId()," operator ");
         assertEquals(DeadLetterEvent.Status.REPLAYED,event.getStatus());verify(events).lockById(event.getId());verify(audits).save(any());assertEquals(1,metrics.get("logitrack.dlq.replays").counter().count());
     }
+    @Test void hidesBrokerDetailsOnReplayFailure(){
+        var events=mock(DeadLetterEventRepository.class);var kafka=mock(KafkaTemplate.class);var service=new ReplayService(events,mock(ReplayAuditRepository.class),kafka,new SimpleMeterRegistry());
+        var event=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,1);when(events.lockById(event.getId())).thenReturn(Optional.of(event));when(kafka.send(anyString(),any(),any())).thenReturn(CompletableFuture.failedFuture(new IllegalStateException("secret broker-1.internal:9092")));
+        var error=assertThrows(IllegalStateException.class,()->service.replay(event.getId(),"operator"));assertEquals("Could not publish replay event",error.getMessage());assertFalse(error.getMessage().contains("broker"));
+    }
 }

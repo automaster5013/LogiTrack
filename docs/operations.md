@@ -91,6 +91,7 @@ analytics 응답은 저장 전에 경로 ID, DB 길이에 맞는 provider·algor
 - 배송·텔레메트리·경고 SSE payload는 트랜잭션 안에서 스냅샷하고 DB 커밋 성공 후에만 Redis fan-out으로 발행한다. 롤백된 변경이 UI에 먼저 보이는 phantom update를 방지한다.
 - Outbox, 복구 지표, KPI projection, retention 스케줄 간격은 시작 시 안전 범위를 검증한다. 1ms busy loop나 하루를 넘는 실수 설정은 애플리케이션 시작을 실패시켜 조용한 자원 고갈·정리 중단을 방지한다.
 - CI의 공식 GitHub Actions는 immutable commit SHA로 고정하고 Dependabot이 매주 공식 action 업데이트를 묶어서 제안한다. 컨테이너 취약점 스캐너도 digest 고정을 유지한다.
+- DLQ 재발행 실패 응답은 Kafka broker 주소·내부 예외를 노출하지 않는 고정 메시지를 사용하며 상세 원인은 서버 로그에 event ID와 함께 남긴다. Kafka 대기 중 interrupt는 복원해 정상적인 종료 신호를 보존한다.
 
 ## 복구 큐 경보
 
