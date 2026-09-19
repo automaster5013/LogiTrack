@@ -45,9 +45,11 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: analytics/requirements.txt
-      - name: Install analytics test dependencies
-        run: python -m pip install --disable-pip-version-check -r analytics/requirements.txt pytest
+          cache-dependency-path: |
+            analytics/requirements.txt
+            simulator/requirements.txt
+      - name: Install Python test dependencies
+        run: python -m pip install --disable-pip-version-check -r analytics/requirements.txt -r simulator/requirements.txt pytest
       - name: Test route analytics
         working-directory: analytics
         run: python -m pytest tests
