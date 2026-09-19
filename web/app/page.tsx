@@ -55,11 +55,11 @@ export default function Home(){
  useEffect(()=>{loadMapData(scopedItems.map(item=>item.id)).catch(()=>setError("지도 경로를 불러올 수 없습니다."))},[fleetScope,items]);
  function focusDelivery(id:string){if(items.find(item=>item.id===id)?.status==="DELIVERED")setFleetScope("ALL");setFleetQuery("");setSelected(id)}
  useEffect(()=>{loadWarehouse()},[]);
- useEffect(()=>{loadOrders();const timer=window.setInterval(loadOrders,15000);return()=>window.clearInterval(timer)},[]);
- useEffect(()=>{loadKpis();const timer=window.setInterval(loadKpis,30000);return()=>window.clearInterval(timer)},[]);
- useEffect(()=>{loadReplay();const timer=window.setInterval(loadReplay,15000);return()=>window.clearInterval(timer)},[]);
- useEffect(()=>{loadOutbox();const timer=window.setInterval(loadOutbox,15000);return()=>window.clearInterval(timer)},[]);
- useEffect(()=>{loadPolicies();const timer=window.setInterval(loadPolicies,30000);return()=>window.clearInterval(timer)},[]);
+ useEffect(()=>pollAfterCompletion(loadOrders,15000),[]);
+ useEffect(()=>pollAfterCompletion(loadKpis,30000),[]);
+ useEffect(()=>pollAfterCompletion(loadReplay,15000),[]);
+ useEffect(()=>pollAfterCompletion(loadOutbox,15000),[]);
+ useEffect(()=>pollAfterCompletion(loadPolicies,30000),[]);
  async function createOrder(e?:FormEvent){e?.preventDefault();setOrderBusy("create");setError("");try{const suffix=Date.now().toString().slice(-6);const response=await fetch(`${API}/api/orders`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({orderNumber:`ORD-${suffix}`,origin:{name:"Seoul Hub",lat:37.5665,lon:126.978},destination:{name:"Incheon DC",lat:37.4563,lon:126.7052}})});if(!response.ok)throw new Error();await loadOrders()}catch{setError("주문 생성에 실패했습니다.")}finally{setOrderBusy(undefined)}}
  async function dispatchOrder(id:string){setOrderBusy(id);setError("");try{const response=await fetch(`${API}/api/orders/${id}/dispatch`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({vehicleId:`TRUCK-${Math.ceil(Math.random()*9).toString().padStart(2,"0")}`})});if(!response.ok)throw new Error();const order:CustomerOrder=await response.json();if(order.deliveryId)setSelected(order.deliveryId);await Promise.all([loadOrders(),load()])}catch{setError("주문 배차에 실패했습니다.")}finally{setOrderBusy(undefined)}}
  async function receiveStock(){setWarehouseBusy(true);setError("");try{const suffix=Date.now().toString().slice(-6);const r=await fetch(`${API}/api/warehouse/receipts`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({referenceNumber:`ASN-${suffix}`,warehouseId:"SEOUL-HUB-A",sku:"COLD-BOX-01",quantity:10})});if(!r.ok)throw new Error();await loadWarehouse()}catch{setError("입고 처리에 실패했습니다.")}finally{setWarehouseBusy(false)}}
@@ -92,4 +92,11 @@ export default function Home(){
   <ReplayOperationsPanel events={deadLetters} audits={replayAudits} busyId={replayBusy} onReplay={replay}/>
   <OutboxRecoveryPanel failures={outboxFailures} audits={outboxAudits} busyId={outboxBusy} onRetry={retryOutbox}/>
  </main>
+}
+
+function pollAfterCompletion(task:()=>Promise<unknown>,delayMs:number){
+ let stopped=false;let timer:number|undefined;
+ const poll=async()=>{await task();if(!stopped)timer=window.setTimeout(poll,delayMs)};
+ void poll();
+ return()=>{stopped=true;if(timer!==undefined)window.clearTimeout(timer)};
 }
