@@ -4,6 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 from logitrack_sim.route import Point, distance_km, interpolate, planned_eta, sample_route
+from logitrack_sim.main import validate_config
 from datetime import datetime, timezone
 
 
@@ -36,6 +37,11 @@ class RouteTest(unittest.TestCase):
         value = datetime.fromisoformat(planned_eta(1000, 0.25).replace("Z", "+00:00")).timestamp()
         self.assertGreaterEqual(value - before, 749)
         self.assertLessEqual(value - before, 751)
+
+    def test_rejects_resource_exhausting_simulator_configuration(self):
+        validate_config(1, 20, 8)
+        for values in [(0, 20, 8), (1, 1, 8), (1, 20, 0), (1, 1000, 8)]:
+            with self.assertRaises(ValueError): validate_config(*values)
 
 
 if __name__ == "__main__": unittest.main()

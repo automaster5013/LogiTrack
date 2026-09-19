@@ -141,6 +141,7 @@ services:
       KAFKA_BOOTSTRAP: kafka:29092
       SIMULATION_INTERVAL_SECONDS: 1
       SIMULATION_STEPS: 20
+      SIMULATION_MAX_WORKERS: ${SIMULATION_MAX_WORKERS:-8}
     depends_on:
       kafka: {condition: service_healthy}
       kafka-init: {condition: service_completed_successfully}
