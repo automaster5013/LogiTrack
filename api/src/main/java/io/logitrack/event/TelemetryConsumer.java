@@ -25,9 +25,9 @@ public class TelemetryConsumer {
         var lat=p.required("lat").asDouble(); var lon=p.required("lon").asDouble();
         delivery.applyTelemetry(lat,lon,progress,eta,status);
         var occurredAt=event.hasNonNull("occurredAt")?Instant.parse(event.get("occurredAt").asText()):Instant.now();
-        points.save(new TelemetryPoint(id,delivery,lat,lon,progress,occurredAt));
+        var point=points.save(new TelemetryPoint(id,delivery,lat,lon,progress,occurredAt));
         alerts.evaluate(delivery,event.path("traceId").asText(UUID.randomUUID().toString()));
         orders.fulfillFromDelivery(delivery,event.path("traceId").asText(UUID.randomUUID().toString()));
-        processed.save(new ProcessedEvent(id,"control-api-telemetry-v1")); stream.publish(delivery);
+        processed.save(new ProcessedEvent(id,"control-api-telemetry-v1")); stream.publish(delivery); stream.publishTelemetry(point);
     }
 }

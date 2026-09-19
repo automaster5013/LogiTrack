@@ -1,5 +1,5 @@
 "use client";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import DailyKpiPanel from "./components/DailyKpiPanel";
 import OrderFlowPanel from "./components/OrderFlowPanel";
@@ -13,6 +13,7 @@ const API=process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 export default function Home(){
  const [items,setItems]=useState<Delivery[]>([]); const [connected,setConnected]=useState(false); const [error,setError]=useState(""); const [selected,setSelected]=useState<string>();
+ const knownDeliveryIds=useRef(new Set<string>());
  const [fleetScope,setFleetScope]=useState<"LIVE"|"ALL">("LIVE"); const [fleetQuery,setFleetQuery]=useState("");
  const [routes,setRoutes]=useState<RouteSnapshot[]>([]);
  const [telemetry,setTelemetry]=useState<TelemetryPoint[]>([]);
@@ -23,15 +24,16 @@ export default function Home(){
  const [kpis,setKpis]=useState<DailyDeliveryKpi[]>([]);
  const [deadLetters,setDeadLetters]=useState<DeadLetterEvent[]>([]); const [replayAudits,setReplayAudits]=useState<ReplayAudit[]>([]); const [replayBusy,setReplayBusy]=useState<string>();
  const [stocks,setStocks]=useState<WarehouseStock[]>([]); const [tasks,setTasks]=useState<WarehouseTask[]>([]); const [ledger,setLedger]=useState<LedgerEntry[]>([]); const [warehouseBusy,setWarehouseBusy]=useState(false);
- const loadMapData=()=>Promise.all([fetch(`${API}/api/routes`).then(r=>r.json()),fetch(`${API}/api/telemetry/points`).then(r=>r.json())]).then(([r,t])=>{setRoutes(r);setTelemetry(t)});
- const load=()=>Promise.all([fetch(`${API}/api/deliveries`).then(r=>r.json()),fetch(`${API}/api/routes`).then(r=>r.json()),fetch(`${API}/api/telemetry/points`).then(r=>r.json()),fetch(`${API}/api/alerts`).then(r=>r.json())]).then(([d,r,t,a])=>{setItems(d);setRoutes(r);setTelemetry(t);setAlerts(a)}).catch(()=>setError("API에 연결할 수 없습니다."));
+ const loadRoutes=()=>fetch(`${API}/api/routes`).then(r=>r.json()).then(setRoutes);
+ const load=()=>Promise.all([fetch(`${API}/api/deliveries`).then(r=>r.json()),fetch(`${API}/api/routes`).then(r=>r.json()),fetch(`${API}/api/telemetry/points`).then(r=>r.json()),fetch(`${API}/api/alerts`).then(r=>r.json())]).then(([d,r,t,a]:[Delivery[],RouteSnapshot[],TelemetryPoint[],DeliveryAlert[]])=>{knownDeliveryIds.current=new Set(d.map(item=>item.id));setItems(d);setRoutes(r);setTelemetry(t);setAlerts(a)}).catch(()=>setError("API에 연결할 수 없습니다."));
  const loadWarehouse=()=>Promise.all([fetch(`${API}/api/warehouse/stock`).then(r=>r.json()),fetch(`${API}/api/warehouse/tasks`).then(r=>r.json()),fetch(`${API}/api/warehouse/ledger`).then(r=>r.json())]).then(([s,t,l])=>{setStocks(s);setTasks(t);setLedger(l)}).catch(()=>setError("창고 데이터에 연결할 수 없습니다."));
  const loadKpis=()=>fetch(`${API}/api/reports/daily-kpis?days=14`).then(r=>r.json()).then(setKpis).catch(()=>setError("KPI 보고서를 불러올 수 없습니다."));
  const loadOrders=()=>fetch(`${API}/api/orders`).then(r=>r.json()).then(setOrders).catch(()=>setError("주문 데이터를 불러올 수 없습니다."));
  const loadReplay=()=>Promise.all([fetch(`${API}/api/operations/dlq`).then(r=>r.json()),fetch(`${API}/api/operations/replay-audits`).then(r=>r.json())]).then(([events,audits])=>{setDeadLetters(events);setReplayAudits(audits);setError(current=>current==="복구 큐를 불러올 수 없습니다."?"":current)}).catch(()=>setError("복구 큐를 불러올 수 없습니다."));
  const loadPolicies=()=>Promise.all([fetch(`${API}/api/alert-policies`).then(r=>r.json()),fetch(`${API}/api/alert-policies/audits`).then(r=>r.json())]).then(([nextPolicies,nextAudits])=>{setPolicies(nextPolicies);setPolicyAudits(nextAudits)}).catch(()=>setError("경고 정책을 불러올 수 없습니다."));
  useEffect(()=>{load(); const source=new EventSource(`${API}/api/stream/deliveries`); source.onopen=()=>setConnected(true); source.onerror=()=>setConnected(false);
-  source.addEventListener("delivery-update",e=>{const next=JSON.parse((e as MessageEvent).data);setItems(old=>[next,...old.filter(x=>x.id!==next.id)]);loadMapData().catch(()=>{});loadOrders().catch(()=>{})});
+  source.addEventListener("delivery-update",e=>{const next:Delivery=JSON.parse((e as MessageEvent).data);if(!knownDeliveryIds.current.has(next.id)){knownDeliveryIds.current.add(next.id);loadRoutes().catch(()=>{})}setItems(old=>[next,...old.filter(x=>x.id!==next.id)]);loadOrders().catch(()=>{})});
+  source.addEventListener("telemetry-point",e=>{const next:TelemetryPoint=JSON.parse((e as MessageEvent).data);setTelemetry(old=>old.some(point=>point.eventId===next.eventId)?old:[next,...old].slice(0,5000))});
   source.addEventListener("alert-update",e=>{const next:DeliveryAlert=JSON.parse((e as MessageEvent).data);setAlerts(old=>[next,...old.filter(x=>x.id!==next.id)])});return()=>source.close()},[]);
  const liveItems=useMemo(()=>items.filter(item=>item.status!=="DELIVERED"),[items]);
  const scopedItems=fleetScope==="LIVE"?liveItems:items;

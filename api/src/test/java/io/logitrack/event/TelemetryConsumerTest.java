@@ -18,13 +18,14 @@ class TelemetryConsumerTest {
         var stream=mock(DeliveryStream.class);var alerts=mock(AlertService.class);var orders=mock(OrderService.class);var points=mock(TelemetryPointRepository.class);
         var delivery=Delivery.create(request(),"key");var eventId=UUID.randomUUID();
         when(deliveries.findById(delivery.getId())).thenReturn(Optional.of(delivery));
+        when(points.save(any())).thenAnswer(invocation->invocation.getArgument(0));
         var consumer=new TelemetryConsumer(new ObjectMapper().findAndRegisterModules(),deliveries,processed,stream,alerts,orders,points);
         consumer.consume("{\"eventId\":\""+eventId+"\",\"occurredAt\":\"2026-09-19T10:00:00Z\",\"payload\":{"+
             "\"deliveryId\":\""+delivery.getId()+"\",\"lat\":37.5,\"lon\":126.9,\"progress\":0.25,\"status\":\"IN_TRANSIT\",\"eta\":null}}");
         var saved=ArgumentCaptor.forClass(TelemetryPoint.class);verify(points).save(saved.capture());
         assertEquals(eventId,saved.getValue().getEventId());assertEquals(delivery.getId(),saved.getValue().getDeliveryId());
         assertEquals(37.5,saved.getValue().getLatitude());assertEquals(0.25,delivery.getProgress());
-        verify(processed).save(any());verify(stream).publish(delivery);
+        verify(processed).save(any());verify(stream).publish(delivery);verify(stream).publishTelemetry(saved.getValue());
     }
 
     @Test void duplicateEventDoesNotAppendPoint() throws Exception {

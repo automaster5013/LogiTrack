@@ -31,6 +31,7 @@ public class DeliveryStream implements MessageListener {
     }
     public void publish(Object value){publish("delivery-update",value);}
     public void publishAlert(Object value){publish("alert-update",value);}
+    public void publishTelemetry(Object value){publish("telemetry-point",value);}
     private void publish(String name,Object value){
         try{
             var envelope=mapper.writeValueAsString(Map.of("name",name,"data",value));

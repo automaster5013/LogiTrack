@@ -1,6 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-docker compose --profile scale-test up -d api-replica | Out-Null
+docker compose --profile scale-test build api-replica | Out-Null
+docker compose --profile scale-test up -d --no-deps --force-recreate api-replica | Out-Null
 try {
   $deadline = (Get-Date).AddSeconds(60)
   do {
@@ -18,10 +19,10 @@ try {
   $events = (Receive-Job $streamJob -Keep) -join "`n"
   if ($events -notmatch '"instanceId":"api-replica"') { throw "Replica SSE connection was not established" }
   if ($events -notmatch $created.id) { throw "Primary delivery update did not reach replica SSE" }
-  Write-Host "PASS: primary command reached replica SSE, delivery=$($created.id)"
+  if ($events -notmatch 'event:telemetry-point') { throw "Incremental telemetry point did not reach replica SSE" }
+  Write-Host "PASS: delivery and incremental telemetry reached replica SSE, delivery=$($created.id)"
 }
 finally {
   if ($streamJob) { Stop-Job $streamJob -ErrorAction SilentlyContinue; Remove-Job $streamJob -Force -ErrorAction SilentlyContinue }
   docker compose stop api-replica | Out-Null
 }
-

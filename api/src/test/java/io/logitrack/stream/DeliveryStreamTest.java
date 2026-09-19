@@ -24,4 +24,10 @@ class DeliveryStreamTest {
         assertEquals(1,stream.clientCount());
         assertEquals(1,metrics.counter("logitrack.sse.fallback","reason","redis_error").count());
     }
+    @Test void publishesTelemetryPointThroughRedis(){
+        when(redis.convertAndSend(eq("logitrack.events"),anyString())).thenReturn(1L);
+        stream.publishTelemetry(java.util.Map.of("eventId","event-1","deliveryId","delivery-1"));
+        verify(redis).convertAndSend(eq("logitrack.events"),contains("telemetry-point"));
+        assertEquals(1,metrics.counter("logitrack.sse.redis.published","event","telemetry-point").count());
+    }
 }
