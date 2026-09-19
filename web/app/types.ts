@@ -1,5 +1,6 @@
 export type Delivery = {
   id: string;
+  orderId?: string;
   orderNumber: string;
   vehicleId: string;
   status: "CREATED" | "IN_TRANSIT" | "DELAYED" | "DELIVERED";
@@ -13,6 +14,23 @@ export type Delivery = {
   currentLon: number;
   progress: number;
   eta?: string;
+};
+
+export type CustomerOrder = {
+  id: string;
+  orderNumber: string;
+  status: "READY" | "DISPATCHED" | "FULFILLED";
+  originName: string;
+  originLat: number;
+  originLon: number;
+  destinationName: string;
+  destinationLat: number;
+  destinationLon: number;
+  deliveryId?: string;
+  vehicleId?: string;
+  deliveryStatus?: Delivery["status"];
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type RouteSnapshot = {

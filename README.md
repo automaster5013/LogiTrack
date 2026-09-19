@@ -2,13 +2,13 @@
 
 실제 GPS 장비 없이 배송 차량, 창고, 주문의 상태 변화를 재현하는 이벤트 기반 물류 운영 플랫폼입니다.
 
-## 첫 번째 수직 슬라이스
+## 주문부터 배송 완료까지
 
-1. API로 배송을 생성합니다.
-2. Spring Boot가 배송과 outbox 이벤트를 원자적으로 저장하고 `delivery.created.v1`을 Kafka에 발행합니다.
+1. API나 TypeScript 운영 콘솔에서 고객 주문을 `READY` 상태로 생성합니다.
+2. 배차 시 독립된 배송 aggregate를 주문에 연결하고 `order.dispatched.v1`과 `delivery.created.v1`을 transactional outbox로 발행합니다.
 3. Python 경로 분석 서비스가 도로망 경로와 ETA 스냅샷을 만들고, 시뮬레이터가 경로상의 GPS 점을 `vehicle.telemetry.v1`로 발행합니다.
-4. Spring Boot가 최신 위치와 배송 상태를 저장하고 SSE로 브라우저에 전송합니다.
-5. Next.js 콘솔에서 진행 상태와 이벤트를 확인합니다.
+4. Spring Boot가 최신 위치와 배송 상태를 저장하고 SSE로 브라우저에 전송합니다. 배송 완료 시 연결 주문도 `FULFILLED`로 전환합니다.
+5. Next.js 콘솔에서 주문, 배송, 경로, 경고와 KPI를 함께 확인합니다.
 
 ## 빠른 시작
 
@@ -26,16 +26,21 @@ docker compose up --build
 - Tempo API: http://localhost:3200 (`Grafana → Explore → Tempo`에서 trace 조회)
 - OpenTelemetry Collector health: http://localhost:13133
 
-샘플 배송 생성:
+샘플 주문 생성과 배차:
 
 ```bash
-curl -X POST http://localhost:8080/api/deliveries \
+curl -X POST http://localhost:8080/api/orders \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: demo-001" \
-  -d '{"orderNumber":"ORD-1001","vehicleId":"TRUCK-01","origin":{"name":"Seoul Hub","lat":37.5665,"lon":126.9780},"destination":{"name":"Incheon DC","lat":37.4563,"lon":126.7052}}'
+  -d '{"orderNumber":"ORD-1001","origin":{"name":"Seoul Hub","lat":37.5665,"lon":126.9780},"destination":{"name":"Incheon DC","lat":37.4563,"lon":126.7052}}'
+
+curl -X POST http://localhost:8080/api/orders/{orderId}/dispatch \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: dispatch-001" \
+  -d '{"vehicleId":"TRUCK-01"}'
 ```
 
-상태 조회: `GET /api/deliveries`, 실시간 스트림: `GET /api/stream/deliveries`
+주문 조회: `GET /api/orders`, 배송 조회: `GET /api/deliveries`, 실시간 스트림: `GET /api/stream/deliveries`. 기존 `POST /api/deliveries`는 호환성을 위해 유지하지만 신규 운영 흐름은 주문 생성 후 배차를 사용합니다.
 
 경로 스냅샷 조회는 `GET /api/routes`입니다. 개발 환경은 OSRM 호환 endpoint를 사용하며 2.5초 안에 응답하지 않거나 오류가 발생하면 로컬 geodesic 계산으로 자동 전환합니다. 공개 demo는 개발용이므로 운영에서는 `.env`의 `OSRM_BASE_URL`을 자체 호스팅 또는 계약된 공급자로 교체하세요. 완전한 오프라인 실행은 `ROUTING_PROVIDER=geodesic`으로 설정합니다.
 
@@ -55,6 +60,7 @@ curl -X POST http://localhost:8080/api/deliveries \
 - [DLQ replay와 감사 ADR](docs/adr/0007-dlq-replay.md)
 - [선택 범위 replay 승인 ADR](docs/adr/0008-batch-replay-approval.md)
 - [KPI PDF 보고서 ADR](docs/adr/0009-kpi-pdf-reporting.md)
+- [주문·배송 aggregate 분리 ADR](docs/adr/0010-order-delivery-boundary.md)
 - [운영 및 장애 처리](docs/operations.md)
 - [장애 주입 및 복구 runbook](docs/failure-recovery-runbook.md)
 - [로컬 성능 기준선](docs/performance.md)
@@ -72,6 +78,8 @@ python -m unittest discover analytics/tests
 통합 smoke test는 전체 스택 실행 후 `./scripts/smoke.ps1`로 수행합니다.
 
 배송과 이벤트는 PostgreSQL에 같은 트랜잭션으로 기록됩니다. outbox publisher가 대기 이벤트를 Kafka에 전달하므로 broker가 일시 중단되어도 생성 이벤트가 유실되지 않습니다.
+
+주문과 배송의 독립 lifecycle은 `./scripts/order-smoke.ps1`로 검증합니다. 이 테스트는 주문 생성 멱등성, 단일 배송 연결, `READY → DISPATCHED → FULFILLED`, 주문 outbox 이벤트 3종과 simulator 원상 복구를 확인합니다.
 
 창고 흐름 검증은 `./scripts/warehouse-smoke.ps1`로 실행합니다. API는 `POST /api/warehouse/receipts`, `POST /api/warehouse/outbounds`, `POST /api/warehouse/outbounds/{id}/dispatch`와 재고·작업·ledger 조회를 제공합니다.
 

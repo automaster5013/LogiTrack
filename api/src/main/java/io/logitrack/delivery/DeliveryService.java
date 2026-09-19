@@ -18,19 +18,34 @@ public class DeliveryService {
 
     @Transactional
     public Delivery create(CreateDeliveryRequest request, String key, String traceId) {
-        var existing=repository.findByIdempotencyKey(key); if(existing.isPresent()) return existing.get();
+        return create(request,key,traceId,null);
+    }
+    @Transactional
+    public Delivery createForOrder(UUID orderId, CreateDeliveryRequest request, String key, String traceId) {
+        return create(request,key,traceId,orderId);
+    }
+    private Delivery create(CreateDeliveryRequest request, String key, String traceId, UUID orderId) {
+        var existing=repository.findByIdempotencyKey(key);
+        if(existing.isPresent()) {
+            if(orderId!=null&&!orderId.equals(existing.get().getOrderId()))
+                throw new IllegalStateException("Idempotency key belongs to another order");
+            return existing.get();
+        }
         validate(request);
-        var saved=repository.save(Delivery.create(request,key));
+        if(orderId!=null){var linked=repository.findByOrderId(orderId);if(linked.isPresent())return linked.get();}
+        var saved=repository.save(Delivery.create(request,key,orderId));
         var route=routeAnalysis.analyze(saved);
         try {
             var geometry=mapper.valueToTree(Map.of("type","LineString","coordinates",route.coordinates()));
             routes.save(new RouteSnapshot(saved,route,geometry));
-            var payload=mapper.valueToTree(Map.of("deliveryId",saved.getId(),"vehicleId",saved.getVehicleId(),
-                "origin",Map.of("lat",saved.getOriginLat(),"lon",saved.getOriginLon()),
-                "destination",Map.of("lat",saved.getDestinationLat(),"lon",saved.getDestinationLon()),
-                "route",route.coordinates(),"routeProvider",route.provider(),
-                "distanceMeters",route.distanceMeters(),"plannedDurationSeconds",route.durationSeconds(),
-                "plannedEta",route.plannedEta().toString()));
+            var payloadValues=new LinkedHashMap<String,Object>();
+            payloadValues.put("deliveryId",saved.getId());payloadValues.put("orderId",saved.getOrderId());payloadValues.put("orderNumber",saved.getOrderNumber());payloadValues.put("vehicleId",saved.getVehicleId());
+            payloadValues.put("origin",Map.of("lat",saved.getOriginLat(),"lon",saved.getOriginLon()));
+            payloadValues.put("destination",Map.of("lat",saved.getDestinationLat(),"lon",saved.getDestinationLon()));
+            payloadValues.put("route",route.coordinates());payloadValues.put("routeProvider",route.provider());
+            payloadValues.put("distanceMeters",route.distanceMeters());payloadValues.put("plannedDurationSeconds",route.durationSeconds());
+            payloadValues.put("plannedEta",route.plannedEta().toString());
+            var payload=mapper.valueToTree(payloadValues);
             var event=new EventEnvelope(UUID.randomUUID(),"delivery.created.v1",Instant.now(),traceId,1,payload);
             outbox.save(new OutboxEvent(event.eventId(),"DELIVERY",saved.getId(),event.eventType(),
                 "delivery.created.v1",saved.getId().toString(),mapper.writeValueAsString(event)));

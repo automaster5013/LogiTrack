@@ -31,6 +31,7 @@
 - 최대 20건 DLQ replay dry-run plan, 10분 승인 창, 운영자 일치와 5 events/s 속도 제한
 - PostgreSQL KPI 원본 기반 2페이지 운영 PDF, API/TypeScript 다운로드와 렌더링 품질 검증
 - analytics/consumer/Redis 장애 주입, Kafka 보존·정확히 한 번 복구와 자동 원상 복구 runbook
+- PostgreSQL 독립 주문 aggregate, 주문-배송 1:1 연결, `READY → DISPATCHED → FULFILLED` lifecycle과 TypeScript 배차 패널
 
 ## 현재 상태
 

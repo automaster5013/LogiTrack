@@ -2,40 +2,45 @@
 
 ## 서비스 경계
 
-- `control-api`: 배송 command/query, 상태 전이, telemetry 소비, SSE fan-out
+- `control-api`: 주문·배송 command/query, 상태 전이, telemetry 소비, SSE fan-out
 - `simulator`: 배송 생성 이벤트를 받아 결정론적 위치/상태 이벤트 생성
 - `analytics`: OSRM 호환 provider와 로컬 fallback을 사용하는 경로/ETA 계산, 공급자 장애 격리, ReportLab KPI PDF 렌더링
 - `web`: 관제 운영 콘솔. API와 SSE만 사용하고 브로커에는 접근하지 않음
 - `warehouse` 모듈: 비관적 잠금 기반 재고, 입고·피킹·출고 workflow와 불변 ledger. 초기에는 control-api에 모듈로 배치하고 부하/팀 경계가 필요할 때 별도 서비스로 추출
 - 일별 KPI projection: PostgreSQL cohort 집계, JSON/CSV/PDF 보고서, TypeScript 성과 차트
 
-초기에는 과도한 분산을 피하기 위해 배송 도메인의 command/query/consumer를 하나의 배포 단위로 두되, Kafka 계약과 DB 소유권으로 경계를 명확히 한다.
+초기에는 과도한 분산을 피하기 위해 주문과 배송 모듈을 하나의 배포 단위로 두되, 별도 aggregate/table/repository와 Kafka 계약으로 lifecycle 경계를 명확히 한다.
 
 ## 이벤트 흐름
 
 ```text
-Operator -> POST /deliveries -> analytics(route + ETA)
-                              -> PostgreSQL(delivery + route snapshot + outbox)
-                                            |
-                                  outbox publisher -> delivery.created.v1
+Operator -> POST /orders -> PostgreSQL(order + outbox) -> order.created.v1
+         -> POST /orders/{id}/dispatch -> analytics(route + ETA)
+                                        -> PostgreSQL(order + linked delivery + route snapshot + outbox)
+                                                       |
+                                             order.dispatched.v1 + delivery.created.v1
                                             |
                                       Python simulator
                                             |
                                   vehicle.telemetry.v1
                                             |
-Kafka -> control-api consumer -> PostgreSQL -> Redis Pub/Sub -> every API SSE -> Web console
+Kafka -> control-api consumer -> PostgreSQL(delivery; linked order fulfilled) -> Redis Pub/Sub -> every API SSE -> Web console
                     failures -> retry topics -> telemetry.dlq.v1
 
 PostgreSQL KPI projection -> control-api -> analytics PDF renderer -> operator download
 ```
 
-Kafka key는 `deliveryId`이며 동일 배송의 순서를 보존한다. 모든 이벤트 envelope는 `eventId`, `eventType`, `occurredAt`, `traceId`, `schemaVersion`, `payload`를 가진다. consumer는 `eventId`를 처리 이력에 기록해 at-least-once 전달에서도 멱등하게 동작한다.
+배송 이벤트의 Kafka key는 `deliveryId`, 주문 이벤트의 key는 `orderId`이며 aggregate별 순서를 보존한다. 모든 이벤트 envelope는 `eventId`, `eventType`, `occurredAt`, `traceId`, `schemaVersion`, `payload`를 가진다. consumer는 `eventId`를 처리 이력에 기록해 at-least-once 전달에서도 멱등하게 동작한다.
 
 ## 핵심 데이터 모델
 
 ### deliveries
 
-`id UUID PK`, `order_number`, `vehicle_id`, `status`, `origin_*`, `destination_*`, `current_lat/lon`, `progress`, `eta`, `idempotency_key UNIQUE`, `version`, `created_at`, `updated_at`
+`id UUID PK`, `order_id UUID UNIQUE NULLABLE`, `order_number`, `vehicle_id`, `status`, `origin_*`, `destination_*`, `current_lat/lon`, `progress`, `eta`, `idempotency_key UNIQUE`, `version`, `created_at`, `updated_at`. `order_id`는 신규 주문 흐름에서만 설정하며 기존 직접 배송 생성 데이터와 호환된다.
+
+### orders
+
+`id UUID PK`, `order_number UNIQUE`, `status`, `origin_*`, `destination_*`, `idempotency_key UNIQUE`, `version`, `created_at`, `updated_at`. 상태는 `READY → DISPATCHED → FULFILLED` 단방향이며 배송 연결은 `deliveries.order_id`의 unique FK로 한 건만 허용한다.
 
 ### processed_events
 
@@ -53,9 +58,8 @@ Kafka key는 `deliveryId`이며 동일 배송의 순서를 보존한다. 모든 
 
 배송별 `DELAY`, `ROUTE_DEVIATION` 경고의 심각도와 lifecycle을 저장한다. 활성 경고는 배송·유형별 하나만 허용하고 반복 관측은 `occurrence_count`와 최종 관측 시각을 갱신한다. 경로 이탈은 500m 발생/300m 해결, 지연은 계획 ETA 대비 10분 발생/5분 해결의 히스테리시스를 사용한다. 발생·심각도 상승·해결은 `delivery.alert.v1` outbox 이벤트로 발행한다.
 
-### 향후 모델
+### 추가 모델
 
-- `orders`: 고객 주문 aggregate와 배송 참조
 - `inventory_ledger`: SKU별 불변 수량 이동(+/-), warehouse, reason, correlation ID
 - `warehouse_tasks`: receiving/picking/dispatch 상태 머신
 - 향후 alert 정책: 차량·화물별 threshold, 운영자 확인(acknowledgement), notification routing

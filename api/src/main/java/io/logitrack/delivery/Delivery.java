@@ -9,6 +9,7 @@ import java.util.UUID;
 public class Delivery {
     @Id private UUID id;
     @Column(name="order_number", nullable=false) private String orderNumber;
+    @Column(name="order_id") private UUID orderId;
     @Column(name="vehicle_id", nullable=false) private String vehicleId;
     @Enumerated(EnumType.STRING) @Column(nullable=false) private Status status;
     @Column(name="origin_name", nullable=false) private String originName;
@@ -28,21 +29,24 @@ public class Delivery {
 
     protected Delivery() {}
     public static Delivery create(CreateDeliveryRequest r, String key) {
+        return create(r, key, null);
+    }
+    public static Delivery create(CreateDeliveryRequest r, String key, UUID orderId) {
         var d = new Delivery(); var now = Instant.now();
-        d.id=UUID.randomUUID(); d.orderNumber=r.orderNumber(); d.vehicleId=r.vehicleId(); d.status=Status.CREATED;
+        d.id=UUID.randomUUID(); d.orderId=orderId; d.orderNumber=r.orderNumber(); d.vehicleId=r.vehicleId(); d.status=Status.CREATED;
         d.originName=r.origin().name(); d.originLat=r.origin().lat(); d.originLon=r.origin().lon();
         d.destinationName=r.destination().name(); d.destinationLat=r.destination().lat(); d.destinationLon=r.destination().lon();
         d.currentLat=d.originLat; d.currentLon=d.originLon; d.progress=0; d.idempotencyKey=key; d.createdAt=now; d.updatedAt=now;
         return d;
     }
     public void applyTelemetry(double lat, double lon, double progress, Instant eta, Status status) {
+        if (this.status == Status.DELIVERED) return;
         this.currentLat=lat; this.currentLon=lon; this.progress=progress; this.eta=eta; this.status=status; this.updatedAt=Instant.now();
     }
-    public UUID getId(){return id;} public String getOrderNumber(){return orderNumber;} public String getVehicleId(){return vehicleId;}
+    public UUID getId(){return id;} public UUID getOrderId(){return orderId;} public String getOrderNumber(){return orderNumber;} public String getVehicleId(){return vehicleId;}
     public Status getStatus(){return status;} public String getOriginName(){return originName;} public double getOriginLat(){return originLat;}
     public double getOriginLon(){return originLon;} public String getDestinationName(){return destinationName;} public double getDestinationLat(){return destinationLat;}
     public double getDestinationLon(){return destinationLon;} public Double getCurrentLat(){return currentLat;} public Double getCurrentLon(){return currentLon;}
     public double getProgress(){return progress;} public Instant getEta(){return eta;} public Instant getCreatedAt(){return createdAt;} public Instant getUpdatedAt(){return updatedAt;}
     public enum Status { CREATED, IN_TRANSIT, DELAYED, DELIVERED }
 }
-
