@@ -26,7 +26,7 @@ public class WarehouseService {
   var task=tasks.save(WarehouseTask.outbound(command,key));ledger.save(new InventoryLedgerEntry(task,InventoryLedgerEntry.Type.PICK,0,command.quantity(),stock));event(task,stock,"warehouse.outbound.picked.v1",traceId);return task;
  }
  @Transactional public WarehouseTask dispatch(UUID id,String traceId){
-  var task=tasks.findById(id).orElseThrow(()->new NoSuchElementException("Warehouse task not found"));if(task.getStatus()==WarehouseTask.Status.DISPATCHED)return task;
+  var task=tasks.findForUpdateById(id).orElseThrow(()->new NoSuchElementException("Warehouse task not found"));if(task.getStatus()==WarehouseTask.Status.DISPATCHED)return task;
   var stock=stocks.lockByWarehouseAndSku(task.getWarehouseId(),task.getSku()).orElseThrow();stock.dispatch(task.getQuantity());task.dispatch();
   ledger.save(new InventoryLedgerEntry(task,InventoryLedgerEntry.Type.DISPATCH,-task.getQuantity(),-task.getQuantity(),stock));event(task,stock,"warehouse.outbound.dispatched.v1",traceId);return task;
  }

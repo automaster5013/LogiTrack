@@ -80,6 +80,7 @@ analytics 응답은 저장 전에 경로 ID, DB 길이에 맞는 provider·algor
 - 실패한 PENDING 이벤트는 1초부터 시작해 최대 5분인 지수 backoff의 `nextAttemptAt` 이후에만 다시 잠근다. 20회 실패 후 `FAILED`가 되며 운영자 retry는 시도 수를 초기화하고 즉시 재처리 대상으로 만든다.
 - Redis 중단: DB가 source of truth이며 cache miss로 처리한다. SSE 다중 인스턴스 fan-out은 degraded 상태가 되지만 API readiness는 유지한다.
 - DB 중단: API readiness가 실패하고 Kafka consumer가 재시도한다. broker의 이벤트는 보존된다.
+- 창고 출고 확정: warehouse task 행을 먼저 비관적으로 잠가 동시 요청을 멱등 `DISPATCHED` 응답으로 직렬화하며 재고·ledger·outbox는 한 번만 변경한다. `./scripts/warehouse-dispatch-concurrency-smoke.ps1`로 검증한다.
 
 ## 복구 큐 경보
 

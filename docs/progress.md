@@ -106,6 +106,7 @@
 - 취소된 analytics waiter가 공유 route task를 전파 취소하지 않는 shield 처리
 - 모든 waiter 취소 시 in-flight route background 정리·성공 결과 캐시
 - telemetry trace ID 안전 문자 검증과 이벤트당 단일 생성·후속 처리 일관 전파
+- 창고 task 비관적 잠금 기반 동시 출고 확정의 단일 재고·ledger·outbox 변경
 
 ## 현재 상태
 
