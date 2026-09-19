@@ -53,6 +53,7 @@ curl -X POST http://localhost:8080/api/deliveries \
 - [분산 추적 ADR](docs/adr/0005-distributed-tracing.md)
 - [일별 KPI projection ADR](docs/adr/0006-daily-kpi-projection.md)
 - [운영 및 장애 처리](docs/operations.md)
+- [로컬 성능 기준선](docs/performance.md)
 - [구현 진행 현황](docs/progress.md)
 
 ## 로컬 검증
@@ -78,3 +79,5 @@ Redis 기반 다중 API SSE fan-out은 `./scripts/sse-fanout-smoke.ps1`로 검�
 API에서 Python analytics까지 이어지는 trace는 `./scripts/tracing-smoke.ps1`로 검증합니다. 알려진 W3C trace ID를 주입하고 Tempo에서 두 서비스의 span을 직접 조회합니다.
 
 PostgreSQL 일별 KPI projection과 CSV 보고서는 `./scripts/kpi-smoke.ps1`로 검증합니다. 대시보드의 `Delivery performance` 패널은 최근 14일 지표를 30초마다 갱신합니다.
+
+멱등 배송 생성 API의 20 RPS 기준선은 `./scripts/load-smoke.ps1`로 재현합니다. 99% 성공률과 p95 500ms 기준을 넘지 못하면 스크립트가 실패합니다.

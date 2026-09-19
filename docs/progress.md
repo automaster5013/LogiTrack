@@ -23,8 +23,9 @@
 - OpenTelemetry Collector와 Tempo, Grafana datasource 자동 프로비저닝
 - Spring API→Python analytics→route provider W3C trace 전파와 재현 가능한 Tempo 검증
 - PostgreSQL 일별 배송 KPI projection, JSON/CSV 보고서와 TypeScript 14일 성과 차트
+- 동일 경로 TTL 캐시와 20 RPS 멱등 생성 API 부하 기준선(p95 35.63ms, 성공률 100%)
 
 ## 다음 우선순위
 
-1. 로컬 부하 시험과 성공 기준 측정 보고서
-2. DLQ 선택 replay API와 감사 이력
+1. DLQ 선택 replay API와 감사 이력
+2. 고유 생성/Kafka lag/telemetry 반영 지연 부하 시험

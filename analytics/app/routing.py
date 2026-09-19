@@ -1,5 +1,7 @@
+import asyncio
 import hashlib
 import json
+import time
 from dataclasses import dataclass
 from math import asin, cos, radians, sin, sqrt
 
@@ -54,12 +56,31 @@ def parse_osrm(data: dict) -> RouteResult:
 
 
 class RoutePlanner:
-    def __init__(self, provider: str, osrm_base_url: str, timeout_seconds: float = 2.5):
+    def __init__(self, provider: str, osrm_base_url: str, timeout_seconds: float = 2.5,
+                 cache_ttl_seconds: float = 300):
         self.provider = provider.lower()
         self.osrm_base_url = osrm_base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
+        self.cache_ttl_seconds = cache_ttl_seconds
+        self._cache: dict[tuple[float, float, float, float], tuple[float, RouteResult]] = {}
+        self._cache_lock = asyncio.Lock()
 
     async def plan(self, origin: Coordinate, destination: Coordinate) -> RouteResult:
+        key = (origin.lat, origin.lon, destination.lat, destination.lon)
+        cached = self._cache.get(key)
+        if cached and cached[0] > time.monotonic():
+            return cached[1]
+        async with self._cache_lock:
+            cached = self._cache.get(key)
+            if cached and cached[0] > time.monotonic():
+                return cached[1]
+            result = await self._plan_uncached(origin, destination)
+            if len(self._cache) >= 1024:
+                self._cache.clear()
+            self._cache[key] = (time.monotonic() + self.cache_ttl_seconds, result)
+            return result
+
+    async def _plan_uncached(self, origin: Coordinate, destination: Coordinate) -> RouteResult:
         if self.provider != "osrm":
             return geodesic_fallback(origin, destination)
         url = (f"{self.osrm_base_url}/route/v1/driving/"
@@ -71,4 +92,3 @@ class RoutePlanner:
                 return parse_osrm(response.json())
         except (httpx.HTTPError, ValueError, KeyError, TypeError):
             return geodesic_fallback(origin, destination)
-

@@ -4,6 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 from app.routing import Coordinate, geodesic_fallback, parse_osrm
+from app.routing import RoutePlanner
 
 
 class RoutingTest(unittest.TestCase):
@@ -29,5 +30,16 @@ class RoutingTest(unittest.TestCase):
             parse_osrm({"code":"NoRoute","routes":[]})
 
 
-if __name__ == "__main__": unittest.main()
+class RoutePlannerCacheTest(unittest.IsolatedAsyncioTestCase):
+    async def test_reuses_route_for_identical_coordinates(self):
+        planner = RoutePlanner("geodesic", "http://unused", cache_ttl_seconds=300)
+        origin = Coordinate(37.5665, 126.978)
+        destination = Coordinate(37.4563, 126.7052)
 
+        first = await planner.plan(origin, destination)
+        second = await planner.plan(origin, destination)
+
+        self.assertIs(first, second)
+
+
+if __name__ == "__main__": unittest.main()

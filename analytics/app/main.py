@@ -60,6 +60,7 @@ planner = RoutePlanner(
     os.getenv("ROUTING_PROVIDER", "osrm"),
     os.getenv("OSRM_BASE_URL", "https://router.project-osrm.org"),
     float(os.getenv("ROUTING_TIMEOUT_SECONDS", "2.5")),
+    float(os.getenv("ROUTING_CACHE_TTL_SECONDS", "300")),
 )
 
 
