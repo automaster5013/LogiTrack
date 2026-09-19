@@ -47,6 +47,7 @@ curl -X POST http://localhost:8080/api/deliveries \
 - [기술 선택 ADR](docs/adr/0001-technology-stack.md)
 - [실시간 지도 ADR](docs/adr/0002-live-map.md)
 - [경로 분석 ADR](docs/adr/0003-route-analytics.md)
+- [배송 경고 lifecycle ADR](docs/adr/0004-alert-lifecycle.md)
 - [운영 및 장애 처리](docs/operations.md)
 - [구현 진행 현황](docs/progress.md)
 
@@ -65,3 +66,5 @@ python -m unittest discover analytics/tests
 창고 흐름 검증은 `./scripts/warehouse-smoke.ps1`로 실행합니다. API는 `POST /api/warehouse/receipts`, `POST /api/warehouse/outbounds`, `POST /api/warehouse/outbounds/{id}/dispatch`와 재고·작업·ledger 조회를 제공합니다.
 
 도로 경로와 ETA 흐름 검증은 `./scripts/route-smoke.ps1`로 실행합니다.
+
+지연·경로 이탈 lifecycle 검증은 `./scripts/alert-smoke.ps1`로 실행합니다. 이 검증은 결정론적 telemetry 주입을 위해 simulator를 일시 중단한 뒤 자동으로 다시 시작합니다.

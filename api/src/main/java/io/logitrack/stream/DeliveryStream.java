@@ -14,5 +14,5 @@ public class DeliveryStream {
         return e;
     }
     public void publish(Object value){for(var e:clients){try{e.send(SseEmitter.event().name("delivery-update").data(value));}catch(IOException ex){clients.remove(e);}}}
+    public void publishAlert(Object value){for(var e:clients){try{e.send(SseEmitter.event().name("alert-update").data(value));}catch(IOException ex){clients.remove(e);}}}
 }
-

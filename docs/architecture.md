@@ -47,12 +47,16 @@ Kafka key는 `deliveryId`이며 동일 배송의 순서를 보존한다. 모든 
 
 `delivery_id`, GeoJSON `geometry`, `provider`, `algorithm_version`, `geometry_hash`, `distance_meters`, `duration_seconds`, `planned_eta`, `generated_at`을 저장한다. 재계산 시 기존 스냅샷을 덮어쓰지 않아 계획 이력을 보존한다.
 
+### delivery_alerts
+
+배송별 `DELAY`, `ROUTE_DEVIATION` 경고의 심각도와 lifecycle을 저장한다. 활성 경고는 배송·유형별 하나만 허용하고 반복 관측은 `occurrence_count`와 최종 관측 시각을 갱신한다. 경로 이탈은 500m 발생/300m 해결, 지연은 계획 ETA 대비 10분 발생/5분 해결의 히스테리시스를 사용한다. 발생·심각도 상승·해결은 `delivery.alert.v1` outbox 이벤트로 발행한다.
+
 ### 향후 모델
 
 - `orders`: 고객 주문 aggregate와 배송 참조
 - `inventory_ledger`: SKU별 불변 수량 이동(+/-), warehouse, reason, correlation ID
 - `warehouse_tasks`: receiving/picking/dispatch 상태 머신
-- `delivery_alerts`: DELAY/ROUTE_DEVIATION, severity, observed/resolved timestamp
+- 향후 alert 정책: 차량·화물별 threshold, 운영자 확인(acknowledgement), notification routing
 
 ## 저장소 구조
 

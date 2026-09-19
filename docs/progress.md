@@ -16,10 +16,11 @@
 - TypeScript 창고 재고·ledger 운영 패널
 - provider 교체형 도로 경로/ETA 분석 서비스와 장애 fallback
 - PostgreSQL 불변 route snapshot, 경로 기반 차량 시뮬레이션과 고해상도 지도 geometry
+- 지연·경로 이탈 탐지, 히스테리시스와 경고 발생·상향·해결 lifecycle
+- 경고 outbox 이벤트와 TypeScript 실시간 exception management 패널
 
 ## 다음 우선순위
 
-1. 지연 및 경로 이탈 탐지와 alert lifecycle
-2. Redis 기반 다중 API 인스턴스 SSE fan-out
-3. OpenTelemetry Collector/Tempo 분산 추적
-4. 일별 배송 KPI projection과 보고서
+1. Redis 기반 다중 API 인스턴스 SSE fan-out
+2. OpenTelemetry Collector/Tempo 분산 추적
+3. 일별 배송 KPI projection과 보고서
