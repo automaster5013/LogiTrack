@@ -10,6 +10,7 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import java.time.Instant;
 import java.util.NoSuchElementException;
@@ -19,6 +20,7 @@ public class ApiExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class) ResponseEntity<ApiError> bad(IllegalArgumentException error,HttpServletRequest request){return response(HttpStatus.BAD_REQUEST,message(error,"Invalid request"),request);}
     @ExceptionHandler(IllegalStateException.class) ResponseEntity<ApiError> conflict(IllegalStateException error,HttpServletRequest request){return response(HttpStatus.CONFLICT,message(error,"Request conflicts with current state"),request);}
     @ExceptionHandler(NoSuchElementException.class) ResponseEntity<ApiError> missing(NoSuchElementException error,HttpServletRequest request){return response(HttpStatus.NOT_FOUND,message(error,"Resource not found"),request);}
+    @ExceptionHandler(NoResourceFoundException.class) ResponseEntity<ApiError> unknownRoute(NoResourceFoundException error,HttpServletRequest request){return response(HttpStatus.NOT_FOUND,"Resource not found",request);}
     @ExceptionHandler(DataIntegrityViolationException.class) ResponseEntity<ApiError> integrity(DataIntegrityViolationException error,HttpServletRequest request){return response(HttpStatus.CONFLICT,"Resource conflicts with existing data",request);}
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class) ResponseEntity<ApiError> optimisticLock(ObjectOptimisticLockingFailureException error,HttpServletRequest request){return response(HttpStatus.CONFLICT,"Resource was modified by another request",request);}
     @ExceptionHandler(HttpMessageNotReadableException.class) ResponseEntity<ApiError> malformed(HttpMessageNotReadableException error,HttpServletRequest request){return response(HttpStatus.BAD_REQUEST,"Malformed request body",request);}

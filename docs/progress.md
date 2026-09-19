@@ -85,6 +85,7 @@
 - KPI PDF 렌더링 성공·실패 Micrometer counter
 - 반복 KPI PDF 렌더링 실패 Prometheus warning과 구성 회귀 검증
 - 필수 요청값·타입·HTTP method·media type 오류의 trace 연계 표준 body
+- 알 수 없는 API 경로의 내부 경로 정보 비노출 표준 404 body
 
 ## 현재 상태
 
