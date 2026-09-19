@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 $eventId=[guid]::NewGuid().ToString()
 $aggregateId=[guid]::NewGuid().ToString()
-$sql="INSERT INTO outbox_events (id,aggregate_type,aggregate_id,event_type,topic,event_key,payload,status,attempts,last_error,created_at) VALUES ('$eventId','SMOKE','$aggregateId','outbox.recovery.smoke.v1','outbox-retry-smoke.v1','$aggregateId','{}','FAILED',20,'injected failure',now())"
+$sql="INSERT INTO outbox_events (id,aggregate_type,aggregate_id,event_type,topic,event_key,payload,status,attempts,last_error,created_at,next_attempt_at) VALUES ('$eventId','SMOKE','$aggregateId','outbox.recovery.smoke.v1','outbox-retry-smoke.v1','$aggregateId','{}','FAILED',20,'injected failure',now(),now())"
 docker compose exec -T postgres psql -U logitrack -d logitrack -v ON_ERROR_STOP=1 -c $sql | Out-Null
 $failures=@(Invoke-RestMethod http://localhost:8080/api/operations/outbox/failures)
 $failure=$failures|Where-Object { $_.id -eq $eventId }
