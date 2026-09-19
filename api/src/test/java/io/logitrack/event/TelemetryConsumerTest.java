@@ -48,9 +48,8 @@ class TelemetryConsumerTest {
 
     @Test void storesLateHistoryWithoutRegressingCurrentState() throws Exception {
         var deliveries=mock(DeliveryRepository.class);var processed=mock(ProcessedEventRepository.class);var stream=mock(DeliveryStream.class);var alerts=mock(AlertService.class);var orders=mock(OrderService.class);var points=mock(TelemetryPointRepository.class);
-        var delivery=Delivery.create(request(),"key");delivery.applyTelemetry(37.5,126.9,0.8,null,Delivery.Status.IN_TRANSIT);var eventId=UUID.randomUUID();
+        var delivery=Delivery.create(request(),"key");delivery.applyTelemetry(37.5,126.9,0.8,null,Delivery.Status.IN_TRANSIT,java.time.Instant.parse("2026-09-19T11:00:00Z"));var eventId=UUID.randomUUID();
         when(deliveries.findById(delivery.getId())).thenReturn(Optional.of(delivery));
-        when(points.findTopByDeliveryIdOrderByOccurredAtDesc(delivery.getId())).thenReturn(Optional.of(new TelemetryPoint(UUID.randomUUID(),delivery,37.5,126.9,0.8,java.time.Instant.parse("2026-09-19T11:00:00Z"))));
         when(points.save(any())).thenAnswer(invocation->invocation.getArgument(0));
         var consumer=new TelemetryConsumer(new ObjectMapper(),deliveries,processed,stream,alerts,orders,points);
         consumer.consume("{\"eventId\":\""+eventId+"\",\"eventType\":\"vehicle.telemetry.v1\",\"schemaVersion\":1,\"occurredAt\":\"2026-09-19T10:00:00Z\",\"payload\":{"+

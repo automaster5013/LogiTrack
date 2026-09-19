@@ -27,11 +27,10 @@ public class TelemetryConsumer {
         var eta=p.hasNonNull("eta")?Instant.parse(p.get("eta").asText()):null;
         var lat=number(p,"lat"); var lon=number(p,"lon");
         var occurredAt=event.hasNonNull("occurredAt")?Instant.parse(event.get("occurredAt").asText()):Instant.now();
-        var stale=points.findTopByDeliveryIdOrderByOccurredAtDesc(delivery.getId()).map(latest->latest.getOccurredAt().isAfter(occurredAt)).orElse(false);
-        if(!stale)delivery.applyTelemetry(lat,lon,progress,eta,status);
+        var applied=delivery.applyTelemetry(lat,lon,progress,eta,status,occurredAt);
         var point=points.save(new TelemetryPoint(id,delivery,lat,lon,progress,occurredAt));
-        if(!stale){alerts.evaluate(delivery,event.path("traceId").asText(UUID.randomUUID().toString()));orders.fulfillFromDelivery(delivery,event.path("traceId").asText(UUID.randomUUID().toString()));}
-        processed.save(new ProcessedEvent(id,"control-api-telemetry-v1"));if(!stale)stream.publish(delivery);stream.publishTelemetry(point);
+        if(applied){alerts.evaluate(delivery,event.path("traceId").asText(UUID.randomUUID().toString()));orders.fulfillFromDelivery(delivery,event.path("traceId").asText(UUID.randomUUID().toString()));}
+        processed.save(new ProcessedEvent(id,"control-api-telemetry-v1"));if(applied)stream.publish(delivery);stream.publishTelemetry(point);
     }
     private double number(JsonNode payload,String field){var value=payload.required(field);if(!value.isNumber())throw new IllegalArgumentException(field+" must be a number");return value.doubleValue();}
 }

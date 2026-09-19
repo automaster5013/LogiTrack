@@ -26,6 +26,7 @@ public class Delivery {
     @Version private long version;
     @Column(name="created_at", nullable=false) private Instant createdAt;
     @Column(name="updated_at", nullable=false) private Instant updatedAt;
+    @Column(name="last_telemetry_at") private Instant lastTelemetryAt;
 
     protected Delivery() {}
     public static Delivery create(CreateDeliveryRequest r, String key) {
@@ -40,16 +41,21 @@ public class Delivery {
         return d;
     }
     public void applyTelemetry(double lat, double lon, double progress, Instant eta, Status status) {
+        applyTelemetry(lat,lon,progress,eta,status,Instant.now());
+    }
+    public boolean applyTelemetry(double lat, double lon, double progress, Instant eta, Status status,Instant occurredAt) {
         if(!Double.isFinite(lat)||!Double.isFinite(lon)||!Double.isFinite(progress)||lat < -90||lat > 90||lon < -180||lon > 180||progress < 0||progress > 1)
             throw new IllegalArgumentException("Invalid telemetry coordinates or progress");
         if(status==null)throw new IllegalArgumentException("Telemetry status is required");
-        if (this.status == Status.DELIVERED) return;
-        this.currentLat=lat; this.currentLon=lon; this.progress=progress; this.eta=eta; this.status=status; this.updatedAt=Instant.now();
+        if(occurredAt==null)throw new IllegalArgumentException("Telemetry occurredAt is required");
+        if(this.status==Status.DELIVERED||(lastTelemetryAt!=null&&lastTelemetryAt.isAfter(occurredAt)))return false;
+        this.currentLat=lat;this.currentLon=lon;this.progress=progress;this.eta=eta;this.status=status;this.lastTelemetryAt=occurredAt;this.updatedAt=Instant.now();return true;
     }
     public UUID getId(){return id;} public UUID getOrderId(){return orderId;} public String getOrderNumber(){return orderNumber;} public String getVehicleId(){return vehicleId;}
     public Status getStatus(){return status;} public String getOriginName(){return originName;} public double getOriginLat(){return originLat;}
     public double getOriginLon(){return originLon;} public String getDestinationName(){return destinationName;} public double getDestinationLat(){return destinationLat;}
     public double getDestinationLon(){return destinationLon;} public Double getCurrentLat(){return currentLat;} public Double getCurrentLon(){return currentLon;}
     public double getProgress(){return progress;} public Instant getEta(){return eta;} public Instant getCreatedAt(){return createdAt;} public Instant getUpdatedAt(){return updatedAt;}
+    public Instant getLastTelemetryAt(){return lastTelemetryAt;}
     public enum Status { CREATED, IN_TRANSIT, DELAYED, DELIVERED }
 }
