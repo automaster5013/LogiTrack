@@ -40,7 +40,7 @@ analytics 재시작 직후 OpenTelemetry batch exporter의 첫 flush는 지연�
 2. 배송을 생성하고 telemetry를 발행한다.
 3. PostgreSQL 배송 상태가 계속 갱신되는지 확인한다.
 4. `logitrack_sse_fallback_total{reason="redis_error"}` 증가를 확인한다.
-5. Redis를 시작하고 API readiness가 `UP`으로 돌아오는지 확인한다.
+5. Redis 장애 중에도 API readiness가 `UP`인지 확인하고, Redis를 시작해 listener fan-out을 복구한다.
 
 판정: Redis는 실시간 fan-out 계층이며 DB write path의 source of truth가 아니다. 장애 중 현재 API 인스턴스의 로컬 SSE로 degrade하고, 복구 뒤 Redis listener가 재연결되어야 한다.
 
@@ -56,5 +56,5 @@ docker compose ps
 
 - API가 준비되지 않으면 PostgreSQL, Kafka, Redis health 순서로 확인한다.
 - consumer 반영이 없으면 `vehicle.telemetry.v1`의 consumer group lag와 API 로그를 확인한다.
-- Redis 복구 뒤에도 readiness가 내려가 있으면 API 로그의 listener 재연결 여부를 확인하고 API만 재시작한다.
+- Redis 복구 뒤 listener가 재연결되지 않으면 API 로그를 확인하고 API만 재시작한다. Readiness는 PostgreSQL source of truth를 기준으로 하므로 Redis 상태와 무관하게 유지된다.
 - analytics 복구 뒤 신규 route가 계속 fallback이면 analytics 로그와 OSRM timeout을 확인한다.

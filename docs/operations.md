@@ -2,7 +2,7 @@
 
 ## Health와 관측성
 
-- API liveness/readiness: `/actuator/health/liveness`, `/actuator/health/readiness`
+- API liveness/readiness: `/actuator/health/liveness`, `/actuator/health/readiness`. Readiness는 애플리케이션 상태와 PostgreSQL을 포함하며 Redis는 로컬 SSE fallback이 있으므로 제외한다.
 - analytics health: `http://localhost:8090/health`
 - Prometheus scrape: `/actuator/prometheus`
 - OpenTelemetry Collector health: `http://localhost:13133/`
@@ -33,7 +33,7 @@ Grafana Explore에서 `Tempo` datasource를 선택해 service name 또는 trace 
 - 경고 임계값: `GET /api/alert-policies`에서 전역(`*`)·차량별 정책을 조회하고 `POST /api/alert-policies`와 필수 `X-Operator`로 저장한다. `DELETE /api/alert-policies/{vehicleId}`는 차량 정책을 soft reset해 전역값 상속으로 되돌리며 전역 정책 삭제는 거부한다. 차량별 정책이 없으면 전역값을 사용하고 `CLOSE < OPEN ≤ CRITICAL` 순서를 API와 DB가 모두 검증한다. `GET /api/alert-policies/audits`는 `UPSERT`·`RESET`·`RESTORE` 최근 50개 불변 snapshot을 반환하며, `POST /api/alert-policies/audits/{auditId}/restore`와 필수 `X-Operator`로 선택한 snapshot을 다시 활성 정책으로 적용한다. 복원 작업도 별도의 `RESTORE` snapshot으로 감사된다. `./scripts/alert-policy-smoke.ps1`는 재정의의 경고 억제, reset 직후 전역 임계값 적용, 과거 snapshot 복원과 감사 3건을 검증한다.
 - 잘못된 telemetry: 제한된 backoff 재시도 후 `vehicle.telemetry.dlq.v1`로 격리한다.
 - Kafka 중단: DB 조회/생성은 유지하고 생성 이벤트는 outbox에 남는다. publisher가 최대 20회 재시도하며 이후 `FAILED` 상태는 운영자가 원인 확인 후 재처리한다.
-- Redis 중단: DB가 source of truth이며 cache miss로 처리한다. SSE 다중 인스턴스 fan-out은 degraded 상태가 된다.
+- Redis 중단: DB가 source of truth이며 cache miss로 처리한다. SSE 다중 인스턴스 fan-out은 degraded 상태가 되지만 API readiness는 유지한다.
 - DB 중단: API readiness가 실패하고 Kafka consumer가 재시도한다. broker의 이벤트는 보존된다.
 
 전체 장애 주입 절차와 수동 복구 명령은 [장애 주입 및 복구 runbook](failure-recovery-runbook.md)에 있다. `./scripts/recovery-drill.ps1`는 analytics fallback, consumer 강제 종료 중 Kafka buffering, Redis degraded fan-out을 순서대로 검증하며 모든 중지 서비스를 `finally`에서 재시작한다.

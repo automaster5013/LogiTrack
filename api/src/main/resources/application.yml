@@ -26,7 +26,9 @@ spring:
   data.redis.timeout: ${REDIS_COMMAND_TIMEOUT:2s}
 management:
   endpoints.web.exposure.include: health,info,prometheus
-  endpoint.health.probes.enabled: true
+  endpoint.health:
+    probes.enabled: true
+    group.readiness.include: readinessState,db
   metrics.tags.application: ${spring.application.name}
   tracing.sampling.probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
   otlp.tracing.endpoint: ${OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}

@@ -101,6 +101,8 @@ production image 네 개의 CycloneDX SBOM 생성과 CRITICAL 취약점 0건 검
 
 API의 정확한 CORS 허용 출처는 쉼표 구분 `CORS_ALLOWED_ORIGINS`로 설정합니다. 기본값은 `http://localhost:3000`이며 API와 웹의 클릭재킹·MIME 스니핑·referrer·브라우저 권한 제한 헤더 및 신뢰하지 않는 출처 차단은 `./scripts/http-boundary-smoke.ps1`로 검증합니다. HTTPS의 HSTS는 TLS를 종료하는 배포 계층에서 설정합니다.
 
+API readiness는 필수 source of truth인 PostgreSQL 연결을 포함합니다. Redis 장애는 로컬 SSE fallback으로 계속 서비스하되 PostgreSQL 장애는 HTTP 503 readiness로 트래픽 유입을 중단하며, `./scripts/readiness-smoke.ps1`가 두 장애와 자동 복구를 검증합니다.
+
 불변 GPS 이력 저장과 실제 주행 궤적 조회는 `./scripts/telemetry-track-smoke.ps1`로 검증합니다. `GET /api/telemetry/points`는 최근 5,000개 좌표를 최신순으로 반환하며 지도는 이를 시간순으로 연결해 계획 경로와 구분합니다. `/api/routes`와 `/api/telemetry/points`의 `deliveryIds` 조회 범위 및 응답 격리는 `./scripts/map-data-scope-smoke.ps1`로 검증하며, 범위 경로 조회는 배송별 최신 스냅샷 하나만 반환합니다. 콘솔은 기본 `LIVE` 배송의 지도 데이터만 먼저 받고, `ALL` 전환 시 누락된 배송을 최대 100건씩 지연 로드합니다.
 
 지연·경로 이탈 lifecycle과 운영자 확인은 `./scripts/alert-smoke.ps1`로 검증합니다. 활성 경고는 `POST /api/alerts/{id}/acknowledgement`와 `X-Operator` 헤더로 멱등 확인할 수 있으며, 콘솔에서도 미확인 경고 수와 최초 확인자를 표시합니다. 검증은 결정론적 telemetry 주입을 위해 simulator를 일시 중단한 뒤 자동으로 다시 시작합니다.
