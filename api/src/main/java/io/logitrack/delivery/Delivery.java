@@ -48,7 +48,7 @@ public class Delivery {
             throw new IllegalArgumentException("Invalid telemetry coordinates or progress");
         if(status==null)throw new IllegalArgumentException("Telemetry status is required");
         if(occurredAt==null)throw new IllegalArgumentException("Telemetry occurredAt is required");
-        if(this.status==Status.DELIVERED||(lastTelemetryAt!=null&&lastTelemetryAt.isAfter(occurredAt)))return false;
+        if(this.status==Status.DELIVERED||(lastTelemetryAt!=null&&!lastTelemetryAt.isBefore(occurredAt)))return false;
         this.currentLat=lat;this.currentLon=lon;this.progress=progress;this.eta=eta;this.status=status;this.lastTelemetryAt=occurredAt;this.updatedAt=Instant.now();return true;
     }
     public UUID getId(){return id;} public UUID getOrderId(){return orderId;} public String getOrderNumber(){return orderNumber;} public String getVehicleId(){return vehicleId;}

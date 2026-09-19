@@ -37,6 +37,7 @@ class DeliveryTest {
         var delivery=Delivery.create(request(),"delivery-watermark");
         assertTrue(delivery.applyTelemetry(37.5,126.9,0.8,null,Delivery.Status.IN_TRANSIT,Instant.parse("2026-09-19T11:00:00Z")));
         assertFalse(delivery.applyTelemetry(37.4,126.8,0.2,null,Delivery.Status.DELAYED,Instant.parse("2026-09-19T10:00:00Z")));
+        assertFalse(delivery.applyTelemetry(37.4,126.8,0.3,null,Delivery.Status.DELAYED,Instant.parse("2026-09-19T11:00:00Z")));
         assertEquals(0.8,delivery.getProgress());assertEquals(Delivery.Status.IN_TRANSIT,delivery.getStatus());assertEquals(Instant.parse("2026-09-19T11:00:00Z"),delivery.getLastTelemetryAt());
     }
 

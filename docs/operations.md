@@ -20,7 +20,7 @@ API 오류 body는 `error`, `traceId`, `timestamp`를 공통으로 반환한다.
 
 Kafka 텔레메트리는 `eventType=vehicle.telemetry.v1`, 정수 `schemaVersion=1`, 배송과 일치하는 `vehicleId`, JSON number 좌표·진행률, 발생 시각을 요구한다. 문자열 숫자나 지원하지 않는 계약 버전은 정상 이벤트로 강제 변환하지 않고 재시도 후 DLQ로 격리한다. 발생 시각의 미래 허용 오차는 기본 5분이며 `TELEMETRY_MAX_FUTURE_SKEW`로 조정한다.
 
-배송 행의 `lastTelemetryAt`보다 오래된 replay 이벤트는 불변 GPS 이력에는 저장하지만 현재 배송 상태·ETA, 경고 평가, 주문 완료 판단에는 적용하지 않는다. 워터마크는 기존 이력의 최대 `occurredAt`으로 migration backfill되며, 이벤트마다 최신 이력을 재조회하지 않는다. 따라서 운영자가 늦은 DLQ 이벤트를 복구해도 관제 상태가 과거로 회귀하지 않는다.
+배송 행의 `lastTelemetryAt`보다 오래되거나 같은 시각의 replay 이벤트는 불변 GPS 이력에는 저장하지만 현재 배송 상태·ETA, 경고 평가, 주문 완료 판단에는 적용하지 않는다. 워터마크는 기존 이력의 최대 `occurredAt`으로 migration backfill되며, 이벤트마다 최신 이력을 재조회하지 않는다. 따라서 운영자가 늦은 DLQ 이벤트를 복구해도 관제 상태가 과거로 회귀하지 않고 같은 timestamp의 도착 순서에 따라 상태가 흔들리지 않는다.
 
 `logitrack_telemetry_events_total{outcome="applied|stale"}`에서 현재 상태에 적용된 이벤트와 워터마크 때문에 이력에만 보존된 이벤트를 구분해 확인할 수 있다.
 
