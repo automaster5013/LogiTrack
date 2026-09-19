@@ -3,7 +3,7 @@ import hashlib
 import json
 import time
 from dataclasses import dataclass
-from math import asin, cos, radians, sin, sqrt
+from math import asin, cos, isfinite, radians, sin, sqrt
 
 import httpx
 
@@ -50,9 +50,17 @@ def parse_osrm(data: dict) -> RouteResult:
         raise ValueError("OSRM returned no route")
     route = data["routes"][0]
     coordinates = route["geometry"]["coordinates"]
-    if len(coordinates) < 2:
+    if not isinstance(coordinates, list) or not 2 <= len(coordinates) <= 10_000:
         raise ValueError("OSRM returned invalid geometry")
-    return RouteResult("osrm", coordinates, round(route["distance"]), round(route["duration"]))
+    if any(not isinstance(point, list) or len(point) != 2 or
+           any(isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(value) for value in point) or
+           not -180 <= point[0] <= 180 or not -90 <= point[1] <= 90 for point in coordinates):
+        raise ValueError("OSRM returned invalid coordinates")
+    distance, duration = route["distance"], route["duration"]
+    if any(isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(value) or value <= 0
+           for value in (distance, duration)):
+        raise ValueError("OSRM returned invalid distance or duration")
+    return RouteResult("osrm", coordinates, round(distance), round(duration))
 
 
 class RoutePlanner:
@@ -60,6 +68,10 @@ class RoutePlanner:
                  cache_ttl_seconds: float = 300):
         self.provider = provider.lower()
         self.osrm_base_url = osrm_base_url.rstrip("/")
+        if not 0 < timeout_seconds <= 30:
+            raise ValueError("routing timeout must be greater than 0 and at most 30 seconds")
+        if not 0 <= cache_ttl_seconds <= 86_400:
+            raise ValueError("routing cache TTL must be between 0 and 86400 seconds")
         self.timeout_seconds = timeout_seconds
         self.cache_ttl_seconds = cache_ttl_seconds
         self._cache: dict[tuple[float, float, float, float], tuple[float, RouteResult]] = {}

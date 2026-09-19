@@ -99,6 +99,7 @@
 - PostgreSQL `next_attempt_at` 기반 outbox 1초~5분 지수 backoff와 due index
 - 가장 오래된 PENDING outbox age gauge와 5분 지속 warning
 - outbox age refresh의 payload row 로드 제거와 PostgreSQL scalar 집계
+- analytics OSRM 좌표·거리·시간 응답 검증과 timeout/cache TTL fail-fast 설정
 
 ## 현재 상태
 

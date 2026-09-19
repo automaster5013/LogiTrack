@@ -29,8 +29,22 @@ class RoutingTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_osrm({"code":"NoRoute","routes":[]})
 
+    def test_rejects_invalid_osrm_values(self):
+        for distance, duration, coordinates in [
+            (-1, 30, [[126.9,37.5],[127.0,37.6]]),
+            (100, float("inf"), [[126.9,37.5],[127.0,37.6]]),
+            (100, 30, [[999,37.5],[127.0,37.6]]),
+            (100, 30, [[126.9,float("nan")],[127.0,37.6]]),
+        ]:
+            with self.assertRaises(ValueError):
+                parse_osrm({"code":"Ok","routes":[{"distance":distance,"duration":duration,"geometry":{"coordinates":coordinates}}]})
+
 
 class RoutePlannerCacheTest(unittest.IsolatedAsyncioTestCase):
+    async def test_rejects_unsafe_client_configuration(self):
+        with self.assertRaises(ValueError): RoutePlanner("osrm", "http://localhost", timeout_seconds=0)
+        with self.assertRaises(ValueError): RoutePlanner("osrm", "http://localhost", cache_ttl_seconds=86_401)
+
     async def test_reuses_route_for_identical_coordinates(self):
         planner = RoutePlanner("geodesic", "http://unused", cache_ttl_seconds=300)
         origin = Coordinate(37.5665, 126.978)
