@@ -46,7 +46,7 @@ public class RouteAnalysisClient {
         }
     }
     private boolean valid(RoutePlan result) {
-        if(result==null||result.routeId()==null||result.provider()==null||result.provider().isBlank()||result.algorithmVersion()==null||result.algorithmVersion().isBlank()||result.coordinates()==null||result.coordinates().size()<2||result.distanceMeters()<=0||result.durationSeconds()<=0||result.plannedEta()==null||result.geometryHash()==null||result.geometryHash().isBlank()||result.generatedAt()==null)return false;
+        if(result==null||result.routeId()==null||result.provider()==null||result.provider().isBlank()||result.provider().length()>80||result.algorithmVersion()==null||result.algorithmVersion().isBlank()||result.algorithmVersion().length()>40||result.coordinates()==null||result.coordinates().size()<2||result.coordinates().size()>10_000||result.distanceMeters()<=0||result.durationSeconds()<=0||result.plannedEta()==null||result.geometryHash()==null||result.geometryHash().length()!=64||result.generatedAt()==null||!result.plannedEta().isAfter(result.generatedAt())||result.generatedAt().isAfter(Instant.now().plusSeconds(300)))return false;
         return result.coordinates().stream().allMatch(point->point!=null&&point.size()==2&&point.get(0)!=null&&point.get(1)!=null&&Double.isFinite(point.get(0))&&Double.isFinite(point.get(1))&&point.get(0)>=-180&&point.get(0)<=180&&point.get(1)>=-90&&point.get(1)<=90);
     }
     private RoutePlan fallback(Delivery d) {
