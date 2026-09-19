@@ -12,6 +12,7 @@ import java.util.*;
 
 @Service
 public class WarehouseService {
+ public static final int MAX_COMMAND_QUANTITY=1_000_000;
  private final WarehouseStockRepository stocks; private final WarehouseTaskRepository tasks; private final InventoryLedgerRepository ledger; private final OutboxRepository outbox; private final ObjectMapper mapper;
  public WarehouseService(WarehouseStockRepository stocks,WarehouseTaskRepository tasks,InventoryLedgerRepository ledger,OutboxRepository outbox,ObjectMapper mapper){this.stocks=stocks;this.tasks=tasks;this.ledger=ledger;this.outbox=outbox;this.mapper=mapper;}
 
@@ -33,7 +34,8 @@ public class WarehouseService {
  public List<WarehouseStock> stock(int limit){return stocks.findAllByOrderByWarehouseIdAscSkuAsc(PageRequest.of(0,limit));} public List<WarehouseTask> tasks(int limit){return tasks.findAllByOrderByCreatedAtDesc(PageRequest.of(0,limit));} public List<InventoryLedgerEntry> ledger(){return ledger.findTop100ByOrderByOccurredAtDesc();}
  private WarehouseStock lockedStock(WarehouseCommand c){stocks.lockStockKey(c.warehouseId(),c.sku());return stocks.lockByWarehouseAndSku(c.warehouseId(),c.sku()).orElseGet(()->new WarehouseStock(c.warehouseId(),c.sku()));}
  private void validate(WarehouseCommand c,String key){
-  if(c==null||c.quantity()<=0)throw new IllegalArgumentException("referenceNumber, warehouseId, sku and positive quantity are required");
+  if(c==null)throw new IllegalArgumentException("referenceNumber, warehouseId, sku and quantity are required");
+  if(c.quantity()<1||c.quantity()>MAX_COMMAND_QUANTITY)throw new IllegalArgumentException("quantity must be between 1 and "+MAX_COMMAND_QUANTITY);
   InputLimits.required(c.referenceNumber(),"referenceNumber",100);InputLimits.required(c.warehouseId(),"warehouseId",80);InputLimits.required(c.sku(),"sku",100);InputLimits.required(key,"Idempotency-Key",160);
  }
  private boolean matches(WarehouseTask task,WarehouseCommand command,WarehouseTask.Type type){return task.getTaskType()==type&&task.getReferenceNumber().equals(command.referenceNumber())&&task.getWarehouseId().equals(command.warehouseId())&&task.getSku().equals(command.sku())&&task.getQuantity()==command.quantity();}

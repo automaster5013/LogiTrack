@@ -19,6 +19,9 @@ if ($entries.Count -ne 3) { throw "Expected three ledger entries, got $($entries
 $rejectBody = @{referenceNumber="OUT-REJECT-$suffix";warehouseId=$warehouse;sku=$sku;quantity=999} | ConvertTo-Json
 $rejected = Invoke-WebRequest http://localhost:8080/api/warehouse/outbounds -Method Post -Headers @{"Idempotency-Key"="reject-$suffix"} -ContentType "application/json" -Body $rejectBody -SkipHttpErrorCheck
 if ($rejected.StatusCode -ne 409) { throw "Insufficient stock should return 409, got $($rejected.StatusCode)" }
+$oversizedBody = @{referenceNumber="OUT-OVERSIZED-$suffix";warehouseId=$warehouse;sku=$sku;quantity=1000001} | ConvertTo-Json
+$oversized = Invoke-WebRequest http://localhost:8080/api/warehouse/outbounds -Method Post -Headers @{"Idempotency-Key"="out-oversized-$suffix"} -ContentType "application/json" -Body $oversizedBody -SkipHttpErrorCheck
+if ($oversized.StatusCode -ne 400) { throw "Oversized warehouse quantity should return 400, got $($oversized.StatusCode)" }
 Start-Sleep -Milliseconds 700
 $published = docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT count(*) FROM outbox_events WHERE aggregate_id IN ('$($receipt.id)','$($pick.id)') AND status='PUBLISHED'"
 if ([int]$published.Trim() -ne 3) { throw "Expected three published warehouse events, got $published" }
