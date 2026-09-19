@@ -13,7 +13,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.time.*;
 
 @Component
 public class RecoveryQueueMetrics {
@@ -41,7 +40,7 @@ public class RecoveryQueueMetrics {
         try{
             pendingOutbox.set(outbox.countByStatus(OutboxEvent.Status.PENDING));
             failedOutbox.set(outbox.countByStatus(OutboxEvent.Status.FAILED));
-            oldestPendingOutboxSeconds.set(outbox.findFirstByStatusOrderByCreatedAtAsc(OutboxEvent.Status.PENDING).map(event->Math.max(0,Duration.between(event.getCreatedAt(),Instant.now()).toSeconds())).orElse(0L));
+            oldestPendingOutboxSeconds.set(Math.max(0,Math.round(outbox.oldestPendingAgeSeconds())));
             pendingDeadLetters.set(deadLetters.countByStatus(DeadLetterEvent.Status.PENDING));
             if(!refreshHealthy.getAndSet(true))log.info("Recovery queue metric refresh recovered");
         }catch(Exception error){

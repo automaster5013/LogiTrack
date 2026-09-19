@@ -98,6 +98,7 @@
 - outbox batch 20건·Kafka 대기 5초 상한과 1~100/최대 30초 fail-fast 설정
 - PostgreSQL `next_attempt_at` 기반 outbox 1초~5분 지수 backoff와 due index
 - 가장 오래된 PENDING outbox age gauge와 5분 지속 warning
+- outbox age refresh의 payload row 로드 제거와 PostgreSQL scalar 집계
 
 ## 현재 상태
 
