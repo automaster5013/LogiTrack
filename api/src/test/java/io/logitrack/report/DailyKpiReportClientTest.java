@@ -11,7 +11,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DailyKpiReportClientTest {
-    @Test void rejectsUnsafeClientLimits(){assertThrows(IllegalArgumentException.class,()->new DailyKpiReportClient(RestClient.builder(),"http://localhost",Duration.ZERO,Duration.ofSeconds(1),DataSize.ofMegabytes(10),new SimpleMeterRegistry()));assertThrows(IllegalArgumentException.class,()->new DailyKpiReportClient(RestClient.builder(),"http://localhost",Duration.ofSeconds(1),Duration.ofSeconds(1),DataSize.ofBytes(4),new SimpleMeterRegistry()));}
+    @Test void rejectsUnsafeClientLimits(){assertThrows(IllegalArgumentException.class,()->new DailyKpiReportClient(RestClient.builder(),"http://localhost",Duration.ZERO,Duration.ofSeconds(1),DataSize.ofMegabytes(10),new SimpleMeterRegistry()));assertThrows(IllegalArgumentException.class,()->new DailyKpiReportClient(RestClient.builder(),"http://localhost",Duration.ofSeconds(1),Duration.ofSeconds(1),DataSize.ofBytes(4),new SimpleMeterRegistry()));assertThrows(IllegalArgumentException.class,()->new DailyKpiReportClient(RestClient.builder(),"http://localhost",Duration.ofSeconds(1),Duration.ofSeconds(1),DataSize.ofMegabytes(51),new SimpleMeterRegistry()));}
     @Test void rejectsPdfLargerThanConfiguredResponseLimit() throws Exception {
         var server=HttpServer.create(new InetSocketAddress(0),0);var body="%PDF-oversized".getBytes();
         server.createContext("/reports/daily-kpis.pdf",exchange->{exchange.getResponseHeaders().add("Content-Type","application/pdf");exchange.sendResponseHeaders(200,body.length);exchange.getResponseBody().write(body);exchange.close();});server.start();

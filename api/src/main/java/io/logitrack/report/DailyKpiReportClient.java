@@ -25,7 +25,7 @@ public class DailyKpiReportClient {
                                 @Value("${logitrack.analytics.report-max-response-size:10MB}") DataSize maxResponseSize,
                                 MeterRegistry metrics) {
         if(connectTimeout.isZero()||connectTimeout.isNegative()||readTimeout.isZero()||readTimeout.isNegative())throw new IllegalArgumentException("Analytics report timeouts must be positive");
-        if(maxResponseSize.toBytes()<5)throw new IllegalArgumentException("Analytics report response limit must be at least 5 bytes");
+        if(maxResponseSize.toBytes()<5||maxResponseSize.toBytes()>50L*1024*1024)throw new IllegalArgumentException("Analytics report response limit must be between 5 bytes and 50MB");
         var requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(connectTimeout);
         requestFactory.setReadTimeout(readTimeout);
@@ -40,8 +40,10 @@ public class DailyKpiReportClient {
             var body = client.post()
                 .uri("/reports/daily-kpis.pdf")
                 .body(rows)
-                .retrieve()
-                .body(byte[].class);
+                .exchange((request,response)->{
+                    if(!response.getStatusCode().is2xxSuccessful())throw new IllegalStateException("Analytics service could not render KPI PDF");
+                    try(var input=response.getBody()){return input.readNBytes(Math.toIntExact(maxResponseBytes+1));}
+                });
             if (body == null || body.length < 5 || body.length > maxResponseBytes || body[0] != '%' || body[1] != 'P' || body[2] != 'D' || body[3] != 'F') {
                 throw new IllegalStateException("Analytics service returned an invalid KPI PDF");
             }
