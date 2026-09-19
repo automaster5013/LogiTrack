@@ -96,5 +96,18 @@ class RoutePlannerCacheTest(unittest.IsolatedAsyncioTestCase):
         await asyncio.gather(planner.plan(Coordinate(0, 0), Coordinate(1, 1)), planner.plan(Coordinate(0, 0.1), Coordinate(1, 1)))
         self.assertEqual(2, peak)
 
+    async def test_cancelled_waiter_does_not_cancel_shared_route(self):
+        planner = RoutePlanner("geodesic", "http://unused", cache_ttl_seconds=0)
+        async def fake(origin, destination):
+            await asyncio.sleep(0.03)
+            return geodesic_fallback(origin, destination)
+        planner._plan_uncached = fake
+        origin, destination = Coordinate(0, 0), Coordinate(1, 1)
+        cancelled = asyncio.create_task(planner.plan(origin, destination))
+        survivor = asyncio.create_task(planner.plan(origin, destination))
+        await asyncio.sleep(0.005);cancelled.cancel()
+        with self.assertRaises(asyncio.CancelledError): await cancelled
+        self.assertEqual("geodesic-fallback",(await survivor).provider)
+
 
 if __name__ == "__main__": unittest.main()

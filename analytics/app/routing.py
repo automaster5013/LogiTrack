@@ -94,10 +94,10 @@ class RoutePlanner:
                 task = asyncio.create_task(self._plan_uncached(origin, destination))
                 self._inflight[key] = task
         try:
-            result = await task
+            result = await asyncio.shield(task)
         except BaseException:
             async with self._cache_lock:
-                if self._inflight.get(key) is task:
+                if task.done() and self._inflight.get(key) is task:
                     self._inflight.pop(key, None)
             raise
         async with self._cache_lock:
