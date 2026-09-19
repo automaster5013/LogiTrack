@@ -56,7 +56,7 @@ jobs:
       - name: Test telemetry simulator domain
         run: python -m unittest discover simulator/tests
       - name: Validate Compose topology
-        run: docker compose config --quiet
+        run: python scripts/compose-config-smoke.py
       - name: Validate Prometheus configuration and alert rules
         run: docker run --rm --entrypoint promtool --volume "$PWD/infra:/etc/prometheus:ro" prom/prometheus:v3.5.0 check config /etc/prometheus/prometheus.yml
 

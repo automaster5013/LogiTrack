@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-logitrack}
     ports: ["5432:5432"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U logitrack"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -53,6 +53,7 @@ services:
       - /bin/bash
       - -c
       - |
+        set -eu
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic delivery.created.v1 --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic vehicle.telemetry.v1 --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic vehicle.telemetry.dlq.v1 --partitions 3 --replication-factor 1
@@ -85,9 +86,9 @@ services:
   api:
     build: ./api
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/logitrack
-      DB_USER: logitrack
-      DB_PASSWORD: logitrack
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-logitrack}
+      DB_USER: ${POSTGRES_USER:-logitrack}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-logitrack}
       KAFKA_BOOTSTRAP: kafka:29092
       REDIS_HOST: redis
       ANALYTICS_URL: http://analytics:8090
@@ -112,9 +113,9 @@ services:
     profiles: ["scale-test"]
     build: ./api
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/logitrack
-      DB_USER: logitrack
-      DB_PASSWORD: logitrack
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-logitrack}
+      DB_USER: ${POSTGRES_USER:-logitrack}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-logitrack}
       KAFKA_BOOTSTRAP: kafka:29092
       REDIS_HOST: redis
       ANALYTICS_URL: http://analytics:8090

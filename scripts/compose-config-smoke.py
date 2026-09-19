@@ -1,0 +1,49 @@
+import json
+import os
+import subprocess
+
+
+def rendered_compose() -> dict:
+    environment = os.environ.copy()
+    environment.update(
+        POSTGRES_DB="logitrack_override_db",
+        POSTGRES_USER="logitrack_override_user",
+        POSTGRES_PASSWORD="logitrack_override_password",
+    )
+    result = subprocess.run(
+        ["docker", "compose", "--profile", "scale-test", "config", "--format", "json"],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    return json.loads(result.stdout)
+
+
+def main() -> None:
+    services = rendered_compose()["services"]
+    expected_database = {
+        "DB_URL": "jdbc:postgresql://postgres:5432/logitrack_override_db",
+        "DB_USER": "logitrack_override_user",
+        "DB_PASSWORD": "logitrack_override_password",
+    }
+    for service_name in ("api", "api-replica"):
+        environment = services[service_name]["environment"]
+        for key, value in expected_database.items():
+            if environment.get(key) != value:
+                raise AssertionError(f"{service_name} does not inherit {key}")
+
+    postgres_healthcheck = " ".join(services["postgres"]["healthcheck"]["test"])
+    for variable in ("POSTGRES_USER", "POSTGRES_DB"):
+        if variable not in postgres_healthcheck:
+            raise AssertionError(f"PostgreSQL healthcheck does not use {variable}")
+
+    kafka_command = services["kafka-init"]["command"][-1].lstrip()
+    if not kafka_command.startswith("set -eu\n"):
+        raise AssertionError("Kafka topic initialization is not fail-fast")
+
+    print("PASS: database overrides propagate to API replicas and infrastructure initialization is fail-fast")
+
+
+if __name__ == "__main__":
+    main()

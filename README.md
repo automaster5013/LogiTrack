@@ -20,6 +20,8 @@
 docker compose up --build
 ```
 
+PostgreSQL 데이터베이스명과 자격 증명은 `.env`의 `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`로 변경할 수 있으며 API와 복제 인스턴스, 데이터베이스 healthcheck에 동일하게 적용됩니다.
+
 - 운영 콘솔: http://localhost:3000
 - API health: http://localhost:8080/actuator/health
 - 경로 분석 health: http://localhost:8090/health
@@ -75,7 +77,7 @@ curl -X POST http://localhost:8080/api/orders/{orderId}/dispatch \
 
 ```bash
 python -m unittest discover simulator/tests
-docker compose config
+python scripts/compose-config-smoke.py
 python -m unittest discover analytics/tests
 ```
 
