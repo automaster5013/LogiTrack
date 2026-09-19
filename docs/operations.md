@@ -42,7 +42,7 @@ API 오류 body는 `error`, `traceId`, `timestamp`를 공통으로 반환한다.
 
 ## 복구 큐 경보
 
-API는 `logitrack_outbox_backlog{status="pending|failed"}`와 `logitrack_dlq_backlog` gauge를 10초마다 갱신한다. Prometheus는 FAILED outbox 2분 지속 시 critical, pending outbox 100건 초과 5분 지속 또는 DLQ 1건 이상 5분 지속 시 warning을 발생시킨다. `./scripts/recovery-metrics-smoke.ps1`로 gauge 노출과 규칙 로드를 함께 검증한다.
+API는 `logitrack_outbox_backlog{status="pending|failed"}`와 `logitrack_dlq_backlog` gauge를 10초마다 갱신한다. 조회 실패 시 마지막 정상 값을 유지하고 `logitrack_recovery_metrics_refresh_failures_total`을 누적하며, 로그는 장애·복구 전환에 한 번씩만 남긴다. Prometheus는 FAILED outbox 2분 지속 시 critical, pending outbox 100건 초과 5분 지속 또는 DLQ 1건 이상 5분 지속 시 warning을 발생시킨다. `./scripts/recovery-metrics-smoke.ps1`로 gauge 노출과 규칙 로드를 함께 검증한다.
 
 전체 장애 주입 절차와 수동 복구 명령은 [장애 주입 및 복구 runbook](failure-recovery-runbook.md)에 있다. `./scripts/recovery-drill.ps1`는 analytics fallback, consumer 강제 종료 중 Kafka buffering, Redis degraded fan-out을 순서대로 검증하며 모든 중지 서비스를 `finally`에서 재시작한다.
 

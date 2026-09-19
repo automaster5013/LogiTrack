@@ -25,8 +25,9 @@ class RecoveryQueueMetricsTest {
         when(outbox.countByStatus(OutboxEvent.Status.PENDING)).thenReturn(1L).thenThrow(new IllegalStateException("database offline"));
         when(outbox.countByStatus(OutboxEvent.Status.FAILED)).thenReturn(0L);
         when(deadLetters.countByStatus(DeadLetterEvent.Status.PENDING)).thenReturn(4L);
-        var metrics=new RecoveryQueueMetrics(outbox,deadLetters,registry);metrics.refresh();metrics.refresh();
+        var metrics=new RecoveryQueueMetrics(outbox,deadLetters,registry);metrics.refresh();metrics.refresh();metrics.refresh();
         assertEquals(1,registry.get("logitrack.outbox.backlog").tag("status","pending").gauge().value());
         assertEquals(4,registry.get("logitrack.dlq.backlog").gauge().value());
+        assertEquals(2,registry.get("logitrack.recovery.metrics.refresh.failures").counter().count());
     }
 }

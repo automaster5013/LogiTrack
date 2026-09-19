@@ -5,12 +5,14 @@ import io.logitrack.outbox.OutboxRepository;
 import io.logitrack.replay.DeadLetterEvent;
 import io.logitrack.replay.DeadLetterEventRepository;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Counter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
 public class RecoveryQueueMetrics {
@@ -20,12 +22,15 @@ public class RecoveryQueueMetrics {
     private final AtomicLong pendingOutbox=new AtomicLong();
     private final AtomicLong failedOutbox=new AtomicLong();
     private final AtomicLong pendingDeadLetters=new AtomicLong();
+    private final AtomicBoolean refreshHealthy=new AtomicBoolean(true);
+    private final Counter refreshFailures;
 
     public RecoveryQueueMetrics(OutboxRepository outbox,DeadLetterEventRepository deadLetters,MeterRegistry registry){
         this.outbox=outbox;this.deadLetters=deadLetters;
         registry.gauge("logitrack.outbox.backlog",java.util.List.of(io.micrometer.core.instrument.Tag.of("status","pending")),pendingOutbox,AtomicLong::get);
         registry.gauge("logitrack.outbox.backlog",java.util.List.of(io.micrometer.core.instrument.Tag.of("status","failed")),failedOutbox,AtomicLong::get);
         registry.gauge("logitrack.dlq.backlog",pendingDeadLetters);
+        refreshFailures=registry.counter("logitrack.recovery.metrics.refresh.failures");
     }
 
     @Scheduled(fixedDelayString="${logitrack.metrics.recovery-refresh-ms:10000}")
@@ -34,6 +39,10 @@ public class RecoveryQueueMetrics {
             pendingOutbox.set(outbox.countByStatus(OutboxEvent.Status.PENDING));
             failedOutbox.set(outbox.countByStatus(OutboxEvent.Status.FAILED));
             pendingDeadLetters.set(deadLetters.countByStatus(DeadLetterEvent.Status.PENDING));
-        }catch(Exception error){log.warn("Could not refresh recovery queue metrics",error);}
+            if(!refreshHealthy.getAndSet(true))log.info("Recovery queue metric refresh recovered");
+        }catch(Exception error){
+            refreshFailures.increment();
+            if(refreshHealthy.getAndSet(false))log.warn("Recovery queue metric refresh failed; retaining last values: {}",error.toString());
+        }
     }
 }
