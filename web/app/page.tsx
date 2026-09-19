@@ -1,5 +1,5 @@
 "use client";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import DailyKpiPanel from "./components/DailyKpiPanel";
 import OrderFlowPanel from "./components/OrderFlowPanel";
@@ -13,6 +13,7 @@ const API=process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 export default function Home(){
  const [items,setItems]=useState<Delivery[]>([]); const [connected,setConnected]=useState(false); const [error,setError]=useState(""); const [selected,setSelected]=useState<string>();
+ const [mapScope,setMapScope]=useState<"LIVE"|"ALL">("LIVE");
  const [routes,setRoutes]=useState<RouteSnapshot[]>([]);
  const [alerts,setAlerts]=useState<DeliveryAlert[]>([]);
  const [alertBusy,setAlertBusy]=useState<string>();
@@ -31,7 +32,10 @@ export default function Home(){
  useEffect(()=>{load(); const source=new EventSource(`${API}/api/stream/deliveries`); source.onopen=()=>setConnected(true); source.onerror=()=>setConnected(false);
   source.addEventListener("delivery-update",e=>{const next=JSON.parse((e as MessageEvent).data);setItems(old=>[next,...old.filter(x=>x.id!==next.id)]);loadRoutes().catch(()=>{});loadOrders().catch(()=>{})});
   source.addEventListener("alert-update",e=>{const next:DeliveryAlert=JSON.parse((e as MessageEvent).data);setAlerts(old=>[next,...old.filter(x=>x.id!==next.id)])});return()=>source.close()},[]);
- useEffect(()=>{if(!selected&&items.length)setSelected(items.find(item=>routes.some(route=>route.deliveryId===item.id))?.id||items[0].id)},[items,routes,selected]);
+ const liveItems=useMemo(()=>items.filter(item=>item.status!=="DELIVERED"),[items]);
+ const mapItems=mapScope==="LIVE"?liveItems:items;
+ useEffect(()=>{if(mapItems.length&&!mapItems.some(item=>item.id===selected))setSelected(mapItems.find(item=>routes.some(route=>route.deliveryId===item.id))?.id||mapItems[0].id)},[mapItems,routes,selected]);
+ function focusDelivery(id:string){if(items.find(item=>item.id===id)?.status==="DELIVERED")setMapScope("ALL");setSelected(id)}
  useEffect(()=>{loadWarehouse()},[]);
  useEffect(()=>{loadOrders();const timer=window.setInterval(loadOrders,15000);return()=>window.clearInterval(timer)},[]);
  useEffect(()=>{loadKpis();const timer=window.setInterval(loadKpis,30000);return()=>window.clearInterval(timer)},[]);
@@ -54,12 +58,12 @@ export default function Home(){
   {error&&<p className="error">{error}</p>}
   <OrderFlowPanel orders={orders} busyId={orderBusy} onCreate={()=>createOrder()} onDispatch={dispatchOrder}/>
   <DailyKpiPanel rows={kpis} csvUrl={`${API}/api/reports/daily-kpis.csv?days=30`} pdfUrl={`${API}/api/reports/daily-kpis.pdf?days=30`}/>
-  <section className="mapBoard"><div className="mapHeader"><div><p className="eyebrow">GEOSPATIAL OVERVIEW</p><h2>Live fleet map</h2></div>{focus&&<div className="focusStats"><span><small>FOCUS</small>{focus.vehicleId}</span><span><small>PROGRESS</small>{Math.round(focus.progress*100)}%</span><span><small>ROUTE</small>{focusRoute?`${(focusRoute.distanceMeters/1000).toFixed(1)} km · ${focusRoute.provider.toUpperCase()}`:"CALCULATING"}</span><span><small>ETA</small>{focus.eta?new Date(focus.eta).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}):focus.status==="DELIVERED"?"ARRIVED":focusRoute?new Date(focusRoute.plannedEta).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}):"—"}</span></div>}</div>
-   <FleetMap deliveries={items} routes={routes} selectedId={selected} onSelect={setSelected}/></section>
-  <AlertOperationsPanel alerts={alerts} deliveries={items} busyId={alertBusy} onSelect={setSelected} onAcknowledge={acknowledgeAlert}/>
+  <section className="mapBoard"><div className="mapHeader"><div className="mapTitle"><p className="eyebrow">GEOSPATIAL OVERVIEW</p><h2>Live fleet map</h2><div className="mapScope" aria-label="Fleet map scope"><button type="button" aria-pressed={mapScope==="LIVE"} className={mapScope==="LIVE"?"active":""} onClick={()=>setMapScope("LIVE")}>LIVE {liveItems.length}</button><button type="button" aria-pressed={mapScope==="ALL"} className={mapScope==="ALL"?"active":""} onClick={()=>setMapScope("ALL")}>ALL {items.length}</button></div></div>{focus&&mapItems.some(item=>item.id===focus.id)&&<div className="focusStats"><span><small>FOCUS</small>{focus.vehicleId}</span><span><small>PROGRESS</small>{Math.round(focus.progress*100)}%</span><span><small>ROUTE</small>{focusRoute?`${(focusRoute.distanceMeters/1000).toFixed(1)} km · ${focusRoute.provider.toUpperCase()}`:"CALCULATING"}</span><span><small>ETA</small>{focus.eta?new Date(focus.eta).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}):focus.status==="DELIVERED"?"ARRIVED":focusRoute?new Date(focusRoute.plannedEta).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}):"—"}</span></div>}</div>
+   <FleetMap deliveries={mapItems} routes={routes} selectedId={selected} onSelect={setSelected}/></section>
+  <AlertOperationsPanel alerts={alerts} deliveries={items} busyId={alertBusy} onSelect={focusDelivery} onAcknowledge={acknowledgeAlert}/>
   <AlertPolicyPanel policies={policies} audits={policyAudits} deliveries={items} busy={policyBusy} onSave={savePolicy} onReset={resetPolicy} onRestore={restorePolicy}/>
   <section className="board"><div className="boardTitle"><h2>Fleet telemetry</h2><span>{items.length} shipments · select to focus map</span></div>
-  <div className="grid">{items.length===0?<div className="empty">배송을 생성하면 차량 위치 이벤트가 지도와 목록에 표시됩니다.</div>:items.map(d=>{const count=activeAlerts.filter(alert=>alert.deliveryId===d.id).length;return <article key={d.id} onClick={()=>setSelected(d.id)} className={selected===d.id?"selected":""}><div className="row"><span className={`badge ${d.status.toLowerCase()}`}>{d.status.replace("_"," ")}</span><b>{count>0&&<i className="cardAlert">{count}</i>}{d.vehicleId}</b></div><h3>{d.orderNumber}</h3><p>{d.originName} <em>→</em> {d.destinationName}</p><div className="track"><i style={{width:`${d.progress*100}%`}}/></div><div className="meta"><span>{Math.round(d.progress*100)}% complete</span><span>{d.currentLat?.toFixed(4)}, {d.currentLon?.toFixed(4)}</span></div></article>})}</div></section>
+  <div className="grid">{items.length===0?<div className="empty">배송을 생성하면 차량 위치 이벤트가 지도와 목록에 표시됩니다.</div>:items.map(d=>{const count=activeAlerts.filter(alert=>alert.deliveryId===d.id).length;return <article key={d.id} onClick={()=>focusDelivery(d.id)} className={selected===d.id?"selected":""}><div className="row"><span className={`badge ${d.status.toLowerCase()}`}>{d.status.replace("_"," ")}</span><b>{count>0&&<i className="cardAlert">{count}</i>}{d.vehicleId}</b></div><h3>{d.orderNumber}</h3><p>{d.originName} <em>→</em> {d.destinationName}</p><div className="track"><i style={{width:`${d.progress*100}%`}}/></div><div className="meta"><span>{Math.round(d.progress*100)}% complete</span><span>{d.currentLat?.toFixed(4)}, {d.currentLon?.toFixed(4)}</span></div></article>})}</div></section>
   <section className="warehouseBoard"><div className="warehouseHeader"><div><p className="eyebrow">WAREHOUSE / INVENTORY</p><h2>Stock control</h2></div><div className="warehouseActions"><button disabled={warehouseBusy} onClick={receiveStock}>+ RECEIVE 10</button><button disabled={warehouseBusy} onClick={pickAndDispatch}>PICK & DISPATCH 4</button></div></div>
    <div className="warehouseGrid"><div className="stockPane"><h4>AVAILABLE STOCK</h4>{stocks.length===0?<p className="warehouseEmpty">No inventory yet. Receive demo stock to begin.</p>:<div className="stockTable"><div className="stockRow head"><span>LOCATION / SKU</span><span>ON HAND</span><span>RESERVED</span><span>AVAILABLE</span></div>{stocks.slice(0,8).map(s=><div className="stockRow" key={s.id}><span><b>{s.warehouseId}</b><small>{s.sku}</small></span><strong>{s.onHand}</strong><strong>{s.reserved}</strong><strong className="available">{s.available}</strong></div>)}</div>}</div>
    <div className="ledgerPane"><h4>RECENT LEDGER</h4>{ledger.length===0?<p className="warehouseEmpty">Inventory movements will appear here.</p>:ledger.slice(0,7).map(e=><div className="ledgerRow" key={e.id}><span className={`movement ${e.transactionType.toLowerCase()}`}>{e.transactionType}</span><span><b>{e.sku}</b><small>{e.warehouseId}</small></span><span className="delta">{e.onHandDelta>0?`+${e.onHandDelta}`:e.onHandDelta||`R +${e.reservedDelta}`}</span></div>)}</div></div>

@@ -64,6 +64,7 @@ export default function FleetMap({deliveries,routes,selectedId,onSelect}:Props){
       map.addLayer({id:"hubs",type:"circle",source:"fleet",filter:["in",["get","kind"],["literal",["origin","destination"]]],paint:{"circle-radius":6,"circle-color":"#ffffff","circle-stroke-color":"#19372e","circle-stroke-width":2}});
       map.addLayer({id:"vehicles-halo",type:"circle",source:"fleet",filter:["==",["get","kind"],"vehicle"],paint:{"circle-radius":15,"circle-color":["case",["==",["get","status"],"DELAYED"],"#ff6b46","#a7ef19"],"circle-opacity":0.22}});
       map.addLayer({id:"vehicles",type:"circle",source:"fleet",filter:["==",["get","kind"],"vehicle"],paint:{"circle-radius":8,"circle-color":["case",["==",["get","status"],"DELAYED"],"#ff5a36","#172d26"],"circle-stroke-color":"#ffffff","circle-stroke-width":2.5}});
+      map.addLayer({id:"selected-vehicle",type:"circle",source:"fleet",filter:["all",["==",["get","kind"],"vehicle"],["==",["get","id"],selectedRef.current||""]],paint:{"circle-radius":13,"circle-color":"rgba(0,0,0,0)","circle-stroke-color":"#b9f227","circle-stroke-width":4}});
       map.addLayer({id:"vehicle-labels",type:"symbol",source:"fleet",filter:["==",["get","kind"],"vehicle"],layout:{"text-field":["get","label"],"text-size":11,"text-offset":[0,1.8],"text-anchor":"top","text-font":["Noto Sans Regular"]},paint:{"text-color":"#10221d","text-halo-color":"#ffffff","text-halo-width":2}});
       map.on("mouseenter","vehicles",()=>map.getCanvas().style.cursor="pointer"); map.on("mouseleave","vehicles",()=>map.getCanvas().style.cursor="");
       map.on("click","vehicles",e=>{const id=e.features?.[0]?.properties?.id;if(id)onSelect(id)});
@@ -82,10 +83,11 @@ export default function FleetMap({deliveries,routes,selectedId,onSelect}:Props){
   useEffect(()=>{
     const map=mapRef.current;if(!map||!loaded.current||!selectedId)return;
     const d=deliveries.find(x=>x.id===selectedId);if(!d)return;
+    map.setFilter("selected-vehicle",["all",["==",["get","kind"],"vehicle"],["==",["get","id"],selectedId]]);
     fitDelivery(map,d,routes);
   },[selectedId,routes]);
 
-  return <div className={`mapShell ${mapReady?"ready":""}`}><div ref={host} className="mapCanvas"/>{mapError&&<div className="mapError"><b>MAP OFFLINE</b><span>지도 타일 연결을 확인하세요. 배송 데이터 스트림은 계속 동작합니다.</span></div>}<div className="mapLegend"><span><i className="liveDot"/> LIVE VEHICLE</span><span><i className="routeDot"/> PLANNED ROUTE</span><span className="mapReady"><i/> {mapReady?"VECTOR MAP READY":"LOADING MAP"}</span></div></div>;
+  return <div className={`mapShell ${mapReady?"ready":""}`}><div ref={host} className="mapCanvas"/>{mapError&&<div className="mapError"><b>MAP OFFLINE</b><span>지도 타일 연결을 확인하세요. 배송 데이터 스트림은 계속 동작합니다.</span></div>}{!mapError&&deliveries.length===0&&<div className="mapEmpty"><b>NO VEHICLES IN THIS VIEW</b><span>범위를 전환하거나 새 배송을 생성해 주세요.</span></div>}<div className="mapLegend"><span><i className="liveDot"/> LIVE VEHICLE</span><span><i className="routeDot"/> PLANNED ROUTE</span><span className="mapReady"><i/> {mapReady?"VECTOR MAP READY":"LOADING MAP"}</span></div></div>;
 }
 
 function fitDelivery(map:Map,delivery:Delivery,routes:RouteSnapshot[]) {
