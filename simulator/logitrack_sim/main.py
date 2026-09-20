@@ -47,11 +47,8 @@ def pending_step_indexes(current_progress: float, steps: int) -> list[int]:
 
 
 def load_delivery_state(delivery_id: str, api_url: str = API_URL) -> tuple[float, str]:
-    with urlopen(f"{api_url}/api/deliveries?limit=500", timeout=5) as response:
-        deliveries = json.load(response)
-    delivery = next((item for item in deliveries if item["id"] == delivery_id), None)
-    if delivery is None:
-        raise ValueError(f"delivery {delivery_id} is not available from the API")
+    with urlopen(f"{api_url}/api/deliveries/{delivery_id}", timeout=5) as response:
+        delivery = json.load(response)
     return float(delivery["progress"]), str(delivery["status"])
 
 

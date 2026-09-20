@@ -8,6 +8,7 @@ import org.mockito.ArgumentCaptor;
 import java.util.Optional;
 import java.util.List;
 import java.util.UUID;
+import java.util.NoSuchElementException;
 import java.time.Instant;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -70,6 +71,15 @@ class DeliveryServiceTest {
         assertThrows(IllegalArgumentException.class,()->service.create(bad,"key-1","trace"));
         assertThrows(IllegalArgumentException.class,()->service.create(request(),"K".repeat(161),"trace"));
         verifyNoInteractions(deliveries);
+    }
+
+    @Test void getsOneDeliveryAndReportsMissingIds(){
+        var existing=Delivery.create(request(),"key-1");
+        when(deliveries.findById(existing.getId())).thenReturn(Optional.of(existing));
+        var missing=UUID.randomUUID();
+        when(deliveries.findById(missing)).thenReturn(Optional.empty());
+        assertSame(existing,service.get(existing.getId()));
+        assertThrows(NoSuchElementException.class,()->service.get(missing));
     }
 
     private CreateDeliveryRequest request(){return new CreateDeliveryRequest("ORD-1","TRUCK-1",
