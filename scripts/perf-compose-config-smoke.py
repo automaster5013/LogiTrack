@@ -71,6 +71,8 @@ def main() -> None:
     kafka_command = services["kafka-init"]["command"][-1].lstrip()
     if not kafka_command.startswith("set -eu\n"):
         raise AssertionError("Kafka performance topic initialization is not fail-fast")
+    if services["kafka"]["environment"].get("KAFKA_HEAP_OPTS") != "-Xms256m -Xmx512m":
+        raise AssertionError("Kafka performance heap is not bounded below its container memory limit")
 
     print("PASS: isolated performance Compose uses segmented internal networks, immutable images, loopback exposure, bounded resources and logs, explicit storage, and hardened runtimes")
 

@@ -48,6 +48,8 @@ def main() -> None:
     kafka_command = services["kafka-init"]["command"][-1].lstrip()
     if not kafka_command.startswith("set -eu\n"):
         raise AssertionError("Kafka topic initialization is not fail-fast")
+    if services["kafka"]["environment"].get("KAFKA_HEAP_OPTS") != "-Xms256m -Xmx512m":
+        raise AssertionError("Kafka heap is not bounded below its container memory limit")
 
     long_running_services = {
         "postgres", "redis", "kafka", "analytics", "api", "api-replica",

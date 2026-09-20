@@ -147,6 +147,7 @@
 - replay smoke의 재격리 확인 후 test-specific DLQ·감사 정리로 반복 검증 backlog 오염 방지
 - 기본 Compose와 선택적 scale-test replica 양쪽에서 동작하는 runtime policy smoke
 - outbox poll 장애의 scheduler stack trace 억제·복구 로그·Micrometer counter와 Prometheus 경보
+- Kafka 1 GiB container 안의 512 MiB heap 상한으로 native memory·page cache OOM 여유 확보
 
 ## 현재 상태
 

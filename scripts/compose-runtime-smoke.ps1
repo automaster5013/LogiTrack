@@ -81,6 +81,10 @@ foreach ($service in $expectedServices) {
 
 $kafkaId = (docker compose ps -q kafka).Trim()
 $kafka = docker inspect $kafkaId | ConvertFrom-Json | Select-Object -First 1
+$kafkaEnvironment = @($kafka.Config.Env)
+if ($kafkaEnvironment -notcontains "KAFKA_HEAP_OPTS=-Xms256m -Xmx512m") {
+  throw "Kafka heap is not bounded below its container memory limit"
+}
 $kafkaVolumes = @($kafka.Mounts | Where-Object Type -eq "volume")
 if ($kafkaVolumes.Count -ne 1 -or
     $kafkaVolumes[0].Name -ne "logitrack_kafka-data" -or

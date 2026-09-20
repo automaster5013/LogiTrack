@@ -34,6 +34,7 @@ docker compose up --build
 
 Compose가 공개하는 모든 개발용 포트는 호스트의 `127.0.0.1`에만 바인딩되므로 같은 네트워크의 다른 장치에서는 접근할 수 없습니다. 외부 공개 배포는 인증과 TLS를 갖춘 별도 ingress를 사용하세요.
 컨테이너 간 통신도 `edge`, `data`, `analytics-egress`, `observability` 영역으로 분리됩니다. 웹은 API에만, 데이터 서비스는 필요한 API·simulator에만 연결되며 analytics와 관측성 구성 요소도 별도 영역에서 필요한 상대만 탐색할 수 있습니다. 개발용 host port를 유지하면서 불필요한 컨테이너 간 DNS·직접 연결 경로를 제거합니다.
+Kafka JVM heap은 256~512 MiB로 고정해 1 GiB 컨테이너 상한 안에 native memory와 page cache 여유를 남깁니다. 기본·성능 Compose 검증과 runtime smoke가 이 간격을 회귀 검사합니다.
 
 PostgreSQL 논리 백업은 `./scripts/postgres-backup.ps1`로 충돌 없는 이름의 dump와 SHA-256 sidecar를 만들고, `./scripts/postgres-restore.ps1 -BackupPath <dump> -TargetDatabase logitrack_restore -Force`로 무결성을 확인한 뒤 격리된 데이터베이스에 복원합니다. 복구 내용은 고유 staging DB에 먼저 완전히 적재되므로 검증·restore 실패가 기존 대상 DB를 훼손하지 않습니다. checksum이 없는 신뢰 가능한 기존 dump만 명시적 `-AllowUnverified`로 복원할 수 있습니다. `./scripts/postgres-backup-restore-smoke.ps1`는 연속 백업 경로의 고유성, 1바이트 변조 거부, 실패 시 기존 대상 보존·staging 정리, 스키마·sentinel 왕복 복원을 검증합니다.
 

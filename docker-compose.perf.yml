@@ -53,6 +53,7 @@ services:
     security_opt: *default-security
     networks: [data]
     environment:
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENERS: PLAINTEXT://:29092,CONTROLLER://:29093
