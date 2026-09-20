@@ -25,6 +25,14 @@ groups:
         annotations:
           summary: Transactional outbox contains failed events
           description: "{{ $value }} outbox event(s) exhausted retries and require operator recovery."
+      - alert: LogiTrackOutboxPublisherFailing
+        expr: increase(logitrack_outbox_publish_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Transactional outbox publisher is failing
+          description: "{{ $value }} outbox polling attempt(s) failed during the last five minutes."
       - alert: LogiTrackOutboxBacklogGrowing
         expr: logitrack_outbox_backlog{status="pending"} > 100
         for: 5m
