@@ -144,6 +144,7 @@
 - 충돌 없는 PostgreSQL 백업 이름과 staging DB 선복구를 통한 실패 안전 대상 교체
 - 유휴 Kafka 입력에서도 안정적인 partition assignment 기반 consumer 부재 경보
 - simulator 재시작 시 API 진행률 기반 resume로 telemetry 역행·DLQ 오염 방지
+- replay smoke의 재격리 확인 후 test-specific DLQ·감사 정리로 반복 검증 backlog 오염 방지
 
 ## 현재 상태
 

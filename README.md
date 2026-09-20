@@ -120,6 +120,8 @@ Kafka telemetry consumer 부재 경보는 유휴 상태에서 생성되지 않�
 
 GPS simulator는 delivery event 처리 시작 시 API에서 현재 진행률을 확인하고 이미 적용된 step을 건너뜁니다. 따라서 simulator 재시작이나 수동 telemetry 부하 검증 후에도 진행률을 0부터 다시 발행해 DLQ를 오염시키지 않습니다.
 
+DLQ 단건·batch replay smoke는 의도적으로 잘못된 payload가 다시 격리되는 것까지 확인한 뒤 해당 실행의 원본·재격리 row와 연관 감사를 제거하므로, 반복 검증 자체가 운영 backlog 경보를 누적시키지 않습니다.
+
 API readiness는 필수 source of truth인 PostgreSQL 연결을 포함합니다. Redis 장애는 로컬 SSE fallback으로 계속 서비스하되 PostgreSQL 장애는 HTTP 503 readiness로 트래픽 유입을 중단하며, `./scripts/readiness-smoke.ps1`가 두 장애와 자동 복구를 검증합니다.
 
 모든 HTTP API 응답은 `X-Trace-Id`를 반환합니다. 호출자가 1~128자의 안전한 식별자를 보내면 보존하고, 없으면 생성해 controller와 로그 MDC에 전달합니다. 경계 동작은 `./scripts/request-trace-smoke.ps1`로 검증합니다.

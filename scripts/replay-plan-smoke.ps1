@@ -33,3 +33,10 @@ try {
 
 Write-Host "PASS: plan=$($plan.id), events=2, status=$($executed.status), elapsed=$([math]::Round($timer.Elapsed.TotalMilliseconds))ms, max-batch=20"
 
+$deadline=(Get-Date).AddSeconds(15)
+do {
+  Start-Sleep -Seconds 1
+  $requeued=(docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT count(*) FROM dead_letter_events WHERE trace_id LIKE '$prefix-%' AND status='PENDING'").Trim()
+} while([int]$requeued-lt 2-and(Get-Date)-lt$deadline)
+if([int]$requeued-lt 2){throw "Replayed poison batch was not quarantined again"}
+docker compose exec -T postgres psql -U logitrack -d logitrack -v ON_ERROR_STOP=1 -c "DELETE FROM dead_letter_events WHERE trace_id LIKE '$prefix-%'"|Out-Null

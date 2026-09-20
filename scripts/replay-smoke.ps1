@@ -35,3 +35,11 @@ try {
 }
 
 Write-Host "PASS: event=$($event.id), trace=$trace, quarantined=$([math]::Round($quarantineSeconds, 2))s, status=$($replayed.status), audit=$($audit.id), duplicate=409"
+
+$deadline = (Get-Date).AddSeconds(15)
+do {
+  Start-Sleep -Seconds 1
+  $requeued = (docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT count(*) FROM dead_letter_events WHERE trace_id='$trace' AND status='PENDING'").Trim()
+} while ([int]$requeued -lt 1 -and (Get-Date) -lt $deadline)
+if ([int]$requeued -lt 1) { throw "Replayed poison event was not quarantined again" }
+docker compose exec -T postgres psql -U logitrack -d logitrack -v ON_ERROR_STOP=1 -c "DELETE FROM dead_letter_events WHERE trace_id='$trace'" | Out-Null
