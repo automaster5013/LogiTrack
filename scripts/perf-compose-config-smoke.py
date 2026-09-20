@@ -13,7 +13,8 @@ def main() -> None:
         capture_output=True,
         text=True,
     )
-    services = json.loads(result.stdout)["services"]
+    compose = json.loads(result.stdout)
+    services = compose["services"]
 
     for service_name, service in services.items():
         if int(service.get("pids_limit", 0)) <= 0:
@@ -43,6 +44,23 @@ def main() -> None:
         if port.get("host_ip") != "127.0.0.1":
             raise AssertionError("Performance API is exposed beyond loopback")
 
+    expected_networks = {
+        "postgres": {"data"},
+        "redis": {"data"},
+        "kafka": {"data"},
+        "kafka-init": {"data"},
+        "analytics": {"analytics"},
+        "api": {"data", "analytics", "runner"},
+    }
+    for service_name, networks in expected_networks.items():
+        if set(services[service_name].get("networks", {})) != networks:
+            raise AssertionError(f"{service_name} performance network access exceeds its required zones")
+    for network_name in ("data", "analytics"):
+        if compose["networks"][network_name].get("internal") is not True:
+            raise AssertionError(f"Performance {network_name} network permits external egress")
+    if compose["networks"]["runner"].get("internal") is True:
+        raise AssertionError("Performance runner network blocks host access")
+
     kafka_volumes = [
         mount for mount in services["kafka"].get("volumes", [])
         if mount.get("type") == "volume" and mount.get("target") == "/var/lib/kafka/data"
@@ -54,7 +72,7 @@ def main() -> None:
     if not kafka_command.startswith("set -eu\n"):
         raise AssertionError("Kafka performance topic initialization is not fail-fast")
 
-    print("PASS: isolated performance Compose uses immutable images, loopback exposure, bounded resources and logs, explicit storage, and hardened runtimes")
+    print("PASS: isolated performance Compose uses segmented internal networks, immutable images, loopback exposure, bounded resources and logs, explicit storage, and hardened runtimes")
 
 
 if __name__ == "__main__":

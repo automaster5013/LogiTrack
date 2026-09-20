@@ -16,6 +16,7 @@ services:
     cpus: 2.0
     pids_limit: 256
     security_opt: *default-security
+    networks: [data]
     environment:
       POSTGRES_DB: logitrack
       POSTGRES_USER: logitrack
@@ -35,6 +36,7 @@ services:
     cpus: 0.5
     pids_limit: 128
     security_opt: *default-security
+    networks: [data]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 3s
@@ -49,6 +51,7 @@ services:
     cpus: 1.5
     pids_limit: 512
     security_opt: *default-security
+    networks: [data]
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -79,6 +82,7 @@ services:
     cpus: 0.5
     pids_limit: 128
     security_opt: *default-security
+    networks: [data]
     depends_on:
       kafka: {condition: service_healthy}
     command:
@@ -98,6 +102,7 @@ services:
     cpus: 1.0
     pids_limit: 256
     security_opt: *default-security
+    networks: [analytics]
     cap_drop: [ALL]
     read_only: true
     tmpfs: ["/tmp:size=64m,mode=1777"]
@@ -118,6 +123,7 @@ services:
     cpus: 4.0
     pids_limit: 768
     security_opt: *default-security
+    networks: [data, analytics, runner]
     cap_drop: [ALL]
     read_only: true
     tmpfs: ["/tmp:size=128m,mode=1777"]
@@ -148,3 +154,10 @@ services:
 volumes:
   postgres-perf-data:
   kafka-perf-data:
+
+networks:
+  data:
+    internal: true
+  analytics:
+    internal: true
+  runner:
