@@ -15,6 +15,8 @@
 
 모든 Compose 서비스는 Docker `json-file` 로그를 파일당 10 MiB, 최대 3개로 회전한다. `docker compose logs --since 30m <service>`로 최근 로그를 확인하며, 장기 보존이 필요하면 중앙 로그 수집기를 별도로 연결한다.
 
+모든 장기 실행 서비스는 종료 신호 후 35초의 유예를 받는다. 이는 Spring의 최대 30초 graceful shutdown 단계와 데이터베이스·브로커의 flush를 마칠 시간을 제공하며, 유예가 지나면 Docker가 강제 종료해 무한 대기를 방지한다.
+
 ## PostgreSQL backup/restore
 
 `./scripts/postgres-backup.ps1`는 실행 중인 PostgreSQL에서 owner/ACL 비종속 custom-format dump를 `output/backups/`에 생성하고, 컨테이너 안에서 archive 목차를 검증한 뒤 호스트로 복사한다. 복원은 `./scripts/postgres-restore.ps1 -BackupPath <dump> -TargetDatabase logitrack_restore -Force`를 사용한다. 안전을 위해 온라인 도구는 기본 `logitrack` DB 덮어쓰기를 거부하며, 검증 DB에서 확인한 뒤 유지보수 창에 연결 문자열을 전환한다. `./scripts/postgres-backup-restore-smoke.ps1`는 고유 sentinel 행을 임시 DB에 실제 복원하고 값까지 확인한 다음 원본 sentinel, 임시 DB, dump를 제거한다.

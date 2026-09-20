@@ -54,6 +54,8 @@ def main() -> None:
     for service_name in long_running_services:
         if services[service_name].get("restart") != "unless-stopped":
             raise AssertionError(f"{service_name} does not automatically recover after a runtime restart")
+        if services[service_name].get("stop_grace_period") != "35s":
+            raise AssertionError(f"{service_name} does not allow bounded graceful shutdown")
     if services["kafka-init"].get("restart"):
         raise AssertionError("One-shot kafka-init must not have a restart policy")
 
@@ -112,7 +114,7 @@ def main() -> None:
                 if not DIGEST_PATTERN.search(image):
                     raise AssertionError(f"{dockerfile} base image is not pinned by digest: {image}")
 
-    print("PASS: topology, loopback ports, bounded logs, runtime readiness, restart policies, and immutable image sources are valid")
+    print("PASS: topology, loopback ports, bounded logs, graceful shutdown, runtime readiness, restart policies, and immutable image sources are valid")
 
 
 if __name__ == "__main__":
