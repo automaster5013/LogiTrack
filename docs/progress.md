@@ -136,6 +136,7 @@
 - retention 정리 장애·복구 전환 로그와 지속 재시도로 반복 scheduler stack trace 범람 방지
 - 일회성 topic 초기화를 제외한 Compose 상시 서비스 `unless-stopped` 자동 복구 정책
 - 공개 기본 비밀번호 제거, 독립 256-bit 로컬 비밀 생성, 기존 영속 데이터의 원자적 자격 증명 회전과 CI 회귀 검증
+- edge·data·analytics egress·observability Compose 네트워크 분리와 정적·실행 중 최소 권한 topology 검증
 
 ## 현재 상태
 

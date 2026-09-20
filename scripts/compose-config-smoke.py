@@ -27,7 +27,8 @@ def rendered_compose() -> dict:
 
 
 def main() -> None:
-    services = rendered_compose()["services"]
+    compose = rendered_compose()
+    services = compose["services"]
     expected_database = {
         "DB_URL": "jdbc:postgresql://postgres:5432/logitrack_override_db",
         "DB_USER": "logitrack_override_user",
@@ -63,6 +64,27 @@ def main() -> None:
             raise AssertionError(f"{service_name} does not have a CPU limit")
         if int(services[service_name].get("pids_limit", 0)) <= 0:
             raise AssertionError(f"{service_name} does not have a process limit")
+
+    expected_networks = {
+        "postgres": {"data"},
+        "redis": {"data"},
+        "kafka": {"data"},
+        "kafka-init": {"data"},
+        "analytics": {"analytics-egress", "observability"},
+        "api": {"edge", "data", "analytics-egress", "observability"},
+        "api-replica": {"edge", "data", "analytics-egress", "observability"},
+        "simulator": {"data"},
+        "web": {"edge"},
+        "tempo": {"observability"},
+        "otel-collector": {"observability"},
+        "prometheus": {"observability"},
+        "grafana": {"observability"},
+    }
+    for service_name, networks in expected_networks.items():
+        if set(services[service_name].get("networks", {})) != networks:
+            raise AssertionError(f"{service_name} network access exceeds its required zones")
+    if set(compose["networks"]) != {"edge", "data", "analytics-egress", "observability"}:
+        raise AssertionError("Compose defines an unexpected shared network")
     if services["kafka-init"].get("restart"):
         raise AssertionError("One-shot kafka-init must not have a restart policy")
     if int(services["kafka-init"].get("pids_limit", 0)) <= 0:
@@ -169,7 +191,7 @@ def main() -> None:
         if not matches or any(not DIGEST_PATTERN.search(image) for image in matches):
             raise AssertionError(f"{source_path} uses an unpinned {image_prefix} image")
 
-    print("PASS: topology, persistence, bounded ephemeral storage, CPU, memory, and process limits, read-only capability-free stateless services, privilege boundaries, loopback ports, bounded logs, graceful shutdown, runtime readiness, restart policies, and immutable image sources are valid")
+    print("PASS: segmented least-privilege networks, persistence, bounded ephemeral storage, CPU, memory, and process limits, read-only capability-free stateless services, privilege boundaries, loopback ports, bounded logs, graceful shutdown, runtime readiness, restart policies, and immutable image sources are valid")
 
 
 if __name__ == "__main__":

@@ -17,6 +17,7 @@ services:
     cpus: 1.0
     pids_limit: 256
     security_opt: *default-security
+    networks: [data]
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-logitrack}
       POSTGRES_USER: ${POSTGRES_USER:-logitrack}
@@ -38,6 +39,7 @@ services:
     cpus: 0.5
     pids_limit: 128
     security_opt: *default-security
+    networks: [data]
     ports: ["127.0.0.1:6379:6379"]
     volumes: ["redis-data:/data"]
     healthcheck:
@@ -55,6 +57,7 @@ services:
     cpus: 1.5
     pids_limit: 512
     security_opt: *default-security
+    networks: [data]
     ports: ["127.0.0.1:9092:9092"]
     environment:
       KAFKA_NODE_ID: 1
@@ -85,6 +88,7 @@ services:
     logging: *default-logging
     pids_limit: 128
     security_opt: *default-security
+    networks: [data]
     depends_on:
       kafka: {condition: service_healthy}
     command:
@@ -112,6 +116,7 @@ services:
     cpus: 1.0
     pids_limit: 256
     security_opt: *default-security
+    networks: [analytics-egress, observability]
     cap_drop: [ALL]
     read_only: true
     tmpfs: ["/tmp:size=64m,mode=1777"]
@@ -140,6 +145,7 @@ services:
     cpus: 2.0
     pids_limit: 512
     security_opt: *default-security
+    networks: [edge, data, analytics-egress, observability]
     cap_drop: [ALL]
     read_only: true
     tmpfs: ["/tmp:size=128m,mode=1777"]
@@ -177,6 +183,7 @@ services:
     cpus: 2.0
     pids_limit: 512
     security_opt: *default-security
+    networks: [edge, data, analytics-egress, observability]
     cap_drop: [ALL]
     read_only: true
     tmpfs: ["/tmp:size=128m,mode=1777"]
@@ -213,6 +220,7 @@ services:
     cpus: 0.5
     pids_limit: 128
     security_opt: *default-security
+    networks: [data]
     cap_drop: [ALL]
     read_only: true
     tmpfs: ["/tmp:size=64m,mode=1777"]
@@ -244,6 +252,7 @@ services:
     cpus: 0.75
     pids_limit: 256
     security_opt: *default-security
+    networks: [edge]
     cap_drop: [ALL]
     read_only: true
     tmpfs: ["/tmp:size=64m,mode=1777"]
@@ -270,6 +279,7 @@ services:
     cpus: 1.0
     pids_limit: 512
     security_opt: *default-security
+    networks: [observability]
     command: ["-config.file=/etc/tempo.yml"]
     volumes:
       - ./infra/otel/tempo.yml:/etc/tempo.yml:ro
@@ -291,6 +301,7 @@ services:
     cpus: 0.75
     pids_limit: 256
     security_opt: *default-security
+    networks: [observability]
     cap_drop: [ALL]
     read_only: true
     tmpfs: ["/tmp:size=64m,mode=1777"]
@@ -315,6 +326,7 @@ services:
     cpus: 1.0
     pids_limit: 256
     security_opt: *default-security
+    networks: [observability]
     command: ["--config.file=/etc/prometheus/prometheus.yml"]
     volumes:
       - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -339,6 +351,7 @@ services:
     cpus: 0.75
     pids_limit: 256
     security_opt: *default-security
+    networks: [observability]
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Run ./scripts/init-env.ps1 before starting LogiTrack}
     ports: ["127.0.0.1:3001:3000"]
@@ -362,3 +375,9 @@ volumes:
   tempo-data:
   prometheus-data:
   grafana-data:
+
+networks:
+  edge:
+  data:
+  analytics-egress:
+  observability:

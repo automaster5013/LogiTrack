@@ -5,6 +5,19 @@ $expectedServices = @(
   "web", "tempo", "otel-collector", "prometheus", "grafana"
 )
 $statelessServices = @("analytics", "api", "simulator", "web", "otel-collector")
+$expectedNetworks = @{
+  postgres = @("logitrack_data")
+  redis = @("logitrack_data")
+  kafka = @("logitrack_data")
+  analytics = @("logitrack_analytics-egress", "logitrack_observability")
+  api = @("logitrack_analytics-egress", "logitrack_data", "logitrack_edge", "logitrack_observability")
+  simulator = @("logitrack_data")
+  web = @("logitrack_edge")
+  tempo = @("logitrack_observability")
+  "otel-collector" = @("logitrack_observability")
+  prometheus = @("logitrack_observability")
+  grafana = @("logitrack_observability")
+}
 
 $running = @(docker compose ps --format json | ConvertFrom-Json)
 foreach ($service in $expectedServices) {
@@ -34,6 +47,11 @@ foreach ($service in $expectedServices) {
   }
   if ($container.HostConfig.SecurityOpt -notcontains "no-new-privileges:true") {
     throw "$service no-new-privileges boundary is not applied"
+  }
+  $actualNetworks = @($container.NetworkSettings.Networks.PSObject.Properties.Name | Sort-Object)
+  $requiredNetworks = @($expectedNetworks[$service] | Sort-Object)
+  if (($actualNetworks -join ",") -ne ($requiredNetworks -join ",")) {
+    throw "$service runtime networks differ from the least-privilege topology"
   }
   foreach ($binding in $container.HostConfig.PortBindings.PSObject.Properties.Value) {
     foreach ($published in $binding) {
