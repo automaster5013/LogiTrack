@@ -143,6 +143,8 @@ DLQ 격리, 선택 replay, 감사 기록과 중복 방지는 `./scripts/replay-s
 
 재처리할 수 없는 DLQ 이벤트는 Control Tower의 `DISCARD` 작업으로 필수 사유와 운영자를 기록해 backlog에서 제외할 수 있습니다. 상태 전이는 단방향이며 실제 폐기·감사·중복 요청 거부는 `./scripts/dlq-discard-smoke.ps1`로 검증합니다.
 
+여러 건을 폐기할 때는 `POST /api/operations/discard-plans`로 최대 20건의 dry-run 계획을 만들고, 10분 안에 같은 운영자가 `X-Discard-Approval: DISCARD`로 실행합니다. 중복 ID 제거, 승인값, 부분 실패와 단일 실행 보장은 `./scripts/discard-plan-smoke.ps1`로 검증합니다.
+
 최대 20건 범위의 dry-run plan, 명시적 승인, 5 events/s 제한은 `./scripts/replay-plan-smoke.ps1`로 검증합니다.
 
 Kafka telemetry 100건의 API 반영 p95와 consumer lag는 `./scripts/telemetry-load.ps1`로 측정합니다.

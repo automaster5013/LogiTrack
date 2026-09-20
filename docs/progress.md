@@ -146,6 +146,7 @@
 - simulator 재시작 시 API 진행률 기반 resume로 telemetry 역행·DLQ 오염 방지
 - replay smoke의 재격리 확인 후 test-specific DLQ·감사 정리로 반복 검증 backlog 오염 방지
 - 재처리 불가능한 DLQ 이벤트의 운영자 폐기 상태, 필수 사유·감사 기록, 중복 disposition 방지와 Control Tower 작업
+- 최대 20건 DLQ 일괄 폐기의 dry-run 계획, 10분 승인 창, 운영자 일치, 중복 ID 제거와 부분 실패 결과 기록
 - 기본 Compose와 선택적 scale-test replica 양쪽에서 동작하는 runtime policy smoke
 - outbox poll 장애의 scheduler stack trace 억제·복구 로그·Micrometer counter와 Prometheus 경보
 - Kafka 1 GiB container 안의 512 MiB heap 상한으로 native memory·page cache OOM 여유 확보

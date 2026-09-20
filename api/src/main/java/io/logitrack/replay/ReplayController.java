@@ -8,7 +8,8 @@ import java.util.*;
 public class ReplayController {
     private final ReplayService service;
     private final ReplayPlanService plans;
-    public ReplayController(ReplayService service, ReplayPlanService plans){this.service=service;this.plans=plans;}
+    private final DiscardPlanService discardPlans;
+    public ReplayController(ReplayService service, ReplayPlanService plans,DiscardPlanService discardPlans){this.service=service;this.plans=plans;this.discardPlans=discardPlans;}
 
     @GetMapping("/dlq")
     public List<DeadLetterEvent> list(@RequestParam(required=false) DeadLetterEvent.Status status){return service.list(status);}
@@ -28,6 +29,13 @@ public class ReplayController {
     @PostMapping("/replay-plans/{id}/execute")
     public ReplayPlan execute(@PathVariable UUID id, @RequestHeader("X-Operator") String actor,
         @RequestHeader("X-Replay-Approval") String approval){return plans.execute(id,actor,approval);}
+
+    @PostMapping("/discard-plans")
+    public DiscardPlan prepareDiscard(@RequestBody CreateDiscardPlanRequest request,@RequestHeader("X-Operator") String actor){return discardPlans.prepare(request,actor);}
+
+    @PostMapping("/discard-plans/{id}/execute")
+    public DiscardPlan executeDiscard(@PathVariable UUID id,@RequestHeader("X-Operator") String actor,
+        @RequestHeader("X-Discard-Approval") String approval){return discardPlans.execute(id,actor,approval);}
 
     public record DiscardRequest(String reason) {}
 }

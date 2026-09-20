@@ -155,6 +155,7 @@ API, analytics, simulator, web, OpenTelemetry Collector는 Linux capability를 �
 - `logitrack_retention_deleted_total{table=...}`에서 커밋된 실제 정리량을 확인하고 `logitrack_retention_failures_total`로 실패를 추적한다. cutoff 전용 부분/정렬 인덱스로 전체 테이블 scan을 피한다.
 - Published outbox가 보존 기한을 지나 삭제될 때 연결된 재시도 감사 행도 FK cascade로 함께 제거한다. 감사 FK가 전체 retention 트랜잭션을 막거나 고아 이력을 남기지 않으며 retention smoke가 이 경로를 포함한다.
 - 재처리 완료 DLQ와 연결 replay audit은 기본 90일(`REPLAYED_DLQ_RETENTION`) 후 bounded batch로 함께 삭제한다. 미처리 `PENDING` DLQ는 자동 삭제하지 않는다.
+- 운영자가 폐기한 `DISCARDED` DLQ와 연결 감사도 같은 90일 보존 정책을 적용한다. 최대 20건의 일괄 폐기는 dry-run 계획, 10분 승인 창, 동일 운영자, 정확한 `X-Discard-Approval: DISCARD` 값을 요구한다.
 - Replay plan batch 설정은 1~100개로 제한한다. 잘못된 대규모 설정이 단일 실행에서 장시간 DB connection과 plan lock을 점유하지 못하게 한다.
 - 콘솔의 주문·KPI·복구 큐·정책 poller는 이전 요청 완료 후 다음 타이머를 예약한다. API 지연이나 장애 시 interval 요청이 중첩되어 회복 중인 서버를 더 압박하지 않는다.
 - GPS simulator는 기본 8개 worker와 최대 16개 실행/대기 slot만 허용한다. interval·step·worker 범위와 작업당 최대 120초를 시작 시 검증하며, malformed delivery 이벤트나 개별 simulation 실패가 consumer 프로세스를 종료하지 않는다.
@@ -172,6 +173,13 @@ API, analytics, simulator, web, OpenTelemetry Collector는 Linux capability를 �
 1. `POST /api/operations/replay-plans`에 `{"eventIds":[...]}`와 `X-Operator`를 보내 dry-run plan을 만든다.
 2. 응답의 대상과 10분 만료 시각을 검토한다.
 3. `POST /api/operations/replay-plans/{id}/execute`에 같은 `X-Operator`와 `X-Replay-Approval: APPROVE`를 보낸다.
+
+### 선택 범위 폐기
+
+1. `POST /api/operations/discard-plans`에 `{"eventIds":[...],"reason":"..."}`와 `X-Operator`를 보내 최대 20건의 dry-run 계획을 만든다.
+2. 응답의 대상, 공통 폐기 사유와 10분 만료 시각을 검토한다.
+3. `POST /api/operations/discard-plans/{id}/execute`에 같은 `X-Operator`와 `X-Discard-Approval: DISCARD`를 보낸다.
+4. 각 성공 항목은 `DISCARDED` 상태와 개별 감사 행을 남기며, 이미 처리된 항목은 실패 수에 포함된다. 같은 계획은 다시 실행할 수 없다.
 
 기본 최대 20건, 5 events/s이며 각각 `logitrack.replay.batch-max-size`, `logitrack.replay.batch-rate-per-second`로 조정한다. 중복 실행은 거절하고 이벤트별 감사 행을 유지한다.
 

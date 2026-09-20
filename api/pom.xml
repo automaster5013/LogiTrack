@@ -45,6 +45,7 @@
                 <include>io/logitrack/alert/RouteDeviationCalculator.class</include>
                 <include>io/logitrack/replay/DeadLetterEvent.class</include>
                 <include>io/logitrack/replay/ReplayPlan.class</include>
+                <include>io/logitrack/replay/DiscardPlan.class</include>
               </includes>
               <rules>
                 <rule>
