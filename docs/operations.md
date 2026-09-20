@@ -14,6 +14,10 @@
 로컬 Compose 포트는 모두 `127.0.0.1`에만 게시된다. 데이터베이스, 브로커, API, 관측 도구를 LAN이나 공용 인터페이스에 직접 노출하지 말고 외부 배포에서는 인증과 TLS가 적용된 ingress를 사용한다.
 
 모든 Compose 서비스는 Docker `json-file` 로그를 파일당 10 MiB, 최대 3개로 회전한다. `docker compose logs --since 30m <service>`로 최근 로그를 확인하며, 장기 보존이 필요하면 중앙 로그 수집기를 별도로 연결한다.
+
+## PostgreSQL backup/restore
+
+`./scripts/postgres-backup.ps1`는 실행 중인 PostgreSQL에서 owner/ACL 비종속 custom-format dump를 `output/backups/`에 생성하고, 컨테이너 안에서 archive 목차를 검증한 뒤 호스트로 복사한다. 복원은 `./scripts/postgres-restore.ps1 -BackupPath <dump> -TargetDatabase logitrack_restore -Force`를 사용한다. 안전을 위해 온라인 도구는 기본 `logitrack` DB 덮어쓰기를 거부하며, 검증 DB에서 확인한 뒤 유지보수 창에 연결 문자열을 전환한다. `./scripts/postgres-backup-restore-smoke.ps1`는 고유한 임시 DB에 실제 복원하고 public schema를 확인한 다음 임시 DB와 dump를 제거한다.
 - 로그 필드: timestamp, level, logger, message, trace/correlation 식별자
 - 주요 지표: API latency/error, Kafka consumer lag, telemetry 처리량, DLQ 수, 활성 SSE 연결
 

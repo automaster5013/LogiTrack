@@ -33,6 +33,8 @@ PostgreSQL 데이터베이스명과 자격 증명은 `.env`의 `POSTGRES_DB`, `P
 
 Compose가 공개하는 모든 개발용 포트는 호스트의 `127.0.0.1`에만 바인딩되므로 같은 네트워크의 다른 장치에서는 접근할 수 없습니다. 외부 공개 배포는 인증과 TLS를 갖춘 별도 ingress를 사용하세요.
 
+PostgreSQL 논리 백업은 `./scripts/postgres-backup.ps1`로 만들고, `./scripts/postgres-restore.ps1 -BackupPath <dump> -TargetDatabase logitrack_restore -Force`로 격리된 데이터베이스에 복원합니다. `./scripts/postgres-backup-restore-smoke.ps1`는 백업 생성부터 스키마 복원까지 왕복 검증합니다.
+
 샘플 주문 생성과 배차:
 
 ```bash
