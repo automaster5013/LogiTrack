@@ -8,6 +8,7 @@
 - Docker Compose 기반 PostgreSQL, Redis, Kafka, API, simulator, web, Prometheus, Grafana
 - 웹·관측성 HTTP와 simulator 소비 루프 heartbeat 기반 전체 Docker 준비 상태 검증
 - Dockerfile 기반 이미지와 Compose 외부 이미지의 SHA-256 digest 고정 및 구성 회귀 검증
+- GitHub Actions·Maven·npm·Python·Dockerfile·Compose 전체 의존성의 주간 Dependabot 갱신
 - 멱등 배송 생성과 transactional outbox
 - Python GPS/ETA simulator와 Kafka telemetry 처리
 - SSE 실시간 배송 관제와 MapLibre 벡터 지도
