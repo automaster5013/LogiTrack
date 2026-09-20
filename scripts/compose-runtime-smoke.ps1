@@ -94,4 +94,10 @@ if ($web.StatusCode -ne 200 -or $web.Content -notmatch "LogiTrack" -or $api.stat
   throw "LogiTrack web or API readiness verification failed"
 }
 
+$metrics = (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8080/actuator/prometheus).Content
+if ($metrics -notmatch '(?m)^tomcat_threads_config_max_threads\{[^}]*\} 128\.0$' -or
+    $metrics -notmatch '(?m)^tomcat_connections_config_max_connections\{[^}]*\} 512\.0$') {
+  throw "API Tomcat runtime capacity limits are not applied"
+}
+
 Write-Host "PASS: running LogiTrack stack is healthy and matches hardened Compose policy"

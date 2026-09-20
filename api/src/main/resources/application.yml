@@ -39,10 +39,20 @@ management:
 logging.pattern.correlation: "[traceId=%X{traceId:-} spanId=%X{spanId:-} requestId=%X{requestId:-}] "
 server:
   shutdown: graceful
+  connection-timeout: ${SERVER_CONNECTION_TIMEOUT:5s}
   compression:
     enabled: true
     min-response-size: 1024
     mime-types: application/json,application/geo+json,text/csv
+  tomcat:
+    accept-count: ${SERVER_ACCEPT_COUNT:100}
+    max-connections: ${SERVER_MAX_CONNECTIONS:512}
+    keep-alive-timeout: ${SERVER_KEEP_ALIVE_TIMEOUT:20s}
+    max-keep-alive-requests: ${SERVER_MAX_KEEP_ALIVE_REQUESTS:100}
+    mbeanregistry.enabled: true
+    threads:
+      max: ${SERVER_MAX_THREADS:128}
+      min-spare: ${SERVER_MIN_SPARE_THREADS:10}
 logitrack:
   http.max-request-body-size: ${HTTP_MAX_REQUEST_BODY_SIZE:1MB}
   analytics:

@@ -118,6 +118,7 @@
 - batch DLQ replay 이벤트별 `REQUIRES_NEW` 격리로 부분 실패 rollback 전파 방지
 - DLQ batch 크기·처리율 범위의 fail-fast 구성 검증
 - KPI 1~90일 요청의 명시적 400과 projection 설정 fail-fast 검증
+- API worker·동시 연결·대기열·keep-alive 상한과 Prometheus runtime 수용량 지표
 - outbox batch 20건·Kafka 대기 5초 상한과 1~100/최대 30초 fail-fast 설정
 - PostgreSQL `next_attempt_at` 기반 outbox 1초~5분 지수 backoff와 due index
 - 가장 오래된 PENDING outbox age gauge와 5분 지속 warning
