@@ -4,6 +4,7 @@
 
 ## 완료
 
+- 배송 경고 목록의 표시 건수 안내와 점진적 펼치기·접기로 8건 이후 경고가 숨겨지지 않도록 개선
 - 주문 목록의 표시 건수 안내와 8건 단위 점진적 펼치기·접기를 추가해 긴 주문 이력 탐색성 개선
 - 프로젝트 요구사항, 성공 기준, 9주 로드맵과 기술 ADR
 - Docker Compose 기반 PostgreSQL, Redis, Kafka, API, simulator, web, Prometheus, Grafana
