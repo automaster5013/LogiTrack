@@ -35,6 +35,7 @@ JaCoCo가 핵심 상태 전이와 불변식을 소유한 도메인 클래스의 
 - Python 3.12 analytics/simulator 테스트와 Compose topology 검증
 - Node.js 22 TypeScript production build
 - API, analytics, simulator, web production image build와 non-root runtime 검사
+- 자체 이미지 5종의 standalone runtime에서도 유지되는 image-native healthcheck 검사
 - digest로 고정한 Trivy를 통한 CycloneDX SBOM artifact 생성과 CRITICAL 취약점 0건 gate
 - digest로 고정한 Trivy offline secret scan을 통한 커밋 비밀정보 0건 gate
 

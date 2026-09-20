@@ -17,5 +17,9 @@ foreach ($image in $images) {
   if ([string]::IsNullOrWhiteSpace($runtimeUser) -or $runtimeUser -in @("0", "root")) {
     throw "$($image.Name) runs as root"
   }
-  Write-Host "PASS: $($image.Name) runtime user=$runtimeUser"
+  $healthcheck = (docker image inspect --format '{{json .Config.Healthcheck.Test}}' $image.Name).Trim()
+  if ($healthcheck -in @("", "null", "[]")) {
+    throw "$($image.Name) has no image-native healthcheck"
+  }
+  Write-Host "PASS: $($image.Name) runtime user=$runtimeUser healthcheck=$healthcheck"
 }

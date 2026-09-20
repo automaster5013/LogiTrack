@@ -119,7 +119,7 @@ jobs:
           docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-simulator:ci ./simulator
           docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-web:ci ./web
           docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-otel-collector:ci ./infra/otel
-      - name: Enforce non-root runtime users
+      - name: Enforce hardened runtime metadata
         run: |
           for image in logitrack-api:ci logitrack-analytics:ci logitrack-simulator:ci logitrack-web:ci logitrack-otel-collector:ci; do
             user="$(docker image inspect --format '{{.Config.User}}' "$image")"
@@ -127,7 +127,13 @@ jobs:
               echo "::error::$image runs as root"
               exit 1
             fi
+            healthcheck="$(docker image inspect --format '{{json .Config.Healthcheck.Test}}' "$image")"
+            if [ "$healthcheck" = "null" ] || [ "$healthcheck" = "[]" ]; then
+              echo "::error::$image has no image-native healthcheck"
+              exit 1
+            fi
             echo "$image runtime user: $user"
+            echo "$image healthcheck: $healthcheck"
           done
       - name: Generate CycloneDX SBOMs
         env:

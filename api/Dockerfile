@@ -8,4 +8,6 @@ FROM eclipse-temurin:21-jre-alpine@sha256:1a29e1fe337eb28b5bec30f0ee8ed29f0ff80a
 RUN addgroup -S app && adduser -S app -G app
 USER app
 COPY --from=build /app/target/control-api-0.1.0.jar /app.jar
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=6 \
+  CMD wget -qO- http://127.0.0.1:8080/actuator/health/readiness | grep UP || exit 1
 ENTRYPOINT ["java","-jar","/app.jar"]
