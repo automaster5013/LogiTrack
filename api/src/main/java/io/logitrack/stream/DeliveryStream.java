@@ -8,6 +8,8 @@ import org.springframework.data.redis.connection.*;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -41,6 +43,11 @@ public class DeliveryStream implements MessageListener {
     @Scheduled(fixedDelayString="${logitrack.stream.heartbeat-ms:15000}")
     public void heartbeat(){
         for(var emitter:clients){try{emitter.send(SseEmitter.event().comment("keepalive"));}catch(Exception error){clients.remove(emitter);}}
+    }
+    @EventListener(ContextClosedEvent.class)
+    void closeAll(){
+        for(var emitter:clients){try{emitter.complete();}catch(Exception ignored){}}
+        clients.clear();
     }
     private void publish(String name,Object value){
         try{

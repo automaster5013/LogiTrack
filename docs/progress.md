@@ -25,6 +25,7 @@
 - 실행 중 스택의 health·자원·권한·저장소 정책 drift를 탐지하는 runtime smoke
 - 스케줄 위상과 무관하게 보존 정리를 검증하는 결정론적 retention smoke
 - worker별 HTTP 연결 예열과 simulator 격리를 적용한 재현 가능한 API 부하 기준선
+- 애플리케이션 종료 시 SSE emitter 선제 완료로 graceful shutdown 지연 제거
 - 웹·관측성 HTTP와 simulator 소비 루프 heartbeat 기반 전체 Docker 준비 상태 검증
 - Dockerfile 기반 이미지와 Compose 외부 이미지의 SHA-256 digest 고정 및 구성 회귀 검증
 - GitHub Actions·Maven·npm·Python·Dockerfile·Compose 전체 의존성의 주간 Dependabot 갱신
