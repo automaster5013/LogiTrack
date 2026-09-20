@@ -7,6 +7,16 @@ import type { Delivery, RouteSnapshot, TelemetryPoint } from "../types";
 
 setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
 const STYLE = process.env.NEXT_PUBLIC_MAP_STYLE_URL || "https://tiles.openfreemap.org/styles/liberty";
+const MAP_LOCALE={
+  "AttributionControl.ToggleAttribution":"지도 정보 표시",
+  "Map.Title":"운송 차량 지도",
+  "NavigationControl.ResetBearing":"드래그하여 지도를 회전하고 클릭하여 북쪽으로 초기화",
+  "NavigationControl.ZoomIn":"지도 확대",
+  "NavigationControl.ZoomOut":"지도 축소",
+  "CooperativeGesturesHandler.WindowsHelpText":"Ctrl 키를 누른 채 스크롤하여 지도를 확대하거나 축소하세요",
+  "CooperativeGesturesHandler.MacHelpText":"⌘ 키를 누른 채 스크롤하여 지도를 확대하거나 축소하세요",
+  "CooperativeGesturesHandler.MobileHelpText":"두 손가락으로 지도를 이동하세요"
+};
 
 type Props = { deliveries: Delivery[]; routes: RouteSnapshot[]; telemetry: TelemetryPoint[]; selectedId?: string; onSelect: (id: string) => void; emptyMessage?: string };
 
@@ -51,7 +61,7 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
 
   useEffect(()=>{
     if(!host.current||mapRef.current)return;
-    const map=new Map({container:host.current,style:STYLE,center:[126.84,37.51],zoom:9.6,pitch:42,bearing:-8,
+    const map=new Map({container:host.current,style:STYLE,center:[126.84,37.51],zoom:9.6,pitch:42,bearing:-8,locale:MAP_LOCALE,
       attributionControl:false,maxPitch:65});
     mapRef.current=map;
     map.addControl(new NavigationControl({visualizePitch:true}),"top-right");
