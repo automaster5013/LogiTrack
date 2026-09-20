@@ -67,9 +67,9 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
     map.addControl(new NavigationControl({visualizePitch:true}),"top-right");
     map.addControl(new ScaleControl({unit:"metric"}),"bottom-left");
     map.addControl(new AttributionControl({compact:true}),"bottom-right");
-    map.on("error",()=>setMapError(true));
+    const loadTimeout=window.setTimeout(()=>{if(!loaded.current)setMapError(true)},12000);
     map.on("load",()=>{
-      loaded.current=true; setMapError(false);
+      window.clearTimeout(loadTimeout); loaded.current=true; setMapError(false);
       map.addSource("fleet",{type:"geojson",data:features(deliveriesRef.current,routesRef.current,telemetryRef.current)});
       map.addLayer({id:"planned-shadow",type:"line",source:"fleet",filter:["==",["get","kind"],"route"],paint:{"line-color":"#ffffff","line-width":7,"line-opacity":0.72}});
       map.addLayer({id:"planned",type:"line",source:"fleet",filter:["==",["get","kind"],"route"],paint:{"line-color":"#315048","line-width":1.5,"line-dasharray":[2,2],"line-opacity":0.3}});
@@ -87,7 +87,7 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
       if(selected)fitDelivery(map,selected,routesRef.current,telemetryRef.current);
       map.once("idle",()=>setMapReady(true));
     });
-    return()=>{map.remove();mapRef.current=null;loaded.current=false};
+    return()=>{window.clearTimeout(loadTimeout);map.remove();mapRef.current=null;loaded.current=false};
   },[]);
 
   useEffect(()=>{
