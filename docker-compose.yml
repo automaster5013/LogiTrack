@@ -205,7 +205,7 @@ services:
       start_period: 10s
 
   tempo:
-    image: grafana/tempo:2.7.2@sha256:4b0277a9b572a4b1fa43b01468e58911ec214dd69d033f2cd476596d14de9fe3
+    image: grafana/tempo:3.0.3@sha256:0296560ac66f8a3600d7fb3014a52c189d4d9c3549ad6ff441bf2409855d68d5
     restart: unless-stopped
     logging: *default-logging
     stop_grace_period: 35s
