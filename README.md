@@ -118,6 +118,8 @@ API의 기본 HTTP 수용량은 Tomcat worker 128개, 동시 연결 512개, 대�
 
 Kafka telemetry consumer 부재 경보는 유휴 상태에서 생성되지 않을 수 있는 lag 지표가 아니라 consumer의 partition assignment 지표 자체가 사라졌는지를 사용하므로, 입력이 잠시 없을 때 오탐하지 않습니다.
 
+GPS simulator는 delivery event 처리 시작 시 API에서 현재 진행률을 확인하고 이미 적용된 step을 건너뜁니다. 따라서 simulator 재시작이나 수동 telemetry 부하 검증 후에도 진행률을 0부터 다시 발행해 DLQ를 오염시키지 않습니다.
+
 API readiness는 필수 source of truth인 PostgreSQL 연결을 포함합니다. Redis 장애는 로컬 SSE fallback으로 계속 서비스하되 PostgreSQL 장애는 HTTP 503 readiness로 트래픽 유입을 중단하며, `./scripts/readiness-smoke.ps1`가 두 장애와 자동 복구를 검증합니다.
 
 모든 HTTP API 응답은 `X-Trace-Id`를 반환합니다. 호출자가 1~128자의 안전한 식별자를 보내면 보존하고, 없으면 생성해 controller와 로그 MDC에 전달합니다. 경계 동작은 `./scripts/request-trace-smoke.ps1`로 검증합니다.

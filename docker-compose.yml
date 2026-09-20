@@ -226,6 +226,7 @@ services:
     tmpfs: ["/tmp:size=64m,mode=1777"]
     environment:
       KAFKA_BOOTSTRAP: kafka:29092
+      API_URL: http://api:8080
       SIMULATION_INTERVAL_SECONDS: 1
       SIMULATION_STEPS: 20
       SIMULATION_MAX_WORKERS: ${SIMULATION_MAX_WORKERS:-8}
@@ -233,6 +234,7 @@ services:
     depends_on:
       kafka: {condition: service_healthy}
       kafka-init: {condition: service_completed_successfully}
+      api: {condition: service_healthy}
     healthcheck:
       test: ["CMD", "python", "-c", "import os,time; p='/tmp/logitrack-simulator-heartbeat'; assert time.time() - os.path.getmtime(p) < 5"]
       interval: 10s

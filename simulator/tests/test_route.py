@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 from logitrack_sim.route import Point, distance_km, interpolate, planned_eta, sample_route
-from logitrack_sim.main import mark_healthy, validate_config
+from logitrack_sim.main import mark_healthy, pending_step_indexes, validate_config
 from datetime import datetime, timezone
 
 
@@ -52,6 +52,11 @@ class RouteTest(unittest.TestCase):
         validate_config(1, 20, 8)
         for values in [(0, 20, 8), (1, 1, 8), (1, 20, 0), (1, 1000, 8)]:
             with self.assertRaises(ValueError): validate_config(*values)
+
+    def test_resumes_after_the_last_applied_progress_step(self):
+        self.assertEqual(list(range(1, 21)), pending_step_indexes(0, 20))
+        self.assertEqual([19, 20], pending_step_indexes(0.9, 20))
+        self.assertEqual([], pending_step_indexes(1, 20))
 
 
 if __name__ == "__main__": unittest.main()

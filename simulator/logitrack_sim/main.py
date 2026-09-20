@@ -6,12 +6,14 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import BoundedSemaphore
+from urllib.request import urlopen
 
 from confluent_kafka import Consumer, Producer
 from .route import Point, eta, interpolate, planned_eta, sample_route
 
 
 BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
+API_URL = os.getenv("API_URL", "http://localhost:8080")
 INTERVAL = float(os.getenv("SIMULATION_INTERVAL_SECONDS", "1"))
 STEPS = int(os.getenv("SIMULATION_STEPS", "20"))
 WORKERS = int(os.getenv("SIMULATION_MAX_WORKERS", "8"))
@@ -40,13 +42,30 @@ def mark_healthy(path: Path = HEALTH_FILE) -> None:
     path.touch()
 
 
+def pending_step_indexes(current_progress: float, steps: int) -> list[int]:
+    return [index for index in range(1, steps + 1) if round(index / steps, 4) > current_progress]
+
+
+def load_delivery_state(delivery_id: str, api_url: str = API_URL) -> tuple[float, str]:
+    with urlopen(f"{api_url}/api/deliveries?limit=500", timeout=5) as response:
+        deliveries = json.load(response)
+    delivery = next((item for item in deliveries if item["id"] == delivery_id), None)
+    if delivery is None:
+        raise ValueError(f"delivery {delivery_id} is not available from the API")
+    return float(delivery["progress"]), str(delivery["status"])
+
+
 def simulate(producer: Producer, event: dict) -> None:
     payload = event["payload"]
+    current_progress, current_status = load_delivery_state(payload["deliveryId"])
+    if current_status == "DELIVERED":
+        return
     origin, destination = Point(**payload["origin"]), Point(**payload["destination"])
     route = [Point(lat=coordinate[1], lon=coordinate[0]) for coordinate in payload.get("route", [])]
     points = sample_route(route, STEPS) if len(route) >= 2 else interpolate(origin, destination, STEPS)
     planned_duration = payload.get("plannedDurationSeconds")
-    for index, point in enumerate(points, start=1):
+    for index in pending_step_indexes(current_progress, STEPS):
+        point = points[index - 1]
         progress = round(index / STEPS, 4)
         status = "DELIVERED" if index == STEPS else "IN_TRANSIT"
         telemetry = {

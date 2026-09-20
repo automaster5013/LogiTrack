@@ -153,6 +153,7 @@ def main() -> None:
     readiness_dependencies = {
         "otel-collector": ("tempo",),
         "prometheus": ("api",),
+        "simulator": ("api",),
         "grafana": ("prometheus", "tempo"),
     }
     for service_name, dependencies in readiness_dependencies.items():
