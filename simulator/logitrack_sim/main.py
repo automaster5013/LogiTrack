@@ -4,6 +4,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from pathlib import Path
 from threading import BoundedSemaphore
 
 from confluent_kafka import Consumer, Producer
@@ -14,6 +15,7 @@ BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
 INTERVAL = float(os.getenv("SIMULATION_INTERVAL_SECONDS", "1"))
 STEPS = int(os.getenv("SIMULATION_STEPS", "20"))
 WORKERS = int(os.getenv("SIMULATION_MAX_WORKERS", "8"))
+HEALTH_FILE = Path(os.getenv("SIMULATOR_HEALTH_FILE", "/tmp/logitrack-simulator-heartbeat"))
 
 
 def validate_config(interval: float, steps: int, workers: int) -> None:
@@ -32,6 +34,10 @@ validate_config(INTERVAL, STEPS, WORKERS)
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def mark_healthy(path: Path = HEALTH_FILE) -> None:
+    path.touch()
 
 
 def simulate(producer: Producer, event: dict) -> None:
@@ -62,6 +68,7 @@ def main() -> None:
     consumer.subscribe(["delivery.created.v1"])
     executor = ThreadPoolExecutor(max_workers=WORKERS, thread_name_prefix="delivery-sim")
     slots = BoundedSemaphore(WORKERS * 2)
+    mark_healthy()
 
     def completed(future) -> None:
         slots.release()
@@ -72,6 +79,7 @@ def main() -> None:
     try:
         while True:
             message = consumer.poll(1.0)
+            mark_healthy()
             if message is None: continue
             if message.error():
                 print(f"Kafka error: {message.error()}", flush=True); continue
@@ -80,7 +88,8 @@ def main() -> None:
             except (json.JSONDecodeError, TypeError) as error:
                 print(f"Invalid delivery event ignored: {error}", flush=True)
                 continue
-            slots.acquire()
+            while not slots.acquire(timeout=1):
+                mark_healthy()
             future = executor.submit(simulate, producer, event)
             future.add_done_callback(completed)
     finally:

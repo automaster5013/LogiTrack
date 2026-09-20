@@ -52,7 +52,15 @@ def main() -> None:
     if services["kafka-init"].get("restart"):
         raise AssertionError("One-shot kafka-init must not have a restart policy")
 
-    print("PASS: database overrides, fail-fast initialization, and long-running service restart policies are valid")
+    for service_name in ("simulator", "web"):
+        if not services[service_name].get("healthcheck", {}).get("test"):
+            raise AssertionError(f"{service_name} does not expose runtime readiness")
+    if "SIMULATOR_HEALTH_FILE" not in services["simulator"]["environment"]:
+        raise AssertionError("simulator heartbeat path is not configured")
+    if services["web"]["environment"].get("HOSTNAME") != "0.0.0.0":
+        raise AssertionError("web is not bound to every container interface")
+
+    print("PASS: database overrides, initialization, restart policies, and runtime readiness are valid")
 
 
 if __name__ == "__main__":

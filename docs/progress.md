@@ -6,6 +6,7 @@
 
 - 프로젝트 요구사항, 성공 기준, 9주 로드맵과 기술 ADR
 - Docker Compose 기반 PostgreSQL, Redis, Kafka, API, simulator, web, Prometheus, Grafana
+- 웹 HTTP와 simulator 소비 루프 heartbeat 기반 Docker 준비 상태 검증
 - 멱등 배송 생성과 transactional outbox
 - Python GPS/ETA simulator와 Kafka telemetry 처리
 - SSE 실시간 배송 관제와 MapLibre 벡터 지도

@@ -1,14 +1,24 @@
 import sys
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 from logitrack_sim.route import Point, distance_km, interpolate, planned_eta, sample_route
-from logitrack_sim.main import validate_config
+from logitrack_sim.main import mark_healthy, validate_config
 from datetime import datetime, timezone
 
 
 class RouteTest(unittest.TestCase):
+    def test_mark_healthy_creates_and_refreshes_heartbeat(self):
+        with TemporaryDirectory() as directory:
+            heartbeat = Path(directory) / "simulator-heartbeat"
+            mark_healthy(heartbeat)
+            first_modified = heartbeat.stat().st_mtime_ns
+            mark_healthy(heartbeat)
+            self.assertTrue(heartbeat.is_file())
+            self.assertGreaterEqual(heartbeat.stat().st_mtime_ns, first_modified)
+
     def test_interpolation_reaches_destination(self):
         destination = Point(37.4563, 126.7052)
         route = interpolate(Point(37.5665, 126.9780), destination, 10)
