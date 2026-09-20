@@ -11,6 +11,7 @@ $expectedNetworks = @{
   kafka = @("logitrack_data")
   analytics = @("logitrack_analytics-egress", "logitrack_observability")
   api = @("logitrack_analytics-egress", "logitrack_data", "logitrack_edge", "logitrack_observability")
+  "api-replica" = @("logitrack_analytics-egress", "logitrack_data", "logitrack_edge", "logitrack_observability")
   simulator = @("logitrack_data")
   web = @("logitrack_edge")
   tempo = @("logitrack_observability")
@@ -20,6 +21,10 @@ $expectedNetworks = @{
 }
 
 $running = @(docker compose ps --format json | ConvertFrom-Json)
+if ($running.Service -contains "api-replica") {
+  $expectedServices += "api-replica"
+  $statelessServices += "api-replica"
+}
 foreach ($service in $expectedServices) {
   $state = $running | Where-Object Service -eq $service | Select-Object -First 1
   if (-not $state -or $state.State -ne "running" -or $state.Health -ne "healthy") {
