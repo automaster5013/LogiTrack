@@ -7,15 +7,16 @@ const number = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 0 });
 export default function DailyKpiPanel({ rows, csvUrl, pdfUrl }: Props) {
   const latest = rows.at(-1);
   const maxTotal = Math.max(1, ...rows.map((row) => row.totalDeliveries));
+  const reportDate = latest ? latest.metricDate.replaceAll("-", ".") : "집계 대기";
 
   return <section className="kpiBoard">
     <div className="kpiHeader">
-      <div><p className="eyebrow">일별 보고서 / UTC 기준</p><h2>배송 성과</h2></div>
+      <div><p className="eyebrow">{reportDate} / UTC 기준</p><h2>배송 성과</h2></div>
       <div className="kpiDownloads"><a href={pdfUrl} download aria-label="배송 성과 PDF 내려받기">PDF 내려받기 ↓</a><a href={csvUrl} download aria-label="배송 성과 CSV 내려받기">CSV</a></div>
     </div>
     <div className="kpiSummary">
-      <div><span>오늘 접수</span><strong>{number.format(latest?.totalDeliveries ?? 0)}</strong><small>운송 중 {latest?.activeDeliveries ?? 0}건</small></div>
-      <div><span>배송 완료</span><strong>{number.format(latest?.deliveredDeliveries ?? 0)}</strong><small>오늘 접수 기준</small></div>
+      <div><span>오늘 접수</span><strong>{number.format(latest?.totalDeliveries ?? 0)}</strong><small>오늘 접수분 중 진행 {latest?.activeDeliveries ?? 0}건</small></div>
+      <div><span>배송 완료</span><strong>{number.format(latest?.deliveredDeliveries ?? 0)}</strong><small>오늘 접수분 기준</small></div>
       <div><span>정시 배송률</span><strong>{latest ? latest.onTimeRatePercent.toFixed(1) : "0.0"}%</strong><small>최초 예정 시각 기준</small></div>
       <div><span>평균 소요 시간</span><strong>{latest ? latest.averageCycleMinutes.toFixed(0) : "0"}<i>분</i></strong><small>완료 배송 기준</small></div>
     </div>
