@@ -39,6 +39,8 @@ pull request
 
 Dependabot은 매주 GitHub Actions, Maven, npm, Python, Dockerfile, Docker Compose 의존성을 확인한다. minor/patch 갱신은 생태계별 단일 PR로 묶고 major 갱신은 독립 PR로 남겨 영향 범위를 명확히 하며, 고정된 컨테이너 tag의 새 digest도 같은 CI 게이트를 통과해야 한다.
 
+각 production image build context는 `.dockerignore`로 `.env*`, 로컬 build/cache, test artifact를 제외한다. OpenTelemetry Collector context는 Dockerfile만 허용하며 CI가 필수 제외 규칙의 누락을 차단한다.
+
 ## 로컬 릴리스 검증
 
 `./scripts/container-build.ps1`은 API, analytics, simulator, web, OpenTelemetry Collector production image를 현재 commit SHA label과 함께 빌드하고 root runtime을 거부한다. 이어서 `./scripts/container-security.ps1`을 실행하면 digest로 고정한 Trivy 0.74.0이 `work/sbom/*.cdx.json`을 만들고 다섯 image의 CRITICAL 취약점 0건을 강제한다. 실제 registry push나 배포는 수행하지 않는다.

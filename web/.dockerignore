@@ -1,4 +1,5 @@
-node_modules
-.next
-npm-debug.log
-
+node_modules/
+.next/
+.env*
+coverage/
+*.log
