@@ -67,6 +67,15 @@ def main() -> None:
         if "no-new-privileges:true" not in service.get("security_opt", []):
             raise AssertionError(f"{service_name} can gain additional process privileges")
 
+    stateless_services = {"analytics", "api", "api-replica", "simulator", "web", "otel-collector"}
+    for service_name in stateless_services:
+        service = services[service_name]
+        if service.get("read_only") is not True:
+            raise AssertionError(f"{service_name} root filesystem is writable")
+        tmp_mounts = [mount for mount in service.get("tmpfs", []) if mount.startswith("/tmp:size=")]
+        if len(tmp_mounts) != 1:
+            raise AssertionError(f"{service_name} does not have a bounded writable /tmp")
+
     persistent_mounts = {
         "postgres": ("postgres-data", "/var/lib/postgresql/data"),
         "redis": ("redis-data", "/data"),
@@ -138,7 +147,7 @@ def main() -> None:
                 if not DIGEST_PATTERN.search(image):
                     raise AssertionError(f"{dockerfile} base image is not pinned by digest: {image}")
 
-    print("PASS: topology, persistence, resource limits, privilege boundaries, loopback ports, bounded logs, graceful shutdown, runtime readiness, restart policies, and immutable image sources are valid")
+    print("PASS: topology, persistence, resource limits, read-only stateless services, privilege boundaries, loopback ports, bounded logs, graceful shutdown, runtime readiness, restart policies, and immutable image sources are valid")
 
 
 if __name__ == "__main__":

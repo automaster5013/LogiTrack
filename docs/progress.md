@@ -18,6 +18,7 @@
 - GitHub Actions Ubuntu 24.04 runner 고정과 action SHA·timeout·최소 권한 회귀 검증
 - clean checkout의 커밋 비밀정보를 차단하는 digest 고정 Trivy offline CI gate
 - 자체 production 이미지 5종의 image-native readiness metadata와 CI 강제 검사
+- 무상태 자체 서비스의 read-only root filesystem과 크기 제한 writable tmpfs
 - 웹·관측성 HTTP와 simulator 소비 루프 heartbeat 기반 전체 Docker 준비 상태 검증
 - Dockerfile 기반 이미지와 Compose 외부 이미지의 SHA-256 digest 고정 및 구성 회귀 검증
 - GitHub Actions·Maven·npm·Python·Dockerfile·Compose 전체 의존성의 주간 Dependabot 갱신
