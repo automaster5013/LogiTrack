@@ -19,7 +19,7 @@ export default function DailyKpiPanel({ rows, csvUrl, pdfUrl }: Props) {
       <div><span>ON-TIME RATE</span><strong>{latest ? latest.onTimeRatePercent.toFixed(1) : "0.0"}%</strong><small>vs first planned ETA</small></div>
       <div><span>AVG. CYCLE</span><strong>{latest ? latest.averageCycleMinutes.toFixed(0) : "0"}<i>m</i></strong><small>completed deliveries</small></div>
     </div>
-    <div className="kpiChart" role="img" aria-label="최근 14일 일별 배송량과 완료 배송량 차트">
+    <div className="kpiChart" role="img" aria-label="최근 14일 일별 배송량과 완료 배송량 차트. 작은 화면에서는 가로로 스크롤할 수 있습니다." tabIndex={0}>
       {rows.map((row) => {
         const totalHeight = row.totalDeliveries / maxTotal * 100;
         const deliveredHeight = row.totalDeliveries ? row.deliveredDeliveries / row.totalDeliveries * 100 : 0;

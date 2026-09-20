@@ -29,6 +29,7 @@ export default function Home(){
  const [loadedWorkspaces,setLoadedWorkspaces]=useState<Set<Workspace>>(()=>new Set(["overview"]));
  const [retryingWorkspace,setRetryingWorkspace]=useState<Workspace>();
  const workspaceRef=useRef<Workspace>("overview");
+ const workspaceNavRef=useRef<HTMLElement>(null);
  const [items,setItems]=useState<Delivery[]>([]); const [connected,setConnected]=useState(false); const [workspaceErrors,setWorkspaceErrors]=useState<Partial<Record<Workspace,string>>>({}); const [selected,setSelected]=useState<string>();
  const knownDeliveryIds=useRef(new Set<string>());
  const requestedMapIds=useRef(new Set<string>());
@@ -78,6 +79,7 @@ export default function Home(){
  const visibleItems=useMemo(()=>{const query=fleetQuery.trim().toLowerCase();return query?scopedItems.filter(item=>[item.vehicleId,item.orderNumber,item.originName,item.destinationName].some(value=>value.toLowerCase().includes(query))):scopedItems},[scopedItems,fleetQuery]);
  useEffect(()=>{if(visibleItems.length&&!visibleItems.some(item=>item.id===selected))setSelected(visibleItems.find(item=>routes.some(route=>route.deliveryId===item.id))?.id||visibleItems[0].id)},[visibleItems,routes,selected]);
  useEffect(()=>{workspaceRef.current=workspace},[workspace]);
+ useEffect(()=>{const active=workspaceNavRef.current?.querySelector<HTMLElement>('[aria-current="page"]');active?.scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"nearest",inline:"center"})},[workspace]);
  useEffect(()=>{if(workspace==="overview"||workspace==="orders")loadMapData(scopedItems.map(item=>item.id)).catch(()=>setWorkspaceError(workspace,"지도 경로를 불러올 수 없습니다."))},[fleetScope,items,workspace]);
  function focusDelivery(id:string){if(items.find(item=>item.id===id)?.status==="DELIVERED")setFleetScope("ALL");setFleetQuery("");setSelected(id)}
  useEffect(()=>workspaceReady&&workspace==="warehouse"?pollAfterCompletion(loadWarehouseWorkspace,30000):undefined,[workspaceReady,workspace]);
@@ -106,7 +108,7 @@ export default function Home(){
  const copy=workspaceCopy[workspace];
  const error=workspaceErrors[workspace];
  return <main><a className="skipLink" href="#workspace-content" onClick={event=>{event.preventDefault();const content=document.getElementById("workspace-content");content?.focus();content?.scrollIntoView()}}>본문 바로가기</a><header className="appHeader"><button className="brand" type="button" onClick={()=>openWorkspace("overview")} aria-label="LogiTrack 상황판으로 이동"><span>LT</span><div><p className="eyebrow">OPERATIONS / LIVE</p><h1>LogiTrack</h1></div></button><div className="headerStatus"><span className={`signal ${connected?"on":""}`} aria-live="polite"><i/>{connected?"LIVE STREAM":"RECONNECTING"}</span><small>CONTROL TOWER</small></div></header>
-  <nav className="workspaceNav" aria-label="Control tower workspaces">
+  <nav ref={workspaceNavRef} className="workspaceNav" aria-label="Control tower workspaces">
    {workspaceKeys.map(key=><a key={key} href={`#${key}`} aria-current={workspace===key?"page":undefined} onClick={event=>{event.preventDefault();openWorkspace(key)}}><span>{workspaceCopy[key].label}</span>{key==="overview"&&activeAlerts.length>0&&<b aria-label={`${activeAlerts.length} active alerts`}>{activeAlerts.length}</b>}{key==="recovery"&&deadLetterTotal>0&&<b aria-label={`${deadLetterTotal} pending recovery events`}>{deadLetterTotal}</b>}</a>)}
   </nav>
   <div id="workspace-content" className="workspaceContent" tabIndex={-1}><section className="workspaceIntro"><div><p className="eyebrow">{copy.eyebrow}</p><h2>{copy.title}</h2><p>{copy.description}</p></div>{workspace!=="overview"&&<button type="button" onClick={()=>openWorkspace("overview")}>← 상황판으로</button>}</section>
