@@ -44,7 +44,7 @@ services:
       retries: 20
 
   kafka:
-    image: apache/kafka:4.0.0@sha256:3f7b939115cd4872e9cee9369d80bd69712fde55f9902f46d793f64848dedc75
+    image: apache/kafka:4.3.1@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837
     logging: *default-logging
     stop_grace_period: 35s
     mem_limit: 1g
@@ -77,7 +77,7 @@ services:
       retries: 20
 
   kafka-init:
-    image: apache/kafka:4.0.0@sha256:3f7b939115cd4872e9cee9369d80bd69712fde55f9902f46d793f64848dedc75
+    image: apache/kafka:4.3.1@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837
     logging: *default-logging
     mem_limit: 128m
     cpus: 0.5
