@@ -25,6 +25,8 @@ function workspaceFromHash(hash:string):Workspace|undefined{const value=hash.rep
 
 export default function Home(){
  const [workspace,setWorkspace]=useState<Workspace>("overview");
+ const [workspaceReady,setWorkspaceReady]=useState(false);
+ const workspaceRef=useRef<Workspace>("overview");
  const [items,setItems]=useState<Delivery[]>([]); const [connected,setConnected]=useState(false); const [error,setError]=useState(""); const [selected,setSelected]=useState<string>();
  const knownDeliveryIds=useRef(new Set<string>());
  const requestedMapIds=useRef(new Set<string>());
@@ -49,31 +51,33 @@ export default function Home(){
   }catch(error){ids.forEach(id=>requestedMapIds.current.delete(id));throw error}
  };
  const clearError=(message:string)=>setError(current=>current===message?"":current);
- const load=()=>Promise.all([fetchJson<Delivery[]>(`${API}/api/deliveries`),fetchJson<DeliveryAlert[]>(`${API}/api/alerts`)]).then(async([d,a])=>{knownDeliveryIds.current=new Set(d.map(item=>item.id));setItems(d);setAlerts(a);await loadMapData(d.filter(item=>item.status!=="DELIVERED").map(item=>item.id));clearError("API에 연결할 수 없습니다.")}).catch(()=>setError("API에 연결할 수 없습니다."));
+ const load=()=>Promise.all([fetchJson<Delivery[]>(`${API}/api/deliveries`),fetchJson<DeliveryAlert[]>(`${API}/api/alerts`)]).then(async([d,a])=>{knownDeliveryIds.current=new Set(d.map(item=>item.id));setItems(d);setAlerts(a);if(workspaceRef.current==="overview"||workspaceRef.current==="orders")await loadMapData(d.filter(item=>item.status!=="DELIVERED").map(item=>item.id));clearError("API에 연결할 수 없습니다.")}).catch(()=>setError("API에 연결할 수 없습니다."));
  const loadWarehouse=()=>Promise.all([fetchJson<WarehouseStock[]>(`${API}/api/warehouse/stock`),fetchJson<WarehouseTask[]>(`${API}/api/warehouse/tasks`),fetchJson<LedgerEntry[]>(`${API}/api/warehouse/ledger`)]).then(([s,t,l])=>{setStocks(s);setTasks(t);setLedger(l);clearError("창고 데이터에 연결할 수 없습니다.")}).catch(()=>setError("창고 데이터에 연결할 수 없습니다."));
  const loadKpis=()=>fetchJson<DailyDeliveryKpi[]>(`${API}/api/reports/daily-kpis?days=14`).then(rows=>{setKpis(rows);clearError("KPI 보고서를 불러올 수 없습니다.")}).catch(()=>setError("KPI 보고서를 불러올 수 없습니다."));
  const loadOrders=()=>fetchJson<CustomerOrder[]>(`${API}/api/orders`).then(rows=>{setOrders(rows);clearError("주문 데이터를 불러올 수 없습니다.")}).catch(()=>setError("주문 데이터를 불러올 수 없습니다."));
  const loadReplay=()=>Promise.all([Promise.all(Array.from({length:replayLastPage.current+1},(_,page)=>fetchJson<DeadLetterPage>(`${API}/api/operations/dlq-page?status=PENDING&page=${page}&size=100`))),fetchJson<ReplayAudit[]>(`${API}/api/operations/replay-audits`)]).then(([pages,audits])=>{const merged=new Map(pages.flatMap(page=>page.items).map(event=>[event.id,event]));setDeadLetters([...merged.values()]);setDeadLetterTotal(pages[0]?.totalElements||0);setReplayAudits(audits);setError(current=>current==="복구 큐를 불러올 수 없습니다."?"":current)}).catch(()=>setError("복구 큐를 불러올 수 없습니다."));
+ const loadReplayCount=()=>fetchJson<DeadLetterPage>(`${API}/api/operations/dlq-page?status=PENDING&page=0&size=1`).then(page=>setDeadLetterTotal(page.totalElements)).catch(()=>{});
  const loadMoreReplay=async()=>{setReplayPageBusy(true);try{const next=replayLastPage.current+1;const page=await fetchJson<DeadLetterPage>(`${API}/api/operations/dlq-page?status=PENDING&page=${next}&size=100`);replayLastPage.current=next;setDeadLetters(current=>{const merged=new Map([...current,...page.items].map(event=>[event.id,event]));return [...merged.values()]});setDeadLetterTotal(page.totalElements);clearError("복구 큐를 불러올 수 없습니다.")}catch{setError("복구 큐를 불러올 수 없습니다.")}finally{setReplayPageBusy(false)}};
  const loadOutbox=()=>Promise.all([fetchJson<OutboxFailure[]>(`${API}/api/operations/outbox/failures`),fetchJson<OutboxRetryAudit[]>(`${API}/api/operations/outbox/retry-audits`)]).then(([failures,audits])=>{setOutboxFailures(failures);setOutboxAudits(audits);clearError("Outbox 복구 큐를 불러올 수 없습니다.")}).catch(()=>setError("Outbox 복구 큐를 불러올 수 없습니다."));
  const loadPolicies=()=>Promise.all([fetchJson<AlertPolicy[]>(`${API}/api/alert-policies`),fetchJson<AlertPolicyAudit[]>(`${API}/api/alert-policies/audits`)]).then(([nextPolicies,nextAudits])=>{setPolicies(nextPolicies);setPolicyAudits(nextAudits);clearError("경고 정책을 불러올 수 없습니다.")}).catch(()=>setError("경고 정책을 불러올 수 없습니다."));
- useEffect(()=>{load(); const source=new EventSource(`${API}/api/stream/deliveries`); source.onopen=()=>setConnected(true); source.onerror=()=>setConnected(false);
-  source.addEventListener("delivery-update",e=>{const next:Delivery=JSON.parse((e as MessageEvent).data);if(!knownDeliveryIds.current.has(next.id)){knownDeliveryIds.current.add(next.id);loadMapData([next.id]).catch(()=>{})}setItems(old=>[next,...old.filter(x=>x.id!==next.id)]);loadOrders().catch(()=>{})});
+ useEffect(()=>{const sync=()=>{const next=workspaceFromHash(window.location.hash);if(next){workspaceRef.current=next;setWorkspace(next)}};sync();if(!window.location.hash)window.history.replaceState(null,"",`${window.location.pathname}${window.location.search}#overview`);setWorkspaceReady(true);window.addEventListener("popstate",sync);window.addEventListener("hashchange",sync);return()=>{window.removeEventListener("popstate",sync);window.removeEventListener("hashchange",sync)}},[]);
+ useEffect(()=>{if(!workspaceReady)return;load(); const source=new EventSource(`${API}/api/stream/deliveries`); source.onopen=()=>setConnected(true); source.onerror=()=>setConnected(false);
+  source.addEventListener("delivery-update",e=>{const next:Delivery=JSON.parse((e as MessageEvent).data);if(!knownDeliveryIds.current.has(next.id)){knownDeliveryIds.current.add(next.id);if(workspaceRef.current==="overview"||workspaceRef.current==="orders")loadMapData([next.id]).catch(()=>{})}setItems(old=>[next,...old.filter(x=>x.id!==next.id)])});
   source.addEventListener("telemetry-point",e=>{const next:TelemetryPoint=JSON.parse((e as MessageEvent).data);setTelemetry(old=>old.some(point=>point.eventId===next.eventId)?old:[next,...old].slice(0,5000))});
-  source.addEventListener("alert-update",e=>{const next:DeliveryAlert=JSON.parse((e as MessageEvent).data);setAlerts(old=>[next,...old.filter(x=>x.id!==next.id)])});return()=>source.close()},[]);
+  source.addEventListener("alert-update",e=>{const next:DeliveryAlert=JSON.parse((e as MessageEvent).data);setAlerts(old=>[next,...old.filter(x=>x.id!==next.id)])});return()=>source.close()},[workspaceReady]);
  const liveItems=useMemo(()=>items.filter(item=>item.status!=="DELIVERED"),[items]);
  const scopedItems=fleetScope==="LIVE"?liveItems:items;
  const visibleItems=useMemo(()=>{const query=fleetQuery.trim().toLowerCase();return query?scopedItems.filter(item=>[item.vehicleId,item.orderNumber,item.originName,item.destinationName].some(value=>value.toLowerCase().includes(query))):scopedItems},[scopedItems,fleetQuery]);
  useEffect(()=>{if(visibleItems.length&&!visibleItems.some(item=>item.id===selected))setSelected(visibleItems.find(item=>routes.some(route=>route.deliveryId===item.id))?.id||visibleItems[0].id)},[visibleItems,routes,selected]);
- useEffect(()=>{loadMapData(scopedItems.map(item=>item.id)).catch(()=>setError("지도 경로를 불러올 수 없습니다."))},[fleetScope,items]);
+ useEffect(()=>{workspaceRef.current=workspace},[workspace]);
+ useEffect(()=>{if(workspace==="overview"||workspace==="orders")loadMapData(scopedItems.map(item=>item.id)).catch(()=>setError("지도 경로를 불러올 수 없습니다."))},[fleetScope,items,workspace]);
  function focusDelivery(id:string){if(items.find(item=>item.id===id)?.status==="DELIVERED")setFleetScope("ALL");setFleetQuery("");setSelected(id)}
- useEffect(()=>{loadWarehouse()},[]);
- useEffect(()=>pollAfterCompletion(loadOrders,15000),[]);
- useEffect(()=>pollAfterCompletion(loadKpis,30000),[]);
- useEffect(()=>pollAfterCompletion(loadReplay,15000),[]);
- useEffect(()=>pollAfterCompletion(loadOutbox,15000),[]);
- useEffect(()=>pollAfterCompletion(loadPolicies,30000),[]);
- useEffect(()=>{const sync=()=>{const next=workspaceFromHash(window.location.hash);if(next)setWorkspace(next)};sync();if(!window.location.hash)window.history.replaceState(null,"",`${window.location.pathname}${window.location.search}#overview`);window.addEventListener("popstate",sync);window.addEventListener("hashchange",sync);return()=>{window.removeEventListener("popstate",sync);window.removeEventListener("hashchange",sync)}},[]);
+ useEffect(()=>workspaceReady&&workspace==="warehouse"?pollAfterCompletion(loadWarehouse,30000):undefined,[workspaceReady,workspace]);
+ useEffect(()=>workspaceReady&&workspace==="orders"?pollAfterCompletion(loadOrders,15000):undefined,[workspaceReady,workspace]);
+ useEffect(()=>workspaceReady&&workspace==="overview"?pollAfterCompletion(loadKpis,30000):undefined,[workspaceReady,workspace]);
+ useEffect(()=>workspaceReady?(workspace==="recovery"?pollAfterCompletion(loadReplay,15000):pollAfterCompletion(loadReplayCount,30000)):undefined,[workspaceReady,workspace]);
+ useEffect(()=>workspaceReady&&workspace==="recovery"?pollAfterCompletion(loadOutbox,15000):undefined,[workspaceReady,workspace]);
+ useEffect(()=>workspaceReady&&workspace==="settings"?pollAfterCompletion(loadPolicies,30000):undefined,[workspaceReady,workspace]);
  async function createOrder(e?:FormEvent){e?.preventDefault();setOrderBusy("create");setError("");try{const suffix=Date.now().toString().slice(-6);const response=await fetch(`${API}/api/orders`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({orderNumber:`ORD-${suffix}`,origin:{name:"Seoul Hub",lat:37.5665,lon:126.978},destination:{name:"Incheon DC",lat:37.4563,lon:126.7052}})});if(!response.ok)throw new Error();await loadOrders()}catch{setError("주문 생성에 실패했습니다.")}finally{setOrderBusy(undefined)}}
  async function dispatchOrder(id:string){setOrderBusy(id);setError("");try{const response=await fetch(`${API}/api/orders/${id}/dispatch`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({vehicleId:`TRUCK-${Math.ceil(Math.random()*9).toString().padStart(2,"0")}`})});if(!response.ok)throw new Error();const order:CustomerOrder=await response.json();if(order.deliveryId)setSelected(order.deliveryId);await Promise.all([loadOrders(),load()])}catch{setError("주문 배차에 실패했습니다.")}finally{setOrderBusy(undefined)}}
  async function receiveStock(){setWarehouseBusy(true);setError("");try{const suffix=Date.now().toString().slice(-6);const r=await fetch(`${API}/api/warehouse/receipts`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({referenceNumber:`ASN-${suffix}`,warehouseId:"SEOUL-HUB-A",sku:"COLD-BOX-01",quantity:10})});if(!r.ok)throw new Error();await loadWarehouse()}catch{setError("입고 처리에 실패했습니다.")}finally{setWarehouseBusy(false)}}

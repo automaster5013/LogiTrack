@@ -155,6 +155,7 @@
 - transactional outbox W3C trace context 원자적 보존과 비동기 Kafka producer/consumer trace 연속성
 - 100건 초과 PENDING DLQ의 페이지 조회와 Control Tower 점진 로딩으로 오래된 격리 이벤트 접근 보장
 - Control Tower 작업공간 URL 딥링크·브라우저 탐색 상태 보존, 본문 바로가기와 reduced-motion 접근성
+- Control Tower 작업공간별 상세 데이터 지연 로딩·조건부 polling과 경량 DLQ badge 조회로 비활성 화면 요청 격리
 
 ## 현재 상태
 
