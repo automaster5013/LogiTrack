@@ -37,4 +37,6 @@ JaCoCo가 핵심 상태 전이와 불변식을 소유한 도메인 클래스의 
 
 외부 배포나 secret은 사용하지 않으며 `GITHUB_TOKEN` 권한은 `contents: read`로 제한한다. 같은 branch에 새 실행이 시작되면 이전 실행을 취소해 불필요한 runner 사용도 줄인다.
 
+PostgreSQL backup/restore 스크립트는 CI에서 digest 고정 PostgreSQL 컨테이너와 임시 volume을 기동해 실제 custom-format dump를 격리 DB에 복원한다. 성공 여부와 관계없이 `docker compose down --volumes --remove-orphans`를 실행해 runner의 데이터와 컨테이너를 제거한다.
+
 SBOM artifact는 commit SHA가 포함된 이름으로 30일 보관한다. 로컬에서는 production image를 `./scripts/container-build.ps1`로 만든 다음 `./scripts/container-security.ps1`로 같은 정책을 재현한다.
