@@ -1,6 +1,11 @@
 import json
 import os
+import re
 import subprocess
+from pathlib import Path
+
+
+DIGEST_PATTERN = re.compile(r"@sha256:[0-9a-f]{64}$")
 
 
 def rendered_compose() -> dict:
@@ -71,7 +76,27 @@ def main() -> None:
             if condition != "service_healthy":
                 raise AssertionError(f"{service_name} does not wait for healthy {dependency}")
 
-    print("PASS: database overrides, initialization, restart policies, and runtime readiness are valid")
+    external_images = ("postgres", "redis", "kafka", "kafka-init", "tempo", "prometheus", "grafana")
+    for service_name in external_images:
+        image = services[service_name].get("image", "")
+        if not DIGEST_PATTERN.search(image):
+            raise AssertionError(f"{service_name} image is not pinned by digest")
+
+    dockerfiles = (
+        Path("api/Dockerfile"),
+        Path("analytics/Dockerfile"),
+        Path("simulator/Dockerfile"),
+        Path("web/Dockerfile"),
+        Path("infra/otel/Dockerfile"),
+    )
+    for dockerfile in dockerfiles:
+        for line in dockerfile.read_text(encoding="utf-8").splitlines():
+            if line.startswith("FROM "):
+                image = line.split()[1]
+                if not DIGEST_PATTERN.search(image):
+                    raise AssertionError(f"{dockerfile} base image is not pinned by digest: {image}")
+
+    print("PASS: topology, runtime readiness, restart policies, and immutable image sources are valid")
 
 
 if __name__ == "__main__":

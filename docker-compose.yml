@@ -1,7 +1,7 @@
 name: logitrack
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17-alpine@sha256:f02121de6f74d30d8a94cd1d9584125e2178d7e6c377d8130112d4e52d867995
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-logitrack}
@@ -16,7 +16,7 @@ services:
     volumes: ["postgres-data:/var/lib/postgresql/data"]
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
     restart: unless-stopped
     ports: ["6379:6379"]
     healthcheck:
@@ -26,7 +26,7 @@ services:
       retries: 20
 
   kafka:
-    image: apache/kafka:4.0.0
+    image: apache/kafka:4.0.0@sha256:3f7b939115cd4872e9cee9369d80bd69712fde55f9902f46d793f64848dedc75
     restart: unless-stopped
     ports: ["9092:9092"]
     environment:
@@ -49,7 +49,7 @@ services:
       retries: 20
 
   kafka-init:
-    image: apache/kafka:4.0.0
+    image: apache/kafka:4.0.0@sha256:3f7b939115cd4872e9cee9369d80bd69712fde55f9902f46d793f64848dedc75
     depends_on:
       kafka: {condition: service_healthy}
     command:
@@ -182,7 +182,7 @@ services:
       start_period: 10s
 
   tempo:
-    image: grafana/tempo:2.7.2
+    image: grafana/tempo:2.7.2@sha256:4b0277a9b572a4b1fa43b01468e58911ec214dd69d033f2cd476596d14de9fe3
     restart: unless-stopped
     command: ["-config.file=/etc/tempo.yml"]
     volumes:
@@ -212,7 +212,7 @@ services:
       start_period: 10s
 
   prometheus:
-    image: prom/prometheus:v3.5.0
+    image: prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996
     restart: unless-stopped
     command: ["--config.file=/etc/prometheus/prometheus.yml"]
     volumes:
@@ -229,7 +229,7 @@ services:
       start_period: 10s
 
   grafana:
-    image: grafana/grafana:12.1.0
+    image: grafana/grafana:12.1.0@sha256:6ac590e7cabc2fbe8d7b8fc1ce9c9f0582177b334e0df9c927ebd9670469440f
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}

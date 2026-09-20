@@ -7,6 +7,7 @@
 - 프로젝트 요구사항, 성공 기준, 9주 로드맵과 기술 ADR
 - Docker Compose 기반 PostgreSQL, Redis, Kafka, API, simulator, web, Prometheus, Grafana
 - 웹·관측성 HTTP와 simulator 소비 루프 heartbeat 기반 전체 Docker 준비 상태 검증
+- Dockerfile 기반 이미지와 Compose 외부 이미지의 SHA-256 digest 고정 및 구성 회귀 검증
 - 멱등 배송 생성과 transactional outbox
 - Python GPS/ETA simulator와 Kafka telemetry 처리
 - SSE 실시간 배송 관제와 MapLibre 벡터 지도
@@ -36,8 +37,8 @@
 - 배포 runtime version 감지와 자동 새로고침으로 오래 열린 운영 탭의 구형 CSS/JavaScript 및 검은 지도 상태 자동 복구
 - JaCoCo 핵심 도메인 line/branch 80% 빌드 gate와 재현 가능한 Docker 검증(line 92.37%, branch 88.71%)
 - GitHub Actions 병렬 CI(API coverage, Python tests, Compose validation, TypeScript production build)와 최소 읽기 권한
-- production 컨테이너 4종의 잠금 의존성 build, commit SHA label, non-root runtime CI gate와 CD 도입 기준
-- production 컨테이너 4종의 CycloneDX SBOM artifact와 CRITICAL 취약점 0건 CI gate, Tomcat/Netty 보안 패치 고정
+- production 컨테이너 5종의 잠금 의존성 build, commit SHA label, non-root runtime CI gate와 CD 도입 기준
+- production 컨테이너 5종의 CycloneDX SBOM artifact와 CRITICAL 취약점 0건 CI gate, Tomcat/Netty 보안 패치 고정
 - 비관적 잠금 기반 경고 운영자 확인, 최초 확인 감사 정보, 멱등 outbox 이벤트와 TypeScript 미확인 경고 UI
 - PostgreSQL 전역/차량별 경고 임계값 정책, 불변 변경 감사 이력, 텔레메트리 평가 연동과 TypeScript 운영 패널
 - 차량별 경고 정책 soft reset, 전역 상속 즉시 복원, `UPSERT`/`RESET` 감사 분류와 TypeScript reset 제어

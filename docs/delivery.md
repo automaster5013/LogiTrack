@@ -3,7 +3,7 @@
 ## 현재 상태
 
 - CI는 구현되어 있다. GitHub Actions가 API 테스트와 coverage, Python 테스트, Compose 구성, Prometheus alert rule 문법, TypeScript build를 검증한다.
-- production Docker image 네 개도 clean runner에서 빌드하고 모든 runtime이 non-root인지 검사한다.
+- production Docker image 다섯 개도 clean runner에서 빌드하고 모든 runtime이 non-root인지 검사한다.
 - 각 image의 CycloneDX SBOM을 30일 보관하고, 수정 가능 여부와 관계없이 CRITICAL 취약점이 하나라도 있으면 CI를 차단한다.
 - CD는 아직 구현하지 않았다. 승인된 배포 대상이 없으므로 image registry push나 외부 인프라 변경을 수행하지 않는다.
 
@@ -34,6 +34,8 @@ pull request
 ```
 
 운영 배포에서는 `latest` tag를 사용하지 않고 Git commit SHA로 image를 고정한다. 애플리케이션 migration은 이전 버전과 호환되는 expand/contract 순서를 사용하며, 배포 성공 판정에는 API readiness뿐 아니라 주문 생성·배차·지도 경로 조회까지 포함한다.
+
+로컬 빌드도 Dockerfile 기반 이미지와 Compose 외부 이미지를 `tag@sha256:digest`로 고정한다. 버전 갱신은 새 digest로 명시적으로 교체하고 CI의 전체 테스트·SBOM·취약점 검사를 함께 통과해야 한다.
 
 ## 로컬 릴리스 검증
 
