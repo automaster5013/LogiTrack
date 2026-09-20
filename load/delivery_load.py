@@ -7,10 +7,29 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from urllib.parse import urlsplit
+from urllib.parse import SplitResult, urlsplit
 
 
 connections = threading.local()
+
+
+def get_connection(base_url: str) -> tuple[http.client.HTTPConnection, SplitResult]:
+    target = urlsplit(base_url)
+    connection_key = (target.scheme, target.hostname, target.port)
+    connection = getattr(connections, "connection", None)
+    if connection is None or getattr(connections, "key", None) != connection_key:
+        connection_type = http.client.HTTPSConnection if target.scheme == "https" else http.client.HTTPConnection
+        connection = connection_type(target.hostname, target.port, timeout=10)
+        connections.connection = connection
+        connections.key = connection_key
+    return connection, target
+
+
+def warm_connection(base_url: str, barrier: threading.Barrier) -> bool:
+    barrier.wait()
+    connection, _ = get_connection(base_url)
+    connection.connect()
+    return True
 
 
 def post_delivery(base_url: str, key: str, order_number: str) -> tuple[float, int, str | None]:
@@ -20,14 +39,7 @@ def post_delivery(base_url: str, key: str, order_number: str) -> tuple[float, in
         "origin": {"name": "Seoul", "lat": 37.5665, "lon": 126.978},
         "destination": {"name": "Incheon", "lat": 37.4563, "lon": 126.7052},
     })
-    target = urlsplit(base_url)
-    connection_key = (target.scheme, target.hostname, target.port)
-    connection = getattr(connections, "connection", None)
-    if connection is None or getattr(connections, "key", None) != connection_key:
-        connection_type = http.client.HTTPSConnection if target.scheme == "https" else http.client.HTTPConnection
-        connection = connection_type(target.hostname, target.port, timeout=10)
-        connections.connection = connection
-        connections.key = connection_key
+    connection, target = get_connection(base_url)
     started = time.perf_counter()
     try:
         connection.request(
@@ -78,8 +90,13 @@ def main() -> int:
         if warmup[1] != 201:
             print(json.dumps({"error": "warmup failed", "result": warmup}))
             return 1
-    started = time.perf_counter()
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
+        barrier = threading.Barrier(args.workers)
+        connection_warmups = [pool.submit(warm_connection, args.base_url, barrier) for _ in range(args.workers)]
+        if not all(future.result() for future in connection_warmups):
+            print(json.dumps({"error": "worker connection warmup failed"}))
+            return 1
+        started = time.perf_counter()
         futures = []
         for index in range(total):
             target = started + index / args.rate
@@ -97,6 +114,7 @@ def main() -> int:
     summary = {
         "scenario": "unique-create" if args.unique else "idempotent-create",
         "warmupRequests": args.warmup,
+        "connectionWarmupWorkers": args.workers,
         "requests": len(results),
         "targetRps": args.rate,
         "achievedRps": round(len(results) / elapsed, 2),
