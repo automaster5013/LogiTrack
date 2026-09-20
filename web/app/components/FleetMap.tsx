@@ -98,8 +98,19 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
   const mapLabel=selected
     ? `${deliveries.length}대의 차량 운행 지도. ${selected.vehicleId} 차량이 선택됨`
     : `${deliveries.length}대의 차량 운행 지도`;
+  const showEntireFleet=()=>{const map=mapRef.current;if(map&&deliveries.length)fitFleet(map,deliveries)};
 
-  return <div className={`mapShell ${mapReady?"ready":""}`} role="region" aria-label={mapLabel}><div ref={host} className="mapCanvas"/>{mapError&&<div className="mapError"><b>지도를 불러오지 못했습니다</b><span>지도 타일 연결을 확인하세요. 배송 데이터 스트림은 계속 동작합니다.</span></div>}{!mapError&&deliveries.length===0&&<div className="mapEmpty"><b>표시할 차량이 없습니다</b><span>{emptyMessage||"범위를 전환하거나 새 배송을 생성해 주세요."}</span></div>}<div className="mapLegend" aria-label="지도 범례"><strong>지도 읽는 법</strong><span><i className="liveDot"/> 운송 차량</span><span><i className="delayedDot"/> 지연 차량</span><span><i className="selectedDot"/> 선택 차량</span><span><i className="travelDot"/> 실제 이동</span><span><i className="routeDot"/> 계획 경로</span><span className="mapReady"><i/> {mapReady?"지도 준비됨":"지도 로딩 중"}</span></div><p className="mapHint">차량 점을 선택하면 계획 경로와 실제 이동을 강조합니다</p></div>;
+  return <div className={`mapShell ${mapReady?"ready":""}`} role="region" aria-label={mapLabel}><div ref={host} className="mapCanvas"/>{mapError&&<div className="mapError"><b>지도를 불러오지 못했습니다</b><span>지도 타일 연결을 확인하세요. 배송 데이터 스트림은 계속 동작합니다.</span></div>}{!mapError&&deliveries.length===0&&<div className="mapEmpty"><b>표시할 차량이 없습니다</b><span>{emptyMessage||"범위를 전환하거나 새 배송을 생성해 주세요."}</span></div>}<div className="mapLegend" aria-label="지도 범례"><strong>지도 읽는 법</strong><span><i className="liveDot"/> 운송 차량</span><span><i className="delayedDot"/> 지연 차량</span><span><i className="selectedDot"/> 선택 차량</span><span><i className="travelDot"/> 실제 이동</span><span><i className="routeDot"/> 계획 경로</span><span className="mapReady"><i/> {mapReady?"지도 준비됨":"지도 로딩 중"}</span></div>{deliveries.length>1&&<button type="button" className="mapReset" onClick={showEntireFleet}>전체 차량 보기</button>}<p className="mapHint">차량 점을 선택하면 계획 경로와 실제 이동을 강조합니다</p></div>;
+}
+
+function fitFleet(map:Map,deliveries:Delivery[]) {
+  const coordinates=deliveries.flatMap(delivery=>[
+    [delivery.originLon,delivery.originLat],
+    [delivery.destinationLon,delivery.destinationLat],
+    [delivery.currentLon??delivery.originLon,delivery.currentLat??delivery.originLat]
+  ] as [number,number][]);
+  const lons=coordinates.map(point=>point[0]); const lats=coordinates.map(point=>point[1]);
+  map.fitBounds([[Math.min(...lons),Math.min(...lats)],[Math.max(...lons),Math.max(...lats)]],{padding:70,duration:900,maxZoom:10.5});
 }
 
 function fitDelivery(map:Map,delivery:Delivery,routes:RouteSnapshot[],telemetry:TelemetryPoint[]) {
