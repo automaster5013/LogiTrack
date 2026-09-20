@@ -8,6 +8,7 @@ $targetDatabase = "logitrack_restore_smoke_$suffix"
 $sentinelTable = "backup_restore_smoke_$suffix"
 $sentinelValue = "verified-$suffix"
 $backupPath = $null
+$secondBackupPath = $null
 $corruptPath = $null
 $truncatedPath = $null
 
@@ -18,6 +19,10 @@ try {
   $backupPath = & (Join-Path $PSScriptRoot "postgres-backup.ps1") -OutputDirectory $smokeDirectory
   $checksumPath = "$backupPath.sha256"
   if (-not (Test-Path -LiteralPath $checksumPath)) { throw "Backup checksum sidecar was not created" }
+  $secondBackupPath = & (Join-Path $PSScriptRoot "postgres-backup.ps1") -OutputDirectory $smokeDirectory
+  if ($secondBackupPath -eq $backupPath -or -not (Test-Path -LiteralPath "$secondBackupPath.sha256")) {
+    throw "Consecutive backups did not receive unique verified paths"
+  }
 
   $corruptPath = "$backupPath.corrupt"
   Copy-Item -LiteralPath $backupPath -Destination $corruptPath
@@ -73,6 +78,10 @@ try {
   if ($backupPath -and (Test-Path -LiteralPath $backupPath)) {
     Remove-Item -LiteralPath $backupPath -Force
     Remove-Item -LiteralPath "$backupPath.sha256" -Force -ErrorAction SilentlyContinue
+  }
+  if ($secondBackupPath -and (Test-Path -LiteralPath $secondBackupPath)) {
+    Remove-Item -LiteralPath $secondBackupPath -Force
+    Remove-Item -LiteralPath "$secondBackupPath.sha256" -Force -ErrorAction SilentlyContinue
   }
   if ($corruptPath -and (Test-Path -LiteralPath $corruptPath)) {
     Remove-Item -LiteralPath $corruptPath -Force
