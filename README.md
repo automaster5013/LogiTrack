@@ -88,6 +88,8 @@ python -m unittest discover analytics/tests
 
 통합 smoke test는 전체 스택 실행 후 `./scripts/smoke.ps1`로 수행합니다.
 
+`./scripts/compose-runtime-smoke.ps1`는 실행 중인 전체 스택의 health, loopback 포트, 로그 회전, 종료 유예, 자원 상한, 권한 경계, read-only filesystem, Kafka volume topology가 현재 Compose 정책과 일치하는지 확인합니다.
+
 핵심 도메인의 line/branch coverage 80% gate는 `./scripts/domain-coverage.ps1`로 실행합니다. 현재 기준선은 line 92.37%, branch 88.71%이며 기준 미달 시 빌드가 실패합니다.
 
 GitHub Actions의 `CI` workflow는 main push와 pull request마다 API 테스트·coverage gate, Python analytics/simulator 테스트, Docker Compose 구성 검증, TypeScript production build를 병렬 실행합니다. workflow 권한은 저장소 읽기로 제한됩니다.
