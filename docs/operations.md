@@ -1,5 +1,9 @@
 # 로컬 운영과 장애 처리
 
+## 로컬 자격 증명
+
+최초 실행 전에 `./scripts/init-env.ps1`로 Git에서 제외된 `.env`를 생성한다. PostgreSQL과 Grafana는 서로 다른 256-bit 난수 비밀번호를 사용하며 빈 값이나 저장소의 공개 기본값으로 기동할 수 없다. 영속 볼륨을 유지하면서 회전할 때는 스택이 healthy인 상태에서 `./scripts/rotate-local-secrets.ps1`를 실행한다. 이 스크립트는 두 서비스의 저장된 자격 증명을 먼저 갱신하고 `.env`를 교체한 뒤 PostgreSQL·API·Grafana를 새 설정으로 재생성한다.
+
 ## Health와 관측성
 
 - API liveness/readiness: `/actuator/health/liveness`, `/actuator/health/readiness`. Readiness는 애플리케이션 상태와 PostgreSQL을 포함하며 Redis는 로컬 SSE fallback이 있으므로 제외한다.

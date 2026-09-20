@@ -14,6 +14,7 @@ def rendered_compose() -> dict:
         POSTGRES_DB="logitrack_override_db",
         POSTGRES_USER="logitrack_override_user",
         POSTGRES_PASSWORD="logitrack_override_password",
+        GRAFANA_ADMIN_PASSWORD="grafana_override_password",
     )
     result = subprocess.run(
         ["docker", "compose", "--profile", "scale-test", "config", "--format", "json"],

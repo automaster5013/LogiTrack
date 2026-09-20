@@ -37,6 +37,9 @@ jobs:
     name: Python tests and Compose validation
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      POSTGRES_PASSWORD: ci-only-postgres-password
+      GRAFANA_ADMIN_PASSWORD: ci-only-grafana-password
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -58,6 +61,8 @@ jobs:
         run: python -m unittest discover simulator/tests
       - name: Validate Compose topology
         run: python scripts/compose-config-smoke.py
+      - name: Validate local secret generation
+        run: python scripts/local-secrets-smoke.py
       - name: Validate isolated performance topology
         run: python scripts/perf-compose-config-smoke.py
       - name: Validate Dependabot coverage

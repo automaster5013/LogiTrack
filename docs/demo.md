@@ -9,7 +9,7 @@ docker compose ps
 ```
 
 - 운영 콘솔: `http://localhost:3000`
-- Grafana: `http://localhost:3001` (`admin` / `admin`)
+- Grafana: `http://localhost:3001` (`admin` / `.env`의 `GRAFANA_ADMIN_PASSWORD`)
 - API readiness: `http://localhost:8080/actuator/health/readiness`
 
 ## 진행 순서
