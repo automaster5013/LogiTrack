@@ -29,7 +29,9 @@ INSERT INTO replay_audits(id,dead_letter_event_id,action,actor,occurred_at) VALU
 $allIds=@($oldProcessed,$recentProcessed,$oldOutbox,$recentOutbox,$oldTelemetry,$recentTelemetry)
 try {
   docker compose exec -T postgres psql -U logitrack -d logitrack -v ON_ERROR_STOP=1 -c $insert | Out-Null
-  $deadline=(Get-Date).AddSeconds(90)
+  docker compose restart api | Out-Null
+  if($LASTEXITCODE-ne0){throw "Could not restart API to trigger a deterministic retention cycle"}
+  $deadline=(Get-Date).AddSeconds(120)
   do {
     Start-Sleep -Seconds 3
     $oldCount=(docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT (SELECT count(*) FROM processed_events WHERE event_id='$oldProcessed')+(SELECT count(*) FROM outbox_events WHERE id='$oldOutbox')+(SELECT count(*) FROM outbox_retry_audits WHERE id='$oldOutboxAudit')+(SELECT count(*) FROM telemetry_points WHERE event_id='$oldTelemetry')+(SELECT count(*) FROM dead_letter_events WHERE id='$oldDlq')+(SELECT count(*) FROM replay_audits WHERE id='$oldReplayAudit')").Trim()
