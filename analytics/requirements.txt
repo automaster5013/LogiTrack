@@ -1,9 +1,9 @@
-fastapi==0.116.1
+fastapi==0.141.1
 httpx==0.28.1
-uvicorn==0.35.0
-opentelemetry-api==1.36.0
-opentelemetry-sdk==1.36.0
-opentelemetry-exporter-otlp-proto-http==1.36.0
-opentelemetry-instrumentation-fastapi==0.57b0
-opentelemetry-instrumentation-httpx==0.57b0
+uvicorn==0.53.0
+opentelemetry-api==1.44.0
+opentelemetry-sdk==1.44.0
+opentelemetry-exporter-otlp-proto-http==1.44.0
+opentelemetry-instrumentation-fastapi==0.65b0
+opentelemetry-instrumentation-httpx==0.65b0
 reportlab==5.0.1
