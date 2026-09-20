@@ -20,10 +20,14 @@ def main() -> None:
     example = parse_env(Path(".env.example"))
     if any(example.get(name) for name in REQUIRED_SECRETS):
         raise AssertionError("Example environment must not publish usable credentials")
+    environment = os.environ.copy()
+    environment.pop("POSTGRES_PASSWORD", None)
+    environment.pop("GRAFANA_ADMIN_PASSWORD", None)
     rejected = subprocess.run(
         ["docker", "compose", "--env-file", ".env.example", "config"],
         capture_output=True,
         text=True,
+        env=environment,
     )
     if rejected.returncode == 0:
         raise AssertionError("Compose accepts empty required credentials")
@@ -48,9 +52,6 @@ def main() -> None:
         if any(len(secret) < 40 for secret in secrets) or secrets[0] == secrets[1]:
             raise AssertionError("Generated credentials are missing, short, or reused")
 
-        environment = os.environ.copy()
-        environment.pop("POSTGRES_PASSWORD", None)
-        environment.pop("GRAFANA_ADMIN_PASSWORD", None)
         result = subprocess.run(
             ["docker", "compose", "--env-file", str(generated), "config", "--format", "json"],
             check=True,
