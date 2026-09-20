@@ -2,6 +2,7 @@ name: logitrack
 services:
   postgres:
     image: postgres:17-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-logitrack}
       POSTGRES_USER: ${POSTGRES_USER:-logitrack}
@@ -16,6 +17,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports: ["6379:6379"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -25,6 +27,7 @@ services:
 
   kafka:
     image: apache/kafka:4.0.0
+    restart: unless-stopped
     ports: ["9092:9092"]
     environment:
       KAFKA_NODE_ID: 1
@@ -67,6 +70,7 @@ services:
 
   analytics:
     build: ./analytics
+    restart: unless-stopped
     environment:
       ROUTING_PROVIDER: ${ROUTING_PROVIDER:-osrm}
       OSRM_BASE_URL: ${OSRM_BASE_URL:-https://router.project-osrm.org}
@@ -85,6 +89,7 @@ services:
 
   api:
     build: ./api
+    restart: unless-stopped
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-logitrack}
       DB_USER: ${POSTGRES_USER:-logitrack}
@@ -112,6 +117,7 @@ services:
   api-replica:
     profiles: ["scale-test"]
     build: ./api
+    restart: unless-stopped
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-logitrack}
       DB_USER: ${POSTGRES_USER:-logitrack}
@@ -138,6 +144,7 @@ services:
 
   simulator:
     build: ./simulator
+    restart: unless-stopped
     environment:
       KAFKA_BOOTSTRAP: kafka:29092
       SIMULATION_INTERVAL_SECONDS: 1
@@ -152,6 +159,7 @@ services:
       context: ./web
       args:
         NEXT_PUBLIC_MAP_STYLE_URL: ${NEXT_PUBLIC_MAP_STYLE_URL:-https://tiles.openfreemap.org/styles/liberty}
+    restart: unless-stopped
     environment:
       API_INTERNAL_URL: http://api:8080
       NEXT_PUBLIC_API_URL: http://localhost:8080
@@ -161,6 +169,7 @@ services:
 
   tempo:
     image: grafana/tempo:2.7.2
+    restart: unless-stopped
     command: ["-config.file=/etc/tempo.yml"]
     volumes:
       - ./infra/otel/tempo.yml:/etc/tempo.yml:ro
@@ -169,6 +178,7 @@ services:
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.135.0
+    restart: unless-stopped
     command: ["--config=/etc/otelcol-contrib/config.yml"]
     volumes: ["./infra/otel/collector.yml:/etc/otelcol-contrib/config.yml:ro"]
     ports: ["4317:4317", "4318:4318", "13133:13133"]
@@ -176,6 +186,7 @@ services:
 
   prometheus:
     image: prom/prometheus:v3.5.0
+    restart: unless-stopped
     command: ["--config.file=/etc/prometheus/prometheus.yml"]
     volumes:
       - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -185,6 +196,7 @@ services:
 
   grafana:
     image: grafana/grafana:12.1.0
+    restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
     ports: ["3001:3000"]

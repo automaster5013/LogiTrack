@@ -111,6 +111,7 @@
 - 주문 좌표·필수 식별자·시각 순서 PostgreSQL 제약으로 애플리케이션 우회 데이터 오염 방지
 - 재고 ledger와 경고 정책 감사 snapshot의 PostgreSQL UPDATE·DELETE 차단으로 불변 이력 보장
 - retention 정리 장애·복구 전환 로그와 지속 재시도로 반복 scheduler stack trace 범람 방지
+- 일회성 topic 초기화를 제외한 Compose 상시 서비스 `unless-stopped` 자동 복구 정책
 
 ## 현재 상태
 

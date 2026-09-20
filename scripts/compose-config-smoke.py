@@ -42,7 +42,17 @@ def main() -> None:
     if not kafka_command.startswith("set -eu\n"):
         raise AssertionError("Kafka topic initialization is not fail-fast")
 
-    print("PASS: database overrides propagate to API replicas and infrastructure initialization is fail-fast")
+    long_running_services = {
+        "postgres", "redis", "kafka", "analytics", "api", "api-replica",
+        "simulator", "web", "tempo", "otel-collector", "prometheus", "grafana",
+    }
+    for service_name in long_running_services:
+        if services[service_name].get("restart") != "unless-stopped":
+            raise AssertionError(f"{service_name} does not automatically recover after a runtime restart")
+    if services["kafka-init"].get("restart"):
+        raise AssertionError("One-shot kafka-init must not have a restart policy")
+
+    print("PASS: database overrides, fail-fast initialization, and long-running service restart policies are valid")
 
 
 if __name__ == "__main__":
