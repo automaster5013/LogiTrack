@@ -1,6 +1,7 @@
 package io.logitrack.outbox;
 
 import jakarta.persistence.*;
+import io.opentelemetry.api.trace.Span;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -20,11 +21,16 @@ public class OutboxEvent {
     @Column(name="created_at",nullable=false) private Instant createdAt;
     @Column(name="published_at") private Instant publishedAt;
     @Column(name="next_attempt_at",nullable=false) private Instant nextAttemptAt;
+    @Column(name="origin_trace_id",length=32) private String originTraceId;
+    @Column(name="origin_span_id",length=16) private String originSpanId;
+    @Column(name="origin_trace_sampled") private Boolean originTraceSampled;
 
     protected OutboxEvent() {}
     public OutboxEvent(UUID id, String aggregateType, UUID aggregateId, String eventType, String topic, String eventKey, String payload) {
         this.id=id; this.aggregateType=aggregateType; this.aggregateId=aggregateId; this.eventType=eventType;
         this.topic=topic; this.eventKey=eventKey; this.payload=payload; this.status=Status.PENDING; this.createdAt=Instant.now();this.nextAttemptAt=createdAt;
+        var context=Span.current().getSpanContext();
+        if(context.isValid()){originTraceId=context.getTraceId();originSpanId=context.getSpanId();originTraceSampled=context.isSampled();}
     }
     public void published(){status=Status.PUBLISHED;publishedAt=Instant.now();lastError=null;}
     public void failed(Throwable error){attempts++;lastError=truncate(error.getMessage());if(attempts>=20)status=Status.FAILED;else nextAttemptAt=Instant.now().plusSeconds(Math.min(300,1L<<Math.min(attempts-1,8)));}
@@ -35,5 +41,7 @@ public class OutboxEvent {
     public String getEventType(){return eventType;} public String getTopic(){return topic;} public String getEventKey(){return eventKey;}
     public String getPayload(){return payload;} public Status getStatus(){return status;} public int getAttempts(){return attempts;}
     public String getLastError(){return lastError;} public Instant getCreatedAt(){return createdAt;} public Instant getPublishedAt(){return publishedAt;}public Instant getNextAttemptAt(){return nextAttemptAt;}
+    public String getOriginTraceId(){return originTraceId;}public String getOriginSpanId(){return originSpanId;}public Boolean getOriginTraceSampled(){return originTraceSampled;}
+    public boolean hasOriginTraceContext(){return originTraceId!=null&&originSpanId!=null&&originTraceSampled!=null;}
     public enum Status { PENDING, PUBLISHED, FAILED }
 }

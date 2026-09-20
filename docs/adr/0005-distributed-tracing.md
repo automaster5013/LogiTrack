@@ -18,5 +18,4 @@ API의 배송 생성에서 analytics와 외부 route provider까지 이어지는
 
 ## 제한과 후속 작업
 
-Transactional outbox 이후의 Kafka 흐름은 HTTP 요청과 시간적으로 분리되므로 현재는 별도 consumer trace와 이벤트의 correlation ID로 관찰한다. 장기적으로 outbox에 W3C trace context를 보존하고 producer span link를 추가한다. 로컬 구성은 암호화하지 않으며 운영 환경의 Collector ingress에는 TLS와 인증을 적용한다.
-
+Transactional outbox는 이벤트 생성 시점의 W3C trace/span ID와 sampling 결정을 같은 DB transaction에 보존한다. 비동기 publisher는 이를 parent로 복원한 producer span 안에서 Kafka 전송을 수행하므로 Spring Kafka가 주입한 trace header를 통해 downstream consumer까지 하나의 trace로 연결된다. trace가 없는 scheduler·내부 호출은 nullable context로 안전하게 발행한다. 로컬 구성은 암호화하지 않으며 운영 환경의 Collector ingress에는 TLS와 인증을 적용한다.
