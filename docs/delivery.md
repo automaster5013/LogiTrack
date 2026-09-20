@@ -45,6 +45,8 @@ Dependabot은 매주 GitHub Actions, Maven, npm, Python, Dockerfile, Docker Comp
 
 `./scripts/container-build.ps1`은 API, analytics, simulator, web, OpenTelemetry Collector production image를 현재 commit SHA label과 함께 빌드하고 root runtime을 거부한다. 이어서 `./scripts/container-security.ps1`을 실행하면 digest로 고정한 Trivy 0.74.0이 `work/sbom/*.cdx.json`을 만들고 다섯 image의 CRITICAL 취약점 0건을 강제한다. 실제 registry push나 배포는 수행하지 않는다.
 
+SBOM은 업로드 전에 `scripts/sbom-smoke.py`로 검증한다. 정확히 다섯 서비스의 CycloneDX 1.7 문서인지, 각 문서의 container image tag·SHA-256 image ID·구성요소 reference·OCI revision label이 현재 commit과 일치하는지 확인하며, 하나라도 불일치하면 artifact 게시를 차단한다.
+
 API는 Spring Boot 3.4.13을 사용하며, 2026년 공개 취약점이 수정된 정식 릴리스 Tomcat 10.1.60과 Netty 4.1.137.Final을 명시적으로 고정한다. 프레임워크의 기본 관리 버전으로 되돌릴 때도 image scan이 통과해야 한다.
 
 웹 production runtime에는 `node` 실행 파일과 standalone 산출물만 남기고, 빌드 단계에서만 필요한 npm, Corepack, Yarn은 제거한다. 패키지 설치와 TypeScript/Next.js build는 앞선 격리 stage에서 계속 잠금 파일을 기준으로 수행한다.

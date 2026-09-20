@@ -157,6 +157,8 @@ jobs:
               "logitrack-$service:ci"
             test -s "work/sbom/logitrack-$service.cdx.json"
           done
+      - name: Validate SBOM identity and provenance
+        run: python scripts/sbom-smoke.py work/sbom --tag ci --revision "$GITHUB_SHA"
       - name: Upload immutable image SBOMs
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:

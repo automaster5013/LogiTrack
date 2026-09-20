@@ -38,3 +38,7 @@ foreach ($service in $images) {
 
   Write-Host "PASS: $image SBOM=$sbomPath critical vulnerabilities=0"
 }
+
+$revision = (git -C $repositoryRoot rev-parse HEAD).Trim()
+python (Join-Path $PSScriptRoot "sbom-smoke.py") $sbomDirectory --tag local-release --revision $revision
+if ($LASTEXITCODE -ne 0) { throw "Generated SBOM identity or provenance validation failed" }
