@@ -94,6 +94,11 @@ def main() -> None:
         if len(matching_mounts) != 1 or not matching_mounts[0].get("source", "").endswith(source_suffix):
             raise AssertionError(f"{service_name} does not persist {target} in {source_suffix}")
 
+    kafka_tmpfs = services["kafka"].get("tmpfs", [])
+    for target in ("/etc/kafka/secrets", "/mnt/shared/config", "/var/lib/kafka/data"):
+        if not any(mount.startswith(f"{target}:size=") for mount in kafka_tmpfs):
+            raise AssertionError(f"Kafka ephemeral path {target} is not a bounded tmpfs")
+
     for service_name, service in services.items():
         logging = service.get("logging", {})
         options = logging.get("options", {})
@@ -159,7 +164,7 @@ def main() -> None:
         if not matches or any(not DIGEST_PATTERN.search(image) for image in matches):
             raise AssertionError(f"{source_path} uses an unpinned {image_prefix} image")
 
-    print("PASS: topology, persistence, resource limits, read-only capability-free stateless services, privilege boundaries, loopback ports, bounded logs, graceful shutdown, runtime readiness, restart policies, and immutable image sources are valid")
+    print("PASS: topology, persistence, bounded ephemeral storage, resource limits, read-only capability-free stateless services, privilege boundaries, loopback ports, bounded logs, graceful shutdown, runtime readiness, restart policies, and immutable image sources are valid")
 
 
 if __name__ == "__main__":

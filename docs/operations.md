@@ -136,6 +136,8 @@ Redis 장애가 Kafka consumer 트랜잭션을 오래 점유하지 않도록 연
 
 PostgreSQL, Redis, Kafka, Tempo, Prometheus, Grafana의 가변 상태는 각각 명시적인 Compose named volume에 저장한다. 일반적인 `docker compose down`과 컨테이너 재생성은 데이터를 유지한다. `docker compose down --volumes`는 업무 데이터와 관측 이력을 함께 영구 삭제하므로 CI 격리 환경 또는 명시적인 초기화가 필요할 때만 사용한다.
 
+Kafka broker 로그만 `kafka-data`에 영속화한다. 이미지가 선언하지만 현재 broker 로그로 사용하지 않는 `/etc/kafka/secrets`, `/mnt/shared/config`, `/var/lib/kafka/data`는 각각 16 MiB tmpfs로 제한해 재생성마다 익명 Docker volume이 누적되지 않게 한다.
+
 모든 장기 실행 서비스에는 역할별 CPU·메모리 상한이 있다. API는 2 CPU/1.5 GiB, Kafka는 1.5 CPU/1 GiB를 허용하고 나머지는 0.5~1 CPU/256~768 MiB 범위다. OOM 또는 throttling이 반복되면 `docker stats`와 서비스 로그를 먼저 확인하고 부하 기준선을 다시 측정한 뒤 상한을 조정한다.
 
 모든 Compose 컨테이너는 `no-new-privileges`를 사용한다. 이미지 안의 setuid/setgid 실행 파일이나 파일 capability를 이용한 추가 권한 획득을 차단하며, 구성 smoke test가 서비스 추가 시 이 경계를 강제한다.
