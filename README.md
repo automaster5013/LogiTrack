@@ -31,6 +31,8 @@ PostgreSQL 데이터베이스명과 자격 증명은 `.env`의 `POSTGRES_DB`, `P
 - Tempo API: http://localhost:3200 (`Grafana → Explore → Tempo`에서 trace 조회)
 - OpenTelemetry Collector health: http://localhost:13133
 
+Compose가 공개하는 모든 개발용 포트는 호스트의 `127.0.0.1`에만 바인딩되므로 같은 네트워크의 다른 장치에서는 접근할 수 없습니다. 외부 공개 배포는 인증과 TLS를 갖춘 별도 ingress를 사용하세요.
+
 샘플 주문 생성과 배차:
 
 ```bash

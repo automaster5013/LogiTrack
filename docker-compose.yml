@@ -7,7 +7,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-logitrack}
       POSTGRES_USER: ${POSTGRES_USER:-logitrack}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-logitrack}
-    ports: ["5432:5432"]
+    ports: ["127.0.0.1:5432:5432"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -18,7 +18,7 @@ services:
   redis:
     image: redis:7-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
     restart: unless-stopped
-    ports: ["6379:6379"]
+    ports: ["127.0.0.1:6379:6379"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -28,7 +28,7 @@ services:
   kafka:
     image: apache/kafka:4.0.0@sha256:3f7b939115cd4872e9cee9369d80bd69712fde55f9902f46d793f64848dedc75
     restart: unless-stopped
-    ports: ["9092:9092"]
+    ports: ["127.0.0.1:9092:9092"]
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -80,7 +80,7 @@ services:
       OTEL_SERVICE_NAME: logitrack-route-analytics
       INSTANCE_ID: analytics-1
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://otel-collector:4318/v1/traces
-    ports: ["8090:8090"]
+    ports: ["127.0.0.1:8090:8090"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8090/health')"]
       interval: 10s
@@ -100,7 +100,7 @@ services:
       INSTANCE_ID: api-primary
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
       OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
-    ports: ["8080:8080"]
+    ports: ["127.0.0.1:8080:8080"]
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
@@ -128,7 +128,7 @@ services:
       INSTANCE_ID: api-replica
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
       OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
-    ports: ["8081:8080"]
+    ports: ["127.0.0.1:8081:8080"]
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
@@ -171,7 +171,7 @@ services:
       HOSTNAME: 0.0.0.0
       API_INTERNAL_URL: http://api:8080
       NEXT_PUBLIC_API_URL: http://localhost:8080
-    ports: ["3000:3000"]
+    ports: ["127.0.0.1:3000:3000"]
     depends_on:
       api: {condition: service_healthy}
     healthcheck:
@@ -188,7 +188,7 @@ services:
     volumes:
       - ./infra/otel/tempo.yml:/etc/tempo.yml:ro
       - tempo-data:/var/tempo
-    ports: ["3200:3200"]
+    ports: ["127.0.0.1:3200:3200"]
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3200/ready"]
       interval: 10s
@@ -201,7 +201,7 @@ services:
     restart: unless-stopped
     command: ["--config=/etc/otelcol-contrib/config.yml"]
     volumes: ["./infra/otel/collector.yml:/etc/otelcol-contrib/config.yml:ro"]
-    ports: ["4317:4317", "4318:4318", "13133:13133"]
+    ports: ["127.0.0.1:4317:4317", "127.0.0.1:4318:4318", "127.0.0.1:13133:13133"]
     depends_on:
       tempo: {condition: service_healthy}
     healthcheck:
@@ -218,7 +218,7 @@ services:
     volumes:
       - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./infra/prometheus-alerts.yml:/etc/prometheus/prometheus-alerts.yml:ro
-    ports: ["9090:9090"]
+    ports: ["127.0.0.1:9090:9090"]
     depends_on:
       api: {condition: service_healthy}
     healthcheck:
@@ -233,7 +233,7 @@ services:
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
-    ports: ["3001:3000"]
+    ports: ["127.0.0.1:3001:3000"]
     volumes: ["./infra/grafana/provisioning:/etc/grafana/provisioning:ro"]
     depends_on:
       prometheus: {condition: service_healthy}

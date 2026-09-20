@@ -65,6 +65,14 @@ def main() -> None:
     if services["web"]["environment"].get("HOSTNAME") != "0.0.0.0":
         raise AssertionError("web is not bound to every container interface")
 
+    for service_name, service in services.items():
+        for port in service.get("ports", []):
+            if port.get("host_ip") != "127.0.0.1":
+                published = port.get("published", "unknown")
+                raise AssertionError(
+                    f"{service_name} published port {published} is not restricted to loopback"
+                )
+
     readiness_dependencies = {
         "otel-collector": ("tempo",),
         "prometheus": ("api",),
@@ -96,7 +104,7 @@ def main() -> None:
                 if not DIGEST_PATTERN.search(image):
                     raise AssertionError(f"{dockerfile} base image is not pinned by digest: {image}")
 
-    print("PASS: topology, runtime readiness, restart policies, and immutable image sources are valid")
+    print("PASS: topology, loopback ports, runtime readiness, restart policies, and immutable image sources are valid")
 
 
 if __name__ == "__main__":
