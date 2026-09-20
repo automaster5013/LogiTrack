@@ -29,6 +29,8 @@ JaCoCo가 핵심 상태 전이와 불변식을 소유한 도메인 클래스의 
 
 `.github/workflows/ci.yml`은 `main` push와 모든 pull request에서 세 개의 독립 job을 병렬 실행한다.
 
+모든 job은 `ubuntu-24.04` runner에 고정해 `ubuntu-latest`의 예고 없는 OS 전환을 피한다. `scripts/workflow-config-smoke.py`는 runner 고정, action commit SHA, job timeout, 최소 token 권한을 CI 안에서 회귀 검증한다.
+
 - Java 21 API 테스트와 JaCoCo domain coverage gate
 - Python 3.12 analytics/simulator 테스트와 Compose topology 검증
 - Node.js 22 TypeScript production build

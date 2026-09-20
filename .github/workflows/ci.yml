@@ -15,7 +15,7 @@ concurrency:
 jobs:
   api:
     name: API tests and domain coverage
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
@@ -35,7 +35,7 @@ jobs:
 
   python:
     name: Python tests and Compose validation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -60,6 +60,8 @@ jobs:
         run: python scripts/compose-config-smoke.py
       - name: Validate Dependabot coverage
         run: python scripts/dependabot-config-smoke.py
+      - name: Validate CI trust boundaries
+        run: python scripts/workflow-config-smoke.py
       - name: Validate Docker build contexts
         run: python scripts/docker-context-smoke.py
       - name: Verify PostgreSQL backup and restore round trip
@@ -74,7 +76,7 @@ jobs:
 
   web:
     name: TypeScript production build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
@@ -96,7 +98,7 @@ jobs:
   containers:
     name: Production images and supply-chain security
     needs: [api, python, web]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
