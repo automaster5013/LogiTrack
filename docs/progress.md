@@ -12,6 +12,7 @@
 - clean runner PostgreSQL backup/restore 왕복 CI 게이트와 항상 실행되는 volume 정리
 - production Docker build context의 환경 파일·cache·test artifact 제외와 CI 회귀 검증
 - 모든 장기 실행 Compose 서비스의 35초 bounded graceful shutdown 유예
+- PostgreSQL·Redis·Kafka·Tempo·Prometheus·Grafana 상태의 명시적 named volume 지속성
 - 웹·관측성 HTTP와 simulator 소비 루프 heartbeat 기반 전체 Docker 준비 상태 검증
 - Dockerfile 기반 이미지와 Compose 외부 이미지의 SHA-256 digest 고정 및 구성 회귀 검증
 - GitHub Actions·Maven·npm·Python·Dockerfile·Compose 전체 의존성의 주간 Dependabot 갱신

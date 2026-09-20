@@ -59,6 +59,22 @@ def main() -> None:
     if services["kafka-init"].get("restart"):
         raise AssertionError("One-shot kafka-init must not have a restart policy")
 
+    persistent_mounts = {
+        "postgres": ("postgres-data", "/var/lib/postgresql/data"),
+        "redis": ("redis-data", "/data"),
+        "kafka": ("kafka-data", "/tmp/kafka-logs"),
+        "tempo": ("tempo-data", "/var/tempo"),
+        "prometheus": ("prometheus-data", "/prometheus"),
+        "grafana": ("grafana-data", "/var/lib/grafana"),
+    }
+    for service_name, (source_suffix, target) in persistent_mounts.items():
+        matching_mounts = [
+            mount for mount in services[service_name].get("volumes", [])
+            if mount.get("type") == "volume" and mount.get("target") == target
+        ]
+        if len(matching_mounts) != 1 or not matching_mounts[0].get("source", "").endswith(source_suffix):
+            raise AssertionError(f"{service_name} does not persist {target} in {source_suffix}")
+
     for service_name, service in services.items():
         logging = service.get("logging", {})
         options = logging.get("options", {})
@@ -114,7 +130,7 @@ def main() -> None:
                 if not DIGEST_PATTERN.search(image):
                     raise AssertionError(f"{dockerfile} base image is not pinned by digest: {image}")
 
-    print("PASS: topology, loopback ports, bounded logs, graceful shutdown, runtime readiness, restart policies, and immutable image sources are valid")
+    print("PASS: topology, persistence, loopback ports, bounded logs, graceful shutdown, runtime readiness, restart policies, and immutable image sources are valid")
 
 
 if __name__ == "__main__":
