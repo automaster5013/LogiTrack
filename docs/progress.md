@@ -142,6 +142,7 @@
 - SBOM 5종의 CycloneDX 구조·image digest·구성요소 식별자·Git SHA provenance CI 검증
 - PostgreSQL dump SHA-256 sidecar 생성, 복원 전 필수 무결성 검증과 실제 변조 거부 CI 검증
 - 충돌 없는 PostgreSQL 백업 이름과 staging DB 선복구를 통한 실패 안전 대상 교체
+- 유휴 Kafka 입력에서도 안정적인 partition assignment 기반 consumer 부재 경보
 
 ## 현재 상태
 

@@ -116,6 +116,8 @@ API의 정확한 CORS 허용 출처는 쉼표 구분 `CORS_ALLOWED_ORIGINS`로 �
 
 API의 기본 HTTP 수용량은 Tomcat worker 128개, 동시 연결 512개, 대기 요청 100개로 제한하며 연결 수립 5초·keep-alive 20초·연결당 요청 100개의 상한을 둡니다. 배포 환경에서 `SERVER_MAX_THREADS`, `SERVER_MAX_CONNECTIONS`, `SERVER_ACCEPT_COUNT`와 관련 timeout 변수를 조정할 수 있고, 실제 적용값은 Prometheus의 `tomcat_threads_config_max_threads` 및 `tomcat_connections_config_max_connections` 지표로 확인합니다.
 
+Kafka telemetry consumer 부재 경보는 유휴 상태에서 생성되지 않을 수 있는 lag 지표가 아니라 consumer의 partition assignment 지표 자체가 사라졌는지를 사용하므로, 입력이 잠시 없을 때 오탐하지 않습니다.
+
 API readiness는 필수 source of truth인 PostgreSQL 연결을 포함합니다. Redis 장애는 로컬 SSE fallback으로 계속 서비스하되 PostgreSQL 장애는 HTTP 503 readiness로 트래픽 유입을 중단하며, `./scripts/readiness-smoke.ps1`가 두 장애와 자동 복구를 검증합니다.
 
 모든 HTTP API 응답은 `X-Trace-Id`를 반환합니다. 호출자가 1~128자의 안전한 식별자를 보내면 보존하고, 없으면 생성해 controller와 로그 MDC에 전달합니다. 경계 동작은 `./scripts/request-trace-smoke.ps1`로 검증합니다.

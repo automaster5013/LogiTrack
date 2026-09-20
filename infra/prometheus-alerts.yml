@@ -90,13 +90,13 @@ groups:
           summary: Telemetry consumer lag is elevated
           description: "{{ $value }} telemetry event(s) are waiting across assigned Kafka partitions."
       - alert: LogiTrackTelemetryConsumerMissing
-        expr: absent(kafka_consumer_fetch_manager_records_lag{application="logitrack-control-api",topic="vehicle_telemetry_v1"})
+        expr: absent(kafka_consumer_coordinator_assigned_partitions{application="logitrack-control-api",client_id=~"consumer-control-api-telemetry-v1-.+"})
         for: 2m
         labels:
           severity: critical
         annotations:
           summary: Telemetry consumer metrics are missing
-          description: The API is reachable but no telemetry consumer partition metrics are being exported.
+          description: The API is reachable but telemetry consumer assignment metrics are not being exported.
       - alert: LogiTrackRetentionCleanupFailing
         expr: increase(logitrack_retention_failures_total[15m]) > 0
         for: 1m
