@@ -62,8 +62,10 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
       loaded.current=true; setMapError(false);
       map.addSource("fleet",{type:"geojson",data:features(deliveriesRef.current,routesRef.current,telemetryRef.current)});
       map.addLayer({id:"planned-shadow",type:"line",source:"fleet",filter:["==",["get","kind"],"route"],paint:{"line-color":"#ffffff","line-width":7,"line-opacity":0.72}});
-      map.addLayer({id:"planned",type:"line",source:"fleet",filter:["==",["get","kind"],"route"],paint:{"line-color":"#1c332c","line-width":2,"line-dasharray":[2,2],"line-opacity":0.68}});
-      map.addLayer({id:"traveled",type:"line",source:"fleet",filter:["==",["get","kind"],"traveled"],paint:{"line-color":"#9be900","line-width":5,"line-blur":0.4}});
+      map.addLayer({id:"planned",type:"line",source:"fleet",filter:["==",["get","kind"],"route"],paint:{"line-color":"#315048","line-width":1.5,"line-dasharray":[2,2],"line-opacity":0.3}});
+      map.addLayer({id:"traveled",type:"line",source:"fleet",filter:["==",["get","kind"],"traveled"],paint:{"line-color":"#7ebd20","line-width":3,"line-opacity":0.38}});
+      map.addLayer({id:"selected-planned",type:"line",source:"fleet",filter:["all",["==",["get","kind"],"route"],["==",["get","id"],selectedRef.current||""]],paint:{"line-color":"#17372d","line-width":3,"line-dasharray":[2,2],"line-opacity":0.95}});
+      map.addLayer({id:"selected-traveled",type:"line",source:"fleet",filter:["all",["==",["get","kind"],"traveled"],["==",["get","id"],selectedRef.current||""]],paint:{"line-color":"#9be900","line-width":6,"line-opacity":1}});
       map.addLayer({id:"hubs",type:"circle",source:"fleet",filter:["in",["get","kind"],["literal",["origin","destination"]]],paint:{"circle-radius":6,"circle-color":"#ffffff","circle-stroke-color":"#19372e","circle-stroke-width":2}});
       map.addLayer({id:"vehicles-halo",type:"circle",source:"fleet",filter:["==",["get","kind"],"vehicle"],paint:{"circle-radius":15,"circle-color":["case",["==",["get","status"],"DELAYED"],"#ff6b46","#a7ef19"],"circle-opacity":0.22}});
       map.addLayer({id:"vehicles",type:"circle",source:"fleet",filter:["==",["get","kind"],"vehicle"],paint:{"circle-radius":8,"circle-color":["case",["==",["get","status"],"DELAYED"],"#ff5a36","#172d26"],"circle-stroke-color":"#ffffff","circle-stroke-width":2.5}});
@@ -87,10 +89,12 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
     const map=mapRef.current;if(!map||!loaded.current||!selectedId)return;
     const d=deliveries.find(x=>x.id===selectedId);if(!d)return;
     map.setFilter("selected-vehicle",["all",["==",["get","kind"],"vehicle"],["==",["get","id"],selectedId]]);
+    map.setFilter("selected-planned",["all",["==",["get","kind"],"route"],["==",["get","id"],selectedId]]);
+    map.setFilter("selected-traveled",["all",["==",["get","kind"],"traveled"],["==",["get","id"],selectedId]]);
     fitDelivery(map,d,routes,telemetry);
   },[selectedId,routes,telemetry]);
 
-  return <div className={`mapShell ${mapReady?"ready":""}`}><div ref={host} className="mapCanvas"/>{mapError&&<div className="mapError"><b>MAP OFFLINE</b><span>지도 타일 연결을 확인하세요. 배송 데이터 스트림은 계속 동작합니다.</span></div>}{!mapError&&deliveries.length===0&&<div className="mapEmpty"><b>NO VEHICLES IN THIS VIEW</b><span>{emptyMessage||"범위를 전환하거나 새 배송을 생성해 주세요."}</span></div>}<div className="mapLegend"><span><i className="liveDot"/> LIVE VEHICLE</span><span><i className="travelDot"/> ACTUAL TRACK</span><span><i className="routeDot"/> PLANNED ROUTE</span><span className="mapReady"><i/> {mapReady?"VECTOR MAP READY":"LOADING MAP"}</span></div></div>;
+  return <div className={`mapShell ${mapReady?"ready":""}`}><div ref={host} className="mapCanvas"/>{mapError&&<div className="mapError"><b>지도를 불러오지 못했습니다</b><span>지도 타일 연결을 확인하세요. 배송 데이터 스트림은 계속 동작합니다.</span></div>}{!mapError&&deliveries.length===0&&<div className="mapEmpty"><b>표시할 차량이 없습니다</b><span>{emptyMessage||"범위를 전환하거나 새 배송을 생성해 주세요."}</span></div>}<div className="mapLegend" aria-label="지도 범례"><strong>지도 읽는 법</strong><span><i className="liveDot"/> 현재 차량</span><span><i className="travelDot"/> 실제 이동</span><span><i className="routeDot"/> 계획 경로</span><span className="mapReady"><i/> {mapReady?"실시간 연결":"지도 로딩 중"}</span></div><p className="mapHint">차량을 선택하면 해당 운송 경로를 확대합니다</p></div>;
 }
 
 function fitDelivery(map:Map,delivery:Delivery,routes:RouteSnapshot[],telemetry:TelemetryPoint[]) {
