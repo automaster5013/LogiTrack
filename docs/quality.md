@@ -36,6 +36,7 @@ JaCoCo가 핵심 상태 전이와 불변식을 소유한 도메인 클래스의 
 - Node.js 22 TypeScript production build
 - API, analytics, simulator, web production image build와 non-root runtime 검사
 - digest로 고정한 Trivy를 통한 CycloneDX SBOM artifact 생성과 CRITICAL 취약점 0건 gate
+- digest로 고정한 Trivy offline secret scan을 통한 커밋 비밀정보 0건 gate
 
 외부 배포나 secret은 사용하지 않으며 `GITHUB_TOKEN` 권한은 `contents: read`로 제한한다. 같은 branch에 새 실행이 시작되면 이전 실행을 취소해 불필요한 runner 사용도 줄인다.
 

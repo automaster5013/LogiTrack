@@ -104,6 +104,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - name: Reject committed secrets
+        env:
+          TRIVY_IMAGE: ghcr.io/aquasecurity/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969
+        run: |
+          docker run --rm \
+            --volume "$GITHUB_WORKSPACE:/workspace:ro" \
+            "$TRIVY_IMAGE" fs --scanners secret --offline-scan \
+            --exit-code 1 --no-progress /workspace
       - name: Build deployable service images
         run: |
           docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-api:ci ./api
