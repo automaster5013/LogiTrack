@@ -57,6 +57,14 @@ def main() -> None:
     if services["kafka-init"].get("restart"):
         raise AssertionError("One-shot kafka-init must not have a restart policy")
 
+    for service_name, service in services.items():
+        logging = service.get("logging", {})
+        options = logging.get("options", {})
+        if logging.get("driver") != "json-file":
+            raise AssertionError(f"{service_name} does not use the bounded json-file log driver")
+        if options.get("max-size") != "10m" or options.get("max-file") != "3":
+            raise AssertionError(f"{service_name} does not enforce the shared log rotation limits")
+
     for service_name in long_running_services:
         if not services[service_name].get("healthcheck", {}).get("test"):
             raise AssertionError(f"{service_name} does not expose runtime readiness")
@@ -104,7 +112,7 @@ def main() -> None:
                 if not DIGEST_PATTERN.search(image):
                     raise AssertionError(f"{dockerfile} base image is not pinned by digest: {image}")
 
-    print("PASS: topology, loopback ports, runtime readiness, restart policies, and immutable image sources are valid")
+    print("PASS: topology, loopback ports, bounded logs, runtime readiness, restart policies, and immutable image sources are valid")
 
 
 if __name__ == "__main__":

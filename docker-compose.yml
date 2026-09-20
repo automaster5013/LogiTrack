@@ -1,8 +1,15 @@
 name: logitrack
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:17-alpine@sha256:f02121de6f74d30d8a94cd1d9584125e2178d7e6c377d8130112d4e52d867995
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-logitrack}
       POSTGRES_USER: ${POSTGRES_USER:-logitrack}
@@ -18,6 +25,7 @@ services:
   redis:
     image: redis:7-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
     restart: unless-stopped
+    logging: *default-logging
     ports: ["127.0.0.1:6379:6379"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -28,6 +36,7 @@ services:
   kafka:
     image: apache/kafka:4.0.0@sha256:3f7b939115cd4872e9cee9369d80bd69712fde55f9902f46d793f64848dedc75
     restart: unless-stopped
+    logging: *default-logging
     ports: ["127.0.0.1:9092:9092"]
     environment:
       KAFKA_NODE_ID: 1
@@ -50,6 +59,7 @@ services:
 
   kafka-init:
     image: apache/kafka:4.0.0@sha256:3f7b939115cd4872e9cee9369d80bd69712fde55f9902f46d793f64848dedc75
+    logging: *default-logging
     depends_on:
       kafka: {condition: service_healthy}
     command:
@@ -71,6 +81,7 @@ services:
   analytics:
     build: ./analytics
     restart: unless-stopped
+    logging: *default-logging
     environment:
       ROUTING_PROVIDER: ${ROUTING_PROVIDER:-osrm}
       OSRM_BASE_URL: ${OSRM_BASE_URL:-https://router.project-osrm.org}
@@ -90,6 +101,7 @@ services:
   api:
     build: ./api
     restart: unless-stopped
+    logging: *default-logging
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-logitrack}
       DB_USER: ${POSTGRES_USER:-logitrack}
@@ -118,6 +130,7 @@ services:
     profiles: ["scale-test"]
     build: ./api
     restart: unless-stopped
+    logging: *default-logging
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-logitrack}
       DB_USER: ${POSTGRES_USER:-logitrack}
@@ -145,6 +158,7 @@ services:
   simulator:
     build: ./simulator
     restart: unless-stopped
+    logging: *default-logging
     environment:
       KAFKA_BOOTSTRAP: kafka:29092
       SIMULATION_INTERVAL_SECONDS: 1
@@ -167,6 +181,7 @@ services:
       args:
         NEXT_PUBLIC_MAP_STYLE_URL: ${NEXT_PUBLIC_MAP_STYLE_URL:-https://tiles.openfreemap.org/styles/liberty}
     restart: unless-stopped
+    logging: *default-logging
     environment:
       HOSTNAME: 0.0.0.0
       API_INTERNAL_URL: http://api:8080
@@ -184,6 +199,7 @@ services:
   tempo:
     image: grafana/tempo:2.7.2@sha256:4b0277a9b572a4b1fa43b01468e58911ec214dd69d033f2cd476596d14de9fe3
     restart: unless-stopped
+    logging: *default-logging
     command: ["-config.file=/etc/tempo.yml"]
     volumes:
       - ./infra/otel/tempo.yml:/etc/tempo.yml:ro
@@ -199,6 +215,7 @@ services:
   otel-collector:
     build: ./infra/otel
     restart: unless-stopped
+    logging: *default-logging
     command: ["--config=/etc/otelcol-contrib/config.yml"]
     volumes: ["./infra/otel/collector.yml:/etc/otelcol-contrib/config.yml:ro"]
     ports: ["127.0.0.1:4317:4317", "127.0.0.1:4318:4318", "127.0.0.1:13133:13133"]
@@ -214,6 +231,7 @@ services:
   prometheus:
     image: prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996
     restart: unless-stopped
+    logging: *default-logging
     command: ["--config.file=/etc/prometheus/prometheus.yml"]
     volumes:
       - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -231,6 +249,7 @@ services:
   grafana:
     image: grafana/grafana:12.1.0@sha256:6ac590e7cabc2fbe8d7b8fc1ce9c9f0582177b334e0df9c927ebd9670469440f
     restart: unless-stopped
+    logging: *default-logging
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
     ports: ["127.0.0.1:3001:3000"]

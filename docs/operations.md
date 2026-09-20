@@ -12,6 +12,8 @@
 - Tempo readiness: `http://localhost:3200/ready`
 
 로컬 Compose 포트는 모두 `127.0.0.1`에만 게시된다. 데이터베이스, 브로커, API, 관측 도구를 LAN이나 공용 인터페이스에 직접 노출하지 말고 외부 배포에서는 인증과 TLS가 적용된 ingress를 사용한다.
+
+모든 Compose 서비스는 Docker `json-file` 로그를 파일당 10 MiB, 최대 3개로 회전한다. `docker compose logs --since 30m <service>`로 최근 로그를 확인하며, 장기 보존이 필요하면 중앙 로그 수집기를 별도로 연결한다.
 - 로그 필드: timestamp, level, logger, message, trace/correlation 식별자
 - 주요 지표: API latency/error, Kafka consumer lag, telemetry 처리량, DLQ 수, 활성 SSE 연결
 

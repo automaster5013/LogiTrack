@@ -7,6 +7,7 @@
 - 프로젝트 요구사항, 성공 기준, 9주 로드맵과 기술 ADR
 - Docker Compose 기반 PostgreSQL, Redis, Kafka, API, simulator, web, Prometheus, Grafana
 - 모든 Compose 공개 포트의 loopback 전용 바인딩과 구성 회귀 검증
+- 모든 Compose 서비스의 bounded Docker 로그 회전(10 MiB × 3)과 구성 회귀 검증
 - 웹·관측성 HTTP와 simulator 소비 루프 heartbeat 기반 전체 Docker 준비 상태 검증
 - Dockerfile 기반 이미지와 Compose 외부 이미지의 SHA-256 digest 고정 및 구성 회귀 검증
 - GitHub Actions·Maven·npm·Python·Dockerfile·Compose 전체 의존성의 주간 Dependabot 갱신
