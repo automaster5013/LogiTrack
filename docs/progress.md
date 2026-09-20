@@ -145,6 +145,7 @@
 - 유휴 Kafka 입력에서도 안정적인 partition assignment 기반 consumer 부재 경보
 - simulator 재시작 시 API 진행률 기반 resume로 telemetry 역행·DLQ 오염 방지
 - replay smoke의 재격리 확인 후 test-specific DLQ·감사 정리로 반복 검증 backlog 오염 방지
+- 재처리 불가능한 DLQ 이벤트의 운영자 폐기 상태, 필수 사유·감사 기록, 중복 disposition 방지와 Control Tower 작업
 - 기본 Compose와 선택적 scale-test replica 양쪽에서 동작하는 runtime policy smoke
 - outbox poll 장애의 scheduler stack trace 억제·복구 로그·Micrometer counter와 Prometheus 경보
 - Kafka 1 GiB container 안의 512 MiB heap 상한으로 native memory·page cache OOM 여유 확보

@@ -19,7 +19,7 @@ public class RetentionCleanupAttempt {
 
     @Transactional
     public Result cleanup(Instant processedBefore,Instant outboxBefore,Instant telemetryBefore,Instant replayedDlqBefore,int batchSize){
-        return new Result(processed.deleteBatchBefore(processedBefore,batchSize),outbox.deletePublishedBatchBefore(outboxBefore,batchSize),telemetry.deleteBatchBefore(telemetryBefore,batchSize),deadLetters.deleteReplayedBatchBefore(replayedDlqBefore,batchSize));
+        return new Result(processed.deleteBatchBefore(processedBefore,batchSize),outbox.deletePublishedBatchBefore(outboxBefore,batchSize),telemetry.deleteBatchBefore(telemetryBefore,batchSize),deadLetters.deleteTerminalBatchBefore(replayedDlqBefore,batchSize));
     }
 
     public record Result(int processedEvents,int outboxEvents,int telemetryPoints,int deadLetterEvents) {}

@@ -20,4 +20,15 @@ class ReplayServiceTest {
         var event=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,1);when(events.lockById(event.getId())).thenReturn(Optional.of(event));when(kafka.send(anyString(),any(),any())).thenReturn(CompletableFuture.failedFuture(new IllegalStateException("secret broker-1.internal:9092")));
         var error=assertThrows(IllegalStateException.class,()->service.replay(event.getId(),"operator"));assertEquals("Could not publish replay event",error.getMessage());assertFalse(error.getMessage().contains("broker"));
     }
+    @Test void discardsPendingEventWithAuditAndMetric(){
+        var events=mock(DeadLetterEventRepository.class);var audits=mock(ReplayAuditRepository.class);var metrics=new SimpleMeterRegistry();var service=new ReplayService(events,audits,mock(KafkaTemplate.class),metrics);
+        var event=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,2);when(events.lockById(event.getId())).thenReturn(Optional.of(event));
+        service.discard(event.getId()," operator "," invalid fixture ");
+        assertEquals(DeadLetterEvent.Status.DISCARDED,event.getStatus());assertEquals("operator",event.getDiscardedBy());assertEquals("invalid fixture",event.getDiscardReason());
+        var audit=org.mockito.ArgumentCaptor.forClass(ReplayAudit.class);verify(audits).save(audit.capture());assertEquals("DISCARD",audit.getValue().getAction());assertEquals("invalid fixture",audit.getValue().getReason());assertEquals(1,metrics.get("logitrack.dlq.discards").counter().count());
+    }
+    @Test void validatesDiscardReasonBeforeLocking(){
+        var events=mock(DeadLetterEventRepository.class);var service=new ReplayService(events,mock(ReplayAuditRepository.class),mock(KafkaTemplate.class),new SimpleMeterRegistry());
+        assertThrows(IllegalArgumentException.class,()->service.discard(UUID.randomUUID(),"operator","   "));verifyNoInteractions(events);
+    }
 }

@@ -118,12 +118,15 @@ export type DeadLetterEvent = {
   exceptionMessage?: string;
   dlqPartition: number;
   dlqOffset: number;
-  status: "PENDING" | "REPLAYED";
+  status: "PENDING" | "REPLAYED" | "DISCARDED";
   failedAt: string;
   replayedAt?: string;
   replayedBy?: string;
+  discardedAt?: string;
+  discardedBy?: string;
+  discardReason?: string;
 };
 
-export type ReplayAudit = { id:string; deadLetterEventId:string; action:"REPLAY"; actor:string; occurredAt:string };
+export type ReplayAudit = { id:string; deadLetterEventId:string; action:"REPLAY"|"DISCARD"; actor:string; reason?:string; occurredAt:string };
 export type OutboxFailure = { id:string; aggregateType:string; aggregateId:string; eventType:string; topic:string; attempts:number; lastError?:string; createdAt:string; status:"FAILED"|"PENDING" };
 export type OutboxRetryAudit = { id:string; outboxEventId:string; actor:string; occurredAt:string };

@@ -19,9 +19,10 @@ public class ReplayService {
     private final ReplayAuditRepository audits;
     private final KafkaTemplate<Object, Object> kafka;
     private final Counter replayCounter;
+    private final Counter discardCounter;
 
     public ReplayService(DeadLetterEventRepository events, ReplayAuditRepository audits, KafkaTemplate<Object, Object> kafka,MeterRegistry metrics) {
-        this.events=events; this.audits=audits; this.kafka=kafka;this.replayCounter=metrics.counter("logitrack.dlq.replays");
+        this.events=events; this.audits=audits; this.kafka=kafka;this.replayCounter=metrics.counter("logitrack.dlq.replays");this.discardCounter=metrics.counter("logitrack.dlq.discards");
     }
 
     public List<DeadLetterEvent> list(DeadLetterEvent.Status status) {
@@ -47,6 +48,19 @@ public class ReplayService {
         event.markReplayed(normalizedActor);
         audits.save(new ReplayAudit(event.getId(), normalizedActor));
         replayCounter.increment();
+        return event;
+    }
+
+    @Transactional(propagation=Propagation.REQUIRES_NEW)
+    public DeadLetterEvent discard(UUID id, String actor, String reason) {
+        var normalizedActor = actor == null ? "" : actor.trim();
+        var normalizedReason = reason == null ? "" : reason.trim();
+        if (normalizedActor.isBlank() || normalizedActor.length() > 120) throw new IllegalArgumentException("X-Operator must be 1-120 characters");
+        if (normalizedReason.isBlank() || normalizedReason.length() > 500) throw new IllegalArgumentException("reason must be 1-500 characters");
+        var event = events.lockById(id).orElseThrow(() -> new java.util.NoSuchElementException("DLQ event not found"));
+        event.discard(normalizedActor, normalizedReason);
+        audits.save(new ReplayAudit(event.getId(), "DISCARD", normalizedActor, normalizedReason));
+        discardCounter.increment();
         return event;
     }
 }

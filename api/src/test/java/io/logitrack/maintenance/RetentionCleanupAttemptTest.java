@@ -13,7 +13,7 @@ import static org.mockito.Mockito.*;
 class RetentionCleanupAttemptTest {
     @Test void returnsEachCommittedDeletionCount(){
         var processed=mock(ProcessedEventRepository.class);var outbox=mock(OutboxRepository.class);var telemetry=mock(TelemetryPointRepository.class);var deadLetters=mock(DeadLetterEventRepository.class);
-        when(processed.deleteBatchBefore(any(),eq(50))).thenReturn(2);when(outbox.deletePublishedBatchBefore(any(),eq(50))).thenReturn(3);when(telemetry.deleteBatchBefore(any(),eq(50))).thenReturn(4);when(deadLetters.deleteReplayedBatchBefore(any(),eq(50))).thenReturn(5);
+        when(processed.deleteBatchBefore(any(),eq(50))).thenReturn(2);when(outbox.deletePublishedBatchBefore(any(),eq(50))).thenReturn(3);when(telemetry.deleteBatchBefore(any(),eq(50))).thenReturn(4);when(deadLetters.deleteTerminalBatchBefore(any(),eq(50))).thenReturn(5);
         var result=new RetentionCleanupAttempt(processed,outbox,telemetry,deadLetters).cleanup(Instant.EPOCH,Instant.EPOCH,Instant.EPOCH,Instant.EPOCH,50);
         assertEquals(new RetentionCleanupAttempt.Result(2,3,4,5),result);
     }

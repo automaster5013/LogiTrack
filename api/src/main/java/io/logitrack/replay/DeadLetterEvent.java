@@ -20,6 +20,9 @@ public class DeadLetterEvent {
     @Column(name="failed_at", nullable=false) private Instant failedAt;
     @Column(name="replayed_at") private Instant replayedAt;
     @Column(name="replayed_by") private String replayedBy;
+    @Column(name="discarded_at") private Instant discardedAt;
+    @Column(name="discarded_by") private String discardedBy;
+    @Column(name="discard_reason") private String discardReason;
 
     protected DeadLetterEvent() {}
 
@@ -32,14 +35,19 @@ public class DeadLetterEvent {
     }
 
     public void markReplayed(String actor) {
-        if (status != Status.PENDING) throw new IllegalStateException("DLQ event has already been replayed");
+        if (status != Status.PENDING) throw new IllegalStateException("DLQ event is no longer pending");
         status = Status.REPLAYED; replayedAt = Instant.now(); replayedBy = actor;
+    }
+
+    public void discard(String actor, String reason) {
+        if (status != Status.PENDING) throw new IllegalStateException("DLQ event is no longer pending");
+        status = Status.DISCARDED; discardedAt = Instant.now(); discardedBy = actor; discardReason = reason;
     }
 
     public UUID getId(){return id;} public String getOriginalTopic(){return originalTopic;} public String getMessageKey(){return messageKey;}
     public String getPayload(){return payload;} public String getTraceId(){return traceId;} public String getExceptionMessage(){return exceptionMessage;}
     public String getDlqTopic(){return dlqTopic;} public int getDlqPartition(){return dlqPartition;} public long getDlqOffset(){return dlqOffset;}
     public Status getStatus(){return status;} public Instant getFailedAt(){return failedAt;} public Instant getReplayedAt(){return replayedAt;} public String getReplayedBy(){return replayedBy;}
-    public enum Status { PENDING, REPLAYED }
+    public Instant getDiscardedAt(){return discardedAt;} public String getDiscardedBy(){return discardedBy;} public String getDiscardReason(){return discardReason;}
+    public enum Status { PENDING, REPLAYED, DISCARDED }
 }
-

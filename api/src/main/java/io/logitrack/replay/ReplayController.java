@@ -16,6 +16,9 @@ public class ReplayController {
     @PostMapping("/dlq/{id}/replay")
     public DeadLetterEvent replay(@PathVariable UUID id, @RequestHeader("X-Operator") String actor){return service.replay(id,actor);}
 
+    @PostMapping("/dlq/{id}/discard")
+    public DeadLetterEvent discard(@PathVariable UUID id, @RequestHeader("X-Operator") String actor, @RequestBody DiscardRequest request){return service.discard(id,actor,request.reason());}
+
     @GetMapping("/replay-audits")
     public List<ReplayAudit> audits(){return service.audits();}
 
@@ -25,4 +28,6 @@ public class ReplayController {
     @PostMapping("/replay-plans/{id}/execute")
     public ReplayPlan execute(@PathVariable UUID id, @RequestHeader("X-Operator") String actor,
         @RequestHeader("X-Replay-Approval") String approval){return plans.execute(id,actor,approval);}
+
+    public record DiscardRequest(String reason) {}
 }
