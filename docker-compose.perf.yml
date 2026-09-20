@@ -1,7 +1,21 @@
 name: logitrack-perf
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "2"
+x-security: &default-security
+  - no-new-privileges:true
+
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17-alpine@sha256:f02121de6f74d30d8a94cd1d9584125e2178d7e6c377d8130112d4e52d867995
+    logging: *default-logging
+    stop_grace_period: 35s
+    mem_limit: 1g
+    cpus: 2.0
+    pids_limit: 256
+    security_opt: *default-security
     environment:
       POSTGRES_DB: logitrack
       POSTGRES_USER: logitrack
@@ -14,7 +28,13 @@ services:
     volumes: ["postgres-perf-data:/var/lib/postgresql/data"]
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
+    logging: *default-logging
+    stop_grace_period: 35s
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 128
+    security_opt: *default-security
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 3s
@@ -22,7 +42,13 @@ services:
       retries: 20
 
   kafka:
-    image: apache/kafka:4.0.0
+    image: apache/kafka:4.0.0@sha256:3f7b939115cd4872e9cee9369d80bd69712fde55f9902f46d793f64848dedc75
+    logging: *default-logging
+    stop_grace_period: 35s
+    mem_limit: 1g
+    cpus: 1.5
+    pids_limit: 512
+    security_opt: *default-security
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -35,6 +61,11 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes: ["kafka-perf-data:/var/lib/kafka/data"]
+    tmpfs:
+      - /etc/kafka/secrets:size=16m,mode=1777
+      - /mnt/shared/config:size=16m,mode=1777
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list"]
       interval: 5s
@@ -42,19 +73,34 @@ services:
       retries: 20
 
   kafka-init:
-    image: apache/kafka:4.0.0
+    image: apache/kafka:4.0.0@sha256:3f7b939115cd4872e9cee9369d80bd69712fde55f9902f46d793f64848dedc75
+    logging: *default-logging
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 128
+    security_opt: *default-security
     depends_on:
       kafka: {condition: service_healthy}
     command:
       - /bin/bash
       - -c
       - |
+        set -eu
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic delivery.created.v1 --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic vehicle.telemetry.v1 --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic vehicle.telemetry.dlq.v1 --partitions 3 --replication-factor 1
 
   analytics:
     build: ./analytics
+    logging: *default-logging
+    stop_grace_period: 35s
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 256
+    security_opt: *default-security
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
     environment:
       ROUTING_PROVIDER: geodesic
       OTEL_SDK_DISABLED: "true"
@@ -66,6 +112,15 @@ services:
 
   api:
     build: ./api
+    logging: *default-logging
+    stop_grace_period: 35s
+    mem_limit: 2g
+    cpus: 4.0
+    pids_limit: 768
+    security_opt: *default-security
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: ["/tmp:size=128m,mode=1777"]
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/logitrack
       DB_USER: logitrack
@@ -77,7 +132,7 @@ services:
       TRACING_SAMPLING_PROBABILITY: "0"
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "32"
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "8"
-    ports: ["18080:8080"]
+    ports: ["127.0.0.1:18080:8080"]
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
@@ -92,3 +147,4 @@ services:
 
 volumes:
   postgres-perf-data:
+  kafka-perf-data:
