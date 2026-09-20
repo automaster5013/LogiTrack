@@ -9,6 +9,10 @@ type Props = {
   onAcknowledge: (alertId: string) => void;
 };
 
+const alertStatusLabel: Record<DeliveryAlert["status"],string> = {ACTIVE:"대응 필요",RESOLVED:"해결됨"};
+const alertTypeLabel: Record<DeliveryAlert["alertType"],string> = {DELAY:"도착 지연",ROUTE_DEVIATION:"경로 이탈"};
+const alertSeverityLabel: Record<DeliveryAlert["severity"],string> = {WARNING:"주의",CRITICAL:"긴급"};
+
 export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,onAcknowledge}:Props){
   const [scope,setScope]=useState<"ACTIVE"|"ALL">("ACTIVE");
   const [visibleCount,setVisibleCount]=useState(8);
@@ -27,8 +31,8 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
   },[scopedAlerts.length]);
 
   return <section className="alertBoard">
-    <div className="alertHeader"><div><p className="eyebrow">EXCEPTION MANAGEMENT</p><h2>Delivery alerts</h2></div>
-      <div className="alertHeaderMeta"><div className="alertHeaderStats"><span><b>{active.length}</b><small>ACTIVE</small></span><span><b>{unacknowledged.length}</b><small>UNACKNOWLEDGED</small></span></div>
+    <div className="alertHeader"><div><p className="eyebrow">예외 상황 관리</p><h2>배송 경고</h2></div>
+      <div className="alertHeaderMeta"><div className="alertHeaderStats"><span><b>{active.length}</b><small>대응 필요</small></span><span><b>{unacknowledged.length}</b><small>미확인</small></span></div>
         <div className="alertScope" aria-label="경고 표시 범위"><button type="button" aria-pressed={scope==="ACTIVE"} onClick={()=>setScope("ACTIVE")}>현재 경고 {active.length}</button><button type="button" aria-pressed={scope==="ALL"} onClick={()=>setScope("ALL")}>전체 이력 {alerts.length}</button></div>
       </div>
     </div>
@@ -36,12 +40,12 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
       const delivery=deliveries.find(item=>item.id===alert.deliveryId);
       return <div key={alert.id} className={`alertCard ${alert.status.toLowerCase()} ${alert.severity.toLowerCase()} ${alert.acknowledgedAt?"acknowledged":""}`}>
         <button className="alertFocus" onClick={()=>onSelect(alert.deliveryId)} aria-label={`${delivery?.vehicleId||alert.deliveryId} 지도에서 보기`}>
-          <span className="alertState">{alert.status}</span><span className="alertKind">{alert.alertType.replace("_"," ")}</span>
+          <span className="alertState">{alertStatusLabel[alert.status]}</span><span className="alertKind">{alertTypeLabel[alert.alertType]} · {alertSeverityLabel[alert.severity]}</span>
           <strong>{delivery?.vehicleId||alert.deliveryId.slice(0,8)}</strong><p>{alert.message}</p>
-          <small>{alert.occurrenceCount} observations · {new Date(alert.lastObservedAt).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</small>
+          <small>{alert.occurrenceCount}회 감지 · 최근 {new Date(alert.lastObservedAt).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</small>
         </button>
-        {alert.status==="ACTIVE"&&!alert.acknowledgedAt?<button className="alertAck" disabled={busyId===alert.id} onClick={()=>onAcknowledge(alert.id)}>{busyId===alert.id?"ACKNOWLEDGING…":"ACKNOWLEDGE"}</button>
-          :alert.acknowledgedAt?<span className="alertAcknowledged">ACK · {alert.acknowledgedBy}</span>:null}
+        {alert.status==="ACTIVE"&&!alert.acknowledgedAt?<button className="alertAck" disabled={busyId===alert.id} onClick={()=>onAcknowledge(alert.id)} aria-label={`${delivery?.vehicleId||alert.deliveryId} 경고 확인 처리`}>{busyId===alert.id?"확인 처리 중…":"확인 완료"}</button>
+          :alert.acknowledgedAt?<span className="alertAcknowledged">확인 · {alert.acknowledgedBy}</span>:null}
       </div>})}
       {scopedAlerts.length>8?<div className="alertListFooter">
         <span aria-live="polite">경고 {visibleAlerts.length} / {scopedAlerts.length}건 표시</span>
