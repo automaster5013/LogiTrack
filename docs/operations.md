@@ -7,7 +7,7 @@
 ## Health와 관측성
 
 - API liveness/readiness: `/actuator/health/liveness`, `/actuator/health/readiness`. Readiness는 애플리케이션 상태와 PostgreSQL을 포함하며 Redis는 로컬 SSE fallback이 있으므로 제외한다.
-- CORS는 `CORS_ALLOWED_ORIGINS`의 exact origin과 `Content-Type`, `Idempotency-Key`, `X-Trace-Id`, `X-Operator`, `X-Replay-Approval` 요청 헤더만 허용한다. 허용 preflight는 1시간 캐시하며 임의 인증·사용자 정의 헤더는 거부한다.
+- CORS는 `CORS_ALLOWED_ORIGINS`의 exact origin과 `Content-Type`, `Idempotency-Key`, `X-Trace-Id`, `X-Operator`, `X-Replay-Approval`, `X-Discard-Approval` 요청 헤더만 허용한다. 허용 preflight는 1시간 캐시하며 임의 인증·사용자 정의 헤더는 거부한다.
 - 주문·배송·위치·감사·복구·보고서를 포함한 모든 `/api/**` 응답은 `Cache-Control: no-store`로 브라우저와 중간 프록시 저장을 금지한다. 웹 정적 자산과 actuator의 별도 cache 정책은 변경하지 않는다.
 - PostgreSQL 연결 획득은 기본 3초(`DB_CONNECTION_TIMEOUT_MS`), 연결 검증은 2초(`DB_VALIDATION_TIMEOUT_MS`) 안에 실패한다. DB 장애 중 요청·consumer·예약 작업이 JDBC 기본 30초 대기로 누적되는 것을 막고, 연결 풀이 복구되면 별도 재시작 없이 다시 처리한다.
 - analytics health: `http://localhost:8090/health`

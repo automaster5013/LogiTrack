@@ -151,6 +151,7 @@
 - 기본 Compose와 선택적 scale-test replica 양쪽에서 동작하는 runtime policy smoke
 - outbox poll 장애의 scheduler stack trace 억제·복구 로그·Micrometer counter와 Prometheus 경보
 - Kafka 1 GiB container 안의 512 MiB heap 상한으로 native memory·page cache OOM 여유 확보
+- 일괄 DLQ 폐기 브라우저 실행용 `X-Discard-Approval` CORS 허용과 전체 운영 헤더 preflight 회귀 검증
 
 ## 현재 상태
 

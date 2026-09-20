@@ -10,6 +10,6 @@ import java.util.*;
     if(this.allowedOrigins.length==0)throw new IllegalArgumentException("At least one CORS allowed origin is required");
   }
   public void addCorsMappings(CorsRegistry r){r.addMapping("/api/**").allowedOrigins(allowedOrigins).allowedMethods("GET","POST","DELETE")
-    .allowedHeaders("Content-Type","Idempotency-Key",RequestTraceFilter.HEADER,"X-Operator","X-Replay-Approval")
+    .allowedHeaders("Content-Type","Idempotency-Key",RequestTraceFilter.HEADER,"X-Operator","X-Replay-Approval","X-Discard-Approval")
     .exposedHeaders(RequestTraceFilter.HEADER).maxAge(3600);}
 }
