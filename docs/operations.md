@@ -164,7 +164,7 @@ API, analytics, simulator, web, OpenTelemetry Collector는 Linux capability를 �
 - Analytics PDF 응답은 전체를 메모리에 적재한 뒤 검사하지 않고 설정 상한+1 byte까지만 스트리밍으로 읽는다. 응답 상한 설정도 5 byte~50MB로 제한해 잘못된 값이 JVM heap을 무제한 노출하지 않는다.
 - 경로 분석 JSON도 기본 2MB(`ANALYTICS_ROUTE_MAX_RESPONSE_SIZE`, 허용 범위 1KB~10MB) 상한+1 byte까지만 읽고 역직렬화한다. 초과·비정상 응답은 기존 로컬 geodesic fallback으로 안전하게 전환한다.
 
-- 목록: `GET /api/operations/dlq?status=PENDING`
+- 목록: 호환용 최신 100건은 `GET /api/operations/dlq?status=PENDING`, 전체 backlog 탐색은 `GET /api/operations/dlq-page?status=PENDING&page=0&size=100`을 사용한다. page는 0 이상, size는 1~100이며 응답의 `totalElements`와 `hasMore`로 다음 페이지를 판단한다. Control Tower는 최신 100건을 먼저 표시하고 필요할 때 오래된 페이지를 추가 로드한다. `./scripts/dlq-pagination-smoke.ps1`는 PENDING 행을 변경하지 않고 모든 페이지의 중복·누락 여부를 DB count와 대조한다.
 - 단일 replay: `POST /api/operations/dlq/{id}/replay`와 필수 `X-Operator` 헤더
 - 감사: `GET /api/operations/replay-audits`
 - 동일 catalog 항목은 한 번만 replay할 수 있다. 영구 오류가 다시 DLQ로 가면 새 항목으로 조사한다.

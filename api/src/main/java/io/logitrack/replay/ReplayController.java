@@ -14,6 +14,14 @@ public class ReplayController {
     @GetMapping("/dlq")
     public List<DeadLetterEvent> list(@RequestParam(required=false) DeadLetterEvent.Status status){return service.list(status);}
 
+    @GetMapping("/dlq-page")
+    public ReplayService.DeadLetterPage page(@RequestParam(required=false) DeadLetterEvent.Status status,
+        @RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="100") int size){
+        if(page<0)throw new IllegalArgumentException("page must be zero or greater");
+        if(size<1||size>100)throw new IllegalArgumentException("size must be between 1 and 100");
+        return service.page(status,page,size);
+    }
+
     @PostMapping("/dlq/{id}/replay")
     public DeadLetterEvent replay(@PathVariable UUID id, @RequestHeader("X-Operator") String actor){return service.replay(id,actor);}
 

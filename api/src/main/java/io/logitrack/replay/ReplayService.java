@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import org.springframework.data.domain.*;
 
 @Service
 public class ReplayService {
@@ -28,7 +29,14 @@ public class ReplayService {
     public List<DeadLetterEvent> list(DeadLetterEvent.Status status) {
         return status == null ? events.findTop100ByOrderByFailedAtDesc() : events.findTop100ByStatusOrderByFailedAtDesc(status);
     }
+    @Transactional(readOnly=true)
+    public DeadLetterPage page(DeadLetterEvent.Status status,int page,int size){
+        var pageable=PageRequest.of(page,size,Sort.by(Sort.Direction.DESC,"failedAt").and(Sort.by(Sort.Direction.DESC,"id")));
+        Page<DeadLetterEvent> result=status==null?events.findAll(pageable):events.findByStatus(status,pageable);
+        return new DeadLetterPage(result.getContent(),result.getNumber(),result.getSize(),result.getTotalElements(),result.hasNext());
+    }
     public List<ReplayAudit> audits() { return audits.findTop100ByOrderByOccurredAtDesc(); }
+    public record DeadLetterPage(List<DeadLetterEvent> items,int page,int size,long totalElements,boolean hasMore){}
 
     @Transactional(propagation=Propagation.REQUIRES_NEW)
     public DeadLetterEvent replay(UUID id, String actor) {

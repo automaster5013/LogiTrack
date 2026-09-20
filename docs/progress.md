@@ -153,6 +153,7 @@
 - Kafka 1 GiB container 안의 512 MiB heap 상한으로 native memory·page cache OOM 여유 확보
 - 일괄 DLQ 폐기 브라우저 실행용 `X-Discard-Approval` CORS 허용과 전체 운영 헤더 preflight 회귀 검증
 - transactional outbox W3C trace context 원자적 보존과 비동기 Kafka producer/consumer trace 연속성
+- 100건 초과 PENDING DLQ의 페이지 조회와 Control Tower 점진 로딩으로 오래된 격리 이벤트 접근 보장
 
 ## 현재 상태
 

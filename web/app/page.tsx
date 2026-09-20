@@ -8,7 +8,7 @@ import OutboxRecoveryPanel from "./components/OutboxRecoveryPanel";
 import AlertOperationsPanel from "./components/AlertOperationsPanel";
 import AlertPolicyPanel, { PolicyInput } from "./components/AlertPolicyPanel";
 import { fetchJson } from "./api";
-import type { AlertPolicy, AlertPolicyAudit, CustomerOrder, DailyDeliveryKpi, DeadLetterEvent, Delivery, DeliveryAlert, DiscardPlan, LedgerEntry, OutboxFailure, OutboxRetryAudit, ReplayAudit, RouteSnapshot, TelemetryPoint, WarehouseStock, WarehouseTask } from "./types";
+import type { AlertPolicy, AlertPolicyAudit, CustomerOrder, DailyDeliveryKpi, DeadLetterEvent, DeadLetterPage, Delivery, DeliveryAlert, DiscardPlan, LedgerEntry, OutboxFailure, OutboxRetryAudit, ReplayAudit, RouteSnapshot, TelemetryPoint, WarehouseStock, WarehouseTask } from "./types";
 
 const FleetMap=dynamic(()=>import("./components/FleetMap"),{ssr:false});
 const API=process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -25,7 +25,7 @@ export default function Home(){
  const [policies,setPolicies]=useState<AlertPolicy[]>([]); const [policyAudits,setPolicyAudits]=useState<AlertPolicyAudit[]>([]); const [policyBusy,setPolicyBusy]=useState(false);
  const [orders,setOrders]=useState<CustomerOrder[]>([]); const [orderBusy,setOrderBusy]=useState<string>();
  const [kpis,setKpis]=useState<DailyDeliveryKpi[]>([]);
- const [deadLetters,setDeadLetters]=useState<DeadLetterEvent[]>([]); const [replayAudits,setReplayAudits]=useState<ReplayAudit[]>([]); const [replayBusy,setReplayBusy]=useState<string>();
+ const [deadLetters,setDeadLetters]=useState<DeadLetterEvent[]>([]); const [deadLetterTotal,setDeadLetterTotal]=useState(0); const [replayAudits,setReplayAudits]=useState<ReplayAudit[]>([]); const [replayBusy,setReplayBusy]=useState<string>(); const [replayPageBusy,setReplayPageBusy]=useState(false); const replayLastPage=useRef(0);
  const [discardPlan,setDiscardPlan]=useState<DiscardPlan>(); const [discardPlanBusy,setDiscardPlanBusy]=useState(false);
  const [outboxFailures,setOutboxFailures]=useState<OutboxFailure[]>([]); const [outboxAudits,setOutboxAudits]=useState<OutboxRetryAudit[]>([]); const [outboxBusy,setOutboxBusy]=useState<string>();
  const [stocks,setStocks]=useState<WarehouseStock[]>([]); const [tasks,setTasks]=useState<WarehouseTask[]>([]); const [ledger,setLedger]=useState<LedgerEntry[]>([]); const [warehouseBusy,setWarehouseBusy]=useState(false);
@@ -42,7 +42,8 @@ export default function Home(){
  const loadWarehouse=()=>Promise.all([fetchJson<WarehouseStock[]>(`${API}/api/warehouse/stock`),fetchJson<WarehouseTask[]>(`${API}/api/warehouse/tasks`),fetchJson<LedgerEntry[]>(`${API}/api/warehouse/ledger`)]).then(([s,t,l])=>{setStocks(s);setTasks(t);setLedger(l);clearError("창고 데이터에 연결할 수 없습니다.")}).catch(()=>setError("창고 데이터에 연결할 수 없습니다."));
  const loadKpis=()=>fetchJson<DailyDeliveryKpi[]>(`${API}/api/reports/daily-kpis?days=14`).then(rows=>{setKpis(rows);clearError("KPI 보고서를 불러올 수 없습니다.")}).catch(()=>setError("KPI 보고서를 불러올 수 없습니다."));
  const loadOrders=()=>fetchJson<CustomerOrder[]>(`${API}/api/orders`).then(rows=>{setOrders(rows);clearError("주문 데이터를 불러올 수 없습니다.")}).catch(()=>setError("주문 데이터를 불러올 수 없습니다."));
- const loadReplay=()=>Promise.all([fetchJson<DeadLetterEvent[]>(`${API}/api/operations/dlq?status=PENDING`),fetchJson<ReplayAudit[]>(`${API}/api/operations/replay-audits`)]).then(([events,audits])=>{setDeadLetters(events);setReplayAudits(audits);setError(current=>current==="복구 큐를 불러올 수 없습니다."?"":current)}).catch(()=>setError("복구 큐를 불러올 수 없습니다."));
+ const loadReplay=()=>Promise.all([Promise.all(Array.from({length:replayLastPage.current+1},(_,page)=>fetchJson<DeadLetterPage>(`${API}/api/operations/dlq-page?status=PENDING&page=${page}&size=100`))),fetchJson<ReplayAudit[]>(`${API}/api/operations/replay-audits`)]).then(([pages,audits])=>{const merged=new Map(pages.flatMap(page=>page.items).map(event=>[event.id,event]));setDeadLetters([...merged.values()]);setDeadLetterTotal(pages[0]?.totalElements||0);setReplayAudits(audits);setError(current=>current==="복구 큐를 불러올 수 없습니다."?"":current)}).catch(()=>setError("복구 큐를 불러올 수 없습니다."));
+ const loadMoreReplay=async()=>{setReplayPageBusy(true);try{const next=replayLastPage.current+1;const page=await fetchJson<DeadLetterPage>(`${API}/api/operations/dlq-page?status=PENDING&page=${next}&size=100`);replayLastPage.current=next;setDeadLetters(current=>{const merged=new Map([...current,...page.items].map(event=>[event.id,event]));return [...merged.values()]});setDeadLetterTotal(page.totalElements);clearError("복구 큐를 불러올 수 없습니다.")}catch{setError("복구 큐를 불러올 수 없습니다.")}finally{setReplayPageBusy(false)}};
  const loadOutbox=()=>Promise.all([fetchJson<OutboxFailure[]>(`${API}/api/operations/outbox/failures`),fetchJson<OutboxRetryAudit[]>(`${API}/api/operations/outbox/retry-audits`)]).then(([failures,audits])=>{setOutboxFailures(failures);setOutboxAudits(audits);clearError("Outbox 복구 큐를 불러올 수 없습니다.")}).catch(()=>setError("Outbox 복구 큐를 불러올 수 없습니다."));
  const loadPolicies=()=>Promise.all([fetchJson<AlertPolicy[]>(`${API}/api/alert-policies`),fetchJson<AlertPolicyAudit[]>(`${API}/api/alert-policies/audits`)]).then(([nextPolicies,nextAudits])=>{setPolicies(nextPolicies);setPolicyAudits(nextAudits);clearError("경고 정책을 불러올 수 없습니다.")}).catch(()=>setError("경고 정책을 불러올 수 없습니다."));
  useEffect(()=>{load(); const source=new EventSource(`${API}/api/stream/deliveries`); source.onopen=()=>setConnected(true); source.onerror=()=>setConnected(false);
@@ -93,7 +94,7 @@ export default function Home(){
    <div className="ledgerPane"><h4>RECENT LEDGER</h4>{ledger.length===0?<p className="warehouseEmpty">Inventory movements will appear here.</p>:ledger.slice(0,7).map(e=><div className="ledgerRow" key={e.id}><span className={`movement ${e.transactionType.toLowerCase()}`}>{e.transactionType}</span><span><b>{e.sku}</b><small>{e.warehouseId}</small></span><span className="delta">{e.onHandDelta>0?`+${e.onHandDelta}`:e.onHandDelta||`R +${e.reservedDelta}`}</span></div>)}</div></div>
    <div className="taskStrip"><span>{tasks.filter(t=>t.status==="PICKED").length} awaiting dispatch</span><span>{tasks.filter(t=>t.status==="DISPATCHED").length} dispatched</span><span>{ledger.length} ledger movements loaded</span></div>
   </section>
-  <ReplayOperationsPanel events={deadLetters} audits={replayAudits} busyId={replayBusy} discardPlan={discardPlan} discardPlanBusy={discardPlanBusy} onReplay={replay} onDiscard={discard} onPrepareDiscard={prepareDiscard} onExecuteDiscard={executeDiscard} onResetDiscardPlan={()=>setDiscardPlan(undefined)}/>
+  <ReplayOperationsPanel events={deadLetters} totalEvents={deadLetterTotal} audits={replayAudits} busyId={replayBusy} pageBusy={replayPageBusy} discardPlan={discardPlan} discardPlanBusy={discardPlanBusy} onReplay={replay} onDiscard={discard} onLoadMore={loadMoreReplay} onPrepareDiscard={prepareDiscard} onExecuteDiscard={executeDiscard} onResetDiscardPlan={()=>setDiscardPlan(undefined)}/>
   <OutboxRecoveryPanel failures={outboxFailures} audits={outboxAudits} busyId={outboxBusy} onRetry={retryOutbox}/>
  </main>
 }
