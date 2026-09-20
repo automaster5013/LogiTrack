@@ -31,4 +31,7 @@ try {
 
 $file = Get-Item -LiteralPath $backupPath
 if ($file.Length -le 0) { throw "PostgreSQL backup is empty" }
+$checksum = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+$checksumPath = "$($file.FullName).sha256"
+Set-Content -LiteralPath $checksumPath -Value "$checksum  $($file.Name)" -Encoding ascii
 $file.FullName

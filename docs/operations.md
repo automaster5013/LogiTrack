@@ -23,7 +23,7 @@
 
 ## PostgreSQL backup/restore
 
-`./scripts/postgres-backup.ps1`는 실행 중인 PostgreSQL에서 owner/ACL 비종속 custom-format dump를 `output/backups/`에 생성하고, 컨테이너 안에서 archive 목차를 검증한 뒤 호스트로 복사한다. 복원은 `./scripts/postgres-restore.ps1 -BackupPath <dump> -TargetDatabase logitrack_restore -Force`를 사용한다. 안전을 위해 온라인 도구는 기본 `logitrack` DB 덮어쓰기를 거부하며, 검증 DB에서 확인한 뒤 유지보수 창에 연결 문자열을 전환한다. `./scripts/postgres-backup-restore-smoke.ps1`는 고유 sentinel 행을 임시 DB에 실제 복원하고 값까지 확인한 다음 원본 sentinel, 임시 DB, dump를 제거한다.
+`./scripts/postgres-backup.ps1`는 실행 중인 PostgreSQL에서 owner/ACL 비종속 custom-format dump를 `output/backups/`에 생성하고, 컨테이너 안에서 archive 목차를 검증한 뒤 `<dump>.sha256` 무결성 sidecar를 만든다. 복원은 `./scripts/postgres-restore.ps1 -BackupPath <dump> -TargetDatabase logitrack_restore -Force`를 사용하며 DB를 변경하기 전에 sidecar의 파일명과 SHA-256을 검증한다. checksum이 없는 신뢰 가능한 기존 dump만 `-AllowUnverified`로 명시적으로 허용한다. 안전을 위해 온라인 도구는 기본 `logitrack` DB 덮어쓰기를 거부하며, 검증 DB에서 확인한 뒤 유지보수 창에 연결 문자열을 전환한다. `./scripts/postgres-backup-restore-smoke.ps1`는 1바이트 변조본 거부와 고유 sentinel 행의 임시 DB 복원을 모두 확인한 다음 원본 sentinel, 임시 DB, dump·sidecar를 제거한다.
 - 로그 필드: timestamp, level, logger, message, trace/correlation 식별자
 - 주요 지표: API latency/error, Kafka consumer lag, telemetry 처리량, DLQ 수, 활성 SSE 연결
 

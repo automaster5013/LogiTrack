@@ -2,7 +2,8 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$BackupPath,
   [string]$TargetDatabase = "logitrack_restore",
-  [switch]$Force
+  [switch]$Force,
+  [switch]$AllowUnverified
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,6 +20,22 @@ if ($TargetDatabase -eq "logitrack") {
 }
 
 $resolvedBackup = (Resolve-Path -LiteralPath $BackupPath).Path
+$checksumPath = "$resolvedBackup.sha256"
+if (Test-Path -LiteralPath $checksumPath) {
+  $checksumLine = (Get-Content -LiteralPath $checksumPath -Raw).Trim()
+  if ($checksumLine -notmatch '^([0-9a-fA-F]{64})\s+\*?(.+)$') {
+    throw "Backup checksum file is malformed"
+  }
+  if ($Matches[2] -ne (Split-Path -Leaf $resolvedBackup)) {
+    throw "Backup checksum refers to a different file"
+  }
+  $actualChecksum = (Get-FileHash -LiteralPath $resolvedBackup -Algorithm SHA256).Hash
+  if ($actualChecksum -ne $Matches[1]) {
+    throw "Backup checksum verification failed"
+  }
+} elseif (-not $AllowUnverified) {
+  throw "Backup checksum is missing; use -AllowUnverified only for a trusted legacy dump"
+}
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $containerId = (& docker compose --project-directory $projectRoot ps -q postgres).Trim()
 if ($LASTEXITCODE -ne 0 -or -not $containerId) {

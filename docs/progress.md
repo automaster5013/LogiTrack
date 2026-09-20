@@ -139,6 +139,7 @@
 - edge·data·analytics egress·observability Compose 네트워크 분리와 정적·실행 중 최소 권한 topology 검증
 - 격리 성능 스택의 내부 data·analytics 네트워크와 API 전용 runner 네트워크 분리
 - SBOM 5종의 CycloneDX 구조·image digest·구성요소 식별자·Git SHA provenance CI 검증
+- PostgreSQL dump SHA-256 sidecar 생성, 복원 전 필수 무결성 검증과 실제 변조 거부 CI 검증
 
 ## 현재 상태
 
