@@ -10,14 +10,14 @@ export default function DailyKpiPanel({ rows, csvUrl, pdfUrl }: Props) {
 
   return <section className="kpiBoard">
     <div className="kpiHeader">
-      <div><p className="eyebrow">REPORTING / UTC DAILY COHORT</p><h2>Delivery performance</h2></div>
-      <div className="kpiDownloads"><a href={pdfUrl} download>DOWNLOAD PDF ↓</a><a href={csvUrl} download>CSV</a></div>
+      <div><p className="eyebrow">일별 보고서 / UTC 기준</p><h2>배송 성과</h2></div>
+      <div className="kpiDownloads"><a href={pdfUrl} download aria-label="배송 성과 PDF 내려받기">PDF 내려받기 ↓</a><a href={csvUrl} download aria-label="배송 성과 CSV 내려받기">CSV</a></div>
     </div>
     <div className="kpiSummary">
-      <div><span>TODAY&apos;S VOLUME</span><strong>{number.format(latest?.totalDeliveries ?? 0)}</strong><small>{latest?.activeDeliveries ?? 0} active</small></div>
-      <div><span>DELIVERED</span><strong>{number.format(latest?.deliveredDeliveries ?? 0)}</strong><small>created today</small></div>
-      <div><span>ON-TIME RATE</span><strong>{latest ? latest.onTimeRatePercent.toFixed(1) : "0.0"}%</strong><small>vs first planned ETA</small></div>
-      <div><span>AVG. CYCLE</span><strong>{latest ? latest.averageCycleMinutes.toFixed(0) : "0"}<i>m</i></strong><small>completed deliveries</small></div>
+      <div><span>오늘 접수</span><strong>{number.format(latest?.totalDeliveries ?? 0)}</strong><small>운송 중 {latest?.activeDeliveries ?? 0}건</small></div>
+      <div><span>배송 완료</span><strong>{number.format(latest?.deliveredDeliveries ?? 0)}</strong><small>오늘 접수 기준</small></div>
+      <div><span>정시 배송률</span><strong>{latest ? latest.onTimeRatePercent.toFixed(1) : "0.0"}%</strong><small>최초 예정 시각 기준</small></div>
+      <div><span>평균 소요 시간</span><strong>{latest ? latest.averageCycleMinutes.toFixed(0) : "0"}<i>분</i></strong><small>완료 배송 기준</small></div>
     </div>
     <div className="kpiChart" role="img" aria-label="최근 14일 일별 배송량과 완료 배송량 차트. 작은 화면에서는 가로로 스크롤할 수 있습니다." tabIndex={0}>
       {rows.map((row) => {
@@ -25,18 +25,18 @@ export default function DailyKpiPanel({ rows, csvUrl, pdfUrl }: Props) {
         const deliveredHeight = row.totalDeliveries ? row.deliveredDeliveries / row.totalDeliveries * 100 : 0;
         const date = new Date(`${row.metricDate}T00:00:00Z`);
         const label = `${date.getUTCMonth() + 1}/${date.getUTCDate()}`;
-        return <div className="kpiDay" key={row.metricDate} title={`${row.metricDate}: ${row.totalDeliveries} total, ${row.deliveredDeliveries} delivered, ${row.delayedDeliveries} delayed`}>
+        return <div className="kpiDay" key={row.metricDate} title={`${row.metricDate}: 전체 ${row.totalDeliveries}건, 완료 ${row.deliveredDeliveries}건, 지연 ${row.delayedDeliveries}건`}>
           <div className="kpiBarTrack">
             <div className="kpiTotal" style={{height: `${Math.max(totalHeight, row.totalDeliveries ? 4 : 0)}%`}}>
               <i style={{height: `${deliveredHeight}%`}} />
-              {row.delayedDeliveries > 0 && <b aria-label={`${row.delayedDeliveries} delayed`} />}
+              {row.delayedDeliveries > 0 && <b aria-label={`지연 ${row.delayedDeliveries}건`} />}
             </div>
           </div>
           <span>{label}</span>
         </div>;
       })}
-      {!rows.length && <p className="kpiEmpty">KPI projection을 준비하고 있습니다.</p>}
+      {!rows.length && <p className="kpiEmpty">배송 성과 집계를 준비하고 있습니다.</p>}
     </div>
-    <div className="kpiLegend"><span><i className="total"/>TOTAL</span><span><i className="done"/>DELIVERED</span><span><i className="late"/>DELAYED</span><small>Projection refreshes every 60 seconds</small></div>
+    <div className="kpiLegend"><span><i className="total"/>전체</span><span><i className="done"/>완료</span><span><i className="late"/>지연</span><small>60초마다 갱신</small></div>
   </section>;
 }
