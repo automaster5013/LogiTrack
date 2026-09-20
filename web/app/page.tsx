@@ -8,6 +8,7 @@ import OutboxRecoveryPanel from "./components/OutboxRecoveryPanel";
 import AlertOperationsPanel from "./components/AlertOperationsPanel";
 import AlertPolicyPanel, { PolicyInput } from "./components/AlertPolicyPanel";
 import WarehousePanel from "./components/WarehousePanel";
+import FleetTelemetryPanel from "./components/FleetTelemetryPanel";
 import { fetchJson } from "./api";
 import type { AlertPolicy, AlertPolicyAudit, CustomerOrder, DailyDeliveryKpi, DeadLetterEvent, DeadLetterPage, Delivery, DeliveryAlert, DiscardPlan, LedgerEntry, OutboxFailure, OutboxRetryAudit, ReplayAudit, RouteSnapshot, TelemetryPoint, WarehouseStock, WarehouseTask } from "./types";
 
@@ -126,8 +127,7 @@ export default function Home(){
   <AlertOperationsPanel alerts={alerts} deliveries={items} busyId={alertBusy} onSelect={focusDelivery} onAcknowledge={acknowledgeAlert}/>
   <DailyKpiPanel rows={kpis} csvUrl={`${API}/api/reports/daily-kpis.csv?days=30`} pdfUrl={`${API}/api/reports/daily-kpis.pdf?days=30`}/></>}
   {workspace==="orders"&&<><OrderFlowPanel orders={orders} busyId={orderBusy} onCreate={()=>createOrder()} onDispatch={dispatchOrder}/>
-  <section className="board"><div className="boardTitle"><h2>Fleet telemetry</h2><span>{visibleItems.length} shown · {items.length} total · {fleetScope} scope</span></div>
-  <div className="grid">{visibleItems.length===0?<div className="empty">{items.length===0?"배송을 생성하면 차량 위치 이벤트가 지도와 목록에 표시됩니다.":"현재 범위와 검색 조건에 맞는 배송이 없습니다."}</div>:visibleItems.map(d=>{const count=activeAlerts.filter(alert=>alert.deliveryId===d.id).length;const isSelected=selected===d.id;return <article key={d.id} role="button" tabIndex={0} aria-current={isSelected?"true":undefined} aria-label={`${d.vehicleId}, ${d.originName}에서 ${d.destinationName}, ${Math.round(d.progress*100)}% 진행`} onClick={()=>focusDelivery(d.id)} onKeyDown={event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();focusDelivery(d.id)}}} className={isSelected?"selected":""}><div className="row"><span className={`badge ${d.status.toLowerCase()}`}>{d.status.replace("_"," ")}</span><b>{count>0&&<i className="cardAlert">{count}</i>}{d.vehicleId}</b></div><h3>{d.orderNumber}</h3><p>{d.originName} <em>→</em> {d.destinationName}</p><div className="track"><i style={{width:`${d.progress*100}%`}}/></div><div className="meta"><span>{Math.round(d.progress*100)}% complete</span><span>{d.currentLat?.toFixed(4)}, {d.currentLon?.toFixed(4)}</span></div></article>})}</div></section></>}
+  <FleetTelemetryPanel deliveries={visibleItems} activeAlerts={activeAlerts} selectedId={selected} scope={fleetScope} totalDeliveries={items.length} onSelect={focusDelivery}/></>}
   {workspace==="warehouse"&&<WarehousePanel stocks={stocks} ledger={ledger} tasks={tasks} busy={warehouseBusy} onReceive={receiveStock} onPickAndDispatch={pickAndDispatch}/>}
   {workspace==="recovery"&&<><div className="recoveryNotice"><span>{deadLetterTotal}</span><div><strong>검토 대기 중인 이벤트</strong><p>재처리 또는 폐기 전에 이벤트 내용과 영향 범위를 확인하세요. 모든 작업은 감사 이력에 기록됩니다.</p></div></div><ReplayOperationsPanel events={deadLetters} totalEvents={deadLetterTotal} audits={replayAudits} busyId={replayBusy} pageBusy={replayPageBusy} discardPlan={discardPlan} discardPlanBusy={discardPlanBusy} onReplay={replay} onDiscard={discard} onLoadMore={loadMoreReplay} onPrepareDiscard={prepareDiscard} onExecuteDiscard={executeDiscard} onResetDiscardPlan={()=>setDiscardPlan(undefined)}/>
   <OutboxRecoveryPanel failures={outboxFailures} audits={outboxAudits} busyId={outboxBusy} onRetry={retryOutbox}/></>}
