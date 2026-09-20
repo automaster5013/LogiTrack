@@ -11,6 +11,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     stop_grace_period: 35s
+    mem_limit: 768m
+    cpus: 1.0
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-logitrack}
       POSTGRES_USER: ${POSTGRES_USER:-logitrack}
@@ -28,6 +30,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     stop_grace_period: 35s
+    mem_limit: 256m
+    cpus: 0.5
     ports: ["127.0.0.1:6379:6379"]
     volumes: ["redis-data:/data"]
     healthcheck:
@@ -41,6 +45,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     stop_grace_period: 35s
+    mem_limit: 1g
+    cpus: 1.5
     ports: ["127.0.0.1:9092:9092"]
     environment:
       KAFKA_NODE_ID: 1
@@ -88,6 +94,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     stop_grace_period: 35s
+    mem_limit: 512m
+    cpus: 1.0
     environment:
       ROUTING_PROVIDER: ${ROUTING_PROVIDER:-osrm}
       OSRM_BASE_URL: ${OSRM_BASE_URL:-https://router.project-osrm.org}
@@ -109,6 +117,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     stop_grace_period: 35s
+    mem_limit: 1536m
+    cpus: 2.0
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-logitrack}
       DB_USER: ${POSTGRES_USER:-logitrack}
@@ -139,6 +149,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     stop_grace_period: 35s
+    mem_limit: 1536m
+    cpus: 2.0
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-logitrack}
       DB_USER: ${POSTGRES_USER:-logitrack}
@@ -168,6 +180,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     stop_grace_period: 35s
+    mem_limit: 256m
+    cpus: 0.5
     environment:
       KAFKA_BOOTSTRAP: kafka:29092
       SIMULATION_INTERVAL_SECONDS: 1
@@ -192,6 +206,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     stop_grace_period: 35s
+    mem_limit: 512m
+    cpus: 0.75
     environment:
       HOSTNAME: 0.0.0.0
       API_INTERNAL_URL: http://api:8080
@@ -211,6 +227,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     stop_grace_period: 35s
+    mem_limit: 768m
+    cpus: 1.0
     command: ["-config.file=/etc/tempo.yml"]
     volumes:
       - ./infra/otel/tempo.yml:/etc/tempo.yml:ro
@@ -228,6 +246,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     stop_grace_period: 35s
+    mem_limit: 512m
+    cpus: 0.75
     command: ["--config=/etc/otelcol-contrib/config.yml"]
     volumes: ["./infra/otel/collector.yml:/etc/otelcol-contrib/config.yml:ro"]
     ports: ["127.0.0.1:4317:4317", "127.0.0.1:4318:4318", "127.0.0.1:13133:13133"]
@@ -245,6 +265,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     stop_grace_period: 35s
+    mem_limit: 768m
+    cpus: 1.0
     command: ["--config.file=/etc/prometheus/prometheus.yml"]
     volumes:
       - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -265,6 +287,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     stop_grace_period: 35s
+    mem_limit: 512m
+    cpus: 0.75
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
     ports: ["127.0.0.1:3001:3000"]

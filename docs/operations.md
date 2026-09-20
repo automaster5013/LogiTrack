@@ -136,6 +136,8 @@ Redis 장애가 Kafka consumer 트랜잭션을 오래 점유하지 않도록 연
 
 PostgreSQL, Redis, Kafka, Tempo, Prometheus, Grafana의 가변 상태는 각각 명시적인 Compose named volume에 저장한다. 일반적인 `docker compose down`과 컨테이너 재생성은 데이터를 유지한다. `docker compose down --volumes`는 업무 데이터와 관측 이력을 함께 영구 삭제하므로 CI 격리 환경 또는 명시적인 초기화가 필요할 때만 사용한다.
 
+모든 장기 실행 서비스에는 역할별 CPU·메모리 상한이 있다. API는 2 CPU/1.5 GiB, Kafka는 1.5 CPU/1 GiB를 허용하고 나머지는 0.5~1 CPU/256~768 MiB 범위다. OOM 또는 throttling이 반복되면 `docker stats`와 서비스 로그를 먼저 확인하고 부하 기준선을 다시 측정한 뒤 상한을 조정한다.
+
 - 처리 완료 event ID와 GPS 이력은 기본 30일, PUBLISHED outbox는 7일 보존한다. Kafka 기본 보존보다 긴 멱등성 창을 유지하며 PENDING/FAILED outbox, DLQ, replay·정책·복구 감사와 업무 aggregate는 자동 삭제하지 않는다.
 - 정리 작업은 5분마다 테이블별 최대 1,000건만 오래된 순서로 삭제해 긴 트랜잭션과 vacuum 부담을 제한한다. `FOR UPDATE SKIP LOCKED`로 여러 API 인스턴스의 정리 작업이 같은 행에서 대기하지 않는다. 보존 기간은 `PROCESSED_EVENT_RETENTION`, `PUBLISHED_OUTBOX_RETENTION`, `TELEMETRY_RETENTION`, batch는 `RETENTION_BATCH_SIZE`로 조정하며 기간은 최소 하루, batch는 1~10,000만 허용한다.
 - `logitrack_retention_deleted_total{table=...}`에서 커밋된 실제 정리량을 확인하고 `logitrack_retention_failures_total`로 실패를 추적한다. cutoff 전용 부분/정렬 인덱스로 전체 테이블 scan을 피한다.
