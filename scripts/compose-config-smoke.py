@@ -149,6 +149,16 @@ def main() -> None:
                 if not DIGEST_PATTERN.search(image):
                     raise AssertionError(f"{dockerfile} base image is not pinned by digest: {image}")
 
+    scripted_images = {
+        Path("scripts/domain-coverage.ps1"): "maven:3.9.11-eclipse-temurin-21",
+        Path(".github/workflows/ci.yml"): "prom/prometheus:v3.5.0",
+    }
+    for source_path, image_prefix in scripted_images.items():
+        source = source_path.read_text(encoding="utf-8")
+        matches = re.findall(re.escape(image_prefix) + r"(?:@sha256:[0-9a-f]{64})?", source)
+        if not matches or any(not DIGEST_PATTERN.search(image) for image in matches):
+            raise AssertionError(f"{source_path} uses an unpinned {image_prefix} image")
+
     print("PASS: topology, persistence, resource limits, read-only capability-free stateless services, privilege boundaries, loopback ports, bounded logs, graceful shutdown, runtime readiness, restart policies, and immutable image sources are valid")
 
 

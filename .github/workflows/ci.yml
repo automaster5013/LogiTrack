@@ -72,7 +72,7 @@ jobs:
         if: always()
         run: docker compose down --volumes --remove-orphans
       - name: Validate Prometheus configuration and alert rules
-        run: docker run --rm --entrypoint promtool --volume "$PWD/infra:/etc/prometheus:ro" prom/prometheus:v3.5.0 check config /etc/prometheus/prometheus.yml
+        run: docker run --rm --entrypoint promtool --volume "$PWD/infra:/etc/prometheus:ro" prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 check config /etc/prometheus/prometheus.yml
 
   web:
     name: TypeScript production build

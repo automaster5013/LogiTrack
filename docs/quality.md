@@ -31,6 +31,8 @@ JaCoCo가 핵심 상태 전이와 불변식을 소유한 도메인 클래스의 
 
 모든 job은 `ubuntu-24.04` runner에 고정해 `ubuntu-latest`의 예고 없는 OS 전환을 피한다. `scripts/workflow-config-smoke.py`는 runner 고정, action commit SHA, job timeout, 최소 token 권한을 CI 안에서 회귀 검증한다.
 
+CI의 Prometheus 검증과 로컬 domain coverage에 쓰는 도구 컨테이너도 production image와 같은 방식으로 SHA-256 digest에 고정한다. Compose 구성 smoke가 이 두 직접 실행 경로의 가변 태그 재도입도 차단한다.
+
 - Java 21 API 테스트와 JaCoCo domain coverage gate
 - Python 3.12 analytics/simulator 테스트와 Compose topology 검증
 - Node.js 22 TypeScript production build
