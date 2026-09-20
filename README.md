@@ -145,6 +145,8 @@ DLQ 격리, 선택 replay, 감사 기록과 중복 방지는 `./scripts/replay-s
 
 여러 건을 폐기할 때는 `POST /api/operations/discard-plans`로 최대 20건의 dry-run 계획을 만들고, 10분 안에 같은 운영자가 `X-Discard-Approval: DISCARD`로 실행합니다. 중복 ID 제거, 승인값, 부분 실패와 단일 실행 보장은 `./scripts/discard-plan-smoke.ps1`로 검증합니다.
 
+Control Tower에서도 PENDING 이벤트를 최대 20건 선택해 공통 사유를 입력하고 계획을 검토할 수 있습니다. 실행 버튼은 운영자가 `DISCARD`를 정확히 입력해야 활성화되며, 실행 전에는 계획을 취소해 선택과 입력을 초기화할 수 있습니다.
+
 최대 20건 범위의 dry-run plan, 명시적 승인, 5 events/s 제한은 `./scripts/replay-plan-smoke.ps1`로 검증합니다.
 
 Kafka telemetry 100건의 API 반영 p95와 consumer lag는 `./scripts/telemetry-load.ps1`로 측정합니다.

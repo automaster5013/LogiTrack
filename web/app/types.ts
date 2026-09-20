@@ -128,5 +128,6 @@ export type DeadLetterEvent = {
 };
 
 export type ReplayAudit = { id:string; deadLetterEventId:string; action:"REPLAY"|"DISCARD"; actor:string; reason?:string; occurredAt:string };
+export type DiscardPlan = { id:string; actor:string; reason:string; eventIds:string[]; status:"PREPARED"|"EXECUTED"|"PARTIAL"|"EXPIRED"; createdAt:string; expiresAt:string; executedAt?:string; succeededCount:number; failedCount:number };
 export type OutboxFailure = { id:string; aggregateType:string; aggregateId:string; eventType:string; topic:string; attempts:number; lastError?:string; createdAt:string; status:"FAILED"|"PENDING" };
 export type OutboxRetryAudit = { id:string; outboxEventId:string; actor:string; occurredAt:string };
