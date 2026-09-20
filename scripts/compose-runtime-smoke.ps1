@@ -29,6 +29,9 @@ foreach ($service in $expectedServices) {
   if ($container.HostConfig.Memory -le 0 -or $container.HostConfig.NanoCpus -le 0) {
     throw "$service resource limits are not applied"
   }
+  if ($container.HostConfig.PidsLimit -le 0) {
+    throw "$service process limit is not applied"
+  }
   if ($container.HostConfig.SecurityOpt -notcontains "no-new-privileges:true") {
     throw "$service no-new-privileges boundary is not applied"
   }

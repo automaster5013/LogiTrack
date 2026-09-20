@@ -15,6 +15,7 @@ services:
     stop_grace_period: 35s
     mem_limit: 768m
     cpus: 1.0
+    pids_limit: 256
     security_opt: *default-security
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-logitrack}
@@ -35,6 +36,7 @@ services:
     stop_grace_period: 35s
     mem_limit: 256m
     cpus: 0.5
+    pids_limit: 128
     security_opt: *default-security
     ports: ["127.0.0.1:6379:6379"]
     volumes: ["redis-data:/data"]
@@ -51,6 +53,7 @@ services:
     stop_grace_period: 35s
     mem_limit: 1g
     cpus: 1.5
+    pids_limit: 512
     security_opt: *default-security
     ports: ["127.0.0.1:9092:9092"]
     environment:
@@ -80,6 +83,7 @@ services:
   kafka-init:
     image: apache/kafka:4.0.0@sha256:3f7b939115cd4872e9cee9369d80bd69712fde55f9902f46d793f64848dedc75
     logging: *default-logging
+    pids_limit: 128
     security_opt: *default-security
     depends_on:
       kafka: {condition: service_healthy}
@@ -106,6 +110,7 @@ services:
     stop_grace_period: 35s
     mem_limit: 512m
     cpus: 1.0
+    pids_limit: 256
     security_opt: *default-security
     cap_drop: [ALL]
     read_only: true
@@ -133,6 +138,7 @@ services:
     stop_grace_period: 35s
     mem_limit: 1536m
     cpus: 2.0
+    pids_limit: 512
     security_opt: *default-security
     cap_drop: [ALL]
     read_only: true
@@ -169,6 +175,7 @@ services:
     stop_grace_period: 35s
     mem_limit: 1536m
     cpus: 2.0
+    pids_limit: 512
     security_opt: *default-security
     cap_drop: [ALL]
     read_only: true
@@ -204,6 +211,7 @@ services:
     stop_grace_period: 35s
     mem_limit: 256m
     cpus: 0.5
+    pids_limit: 128
     security_opt: *default-security
     cap_drop: [ALL]
     read_only: true
@@ -234,6 +242,7 @@ services:
     stop_grace_period: 35s
     mem_limit: 512m
     cpus: 0.75
+    pids_limit: 256
     security_opt: *default-security
     cap_drop: [ALL]
     read_only: true
@@ -259,6 +268,7 @@ services:
     stop_grace_period: 35s
     mem_limit: 768m
     cpus: 1.0
+    pids_limit: 512
     security_opt: *default-security
     command: ["-config.file=/etc/tempo.yml"]
     volumes:
@@ -279,6 +289,7 @@ services:
     stop_grace_period: 35s
     mem_limit: 512m
     cpus: 0.75
+    pids_limit: 256
     security_opt: *default-security
     cap_drop: [ALL]
     read_only: true
@@ -302,6 +313,7 @@ services:
     stop_grace_period: 35s
     mem_limit: 768m
     cpus: 1.0
+    pids_limit: 256
     security_opt: *default-security
     command: ["--config.file=/etc/prometheus/prometheus.yml"]
     volumes:
@@ -325,6 +337,7 @@ services:
     stop_grace_period: 35s
     mem_limit: 512m
     cpus: 0.75
+    pids_limit: 256
     security_opt: *default-security
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}

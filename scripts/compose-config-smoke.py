@@ -60,8 +60,12 @@ def main() -> None:
             raise AssertionError(f"{service_name} does not have a memory limit")
         if float(services[service_name].get("cpus", 0)) <= 0:
             raise AssertionError(f"{service_name} does not have a CPU limit")
+        if int(services[service_name].get("pids_limit", 0)) <= 0:
+            raise AssertionError(f"{service_name} does not have a process limit")
     if services["kafka-init"].get("restart"):
         raise AssertionError("One-shot kafka-init must not have a restart policy")
+    if int(services["kafka-init"].get("pids_limit", 0)) <= 0:
+        raise AssertionError("One-shot kafka-init does not have a process limit")
 
     for service_name, service in services.items():
         if "no-new-privileges:true" not in service.get("security_opt", []):
@@ -164,7 +168,7 @@ def main() -> None:
         if not matches or any(not DIGEST_PATTERN.search(image) for image in matches):
             raise AssertionError(f"{source_path} uses an unpinned {image_prefix} image")
 
-    print("PASS: topology, persistence, bounded ephemeral storage, resource limits, read-only capability-free stateless services, privilege boundaries, loopback ports, bounded logs, graceful shutdown, runtime readiness, restart policies, and immutable image sources are valid")
+    print("PASS: topology, persistence, bounded ephemeral storage, CPU, memory, and process limits, read-only capability-free stateless services, privilege boundaries, loopback ports, bounded logs, graceful shutdown, runtime readiness, restart policies, and immutable image sources are valid")
 
 
 if __name__ == "__main__":
