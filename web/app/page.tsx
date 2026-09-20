@@ -26,6 +26,7 @@ function workspaceFromHash(hash:string):Workspace|undefined{const value=hash.rep
 export default function Home(){
  const [workspace,setWorkspace]=useState<Workspace>("overview");
  const [workspaceReady,setWorkspaceReady]=useState(false);
+ const [loadedWorkspaces,setLoadedWorkspaces]=useState<Set<Workspace>>(()=>new Set(["overview"]));
  const workspaceRef=useRef<Workspace>("overview");
  const [items,setItems]=useState<Delivery[]>([]); const [connected,setConnected]=useState(false); const [error,setError]=useState(""); const [selected,setSelected]=useState<string>();
  const knownDeliveryIds=useRef(new Set<string>());
@@ -60,6 +61,11 @@ export default function Home(){
  const loadMoreReplay=async()=>{setReplayPageBusy(true);try{const next=replayLastPage.current+1;const page=await fetchJson<DeadLetterPage>(`${API}/api/operations/dlq-page?status=PENDING&page=${next}&size=100`);replayLastPage.current=next;setDeadLetters(current=>{const merged=new Map([...current,...page.items].map(event=>[event.id,event]));return [...merged.values()]});setDeadLetterTotal(page.totalElements);clearError("복구 큐를 불러올 수 없습니다.")}catch{setError("복구 큐를 불러올 수 없습니다.")}finally{setReplayPageBusy(false)}};
  const loadOutbox=()=>Promise.all([fetchJson<OutboxFailure[]>(`${API}/api/operations/outbox/failures`),fetchJson<OutboxRetryAudit[]>(`${API}/api/operations/outbox/retry-audits`)]).then(([failures,audits])=>{setOutboxFailures(failures);setOutboxAudits(audits);clearError("Outbox 복구 큐를 불러올 수 없습니다.")}).catch(()=>setError("Outbox 복구 큐를 불러올 수 없습니다."));
  const loadPolicies=()=>Promise.all([fetchJson<AlertPolicy[]>(`${API}/api/alert-policies`),fetchJson<AlertPolicyAudit[]>(`${API}/api/alert-policies/audits`)]).then(([nextPolicies,nextAudits])=>{setPolicies(nextPolicies);setPolicyAudits(nextAudits);clearError("경고 정책을 불러올 수 없습니다.")}).catch(()=>setError("경고 정책을 불러올 수 없습니다."));
+ const markLoaded=(key:Workspace)=>setLoadedWorkspaces(current=>current.has(key)?current:new Set([...current,key]));
+ const loadOrderWorkspace=()=>loadOrders().finally(()=>markLoaded("orders"));
+ const loadWarehouseWorkspace=()=>loadWarehouse().finally(()=>markLoaded("warehouse"));
+ const loadRecoveryWorkspace=()=>Promise.all([loadReplay(),loadOutbox()]).finally(()=>markLoaded("recovery"));
+ const loadPolicyWorkspace=()=>loadPolicies().finally(()=>markLoaded("settings"));
  useEffect(()=>{const sync=()=>{const next=workspaceFromHash(window.location.hash);if(next){workspaceRef.current=next;setWorkspace(next)}};sync();if(!window.location.hash)window.history.replaceState(null,"",`${window.location.pathname}${window.location.search}#overview`);setWorkspaceReady(true);window.addEventListener("popstate",sync);window.addEventListener("hashchange",sync);return()=>{window.removeEventListener("popstate",sync);window.removeEventListener("hashchange",sync)}},[]);
  useEffect(()=>{if(!workspaceReady)return;load(); const source=new EventSource(`${API}/api/stream/deliveries`); source.onopen=()=>setConnected(true); source.onerror=()=>setConnected(false);
   source.addEventListener("delivery-update",e=>{const next:Delivery=JSON.parse((e as MessageEvent).data);if(!knownDeliveryIds.current.has(next.id)){knownDeliveryIds.current.add(next.id);if(workspaceRef.current==="overview"||workspaceRef.current==="orders")loadMapData([next.id]).catch(()=>{})}setItems(old=>[next,...old.filter(x=>x.id!==next.id)])});
@@ -72,12 +78,11 @@ export default function Home(){
  useEffect(()=>{workspaceRef.current=workspace},[workspace]);
  useEffect(()=>{if(workspace==="overview"||workspace==="orders")loadMapData(scopedItems.map(item=>item.id)).catch(()=>setError("지도 경로를 불러올 수 없습니다."))},[fleetScope,items,workspace]);
  function focusDelivery(id:string){if(items.find(item=>item.id===id)?.status==="DELIVERED")setFleetScope("ALL");setFleetQuery("");setSelected(id)}
- useEffect(()=>workspaceReady&&workspace==="warehouse"?pollAfterCompletion(loadWarehouse,30000):undefined,[workspaceReady,workspace]);
- useEffect(()=>workspaceReady&&workspace==="orders"?pollAfterCompletion(loadOrders,15000):undefined,[workspaceReady,workspace]);
+ useEffect(()=>workspaceReady&&workspace==="warehouse"?pollAfterCompletion(loadWarehouseWorkspace,30000):undefined,[workspaceReady,workspace]);
+ useEffect(()=>workspaceReady&&workspace==="orders"?pollAfterCompletion(loadOrderWorkspace,15000):undefined,[workspaceReady,workspace]);
  useEffect(()=>workspaceReady&&workspace==="overview"?pollAfterCompletion(loadKpis,30000):undefined,[workspaceReady,workspace]);
- useEffect(()=>workspaceReady?(workspace==="recovery"?pollAfterCompletion(loadReplay,15000):pollAfterCompletion(loadReplayCount,30000)):undefined,[workspaceReady,workspace]);
- useEffect(()=>workspaceReady&&workspace==="recovery"?pollAfterCompletion(loadOutbox,15000):undefined,[workspaceReady,workspace]);
- useEffect(()=>workspaceReady&&workspace==="settings"?pollAfterCompletion(loadPolicies,30000):undefined,[workspaceReady,workspace]);
+ useEffect(()=>workspaceReady?(workspace==="recovery"?pollAfterCompletion(loadRecoveryWorkspace,15000):pollAfterCompletion(loadReplayCount,30000)):undefined,[workspaceReady,workspace]);
+ useEffect(()=>workspaceReady&&workspace==="settings"?pollAfterCompletion(loadPolicyWorkspace,30000):undefined,[workspaceReady,workspace]);
  async function createOrder(e?:FormEvent){e?.preventDefault();setOrderBusy("create");setError("");try{const suffix=Date.now().toString().slice(-6);const response=await fetch(`${API}/api/orders`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({orderNumber:`ORD-${suffix}`,origin:{name:"Seoul Hub",lat:37.5665,lon:126.978},destination:{name:"Incheon DC",lat:37.4563,lon:126.7052}})});if(!response.ok)throw new Error();await loadOrders()}catch{setError("주문 생성에 실패했습니다.")}finally{setOrderBusy(undefined)}}
  async function dispatchOrder(id:string){setOrderBusy(id);setError("");try{const response=await fetch(`${API}/api/orders/${id}/dispatch`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({vehicleId:`TRUCK-${Math.ceil(Math.random()*9).toString().padStart(2,"0")}`})});if(!response.ok)throw new Error();const order:CustomerOrder=await response.json();if(order.deliveryId)setSelected(order.deliveryId);await Promise.all([loadOrders(),load()])}catch{setError("주문 배차에 실패했습니다.")}finally{setOrderBusy(undefined)}}
  async function receiveStock(){setWarehouseBusy(true);setError("");try{const suffix=Date.now().toString().slice(-6);const r=await fetch(`${API}/api/warehouse/receipts`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({referenceNumber:`ASN-${suffix}`,warehouseId:"SEOUL-HUB-A",sku:"COLD-BOX-01",quantity:10})});if(!r.ok)throw new Error();await loadWarehouse()}catch{setError("입고 처리에 실패했습니다.")}finally{setWarehouseBusy(false)}}
@@ -102,6 +107,7 @@ export default function Home(){
   </nav>
   <div id="workspace-content" className="workspaceContent" tabIndex={-1}><section className="workspaceIntro"><div><p className="eyebrow">{copy.eyebrow}</p><h2>{copy.title}</h2><p>{copy.description}</p></div>{workspace!=="overview"&&<button type="button" onClick={()=>openWorkspace("overview")}>← 상황판으로</button>}</section>
   {error&&<p className="error">{error}</p>}
+  {!loadedWorkspaces.has(workspace)?<WorkspaceLoading label={copy.label}/>:<>
   {workspace==="overview"&&<><section className="hero"><div><span>운송 중</span><strong>{liveItems.length.toString().padStart(2,"0")}</strong><small>전체 {items.length}건</small></div><div><span>확인 필요</span><strong className={activeAlerts.length?"alertCount":""}>{activeAlerts.length.toString().padStart(2,"0")}</strong><small>{activeAlerts.length?"우선 확인하세요":"현재 이상 없음"}</small></div><div><span>평균 진행률</span><strong>{items.length?Math.round(items.reduce((n,x)=>n+x.progress,0)/items.length*100):0}%</strong><small>전체 배송 기준</small></div><form onSubmit={createOrder}><p>빠른 작업</p><button disabled={Boolean(orderBusy)}>+ 새 주문 만들기</button></form></section>
   <section className="mapBoard"><div className="mapHeader"><div className="mapTitle"><p className="eyebrow">LIVE FLEET</p><h2>실시간 운송 지도</h2><div className="mapControls"><div className="mapScope" aria-label="지도 표시 범위"><button type="button" aria-pressed={fleetScope==="LIVE"} className={fleetScope==="LIVE"?"active":""} onClick={()=>setFleetScope("LIVE")}>운송 중 {liveItems.length}</button><button type="button" aria-pressed={fleetScope==="ALL"} className={fleetScope==="ALL"?"active":""} onClick={()=>setFleetScope("ALL")}>전체 {items.length}</button></div><label className="mapSearch" htmlFor="fleetSearch"><span>검색</span><input id="fleetSearch" type="search" value={fleetQuery} onChange={event=>setFleetQuery(event.target.value)} placeholder="차량 · 주문 · 지역"/></label></div></div>{focus&&visibleItems.some(item=>item.id===focus.id)&&<div className="focusStats"><div className="focusRoute"><small>선택한 차량</small><strong>{focus.vehicleId}</strong><span>{focus.originName} → {focus.destinationName}</span></div><span><small>진행률</small>{Math.round(focus.progress*100)}%</span><span><small>거리</small>{focusRoute?`${(focusRoute.distanceMeters/1000).toFixed(1)} km`:"계산 중"}</span><span><small>도착 예정</small>{focus.eta?new Date(focus.eta).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}):focus.status==="DELIVERED"?"도착":focusRoute?new Date(focusRoute.plannedEta).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}):"—"}</span></div>}</div>
    <FleetMap deliveries={visibleItems} routes={routes} telemetry={telemetry} selectedId={selected} onSelect={setSelected} emptyMessage={fleetQuery?`“${fleetQuery}” 검색 결과가 없습니다. 검색어를 지우거나 범위를 전환해 주세요.`:undefined}/></section>
@@ -117,8 +123,12 @@ export default function Home(){
   </section>}
   {workspace==="recovery"&&<><div className="recoveryNotice"><span>{deadLetterTotal}</span><div><strong>검토 대기 중인 이벤트</strong><p>재처리 또는 폐기 전에 이벤트 내용과 영향 범위를 확인하세요. 모든 작업은 감사 이력에 기록됩니다.</p></div></div><ReplayOperationsPanel events={deadLetters} totalEvents={deadLetterTotal} audits={replayAudits} busyId={replayBusy} pageBusy={replayPageBusy} discardPlan={discardPlan} discardPlanBusy={discardPlanBusy} onReplay={replay} onDiscard={discard} onLoadMore={loadMoreReplay} onPrepareDiscard={prepareDiscard} onExecuteDiscard={executeDiscard} onResetDiscardPlan={()=>setDiscardPlan(undefined)}/>
   <OutboxRecoveryPanel failures={outboxFailures} audits={outboxAudits} busyId={outboxBusy} onRetry={retryOutbox}/></>}
-  {workspace==="settings"&&<AlertPolicyPanel policies={policies} audits={policyAudits} deliveries={items} busy={policyBusy} onSave={savePolicy} onReset={resetPolicy} onRestore={restorePolicy}/>}</div>
+  {workspace==="settings"&&<AlertPolicyPanel policies={policies} audits={policyAudits} deliveries={items} busy={policyBusy} onSave={savePolicy} onReset={resetPolicy} onRestore={restorePolicy}/>}</>}</div>
  </main>
+}
+
+function WorkspaceLoading({label}:{label:string}){
+ return <section className="workspaceLoading" role="status" aria-live="polite"><div className="loadingMark"><i/><i/><i/></div><div><strong>{label} 데이터를 불러오는 중입니다</strong><span>최신 운영 정보를 안전하게 동기화하고 있습니다.</span></div></section>;
 }
 
 function pollAfterCompletion(task:()=>Promise<unknown>,delayMs:number){
