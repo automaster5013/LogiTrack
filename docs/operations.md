@@ -140,7 +140,7 @@ PostgreSQL, Redis, Kafka, Tempo, Prometheus, Grafana의 가변 상태는 각각 
 
 모든 Compose 컨테이너는 `no-new-privileges`를 사용한다. 이미지 안의 setuid/setgid 실행 파일이나 파일 capability를 이용한 추가 권한 획득을 차단하며, 구성 smoke test가 서비스 추가 시 이 경계를 강제한다.
 
-API, analytics, simulator, web, OpenTelemetry Collector는 root filesystem을 읽기 전용으로 실행한다. 런타임 임시 파일은 서비스별 64~128 MiB `/tmp` tmpfs에만 기록할 수 있어 이미지 변조와 무제한 임시 파일 증가를 제한한다.
+API, analytics, simulator, web, OpenTelemetry Collector는 Linux capability를 모두 제거하고 root filesystem을 읽기 전용으로 실행한다. 런타임 임시 파일은 서비스별 64~128 MiB `/tmp` tmpfs에만 기록할 수 있어 이미지 변조와 무제한 임시 파일 증가를 제한한다.
 
 - 처리 완료 event ID와 GPS 이력은 기본 30일, PUBLISHED outbox는 7일 보존한다. Kafka 기본 보존보다 긴 멱등성 창을 유지하며 PENDING/FAILED outbox, DLQ, replay·정책·복구 감사와 업무 aggregate는 자동 삭제하지 않는다.
 - 정리 작업은 5분마다 테이블별 최대 1,000건만 오래된 순서로 삭제해 긴 트랜잭션과 vacuum 부담을 제한한다. `FOR UPDATE SKIP LOCKED`로 여러 API 인스턴스의 정리 작업이 같은 행에서 대기하지 않는다. 보존 기간은 `PROCESSED_EVENT_RETENTION`, `PUBLISHED_OUTBOX_RETENTION`, `TELEMETRY_RETENTION`, batch는 `RETENTION_BATCH_SIZE`로 조정하며 기간은 최소 하루, batch는 1~10,000만 허용한다.

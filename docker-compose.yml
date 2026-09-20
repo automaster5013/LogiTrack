@@ -103,6 +103,7 @@ services:
     mem_limit: 512m
     cpus: 1.0
     security_opt: *default-security
+    cap_drop: [ALL]
     read_only: true
     tmpfs: ["/tmp:size=64m,mode=1777"]
     environment:
@@ -129,6 +130,7 @@ services:
     mem_limit: 1536m
     cpus: 2.0
     security_opt: *default-security
+    cap_drop: [ALL]
     read_only: true
     tmpfs: ["/tmp:size=128m,mode=1777"]
     environment:
@@ -164,6 +166,7 @@ services:
     mem_limit: 1536m
     cpus: 2.0
     security_opt: *default-security
+    cap_drop: [ALL]
     read_only: true
     tmpfs: ["/tmp:size=128m,mode=1777"]
     environment:
@@ -198,6 +201,7 @@ services:
     mem_limit: 256m
     cpus: 0.5
     security_opt: *default-security
+    cap_drop: [ALL]
     read_only: true
     tmpfs: ["/tmp:size=64m,mode=1777"]
     environment:
@@ -227,6 +231,7 @@ services:
     mem_limit: 512m
     cpus: 0.75
     security_opt: *default-security
+    cap_drop: [ALL]
     read_only: true
     tmpfs: ["/tmp:size=64m,mode=1777"]
     environment:
@@ -271,6 +276,7 @@ services:
     mem_limit: 512m
     cpus: 0.75
     security_opt: *default-security
+    cap_drop: [ALL]
     read_only: true
     tmpfs: ["/tmp:size=64m,mode=1777"]
     command: ["--config=/etc/otelcol-contrib/config.yml"]

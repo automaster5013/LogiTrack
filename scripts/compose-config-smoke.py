@@ -72,6 +72,8 @@ def main() -> None:
         service = services[service_name]
         if service.get("read_only") is not True:
             raise AssertionError(f"{service_name} root filesystem is writable")
+        if "ALL" not in service.get("cap_drop", []):
+            raise AssertionError(f"{service_name} retains unnecessary Linux capabilities")
         tmp_mounts = [mount for mount in service.get("tmpfs", []) if mount.startswith("/tmp:size=")]
         if len(tmp_mounts) != 1:
             raise AssertionError(f"{service_name} does not have a bounded writable /tmp")
@@ -147,7 +149,7 @@ def main() -> None:
                 if not DIGEST_PATTERN.search(image):
                     raise AssertionError(f"{dockerfile} base image is not pinned by digest: {image}")
 
-    print("PASS: topology, persistence, resource limits, read-only stateless services, privilege boundaries, loopback ports, bounded logs, graceful shutdown, runtime readiness, restart policies, and immutable image sources are valid")
+    print("PASS: topology, persistence, resource limits, read-only capability-free stateless services, privilege boundaries, loopback ports, bounded logs, graceful shutdown, runtime readiness, restart policies, and immutable image sources are valid")
 
 
 if __name__ == "__main__":
