@@ -9,6 +9,7 @@ $sentinelTable = "backup_restore_smoke_$suffix"
 $sentinelValue = "verified-$suffix"
 $backupPath = $null
 $corruptPath = $null
+$truncatedPath = $null
 
 try {
   & docker compose --project-directory $projectRoot exec -T postgres sh -ec "PGPASSWORD=`"`$POSTGRES_PASSWORD`" psql --username=`"`$POSTGRES_USER`" --dbname=`"`$POSTGRES_DB`" --command=`"create table $sentinelTable (marker text not null); insert into $sentinelTable values ('$sentinelValue');`""
@@ -30,6 +31,29 @@ try {
     throw "Corrupted backup was accepted"
   } catch {
     if ($_.Exception.Message -notmatch "checksum verification failed") { throw }
+  }
+
+  & docker compose --project-directory $projectRoot exec -T postgres sh -ec "PGPASSWORD=`"`$POSTGRES_PASSWORD`" createdb --username=`"`$POSTGRES_USER`" `"$targetDatabase`" && PGPASSWORD=`"`$POSTGRES_PASSWORD`" psql --username=`"`$POSTGRES_USER`" --dbname=`"$targetDatabase`" --command=`"create table restore_guard (marker text not null); insert into restore_guard values ('preserved');`""
+  if ($LASTEXITCODE -ne 0) { throw "Could not create the restore safety sentinel" }
+  $truncatedPath = "$backupPath.truncated"
+  Copy-Item -LiteralPath $backupPath -Destination $truncatedPath
+  $stream = [System.IO.File]::Open($truncatedPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Write)
+  try { $stream.SetLength([math]::Floor($stream.Length * 0.75)) } finally { $stream.Dispose() }
+  $truncatedChecksum = (Get-FileHash -LiteralPath $truncatedPath -Algorithm SHA256).Hash.ToLowerInvariant()
+  Set-Content -LiteralPath "$truncatedPath.sha256" -Value "$truncatedChecksum  $(Split-Path -Leaf $truncatedPath)" -Encoding ascii
+  try {
+    & (Join-Path $PSScriptRoot "postgres-restore.ps1") -BackupPath $truncatedPath -TargetDatabase $targetDatabase -Force
+    throw "Truncated backup was accepted"
+  } catch {
+    if ($_.Exception.Message -eq "Truncated backup was accepted") { throw }
+  }
+  $guardValue = (& docker compose --project-directory $projectRoot exec -T postgres sh -ec "PGPASSWORD=`"`$POSTGRES_PASSWORD`" psql --tuples-only --no-align --username=`"`$POSTGRES_USER`" --dbname=`"$targetDatabase`" --command=`"select marker from restore_guard`"").Trim()
+  if ($LASTEXITCODE -ne 0 -or $guardValue -ne "preserved") {
+    throw "Failed staging restore damaged the existing target database"
+  }
+  $stagingCount = (& docker compose --project-directory $projectRoot exec -T postgres sh -ec "PGPASSWORD=`"`$POSTGRES_PASSWORD`" psql --tuples-only --no-align --username=`"`$POSTGRES_USER`" --dbname=postgres --command=`"select count(*) from pg_database where datname like '${targetDatabase}_staging_%'`"").Trim()
+  if ($LASTEXITCODE -ne 0 -or $stagingCount -ne "0") {
+    throw "Failed restore left a staging database behind"
   }
   & docker compose --project-directory $projectRoot exec -T postgres sh -ec "PGPASSWORD=`"`$POSTGRES_PASSWORD`" psql --username=`"`$POSTGRES_USER`" --dbname=`"`$POSTGRES_DB`" --command=`"drop table $sentinelTable`""
   if ($LASTEXITCODE -ne 0) { throw "Could not remove the source backup sentinel" }
@@ -53,5 +77,9 @@ try {
   if ($corruptPath -and (Test-Path -LiteralPath $corruptPath)) {
     Remove-Item -LiteralPath $corruptPath -Force
     Remove-Item -LiteralPath "$corruptPath.sha256" -Force -ErrorAction SilentlyContinue
+  }
+  if ($truncatedPath -and (Test-Path -LiteralPath $truncatedPath)) {
+    Remove-Item -LiteralPath $truncatedPath -Force
+    Remove-Item -LiteralPath "$truncatedPath.sha256" -Force -ErrorAction SilentlyContinue
   }
 }

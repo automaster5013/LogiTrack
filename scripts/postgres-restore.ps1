@@ -15,6 +15,9 @@ if (-not $Force) {
 if ($TargetDatabase -notmatch '^[A-Za-z_][A-Za-z0-9_]*$') {
   throw "TargetDatabase must be a valid unquoted PostgreSQL identifier"
 }
+if ($TargetDatabase.Length -gt 40) {
+  throw "TargetDatabase must be at most 40 characters so a staging database can be created safely"
+}
 if ($TargetDatabase -eq "logitrack") {
   throw "The primary logitrack database cannot be replaced by this online validation tool"
 }
@@ -43,14 +46,21 @@ if ($LASTEXITCODE -ne 0 -or -not $containerId) {
 }
 
 $containerTemp = "/tmp/logitrack-restore-$([guid]::NewGuid().ToString('N')).dump"
+$stagingDatabase = "${TargetDatabase}_staging_$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+$restoreSucceeded = $false
 try {
   & docker cp $resolvedBackup "${containerId}:$containerTemp"
   if ($LASTEXITCODE -ne 0) { throw "Could not copy the backup into PostgreSQL" }
 
-  $restoreCommand = 'PGPASSWORD="$POSTGRES_PASSWORD" pg_restore --list "' + $containerTemp + '" >/dev/null && PGPASSWORD="$POSTGRES_PASSWORD" dropdb --if-exists --force --username="$POSTGRES_USER" "' + $TargetDatabase + '" && PGPASSWORD="$POSTGRES_PASSWORD" createdb --username="$POSTGRES_USER" "' + $TargetDatabase + '" && PGPASSWORD="$POSTGRES_PASSWORD" pg_restore --exit-on-error --no-owner --no-acl --username="$POSTGRES_USER" --dbname="' + $TargetDatabase + '" "' + $containerTemp + '"'
+  $restoreCommand = 'PGPASSWORD="$POSTGRES_PASSWORD" pg_restore --list "' + $containerTemp + '" >/dev/null && PGPASSWORD="$POSTGRES_PASSWORD" createdb --username="$POSTGRES_USER" "' + $stagingDatabase + '" >/dev/null && PGPASSWORD="$POSTGRES_PASSWORD" pg_restore --exit-on-error --no-owner --no-acl --username="$POSTGRES_USER" --dbname="' + $stagingDatabase + '" "' + $containerTemp + '" && PGPASSWORD="$POSTGRES_PASSWORD" dropdb --if-exists --force --username="$POSTGRES_USER" "' + $TargetDatabase + '" >/dev/null 2>&1 && PGPASSWORD="$POSTGRES_PASSWORD" psql --username="$POSTGRES_USER" --dbname=postgres --set=ON_ERROR_STOP=1 --command=''alter database "' + $stagingDatabase + '" rename to "' + $TargetDatabase + '"'' >/dev/null'
   & docker compose --project-directory $projectRoot exec -T postgres sh -ec $restoreCommand
   if ($LASTEXITCODE -ne 0) { throw "PostgreSQL restore failed" }
+  $restoreSucceeded = $true
 } finally {
+  if (-not $restoreSucceeded) {
+    $cleanupCommand = 'PGPASSWORD="$POSTGRES_PASSWORD" dropdb --if-exists --force --username="$POSTGRES_USER" "' + $stagingDatabase + '"'
+    & docker compose --project-directory $projectRoot exec -T postgres sh -ec $cleanupCommand 2>$null
+  }
   & docker compose --project-directory $projectRoot exec -T postgres rm -f $containerTemp 2>$null
 }
 

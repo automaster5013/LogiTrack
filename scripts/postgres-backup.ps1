@@ -14,7 +14,7 @@ if ($LASTEXITCODE -ne 0 -or -not $containerId) {
   throw "PostgreSQL container is not running"
 }
 
-$stamp = (Get-Date).ToUniversalTime().ToString("yyyyMMddTHHmmssZ")
+$stamp = (Get-Date).ToUniversalTime().ToString("yyyyMMddTHHmmssfffZ") + "-" + [guid]::NewGuid().ToString("N").Substring(0, 8)
 $containerTemp = "/tmp/logitrack-$stamp.dump"
 $backupPath = Join-Path $outputPath "logitrack-$stamp.dump"
 $dumpCommand = 'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump --format=custom --no-owner --no-acl --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --file="' + $containerTemp + '" && pg_restore --list "' + $containerTemp + '" >/dev/null'
