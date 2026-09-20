@@ -189,14 +189,27 @@ services:
       - ./infra/otel/tempo.yml:/etc/tempo.yml:ro
       - tempo-data:/var/tempo
     ports: ["3200:3200"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3200/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.135.0
+    build: ./infra/otel
     restart: unless-stopped
     command: ["--config=/etc/otelcol-contrib/config.yml"]
     volumes: ["./infra/otel/collector.yml:/etc/otelcol-contrib/config.yml:ro"]
     ports: ["4317:4317", "4318:4318", "13133:13133"]
-    depends_on: [tempo]
+    depends_on:
+      tempo: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "/busybox", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:13133/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
 
   prometheus:
     image: prom/prometheus:v3.5.0
@@ -206,7 +219,14 @@ services:
       - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./infra/prometheus-alerts.yml:/etc/prometheus/prometheus-alerts.yml:ro
     ports: ["9090:9090"]
-    depends_on: [api]
+    depends_on:
+      api: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9090/-/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
 
   grafana:
     image: grafana/grafana:12.1.0
@@ -215,7 +235,15 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
     ports: ["3001:3000"]
     volumes: ["./infra/grafana/provisioning:/etc/grafana/provisioning:ro"]
-    depends_on: [prometheus, tempo]
+    depends_on:
+      prometheus: {condition: service_healthy}
+      tempo: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
 
 volumes:
   postgres-data:

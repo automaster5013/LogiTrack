@@ -5,7 +5,7 @@ $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $sbomDirectory = Join-Path $repositoryRoot "work\sbom"
 New-Item -ItemType Directory -Force -Path $sbomDirectory | Out-Null
 
-$images = @("api", "analytics", "simulator", "web")
+$images = @("api", "analytics", "simulator", "web", "otel-collector")
 foreach ($service in $images) {
   $image = "logitrack-${service}:local-release"
   $sbomFile = "logitrack-${service}.cdx.json"

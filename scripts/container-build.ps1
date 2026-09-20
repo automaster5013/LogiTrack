@@ -5,7 +5,8 @@ $images = @(
   @{ Name = "logitrack-api:local-release"; Context = ".\api" },
   @{ Name = "logitrack-analytics:local-release"; Context = ".\analytics" },
   @{ Name = "logitrack-simulator:local-release"; Context = ".\simulator" },
-  @{ Name = "logitrack-web:local-release"; Context = ".\web" }
+  @{ Name = "logitrack-web:local-release"; Context = ".\web" },
+  @{ Name = "logitrack-otel-collector:local-release"; Context = ".\infra\otel" }
 )
 
 foreach ($image in $images) {

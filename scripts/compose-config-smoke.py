@@ -52,13 +52,24 @@ def main() -> None:
     if services["kafka-init"].get("restart"):
         raise AssertionError("One-shot kafka-init must not have a restart policy")
 
-    for service_name in ("simulator", "web"):
+    for service_name in long_running_services:
         if not services[service_name].get("healthcheck", {}).get("test"):
             raise AssertionError(f"{service_name} does not expose runtime readiness")
     if "SIMULATOR_HEALTH_FILE" not in services["simulator"]["environment"]:
         raise AssertionError("simulator heartbeat path is not configured")
     if services["web"]["environment"].get("HOSTNAME") != "0.0.0.0":
         raise AssertionError("web is not bound to every container interface")
+
+    readiness_dependencies = {
+        "otel-collector": ("tempo",),
+        "prometheus": ("api",),
+        "grafana": ("prometheus", "tempo"),
+    }
+    for service_name, dependencies in readiness_dependencies.items():
+        for dependency in dependencies:
+            condition = services[service_name]["depends_on"][dependency]["condition"]
+            if condition != "service_healthy":
+                raise AssertionError(f"{service_name} does not wait for healthy {dependency}")
 
     print("PASS: database overrides, initialization, restart policies, and runtime readiness are valid")
 

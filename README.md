@@ -21,7 +21,7 @@ docker compose up --build
 ```
 
 PostgreSQL 데이터베이스명과 자격 증명은 `.env`의 `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`로 변경할 수 있으며 API와 복제 인스턴스, 데이터베이스 healthcheck에 동일하게 적용됩니다.
-웹은 HTTP 응답으로, simulator는 Kafka 소비 루프 heartbeat로 준비 상태를 판정하므로 `docker compose up --wait`가 두 서비스의 실제 동작 가능 상태까지 기다립니다.
+웹과 관측성 서비스는 HTTP 응답으로, simulator는 Kafka 소비 루프 heartbeat로 준비 상태를 판정하므로 `docker compose up --wait`가 모든 장기 실행 서비스의 실제 동작 가능 상태까지 기다립니다.
 
 - 운영 콘솔: http://localhost:3000
 - API health: http://localhost:8080/actuator/health

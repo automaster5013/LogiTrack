@@ -96,9 +96,10 @@ jobs:
           docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-analytics:ci ./analytics
           docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-simulator:ci ./simulator
           docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-web:ci ./web
+          docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-otel-collector:ci ./infra/otel
       - name: Enforce non-root runtime users
         run: |
-          for image in logitrack-api:ci logitrack-analytics:ci logitrack-simulator:ci logitrack-web:ci; do
+          for image in logitrack-api:ci logitrack-analytics:ci logitrack-simulator:ci logitrack-web:ci logitrack-otel-collector:ci; do
             user="$(docker image inspect --format '{{.Config.User}}' "$image")"
             if [ -z "$user" ] || [ "$user" = "0" ] || [ "$user" = "root" ]; then
               echo "::error::$image runs as root"
@@ -111,7 +112,7 @@ jobs:
           TRIVY_IMAGE: ghcr.io/aquasecurity/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969
         run: |
           mkdir -p work/sbom
-          for service in api analytics simulator web; do
+          for service in api analytics simulator web otel-collector; do
             docker run --rm \
               --volume /var/run/docker.sock:/var/run/docker.sock \
               --volume trivy-cache:/root/.cache/ \
@@ -132,7 +133,7 @@ jobs:
         env:
           TRIVY_IMAGE: ghcr.io/aquasecurity/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969
         run: |
-          for service in api analytics simulator web; do
+          for service in api analytics simulator web otel-collector; do
             image="logitrack-$service:ci"
             if ! docker run --rm \
               --volume /var/run/docker.sock:/var/run/docker.sock \
