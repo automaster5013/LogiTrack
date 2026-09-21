@@ -12,6 +12,7 @@ type Props = {
 const alertStatusLabel: Record<DeliveryAlert["status"],string> = {ACTIVE:"대응 필요",RESOLVED:"해결됨"};
 const alertTypeLabel: Record<DeliveryAlert["alertType"],string> = {DELAY:"도착 지연",ROUTE_DEVIATION:"경로 이탈"};
 const alertSeverityLabel: Record<DeliveryAlert["severity"],string> = {WARNING:"주의",CRITICAL:"긴급"};
+const formatAlertTime=(value:string)=>new Date(value).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
 
 export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,onAcknowledge}:Props){
   const [scope,setScope]=useState<"ACTIVE"|"ALL">("ACTIVE");
@@ -80,12 +81,12 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
       const delivery=deliveries.find(item=>item.id===alert.deliveryId);
       return <div key={alert.id} className={`alertCard ${alert.status.toLowerCase()} ${alert.severity.toLowerCase()} ${alert.acknowledgedAt?"acknowledged":""}`}>
         <button className="alertFocus" onClick={()=>onSelect(alert.deliveryId)} aria-label={`${delivery?.vehicleId||alert.deliveryId} 지도에서 보기`}>
-          <span className="alertState">{alertStatusLabel[alert.status]}{alert.status==="RESOLVED"&&alert.resolvedAt?` · ${new Date(alert.resolvedAt).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}`:""}</span><span className="alertKind">{alertTypeLabel[alert.alertType]} · {alertSeverityLabel[alert.severity]}</span>
+          <span className="alertState">{alertStatusLabel[alert.status]}{alert.status==="RESOLVED"&&alert.resolvedAt?` · ${formatAlertTime(alert.resolvedAt)}`:""}</span><span className="alertKind">{alertTypeLabel[alert.alertType]} · {alertSeverityLabel[alert.severity]}</span>
           <strong>{delivery?.vehicleId||alert.deliveryId.slice(0,8)}</strong><p>{alert.message}</p>
-          <small>{alert.occurrenceCount}회 감지 · 최근 {new Date(alert.lastObservedAt).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</small>
+          <small>{alert.occurrenceCount}회 감지 · 최초 {formatAlertTime(alert.firstObservedAt)} · 최근 {formatAlertTime(alert.lastObservedAt)}</small>
         </button>
         {alert.status==="ACTIVE"&&!alert.acknowledgedAt?<button className="alertAck" disabled={busyId===alert.id} onClick={()=>onAcknowledge(alert.id)} aria-label={`${delivery?.vehicleId||alert.deliveryId} 경고 확인 처리`}>{busyId===alert.id?"확인 처리 중…":"확인 완료"}</button>
-          :alert.acknowledgedAt?<span className="alertAcknowledged">확인 · {alert.acknowledgedBy} · {new Date(alert.acknowledgedAt).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</span>:null}
+          :alert.acknowledgedAt?<span className="alertAcknowledged">확인 · {alert.acknowledgedBy} · {formatAlertTime(alert.acknowledgedAt)}</span>:null}
       </div>})}
       {scopedAlerts.length>8?<div className="alertListFooter">
         <span aria-live="polite">경고 {visibleAlerts.length} / {scopedAlerts.length}건 표시</span>
