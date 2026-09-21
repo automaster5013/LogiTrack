@@ -39,6 +39,10 @@ def main() -> None:
         for key, value in expected_database.items():
             if environment.get(key) != value:
                 raise AssertionError(f"{service_name} does not inherit {key}")
+    if services["api"]["environment"].get("LOGITRACK_REPORTS_WRITER_ENABLED") != "true":
+        raise AssertionError("Primary API is not the KPI projection writer")
+    if services["api-replica"]["environment"].get("LOGITRACK_REPORTS_WRITER_ENABLED") != "false":
+        raise AssertionError("Replica API can write the KPI projection")
 
     postgres_healthcheck = " ".join(services["postgres"]["healthcheck"]["test"])
     for variable in ("POSTGRES_USER", "POSTGRES_DB"):

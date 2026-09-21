@@ -8,7 +8,9 @@
 
 - 배송 생성일을 UTC 일자 cohort로 삼아 공개 API의 최대 범위인 최근 90일을 `delivery_daily_kpis`에 projection한다.
 - 애플리케이션 시작 러너가 트래픽 수락 전에 projection 전체를 초기화하고, Spring scheduler가 이후 60초마다 갱신한다. 보고서 GET은 projection을 읽기만 한다. 브라우저 수에 비례하는 중복 UPSERT, 읽기 요청의 부작용, 재시작 직후의 부분 결과를 피하면서 최대 60초의 명시적인 최신성 경계를 둔다.
+- Compose의 primary API만 projection writer를 활성화하고 scale-test replica는 읽기만 한다. 여러 인스턴스가 같은 projection을 서로 다른 시각이나 설정으로 덮어쓰지 않도록 writer 역할을 topology에 명시한다.
 - PostgreSQL `generate_series`, filtered aggregate, `ON CONFLICT` upsert를 사용해 배송이 없는 날짜도 0으로 유지한다.
+- 배송 조회는 90일 UTC 하한으로 원본 row를 먼저 제한하고, 최초 route snapshot은 배송별 indexed lateral lookup으로 찾는다. 전체 route snapshot 이력을 매 주기 정렬하지 않아 누적 운영 기간이 projection 비용을 증가시키지 않도록 한다.
 - 정시 도착률은 최초 불변 route snapshot의 `planned_eta`와 배송 완료 시각을 비교한다.
 - JSON API는 대시보드에, UTF-8 CSV API는 운영 보고서 다운로드에 사용한다.
 

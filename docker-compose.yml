@@ -158,6 +158,7 @@ services:
       REDIS_HOST: redis
       ANALYTICS_URL: http://analytics:8090
       INSTANCE_ID: api-primary
+      LOGITRACK_REPORTS_WRITER_ENABLED: "true"
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports: ["127.0.0.1:8080:8080"]
@@ -196,6 +197,7 @@ services:
       REDIS_HOST: redis
       ANALYTICS_URL: http://analytics:8090
       INSTANCE_ID: api-replica
+      LOGITRACK_REPORTS_WRITER_ENABLED: "false"
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports: ["127.0.0.1:8081:8080"]

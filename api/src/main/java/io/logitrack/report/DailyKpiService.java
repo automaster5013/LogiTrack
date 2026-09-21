@@ -1,7 +1,6 @@
 package io.logitrack.report;
 
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,9 +20,8 @@ public class DailyKpiService {
         this.jdbc = jdbc;
     }
 
-    @Scheduled(fixedDelayString = "${logitrack.reports.refresh-ms:60000}")
     @Transactional
-    public void refreshScheduledProjection() {
+    public void refreshProjection() {
         refresh(MAX_DAYS);
     }
 
@@ -69,10 +67,6 @@ public class DailyKpiService {
                 (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date,
                 interval '1 day'
               )::date AS metric_date
-            ), first_route AS (
-              SELECT DISTINCT ON (delivery_id) delivery_id, planned_eta
-              FROM route_snapshots
-              ORDER BY delivery_id, generated_at ASC
             ), projection AS (
               SELECT c.metric_date,
                      COUNT(d.id)::bigint AS total_deliveries,
@@ -86,8 +80,18 @@ public class DailyKpiService {
                        WHERE d.status = 'DELIVERED' AND r.planned_eta IS NOT NULL AND d.updated_at <= r.planned_eta
                      ) / NULLIF(COUNT(d.id) FILTER (WHERE d.status = 'DELIVERED' AND r.planned_eta IS NOT NULL), 0), 0)::double precision AS on_time_rate_percent
               FROM calendar c
-              LEFT JOIN deliveries d ON (d.created_at AT TIME ZONE 'UTC')::date = c.metric_date
-              LEFT JOIN first_route r ON r.delivery_id = d.id
+              LEFT JOIN deliveries d
+                ON (d.created_at AT TIME ZONE 'UTC')::date = c.metric_date
+               AND d.created_at >= (
+                 ((CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date - (? - 1))::timestamp AT TIME ZONE 'UTC'
+               )
+              LEFT JOIN LATERAL (
+                SELECT planned_eta
+                FROM route_snapshots
+                WHERE delivery_id = d.id
+                ORDER BY generated_at ASC
+                LIMIT 1
+              ) r ON TRUE
               GROUP BY c.metric_date
             )
             INSERT INTO delivery_daily_kpis (
@@ -108,7 +112,7 @@ public class DailyKpiService {
               average_cycle_minutes = EXCLUDED.average_cycle_minutes,
               on_time_rate_percent = EXCLUDED.on_time_rate_percent,
               projected_at = EXCLUDED.projected_at
-            """, days);
+            """, days, days);
     }
 
     private static int boundedDays(int days) {

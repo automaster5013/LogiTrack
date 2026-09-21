@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import org.mockito.ArgumentCaptor;
 
 class DailyKpiServiceTest {
     @Test void rejectsOutOfRangeReportRequest(){var service=new DailyKpiService(mock(org.springframework.jdbc.core.JdbcTemplate.class));assertThrows(IllegalArgumentException.class,()->service.getDailyKpis(0));assertThrows(IllegalArgumentException.class,()->service.getDailyKpis(91));}
@@ -22,8 +23,11 @@ class DailyKpiServiceTest {
     }
     @Test void scheduledRefreshCoversTheFullPublicReportRange(){
         var jdbc=mock(org.springframework.jdbc.core.JdbcTemplate.class);var service=new DailyKpiService(jdbc);
-        service.refreshScheduledProjection();
-        verify(jdbc).update(anyString(),eq(90));
+        service.refreshProjection();
+        var sql=ArgumentCaptor.forClass(String.class);
+        verify(jdbc).update(sql.capture(),eq(90),eq(90));
+        assertThat(sql.getValue()).contains("d.created_at >=", "LEFT JOIN LATERAL", "WHERE delivery_id = d.id");
+        assertThat(sql.getValue()).doesNotContain("DISTINCT ON (delivery_id)");
     }
     @Test
     void rendersStableUtf8CsvReport() {
