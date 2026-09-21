@@ -102,7 +102,7 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
       return <div key={alert.id} className={`alertCard ${alert.status.toLowerCase()} ${alert.severity.toLowerCase()} ${alert.acknowledgedAt?"acknowledged":""}`}>
         <button className="alertFocus" onClick={()=>onSelect(alert.deliveryId)} aria-label={`${delivery?.vehicleId||alert.deliveryId} 지도에서 보기`}>
           <span className="alertState">{alertStatusLabel[alert.status]}{alert.status==="RESOLVED"&&alert.resolvedAt?` · ${formatAlertTime(alert.resolvedAt)}`:""}</span><span className="alertKind">{alertTypeLabel[alert.alertType]} · {alertSeverityLabel[alert.severity]}</span>
-          <strong>{delivery?.vehicleId||alert.deliveryId.slice(0,8)}</strong><p>{alert.message}</p>
+          <strong>{delivery?.vehicleId||alert.deliveryId.slice(0,8)}</strong>{delivery?.orderNumber?<span className="alertOrder">주문 {delivery.orderNumber}</span>:null}<p>{alert.message}</p>
           <small>{alert.occurrenceCount}회 감지 · 지속 {formatAlertDuration(alert.firstObservedAt,alert.lastObservedAt)} · 최초 {formatAlertTime(alert.firstObservedAt)} · 최근 {formatAlertTime(alert.lastObservedAt)}</small>
         </button>
         {alert.status==="ACTIVE"&&!alert.acknowledgedAt?<button className="alertAck" disabled={busyId===alert.id} onClick={()=>onAcknowledge(alert.id)} aria-label={`${delivery?.vehicleId||alert.deliveryId} 경고 확인 처리`}>{busyId===alert.id?"확인 처리 중…":"확인 완료"}</button>
