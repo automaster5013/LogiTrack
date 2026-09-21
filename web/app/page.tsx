@@ -88,7 +88,7 @@ export default function Home(){
  const activeAlerts=useMemo(()=>alerts.filter(alert=>alert.status==="ACTIVE"),[alerts]);
  const overdueItems=useMemo(()=>liveItems.filter(item=>{if(!item.eta)return false;const eta=new Date(item.eta);return !Number.isNaN(eta.getTime())&&eta.getTime()<Date.now()}),[liveItems]);
  const attentionIds=useMemo(()=>new Set([...activeAlerts.map(alert=>alert.deliveryId),...overdueItems.map(item=>item.id)]),[activeAlerts,overdueItems]);
- const latestTelemetryAt=useMemo(()=>{const latest=new Map<string,number>();telemetry.forEach(point=>{const occurredAt=new Date(point.occurredAt).getTime();if(!Number.isNaN(occurredAt)&&occurredAt>(latest.get(point.deliveryId)??0))latest.set(point.deliveryId,occurredAt)});return latest},[telemetry]);
+ const latestTelemetryAt=useMemo(()=>{const latest=new Map<string,number>();items.forEach(item=>{const occurredAt=item.lastTelemetryAt?new Date(item.lastTelemetryAt).getTime():Number.NaN;if(!Number.isNaN(occurredAt))latest.set(item.id,occurredAt)});telemetry.forEach(point=>{const occurredAt=new Date(point.occurredAt).getTime();if(!Number.isNaN(occurredAt)&&occurredAt>(latest.get(point.deliveryId)??0))latest.set(point.deliveryId,occurredAt)});return latest},[items,telemetry]);
  const staleIds=useMemo(()=>new Set(liveItems.filter(item=>freshnessNow-(latestTelemetryAt.get(item.id)??0)>=300000).map(item=>item.id)),[freshnessNow,latestTelemetryAt,liveItems]);
  const staleItems=useMemo(()=>liveItems.filter(item=>staleIds.has(item.id)).sort((left,right)=>(latestTelemetryAt.get(left.id)??Number.NEGATIVE_INFINITY)-(latestTelemetryAt.get(right.id)??Number.NEGATIVE_INFINITY)),[latestTelemetryAt,liveItems,staleIds]);
  const attentionCount=attentionIds.size;

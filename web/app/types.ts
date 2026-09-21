@@ -14,6 +14,7 @@ export type Delivery = {
   currentLon: number;
   progress: number;
   eta?: string;
+  lastTelemetryAt?: string;
 };
 
 export type CustomerOrder = {
