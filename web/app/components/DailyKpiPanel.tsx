@@ -48,6 +48,6 @@ export default function DailyKpiPanel({ rows, csvUrl, pdfUrl }: Props) {
       {!rows.length && <p className="kpiEmpty">배송 성과 집계를 준비하고 있습니다.</p>}
     </div>
     {selected&&<div className="kpiDetail" aria-live="polite"><strong>{selected.metricDate.replaceAll("-", ".")}</strong><span>전체 {number.format(selected.totalDeliveries)}건</span><span>완료 {number.format(selected.deliveredDeliveries)}건</span><span>진행 {number.format(selected.activeDeliveries)}건</span><span>지연 {number.format(selected.delayedDeliveries)}건</span><span>정시 {selected.onTimeRatePercent.toFixed(1)}%</span></div>}
-    <div className="kpiLegend"><span><i className="total"/>전체</span><span><i className="done"/>완료</span><span><i className="late"/>지연</span><small>60초마다 갱신</small></div>
+    <div className="kpiLegend"><span><i className="total"/>전체</span><span><i className="done"/>완료</span><span><i className="late"/>지연</span><small>{latest?<><time dateTime={latest.projectedAt}>집계 {new Date(latest.projectedAt).toLocaleString("ko-KR")}</time> · 60초마다 갱신</>:"집계 대기"}</small></div>
   </section>;
 }
