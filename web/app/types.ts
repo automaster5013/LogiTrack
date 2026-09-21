@@ -76,6 +76,8 @@ export type DeliveryAlert = {
   acknowledgedBy?: string;
 };
 
+export type AlertPage = { items:DeliveryAlert[]; page:number; size:number; totalElements:number; hasMore:boolean };
+
 export type AlertPolicy = {
   id: string;
   vehicleId: string;
