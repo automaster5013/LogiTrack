@@ -58,6 +58,8 @@ telemetry `traceId`도 HTTP와 같은 1~128자 안전 문자만 허용한다. �
 
 일별 KPI는 UTC 배송 생성일 cohort 기준으로 공개 API 최대 범위인 최근 90일을 트래픽 수락 전에 초기화하고, 첫 주기 실행은 설정된 간격만큼 기다린 뒤 이후 기본 60초마다 갱신한다. Compose에서는 primary API만 `LOGITRACK_REPORTS_WRITER_ENABLED=true`이고 scale-test replica는 `false`이므로 replica가 같은 projection을 덮어쓰지 않는다. 원본 배송은 90일 범위로 제한하고 최초 route snapshot은 배송별 index lookup으로 읽으므로 전체 경로 이력을 매번 정렬하지 않는다. `GET /api/reports/daily-kpis?days=14`는 JSON, `GET /api/reports/daily-kpis.csv?days=30`은 UTF-8 CSV, `GET /api/reports/daily-kpis.pdf?days=30`은 A4 가로형 운영 보고서를 반환하며 요청 범위는 1~90일이다. 모든 보고서 GET은 projection을 읽기만 하고 범위 밖 요청은 조용히 보정하지 않고 400으로 거부한다. PDF는 API가 PostgreSQL projection을 조회한 뒤 analytics 서비스의 ReportLab 렌더러에 전달하므로 PDF만 실패할 때는 먼저 `http://localhost:8090/health`와 analytics 로그를 확인한다.
 
+Primary writer는 마지막 성공 시각과 설정 주기를 `logitrack_kpi_projection_last_success_timestamp_seconds`, `logitrack_kpi_projection_refresh_interval_seconds`로 노출한다. 마지막 성공이 설정 주기의 3배를 초과하면 `LogiTrackKpiProjectionStale` warning이 발생하므로 API 로그와 PostgreSQL 상태를 확인한다.
+
 공개 route provider 보호와 반복 경로 응답 안정화를 위해 analytics는 동일 좌표 결과를 기본 300초 캐시한다. `ROUTING_CACHE_TTL_SECONDS`로 조정하며 최대 1,024개 bounded LRU에서 가장 오래 사용하지 않은 항목만 축출한다. TTL 0은 캐시를 비활성화한다.
 
 동일 좌표의 동시 cache miss는 하나의 in-flight OSRM 작업을 공유하고, 서로 다른 좌표는 전역 lock 없이 병렬 처리한다. 한 HTTP caller가 취소되어도 shield된 공유 작업과 다른 waiter는 계속 완료되며, 모든 waiter가 사라져도 background finalizer가 task를 정리하고 결과를 캐시한다. analytics 프로세스는 하나의 `httpx.AsyncClient` connection pool을 재사용하고 graceful shutdown 시 닫는다.

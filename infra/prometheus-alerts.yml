@@ -73,6 +73,18 @@ groups:
         annotations:
           summary: KPI PDF rendering is repeatedly failing
           description: "{{ $value }} KPI PDF requests failed during the last ten minutes."
+      - alert: LogiTrackKpiProjectionStale
+        expr: |
+          logitrack_kpi_projection_last_success_timestamp_seconds > 0
+          and
+          time() - logitrack_kpi_projection_last_success_timestamp_seconds
+            > 3 * logitrack_kpi_projection_refresh_interval_seconds
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Daily KPI projection is stale
+          description: The KPI projection has not completed successfully within three configured refresh intervals.
       - alert: LogiTrackApiServerErrors
         expr: sum(increase(http_server_requests_seconds_count{application="logitrack-control-api",status=~"5.."}[5m])) > 5
         for: 1m
