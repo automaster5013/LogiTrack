@@ -45,7 +45,7 @@ export default function AlertPolicyPanel({policies,audits,deliveries,busy,onSave
         <option value="*">전체 차량 기본값</option>{visibleVehicles.map(vehicle=><option key={vehicle} value={vehicle}>{vehicle}</option>)}</select></label></div>
     </div>
     <div className="policyBody"><form onSubmit={submit}>
-      <div className="policyMode"><b>{vehicleId==="*"?"전체 차량":vehicleId}</b><span className={overridden?"override":"inherited"}>{vehicleId==="*"?"기본 정책":overridden?"전용 정책":"기본값 상속"}</span></div>
+      <div className="policyMode"><div><b>{vehicleId==="*"?"전체 차량":vehicleId}</b>{selected&&<small><time dateTime={selected.updatedAt}>최근 변경 {new Date(selected.updatedAt).toLocaleString("ko-KR")}</time> · {selected.updatedBy}</small>}</div><span className={overridden?"override":"inherited"}>{vehicleId==="*"?"기본 정책":overridden?"전용 정책":"기본값 상속"}</span></div>
       <fieldset><legend>경로 이탈 · 미터</legend>
         <label>해제<input type="number" min="0" required value={draft.deviationCloseMeters} onChange={event=>setNumber("deviationCloseMeters",event.target.value)}/></label>
         <label>경고<input type="number" min="1" required value={draft.deviationOpenMeters} onChange={event=>setNumber("deviationOpenMeters",event.target.value)}/></label>
