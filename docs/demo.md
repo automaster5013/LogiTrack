@@ -8,7 +8,7 @@ docker compose up -d --build
 docker compose ps
 ```
 
-- 운영 콘솔: `http://localhost:3000`
+- 운영 콘솔: `http://localhost:3000` 또는 `http://127.0.0.1:3000`
 - Grafana: `http://localhost:3001` (`admin` / `.env`의 `GRAFANA_ADMIN_PASSWORD`)
 - API readiness: `http://localhost:8080/actuator/health/readiness`
 

@@ -24,7 +24,7 @@ docker compose up --build
 `init-env.ps1`는 Git에서 제외된 `.env`에 PostgreSQL과 Grafana용 독립 난수 비밀번호를 생성하며 기존 파일은 덮어쓰지 않습니다. 영속 데이터를 유지한 자격 증명 회전은 실행 중인 스택에서 `./scripts/rotate-local-secrets.ps1`를 사용합니다. 두 비밀번호가 비어 있으면 Compose는 시작 전에 실패합니다. PostgreSQL 데이터베이스명과 사용자는 `.env`의 `POSTGRES_DB`, `POSTGRES_USER`로 변경할 수 있으며 API와 복제 인스턴스, 데이터베이스 healthcheck에 동일하게 적용됩니다.
 웹과 관측성 서비스는 HTTP 응답으로, simulator는 Kafka 소비 루프 heartbeat로 준비 상태를 판정하므로 `docker compose up --wait`가 모든 장기 실행 서비스의 실제 동작 가능 상태까지 기다립니다.
 
-- 운영 콘솔: http://localhost:3000
+- 운영 콘솔: http://localhost:3000 또는 http://127.0.0.1:3000
 - API health: http://localhost:8080/actuator/health
 - 경로 분석 health: http://localhost:8090/health
 - Prometheus: http://localhost:9090
@@ -113,7 +113,7 @@ production image 다섯 개의 CycloneDX SBOM 생성과 CRITICAL 취약점 0건 
 
 도로 경로와 ETA 흐름 검증은 `./scripts/route-smoke.ps1`로 실행합니다. 1KB 이상의 JSON·GeoJSON·CSV 응답은 gzip 협상을 지원하며 `./scripts/response-compression-smoke.ps1`가 경로 응답의 압축 헤더와 50% 이상 전송량 절감을 검증합니다.
 
-API의 정확한 CORS 허용 출처는 쉼표 구분 `CORS_ALLOWED_ORIGINS`로 설정합니다. 기본값은 `http://localhost:3000`이며 API와 웹의 클릭재킹·MIME 스니핑·referrer·브라우저 권한 제한 헤더 및 신뢰하지 않는 출처 차단은 `./scripts/http-boundary-smoke.ps1`로 검증합니다. HTTPS의 HSTS는 TLS를 종료하는 배포 계층에서 설정합니다.
+API의 정확한 CORS 허용 출처는 쉼표 구분 `CORS_ALLOWED_ORIGINS`로 설정합니다. 기본값은 로컬 콘솔의 두 주소인 `http://localhost:3000,http://127.0.0.1:3000`이며, 와일드카드와 HTTP(S) origin 이외의 값은 시작 시 거부합니다. API와 웹의 클릭재킹·MIME 스니핑·referrer·브라우저 권한 제한 헤더 및 신뢰하지 않는 출처 차단은 `./scripts/http-boundary-smoke.ps1`로 검증합니다. HTTPS의 HSTS는 TLS를 종료하는 배포 계층에서 설정합니다.
 
 API의 기본 HTTP 수용량은 Tomcat worker 128개, 동시 연결 512개, 대기 요청 100개로 제한하며 연결 수립 5초·keep-alive 20초·연결당 요청 100개의 상한을 둡니다. 배포 환경에서 `SERVER_MAX_THREADS`, `SERVER_MAX_CONNECTIONS`, `SERVER_ACCEPT_COUNT`와 관련 timeout 변수를 조정할 수 있고, 실제 적용값은 Prometheus의 `tomcat_threads_config_max_threads` 및 `tomcat_connections_config_max_connections` 지표로 확인합니다.
 
