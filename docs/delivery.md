@@ -5,13 +5,14 @@
 - CI는 구현되어 있다. GitHub Actions가 API 테스트와 coverage, Python 테스트, Compose 구성, PostgreSQL backup/restore 왕복, Prometheus alert rule 문법, TypeScript build를 검증한다.
 - production Docker image 다섯 개도 clean runner에서 빌드하고 모든 runtime이 non-root인지 검사한다.
 - 각 image의 CycloneDX SBOM을 30일 보관하고, 수정 가능 여부와 관계없이 CRITICAL 취약점이 하나라도 있으면 CI를 차단한다.
-- CD는 아직 구현하지 않았다. 승인된 배포 대상이 없으므로 image registry push나 외부 인프라 변경을 수행하지 않는다.
+- CD 1단계로 수동 승인된 staging image publication을 구현했다. `.github/workflows/publish-staging-images.yml`은 `main`에 포함된 full commit SHA만 받아 GitHub `staging` environment 승인 뒤 OIDC 단기 자격 증명으로 검증 완료 이미지를 ECR에 게시한다.
+- ECS/RDS/ElastiCache/MSK/ALB/Route 53 등 runtime 인프라 생성과 서비스 배포는 아직 구현하지 않았다. 리전·비용 상한·복구 정책이 확정되기 전에는 AWS runtime 자원을 변경하지 않는다.
 
 ## CD를 시작할 시점
 
 현재 코드 품질과 컨테이너 재현성이 갖춰졌으므로 스테이징 CD 설계를 시작하기 좋은 상태다. 실제 자동 배포는 아래 조건을 먼저 확정한 뒤 시작한다.
 
-1. 배포 대상과 소유 계정, 리전 또는 호스팅 위치
+1. 배포 대상과 소유 계정, 리전 또는 호스팅 위치 (`logitrack.kr`은 구매 완료된 운영 도메인)
 2. 월 비용 상한과 자동 중지·삭제 정책
 3. 비밀정보 저장소와 접근 권한 책임자
 4. PostgreSQL backup/restore 및 migration rollback 절차
@@ -32,6 +33,20 @@ pull request
   → post-deploy smoke
   → 실패 시 이전 image + DB 호환 migration으로 rollback
 ```
+
+## Staging image publication 준비
+
+GitHub repository의 `staging` environment에 승인자를 지정하고 아래 environment variable을 설정한다.
+
+- `AWS_ROLE_ARN`: 이 저장소와 `staging` environment에서만 assume할 수 있는 GitHub OIDC IAM role
+- `AWS_REGION`: ECR repository가 위치한 확정 리전
+- `ECR_REPOSITORY_PREFIX`: 사전에 생성한 repository prefix(예: `logitrack`)
+
+ECR에는 `<prefix>/api`, `<prefix>/analytics`, `<prefix>/simulator`, `<prefix>/web`, `<prefix>/otel-collector` repository가 먼저 존재해야 한다. workflow는 repository나 다른 AWS 자원을 생성하지 않으며, 하나라도 없으면 build 전에 실패한다. 장기 access key와 AWS 로그인 이메일은 GitHub secret·variable·소스 코드에 저장하지 않는다.
+
+`Publish staging images` workflow를 수동 실행하면서 `main`에 포함된 40자리 commit SHA를 전달한다. workflow는 이미지 5종의 non-root/healthcheck, CycloneDX SBOM provenance, CRITICAL 취약점 0건을 다시 확인한 뒤에만 `<ECR registry>/<prefix>/<service>:<commit SHA>`로 push한다. `latest` tag는 만들지 않는다.
+
+현재 단계는 배포 가능한 artifact publication까지다. 실제 staging 서비스 전환은 runtime topology, 월 비용 상한, DB migration/rollback, TLS와 `logitrack.kr` DNS 정책 승인 후 별도 단계로 추가한다.
 
 운영 배포에서는 `latest` tag를 사용하지 않고 Git commit SHA로 image를 고정한다. 애플리케이션 migration은 이전 버전과 호환되는 expand/contract 순서를 사용하며, 배포 성공 판정에는 API readiness뿐 아니라 주문 생성·배차·지도 경로 조회까지 포함한다.
 

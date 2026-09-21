@@ -1,0 +1,64 @@
+import re
+from pathlib import Path
+
+import yaml
+
+
+WORKFLOW_PATH = Path(".github/workflows/publish-staging-images.yml")
+PINNED_ACTION = re.compile(r"^[^@\s]+@[0-9a-f]{40}$")
+SERVICES = ("api", "analytics", "simulator", "web", "otel-collector")
+
+
+def main() -> None:
+    source = WORKFLOW_PATH.read_text(encoding="utf-8")
+    workflow = yaml.safe_load(source)
+    job = workflow.get("jobs", {}).get("publish", {})
+
+    if not re.search(r"(?m)^on:\s*\n\s+workflow_dispatch:\s*$", source):
+        raise AssertionError("staging publication must only be manually dispatched")
+    if workflow.get("permissions") != {"contents": "read", "id-token": "write"}:
+        raise AssertionError("publication permissions must only allow repository reads and OIDC")
+    if job.get("environment") != "staging":
+        raise AssertionError("publication must pass through the staging GitHub environment")
+    if job.get("runs-on") != "ubuntu-24.04" or job.get("timeout-minutes") != 45:
+        raise AssertionError("publication runner and timeout are not bounded")
+    if workflow.get("concurrency", {}).get("cancel-in-progress") is not False:
+        raise AssertionError("an in-flight immutable publication must not be cancelled")
+
+    for step in job.get("steps", []):
+        action = step.get("uses")
+        if action and not PINNED_ACTION.fullmatch(action):
+            raise AssertionError(f"publication uses a mutable action reference: {action}")
+
+    forbidden = ("secrets.", "latest", "aws-access-key-id", "aws-secret-access-key", "kaiser5013")
+    for value in forbidden:
+        if value.lower() in source.lower():
+            raise AssertionError(f"publication contains forbidden credential or mutable-tag text: {value}")
+    required = (
+        "vars.AWS_ROLE_ARN",
+        "vars.AWS_REGION",
+        "vars.ECR_REPOSITORY_PREFIX",
+        "git merge-base --is-ancestor",
+        "aws ecr describe-repositories",
+        "--severity CRITICAL",
+        "scripts/sbom-smoke.py",
+    )
+    for value in required:
+        if value not in source:
+            raise AssertionError(f"publication lacks required control: {value}")
+    for service in SERVICES:
+        if f"logitrack-{service}:$REVISION" not in source:
+            raise AssertionError(f"publication does not build the {service} image by commit SHA")
+
+    scan_index = source.index("Generate and validate SBOMs and vulnerability reports")
+    push_index = source.index("Push commit-addressed images")
+    if scan_index >= push_index:
+        raise AssertionError("images can be pushed before supply-chain validation")
+    if re.search(r"\b(ecs|cloudformation|terraform|route53)\b", source, re.IGNORECASE):
+        raise AssertionError("image publication must not mutate runtime infrastructure")
+
+    print("PASS: staging image publication is manual, OIDC-only, immutable, and pre-push verified")
+
+
+if __name__ == "__main__":
+    main()

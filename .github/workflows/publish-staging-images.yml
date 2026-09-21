@@ -1,0 +1,123 @@
+name: Publish staging images
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Full Git commit SHA from main to publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-staging-${{ inputs.revision }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Verify and publish immutable images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: staging
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve an immutable revision from main
+        id: revision
+        env:
+          REQUESTED_REVISION: ${{ inputs.revision }}
+        run: |
+          if ! [[ "$REQUESTED_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::revision must be a full lowercase Git commit SHA"
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          git cat-file -e "$REQUESTED_REVISION^{commit}"
+          git merge-base --is-ancestor "$REQUESTED_REVISION" origin/main
+          git checkout --detach "$REQUESTED_REVISION"
+          echo "sha=$REQUESTED_REVISION" >> "$GITHUB_OUTPUT"
+      - name: Configure short-lived AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: logitrack-staging-${{ github.run_id }}
+      - name: Validate pre-provisioned ECR repositories
+        env:
+          ECR_REPOSITORY_PREFIX: ${{ vars.ECR_REPOSITORY_PREFIX }}
+        run: |
+          if ! [[ "$ECR_REPOSITORY_PREFIX" =~ ^[a-z0-9]+([._/-][a-z0-9]+)*$ ]]; then
+            echo "::error::ECR_REPOSITORY_PREFIX is missing or invalid"
+            exit 1
+          fi
+          for service in api analytics simulator web otel-collector; do
+            aws ecr describe-repositories --repository-names "$ECR_REPOSITORY_PREFIX/$service" >/dev/null
+          done
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@b040164c4934333d597f3f9c67502ff28f814e9c # v2.1.6
+      - name: Build deployable service images
+        env:
+          REVISION: ${{ steps.revision.outputs.sha }}
+        run: |
+          docker build --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-api:$REVISION" ./api
+          docker build --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-analytics:$REVISION" ./analytics
+          docker build --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-simulator:$REVISION" ./simulator
+          docker build --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-web:$REVISION" ./web
+          docker build --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-otel-collector:$REVISION" ./infra/otel
+      - name: Enforce hardened runtime metadata
+        env:
+          REVISION: ${{ steps.revision.outputs.sha }}
+        run: |
+          for service in api analytics simulator web otel-collector; do
+            image="logitrack-$service:$REVISION"
+            user="$(docker image inspect --format '{{.Config.User}}' "$image")"
+            healthcheck="$(docker image inspect --format '{{json .Config.Healthcheck.Test}}' "$image")"
+            test -n "$user" && test "$user" != "0" && test "$user" != "root"
+            test "$healthcheck" != "null" && test "$healthcheck" != "[]"
+          done
+      - name: Generate and validate SBOMs and vulnerability reports
+        env:
+          REVISION: ${{ steps.revision.outputs.sha }}
+          TRIVY_IMAGE: ghcr.io/aquasecurity/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969
+        run: |
+          mkdir -p work/sbom
+          for service in api analytics simulator web otel-collector; do
+            image="logitrack-$service:$REVISION"
+            docker run --rm \
+              --volume /var/run/docker.sock:/var/run/docker.sock \
+              --volume trivy-cache:/root/.cache/ \
+              --volume "$GITHUB_WORKSPACE/work/sbom:/output" \
+              "$TRIVY_IMAGE" image --scanners vuln --format cyclonedx \
+              --output "/output/logitrack-$service.cdx.json" --no-progress "$image"
+            docker run --rm \
+              --volume /var/run/docker.sock:/var/run/docker.sock \
+              --volume trivy-cache:/root/.cache/ \
+              "$TRIVY_IMAGE" image --scanners vuln --severity CRITICAL \
+              --exit-code 1 --no-progress "$image"
+          done
+          python scripts/sbom-smoke.py work/sbom --tag "$REVISION" --revision "$REVISION"
+      - name: Upload immutable staging SBOMs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: staging-container-sboms-${{ steps.revision.outputs.sha }}
+          path: work/sbom/*.cdx.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Push commit-addressed images
+        env:
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+          ECR_REPOSITORY_PREFIX: ${{ vars.ECR_REPOSITORY_PREFIX }}
+          REVISION: ${{ steps.revision.outputs.sha }}
+        run: |
+          for service in api analytics simulator web otel-collector; do
+            source="logitrack-$service:$REVISION"
+            destination="$ECR_REGISTRY/$ECR_REPOSITORY_PREFIX/$service:$REVISION"
+            docker tag "$source" "$destination"
+            docker push "$destination"
+          done

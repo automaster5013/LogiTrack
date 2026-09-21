@@ -4,6 +4,7 @@
 
 ## 완료
 
+- GitHub staging environment 수동 승인과 AWS OIDC를 사용하는 ECR 불변 SHA image publication CD 1단계, pre-push SBOM·CRITICAL 취약점 gate
 - KPI projection 마지막 성공 시각과 설정 주기 Prometheus 지표, 3주기 stale 경보로 scheduler 정지·반복 실패 조기 탐지
 
 - 배송 행의 영속 telemetry 워터마크를 위치 지연 판정에 사용해 지도 데이터 상한 밖 진행 차량의 수신 이력 오분류 방지

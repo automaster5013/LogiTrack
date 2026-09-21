@@ -97,7 +97,7 @@ python -m unittest discover analytics/tests
 
 GitHub Actions의 `CI` workflow는 main push와 pull request마다 API 테스트·coverage gate, Python analytics/simulator 테스트, Docker Compose 구성 검증, TypeScript production build를 병렬 실행합니다. workflow 권한은 저장소 읽기로 제한됩니다.
 
-배포 가능한 production image와 non-root runtime은 `./scripts/container-build.ps1`로 검증합니다. 실제 CD는 배포 대상·비용 상한·비밀정보·rollback 정책 승인 후 스테이징부터 연결합니다.
+배포 가능한 production image와 non-root runtime은 `./scripts/container-build.ps1`로 검증합니다. CD 1단계는 수동 승인된 GitHub `staging` environment와 AWS OIDC를 통해 검증된 이미지를 commit SHA tag로 ECR에 게시합니다. 실제 AWS runtime 배포는 리전·비용 상한·비밀정보·rollback 정책 승인 후 연결합니다.
 
 차량별 경고 정책은 관제 화면의 `Vehicle threshold policies`에서 설정합니다. `GLOBAL DEFAULT`를 기준으로 차량별 경로 이탈(m)과 ETA 지연(s)의 `CLOSE < OPEN ≤ CRITICAL` 값을 재정의하며, `RESET TO GLOBAL`로 안전하게 상속 상태로 되돌릴 수 있습니다. 저장과 reset은 PostgreSQL 불변 감사 이력에 운영자와 함께 남고, `GET /api/alert-policies/audits/page`에서 누적 전체를 조회하며 각 감사 snapshot의 `RESTORE`로 과거 임계값을 다시 적용할 수 있습니다. 복원 자체도 `RESTORE` 감사 기록을 생성합니다. 종단 간 검증은 `./scripts/alert-policy-smoke.ps1`로 수행합니다.
 

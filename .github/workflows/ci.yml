@@ -69,6 +69,8 @@ jobs:
         run: python scripts/dependabot-config-smoke.py
       - name: Validate CI trust boundaries
         run: python scripts/workflow-config-smoke.py
+      - name: Validate staging publication trust boundaries
+        run: python scripts/cd-workflow-smoke.py
       - name: Validate Docker build contexts
         run: python scripts/docker-context-smoke.py
       - name: Verify PostgreSQL backup and restore round trip
