@@ -22,6 +22,8 @@ const formatAlertDuration=(first:string,last:string)=>{
   return `${Math.floor(totalHours/24)}일 ${totalHours%24}시간`;
 };
 const formatAlertValue=(value:number,type:DeliveryAlert["alertType"])=>type==="ROUTE_DEVIATION"?`${Math.round(value).toLocaleString("ko-KR")}m`:value<60?`${Math.round(value)}초`:`${Math.round(value/60)}분`;
+const alertExceedanceRatio=(alert:DeliveryAlert)=>alert.thresholdValue>0?Math.max(0,(alert.observedValue-alert.thresholdValue)/alert.thresholdValue):0;
+const formatAlertExceedance=(alert:DeliveryAlert)=>`기준 초과 +${formatAlertValue(Math.max(0,alert.observedValue-alert.thresholdValue),alert.alertType)} (${Math.round(alertExceedanceRatio(alert)*100).toLocaleString("ko-KR")}%)`;
 
 export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,onAcknowledge}:Props){
   const [scope,setScope]=useState<"ACTIVE"|"ALL">("ACTIVE");
@@ -29,7 +31,7 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
   const [alertType,setAlertType]=useState<"ALL"|DeliveryAlert["alertType"]>("ALL");
   const [acknowledgement,setAcknowledgement]=useState<"ALL"|"UNACKNOWLEDGED"|"ACKNOWLEDGED">("ALL");
   const [occurrence,setOccurrence]=useState<"ALL"|"REPEATED">("ALL");
-  const [sort,setSort]=useState<"PRIORITY"|"RECENT"|"LONGEST"|"FREQUENT">("PRIORITY");
+  const [sort,setSort]=useState<"PRIORITY"|"RECENT"|"LONGEST"|"FREQUENT"|"EXCEEDANCE">("PRIORITY");
   const [query,setQuery]=useState("");
   const [visibleCount,setVisibleCount]=useState(8);
   const active=alerts.filter(alert=>alert.status==="ACTIVE");
@@ -51,6 +53,10 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
     }).sort((left,right)=>{
       if(sort==="RECENT")return new Date(right.lastObservedAt).getTime()-new Date(left.lastObservedAt).getTime();
       if(sort==="FREQUENT"&&right.occurrenceCount!==left.occurrenceCount)return right.occurrenceCount-left.occurrenceCount;
+      if(sort==="EXCEEDANCE"){
+        const exceedanceOrder=alertExceedanceRatio(right)-alertExceedanceRatio(left);
+        if(exceedanceOrder)return exceedanceOrder;
+      }
       if(sort==="LONGEST"){
         const leftDuration=new Date(left.lastObservedAt).getTime()-new Date(left.firstObservedAt).getTime();
         const rightDuration=new Date(right.lastObservedAt).getTime()-new Date(right.firstObservedAt).getTime();
@@ -92,7 +98,7 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
         <label className="alertFilter" htmlFor="alertSeverity"><span>심각도</span><select id="alertSeverity" value={severity} onChange={event=>setSeverity(event.target.value as "ALL"|DeliveryAlert["severity"])}><option value="ALL">전체 {alertsInScope.length}</option><option value="CRITICAL">긴급 {criticalAlerts}</option><option value="WARNING">주의 {warningAlerts}</option></select></label>
         <label className="alertFilter" htmlFor="alertAcknowledgement"><span>확인 상태</span><select id="alertAcknowledgement" value={acknowledgement} onChange={event=>setAcknowledgement(event.target.value as "ALL"|"UNACKNOWLEDGED"|"ACKNOWLEDGED")}><option value="ALL">전체 {alertsInScope.length}</option><option value="UNACKNOWLEDGED">미확인 {unacknowledgedAlerts}</option><option value="ACKNOWLEDGED">확인 완료 {acknowledgedAlerts}</option></select></label>
         <label className="alertFilter" htmlFor="alertOccurrence"><span>감지 횟수</span><select id="alertOccurrence" value={occurrence} onChange={event=>setOccurrence(event.target.value as "ALL"|"REPEATED")}><option value="ALL">전체 {alertsInScope.length}</option><option value="REPEATED">반복 감지 {repeatedAlerts}</option></select></label>
-        <label className="alertFilter" htmlFor="alertSort"><span>정렬</span><select id="alertSort" value={sort} onChange={event=>setSort(event.target.value as "PRIORITY"|"RECENT"|"LONGEST"|"FREQUENT")}><option value="PRIORITY">대응 우선순위</option><option value="RECENT">최근 감지순</option><option value="LONGEST">지속 시간순</option><option value="FREQUENT">감지 횟수순</option></select></label>
+        <label className="alertFilter" htmlFor="alertSort"><span>정렬</span><select id="alertSort" value={sort} onChange={event=>setSort(event.target.value as "PRIORITY"|"RECENT"|"LONGEST"|"FREQUENT"|"EXCEEDANCE")}><option value="PRIORITY">대응 우선순위</option><option value="EXCEEDANCE">기준 초과율순</option><option value="RECENT">최근 감지순</option><option value="LONGEST">지속 시간순</option><option value="FREQUENT">감지 횟수순</option></select></label>
         <label className="alertSearch" htmlFor="alertSearch"><span>경고 검색</span><input id="alertSearch" type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="차량 · 주문 · 지역 · 내용 · 담당자"/></label>
         {(query||alertType!=="ALL"||severity!=="ALL"||acknowledgement!=="ALL"||occurrence!=="ALL")&&<span className="alertFilterResult" aria-live="polite">{scopedAlerts.length}건</span>}
         {(query||alertType!=="ALL"||severity!=="ALL"||acknowledgement!=="ALL"||occurrence!=="ALL")&&<button type="button" className="alertReset" onClick={()=>{setQuery("");setAlertType("ALL");setSeverity("ALL");setAcknowledgement("ALL");setOccurrence("ALL")}}>초기화</button>}
@@ -103,7 +109,7 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
       return <div key={alert.id} className={`alertCard ${alert.status.toLowerCase()} ${alert.severity.toLowerCase()} ${alert.acknowledgedAt?"acknowledged":""}`}>
         <button className="alertFocus" onClick={()=>onSelect(alert.deliveryId)} aria-label={`${delivery?.vehicleId||alert.deliveryId}${delivery?.orderNumber?` 주문 ${delivery.orderNumber}`:""}${delivery?` ${delivery.originName}에서 ${delivery.destinationName}`:""} 지도에서 보기`}>
           <span className="alertState">{alertStatusLabel[alert.status]}{alert.status==="RESOLVED"&&alert.resolvedAt?` · ${formatAlertTime(alert.resolvedAt)}`:""}</span><span className="alertKind">{alertTypeLabel[alert.alertType]} · {alertSeverityLabel[alert.severity]}</span>
-          <strong>{delivery?.vehicleId||alert.deliveryId.slice(0,8)}</strong>{delivery?.orderNumber?<span className="alertOrder">주문 {delivery.orderNumber}</span>:null}{delivery?<span className="alertRoute">{delivery.originName} → {delivery.destinationName}</span>:null}<p>{alert.message}</p><span className="alertMetric">관측 {formatAlertValue(alert.observedValue,alert.alertType)} · 기준 {formatAlertValue(alert.thresholdValue,alert.alertType)}</span>
+          <strong>{delivery?.vehicleId||alert.deliveryId.slice(0,8)}</strong>{delivery?.orderNumber?<span className="alertOrder">주문 {delivery.orderNumber}</span>:null}{delivery?<span className="alertRoute">{delivery.originName} → {delivery.destinationName}</span>:null}<p>{alert.message}</p><span className="alertMetric">관측 {formatAlertValue(alert.observedValue,alert.alertType)} · 기준 {formatAlertValue(alert.thresholdValue,alert.alertType)} · {formatAlertExceedance(alert)}</span>
           <small>{alert.occurrenceCount}회 감지 · 지속 {formatAlertDuration(alert.firstObservedAt,alert.lastObservedAt)} · 최초 {formatAlertTime(alert.firstObservedAt)} · 최근 {formatAlertTime(alert.lastObservedAt)}</small>
         </button>
         {alert.status==="ACTIVE"&&!alert.acknowledgedAt?<button className="alertAck" disabled={busyId===alert.id} onClick={()=>onAcknowledge(alert.id)} aria-label={`${delivery?.vehicleId||alert.deliveryId}${delivery?.orderNumber?` 주문 ${delivery.orderNumber}`:""}${delivery?` ${delivery.originName}에서 ${delivery.destinationName}`:""} 경고 확인 처리`}>{busyId===alert.id?"확인 처리 중…":"확인 완료"}</button>
