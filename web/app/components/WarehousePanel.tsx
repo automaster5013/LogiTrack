@@ -19,6 +19,8 @@ const transactionLabel: Record<LedgerEntry["transactionType"],string> = {
 export default function WarehousePanel({stocks,ledger,tasks,busy,onReceive,onPickAndDispatch}:Props){
   const [stockScope,setStockScope]=useState<"ALL"|"UNAVAILABLE">("ALL");
   const [stockQuery,setStockQuery]=useState("");
+  const [ledgerScope,setLedgerScope]=useState<"ALL"|LedgerEntry["transactionType"]>("ALL");
+  const [ledgerQuery,setLedgerQuery]=useState("");
   const [visibleStocks,setVisibleStocks]=useState(8);
   const [visibleLedger,setVisibleLedger]=useState(7);
   const unavailableStocks=stocks.filter(stock=>stock.available<=0).length;
@@ -26,16 +28,21 @@ export default function WarehousePanel({stocks,ledger,tasks,busy,onReceive,onPic
     const query=stockQuery.trim().toLowerCase();
     return stocks.filter(stock=>(stockScope==="ALL"||stock.available<=0)&&(!query||[stock.warehouseId,stock.sku].some(value=>value.toLowerCase().includes(query))));
   },[stocks,stockQuery,stockScope]);
+  const filteredLedger=useMemo(()=>{
+    const query=ledgerQuery.trim().toLowerCase();
+    return ledger.filter(entry=>(ledgerScope==="ALL"||entry.transactionType===ledgerScope)&&(!query||[entry.warehouseId,entry.sku].some(value=>value.toLowerCase().includes(query))));
+  },[ledger,ledgerQuery,ledgerScope]);
   const shownStocks=filteredStocks.slice(0,visibleStocks);
-  const shownLedger=ledger.slice(0,visibleLedger);
+  const shownLedger=filteredLedger.slice(0,visibleLedger);
 
   useEffect(()=>setVisibleStocks(8),[stockQuery,stockScope]);
+  useEffect(()=>setVisibleLedger(7),[ledgerQuery,ledgerScope]);
   useEffect(()=>setVisibleStocks(current=>Math.max(8,Math.min(current,Math.max(stocks.length,8)))),[stocks.length]);
   useEffect(()=>setVisibleLedger(current=>Math.max(7,Math.min(current,Math.max(ledger.length,7)))),[ledger.length]);
 
   return <section className="warehouseBoard"><div className="warehouseHeader"><div><p className="eyebrow">창고 / 재고</p><h2>재고 관리</h2></div><div className="warehouseActions"><button disabled={busy} onClick={onReceive} aria-label="시연 재고 10개 입고">{busy?"처리 중…":"+ 재고 10개 입고"}</button><button disabled={busy} onClick={onPickAndDispatch} aria-label="재고 4개 피킹 및 출고">{busy?"처리 중…":"4개 피킹·출고"}</button></div></div>
     <div className="warehouseGrid"><div className="stockPane"><div className="stockPaneHeader"><h4>가용 재고</h4><div className="stockScope" aria-label="재고 표시 범위"><button type="button" aria-pressed={stockScope==="ALL"} onClick={()=>setStockScope("ALL")}>전체 {stocks.length}</button><button type="button" aria-pressed={stockScope==="UNAVAILABLE"} onClick={()=>setStockScope("UNAVAILABLE")}>가용 0 {unavailableStocks}</button></div><label className="stockSearch" htmlFor="stockSearch"><span>재고 검색</span><input id="stockSearch" type="search" value={stockQuery} onChange={event=>setStockQuery(event.target.value)} placeholder="창고 · SKU"/></label>{stockQuery&&<button type="button" className="stockSearchClear" onClick={()=>setStockQuery("")}>초기화</button>}</div>{stocks.length===0?<p className="warehouseEmpty">아직 등록된 재고가 없습니다. 상단의 입고 버튼으로 시연 재고를 추가할 수 있습니다.</p>:filteredStocks.length===0?<p className="warehouseEmpty">현재 범위와 검색 조건에 맞는 재고가 없습니다.</p>:<><div className="stockTable"><div className="stockRow head"><span>창고 / SKU</span><span>현재고</span><span>예약</span><span>가용</span></div>{shownStocks.map(stock=><div className="stockRow" key={stock.id}><span><b>{stock.warehouseId}</b><small>{stock.sku}</small></span><strong>{stock.onHand}</strong><strong>{stock.reserved}</strong><strong className="available">{stock.available}</strong></div>)}</div>{filteredStocks.length>8&&<ListFooter label="재고" shown={shownStocks.length} total={filteredStocks.length} step={8} onChange={setVisibleStocks}/>}</>}</div>
-      <div className="ledgerPane"><h4>최근 재고 변동</h4>{ledger.length===0?<p className="warehouseEmpty">입고나 출고가 처리되면 재고 변동 내역이 여기에 표시됩니다.</p>:<>{shownLedger.map(entry=><div className="ledgerRow" key={entry.id}><span className={`movement ${entry.transactionType.toLowerCase()}`}>{transactionLabel[entry.transactionType]}</span><span><b>{entry.sku}</b><small>{entry.warehouseId}</small></span><span className="delta" aria-label={`재고 변동 ${entry.onHandDelta||entry.reservedDelta}`}>{entry.onHandDelta>0?`+${entry.onHandDelta}`:entry.onHandDelta||`예약 +${entry.reservedDelta}`}</span></div>)}{ledger.length>7&&<ListFooter label="원장" shown={shownLedger.length} total={ledger.length} step={7} onChange={setVisibleLedger}/>}</>}</div></div>
+      <div className="ledgerPane"><div className="ledgerPaneHeader"><h4>최근 재고 변동</h4><label htmlFor="ledgerScope"><span>유형</span><select id="ledgerScope" value={ledgerScope} onChange={event=>setLedgerScope(event.target.value as "ALL"|LedgerEntry["transactionType"])}><option value="ALL">전체 {ledger.length}</option><option value="RECEIPT">입고</option><option value="PICK">피킹</option><option value="DISPATCH">출고</option></select></label><label htmlFor="ledgerSearch"><span>원장 검색</span><input id="ledgerSearch" type="search" value={ledgerQuery} onChange={event=>setLedgerQuery(event.target.value)} placeholder="창고 · SKU"/></label>{ledgerQuery&&<button type="button" onClick={()=>setLedgerQuery("")}>초기화</button>}</div>{ledger.length===0?<p className="warehouseEmpty">입고나 출고가 처리되면 재고 변동 내역이 여기에 표시됩니다.</p>:filteredLedger.length===0?<p className="warehouseEmpty">현재 유형과 검색 조건에 맞는 재고 변동이 없습니다.</p>:<>{shownLedger.map(entry=><div className="ledgerRow" key={entry.id}><span className={`movement ${entry.transactionType.toLowerCase()}`}>{transactionLabel[entry.transactionType]}</span><span><b>{entry.sku}</b><small>{entry.warehouseId}</small></span><span className="delta" aria-label={`재고 변동 ${entry.onHandDelta||entry.reservedDelta}`}>{entry.onHandDelta>0?`+${entry.onHandDelta}`:entry.onHandDelta||`예약 +${entry.reservedDelta}`}</span></div>)}{filteredLedger.length>7&&<ListFooter label="원장" shown={shownLedger.length} total={filteredLedger.length} step={7} onChange={setVisibleLedger}/>}</>}</div></div>
     <div className="taskStrip" aria-label="출고 작업 요약"><span>출고 대기 {tasks.filter(task=>task.status==="PICKED").length}건</span><span>출고 완료 {tasks.filter(task=>task.status==="DISPATCHED").length}건</span><span>재고 변동 {ledger.length}건</span></div>
   </section>;
 }
