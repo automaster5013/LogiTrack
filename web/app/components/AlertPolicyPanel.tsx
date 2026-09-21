@@ -10,11 +10,17 @@ const auditActionLabel: Record<AlertPolicyAudit["action"],string> = {UPSERT:"저
 export default function AlertPolicyPanel({policies,audits,deliveries,busy,onSave,onReset,onRestore}:Props){
   const vehicles=useMemo(()=>Array.from(new Set(deliveries.map(item=>item.vehicleId))).sort(),[deliveries]);
   const [vehicleId,setVehicleId]=useState("*");
+  const [vehicleQuery,setVehicleQuery]=useState("");
   const [auditQuery,setAuditQuery]=useState("");
   const [visibleAudits,setVisibleAudits]=useState(6);
   const fallback=policies.find(policy=>policy.vehicleId==="*");
   const selected=policies.find(policy=>policy.vehicleId===vehicleId)||fallback;
   const [draft,setDraft]=useState<PolicyInput>({vehicleId:"*",deviationOpenMeters:500,deviationCloseMeters:300,criticalDeviationMeters:1500,delayOpenSeconds:600,delayCloseSeconds:300,criticalDelaySeconds:1800});
+  const visibleVehicles=useMemo(()=>{
+    const query=vehicleQuery.trim().toLowerCase();
+    const matches=query?vehicles.filter(vehicle=>vehicle.toLowerCase().includes(query)):vehicles;
+    return vehicleId!=="*"&&!matches.includes(vehicleId)?[vehicleId,...matches]:matches;
+  },[vehicleId,vehicleQuery,vehicles]);
   const filteredAudits=useMemo(()=>{
     const query=auditQuery.trim().toLowerCase();
     return query?audits.filter(audit=>[audit.vehicleId,audit.actor,auditActionLabel[audit.action]].some(value=>value.toLowerCase().includes(query))):audits;
@@ -28,8 +34,8 @@ export default function AlertPolicyPanel({policies,audits,deliveries,busy,onSave
   const overridden=policies.some(policy=>policy.vehicleId===vehicleId);
   return <section className="policyBoard">
     <div className="policyHeader"><div><p className="eyebrow">경고 정책 관리</p><h2>차량별 경고 임계값</h2></div>
-      <div className="policyScope"><label htmlFor="policyVehicle">적용 범위</label><select id="policyVehicle" value={vehicleId} onChange={event=>setVehicleId(event.target.value)}>
-        <option value="*">전체 차량 기본값</option>{vehicles.map(vehicle=><option key={vehicle} value={vehicle}>{vehicle}</option>)}</select></div>
+      <div className="policyScope"><label htmlFor="policyVehicleSearch">차량 검색<input id="policyVehicleSearch" type="search" value={vehicleQuery} onChange={event=>setVehicleQuery(event.target.value)} placeholder="차량 ID"/></label>{vehicleQuery&&<button type="button" onClick={()=>setVehicleQuery("")}>초기화</button>}<label htmlFor="policyVehicle">적용 범위<select id="policyVehicle" value={vehicleId} onChange={event=>setVehicleId(event.target.value)}>
+        <option value="*">전체 차량 기본값</option>{visibleVehicles.map(vehicle=><option key={vehicle} value={vehicle}>{vehicle}</option>)}</select></label></div>
     </div>
     <div className="policyBody"><form onSubmit={submit}>
       <div className="policyMode"><b>{vehicleId==="*"?"전체 차량":vehicleId}</b><span className={overridden?"override":"inherited"}>{vehicleId==="*"?"기본 정책":overridden?"전용 정책":"기본값 상속"}</span></div>
