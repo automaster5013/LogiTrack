@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Delivery, DeliveryAlert } from "../types";
 
 type Props = {
@@ -38,7 +38,11 @@ function deliveryTiming(delivery:Delivery){
 
 export default function FleetTelemetryPanel({deliveries,activeAlerts,selectedId,scope,query,liveDeliveries,attentionDeliveries,totalDeliveries,onSelect,onScopeChange,onQueryChange}:Props){
   const [visibleCount,setVisibleCount]=useState(15);
-  const visibleDeliveries=deliveries.slice(0,visibleCount);
+  const visibleDeliveries=useMemo(()=>{
+    const first=deliveries.slice(0,visibleCount);
+    const selected=deliveries.find(delivery=>delivery.id===selectedId);
+    return selected&&!first.some(delivery=>delivery.id===selected.id)?[selected,...first.slice(0,Math.max(0,visibleCount-1))]:first;
+  },[deliveries,selectedId,visibleCount]);
   const remaining=deliveries.length-visibleDeliveries.length;
 
   useEffect(()=>setVisibleCount(15),[scope,query]);
