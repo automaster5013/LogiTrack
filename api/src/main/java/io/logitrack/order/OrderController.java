@@ -21,6 +21,12 @@ public class OrderController {
     @GetMapping
     public List<OrderSummary> list(@RequestParam(defaultValue="200") int limit){return service.list(validLimit(limit));}
 
+    @GetMapping("/page")
+    public OrderService.OrderPage page(@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="100") int size){
+        if(page<0)throw new IllegalArgumentException("page must be zero or greater");
+        return service.page(page,validLimit(size));
+    }
+
     @PostMapping("/{id}/dispatch")
     public OrderSummary dispatch(@PathVariable UUID id, @RequestBody DispatchOrderRequest request,
         @RequestHeader("Idempotency-Key") String key,

@@ -100,6 +100,21 @@ class OrderServiceTest {
         verify(deliveries,never()).findByOrderId(any());
     }
 
+    @Test void pagesOrdersWithStableNewestFirstOrderingAndBatchLoadsDeliveries(){
+        var first=CustomerOrder.create(request(),"order-key-1");
+        var linked=Delivery.create(new CreateDeliveryRequest(first.getOrderNumber(),"TRUCK-1",
+            new CreateDeliveryRequest.Location("Seoul",37.5665,126.978),new CreateDeliveryRequest.Location("Incheon",37.4563,126.7052)),"dispatch-key",first.getId());
+        when(orders.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(first),PageRequest.of(1,100),201));
+        when(deliveries.findByOrderIdIn(List.of(first.getId()))).thenReturn(List.of(linked));
+        var result=service.page(1,100);
+        assertEquals(linked.getId(),result.items().getFirst().deliveryId());assertEquals(201,result.totalElements());assertTrue(result.hasMore());
+        var pageable=ArgumentCaptor.forClass(Pageable.class);verify(orders).findAll(pageable.capture());
+        assertEquals(1,pageable.getValue().getPageNumber());assertEquals(100,pageable.getValue().getPageSize());
+        assertEquals(Sort.Direction.DESC,pageable.getValue().getSort().getOrderFor("createdAt").getDirection());
+        assertEquals(Sort.Direction.DESC,pageable.getValue().getSort().getOrderFor("id").getDirection());
+        verify(deliveries).findByOrderIdIn(List.of(first.getId()));
+    }
+
     private CreateOrderRequest request() {
         return new CreateOrderRequest("ORD-1",new CreateOrderRequest.Location("Seoul",37.5665,126.978),
             new CreateOrderRequest.Location("Incheon",37.4563,126.7052));

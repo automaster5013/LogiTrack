@@ -52,7 +52,7 @@ curl -X POST http://localhost:8080/api/orders/{orderId}/dispatch \
   -d '{"vehicleId":"TRUCK-01"}'
 ```
 
-주문 조회: `GET /api/orders`, 배송 목록·단건 조회: `GET /api/deliveries`, `GET /api/deliveries/{id}`, 전체 배송 페이지 조회: `GET /api/deliveries/page?page=0&size=100`, 전체 경고 페이지 조회: `GET /api/alerts/page?page=0&size=100`, 실시간 스트림: `GET /api/stream/deliveries`. 기존 목록과 범위 없는 경로 조회는 최신 200건이 기본이며 `limit=1..500`으로 조정합니다. 배송·경고 페이지는 각각 `totalElements`와 `hasMore`를 제공하며 `page`는 0 이상, `size`는 1~500입니다. 기존 `POST /api/deliveries`는 호환성을 위해 유지하지만 신규 운영 흐름은 주문 생성 후 배차를 사용합니다.
+주문 조회: `GET /api/orders`, 전체 주문 페이지 조회: `GET /api/orders/page?page=0&size=100`, 배송 목록·단건 조회: `GET /api/deliveries`, `GET /api/deliveries/{id}`, 전체 배송 페이지 조회: `GET /api/deliveries/page?page=0&size=100`, 전체 경고 페이지 조회: `GET /api/alerts/page?page=0&size=100`, 실시간 스트림: `GET /api/stream/deliveries`. 기존 목록과 범위 없는 경로 조회는 최신 200건이 기본이며 `limit=1..500`으로 조정합니다. 주문·배송·경고 페이지는 각각 `totalElements`와 `hasMore`를 제공하며 `page`는 0 이상, `size`는 1~500입니다. 기존 `POST /api/deliveries`는 호환성을 위해 유지하지만 신규 운영 흐름은 주문 생성 후 배차를 사용합니다.
 
 경로 스냅샷 조회는 `GET /api/routes`입니다. 개발 환경은 OSRM 호환 endpoint를 사용하며 2.5초 안에 응답하지 않거나 오류가 발생하면 로컬 geodesic 계산으로 자동 전환합니다. 공개 demo는 개발용이므로 운영에서는 `.env`의 `OSRM_BASE_URL`을 자체 호스팅 또는 계약된 공급자로 교체하세요. 완전한 오프라인 실행은 `ROUTING_PROVIDER=geodesic`으로 설정합니다.
 

@@ -44,11 +44,23 @@ public class OrderService {
     @Transactional(readOnly=true)
     public List<OrderSummary> list(int limit) {
         var page=orders.findAll(PageRequest.of(0,limit,Sort.by(Sort.Direction.DESC,"createdAt"))).getContent();
+        return summaries(page);
+    }
+
+    @Transactional(readOnly=true)
+    public OrderPage page(int page,int size) {
+        var result=orders.findAll(PageRequest.of(page,size,Sort.by(Sort.Direction.DESC,"createdAt").and(Sort.by(Sort.Direction.DESC,"id"))));
+        return new OrderPage(summaries(result.getContent()),result.getNumber(),result.getSize(),result.getTotalElements(),result.hasNext());
+    }
+
+    private List<OrderSummary> summaries(List<CustomerOrder> page) {
         if(page.isEmpty())return List.of();
         var deliveryByOrder=deliveries.findByOrderIdIn(page.stream().map(CustomerOrder::getId).toList()).stream()
             .collect(java.util.stream.Collectors.toMap(Delivery::getOrderId,delivery->delivery));
         return page.stream().map(order->summary(order,deliveryByOrder.get(order.getId()))).toList();
     }
+
+    public record OrderPage(List<OrderSummary> items,int page,int size,long totalElements,boolean hasMore){}
 
     @Transactional
     public OrderSummary dispatch(UUID orderId, DispatchOrderRequest request, String idempotencyKey, String traceId) {

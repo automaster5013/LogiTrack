@@ -36,6 +36,8 @@ export type CustomerOrder = {
   updatedAt: string;
 };
 
+export type OrderPage = { items:CustomerOrder[]; page:number; size:number; totalElements:number; hasMore:boolean };
+
 export type RouteSnapshot = {
   id: string;
   deliveryId: string;
