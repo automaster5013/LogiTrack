@@ -3,6 +3,7 @@ import type { CustomerOrder } from "../types";
 
 const orderStatusLabel:Record<CustomerOrder["status"],string>={READY:"배차 대기",DISPATCHED:"운송 중",FULFILLED:"배송 완료"};
 const deliveryStatusLabel:Record<string,string>={CREATED:"배송 준비",IN_TRANSIT:"운송 중",DELAYED:"지연",DELIVERED:"배송 완료"};
+const formatOrderTime=(value:string)=>new Date(value).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
 
 type Props = {
   orders: CustomerOrder[];
@@ -53,7 +54,7 @@ export default function OrderFlowPanel({ orders, busyId, onCreate, onDispatch, o
     <div className="orderList">
       {orders.length===0?<p className="orderEmpty">새 주문을 만들면 배차 흐름이 여기에 표시됩니다.</p>:filteredOrders.length===0?<p className="orderEmpty">현재 범위와 검색 조건에 맞는 주문이 없습니다.</p>:visibleOrders.map(order=><div className="orderRow" key={order.id}>
         <span className={`orderState ${order.status.toLowerCase()}`}>{orderStatusLabel[order.status]}</span>
-        <span className="orderIdentity"><b>{order.orderNumber}</b><small>{order.originName} → {order.destinationName}</small></span>
+        <span className="orderIdentity"><b>{order.orderNumber}</b><small>{order.originName} → {order.destinationName}</small><small><time dateTime={order.createdAt}>접수 {formatOrderTime(order.createdAt)}</time> · <time dateTime={order.updatedAt}>최근 변경 {formatOrderTime(order.updatedAt)}</time></small></span>
         <span className="orderLink">{order.deliveryId?<><b>{order.vehicleId}</b><small>배차 차량</small></>:<><b>미배차</b><small>차량 배차 대기</small></>}</span>
         {order.status==="READY"?<button disabled={Boolean(busyId)} onClick={()=>onDispatch(order.id)} aria-label={`${order.orderNumber} 차량 배차`}>{busyId===order.id?"배차 중…":"차량 배차"}</button>:<span className="orderDeliveryActions"><span className="orderProgress"><i className={(order.deliveryStatus||order.status).toLowerCase()}/>{deliveryStatusLabel[order.deliveryStatus||""]||orderStatusLabel[order.status]}</span>{order.deliveryId&&<button type="button" className="orderFleetLink" onClick={()=>onSelectDelivery(order.deliveryId!)} aria-label={`${order.orderNumber} 배차 차량 현황 보기`}>차량 현황 보기 ↓</button>}</span>}
       </div>)}
