@@ -36,7 +36,9 @@ public class ReplayService {
         return new DeadLetterPage(result.getContent(),result.getNumber(),result.getSize(),result.getTotalElements(),result.hasNext());
     }
     public List<ReplayAudit> audits() { return audits.findTop100ByOrderByOccurredAtDesc(); }
+    @Transactional(readOnly=true) public AuditPage auditPage(int page,int size){var result=audits.findAll(PageRequest.of(page,size,Sort.by(Sort.Direction.DESC,"occurredAt").and(Sort.by(Sort.Direction.DESC,"id"))));return new AuditPage(result.getContent(),result.getNumber(),result.getSize(),result.getTotalElements(),result.hasNext());}
     public record DeadLetterPage(List<DeadLetterEvent> items,int page,int size,long totalElements,boolean hasMore){}
+    public record AuditPage(List<ReplayAudit> items,int page,int size,long totalElements,boolean hasMore){}
 
     @Transactional(propagation=Propagation.REQUIRES_NEW)
     public DeadLetterEvent replay(UUID id, String actor) {

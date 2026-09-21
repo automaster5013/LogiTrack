@@ -9,6 +9,13 @@ import static org.mockito.Mockito.*;
 import org.springframework.transaction.annotation.*;
 import org.springframework.data.domain.*;
 class ReplayServiceTest {
+    @Test void pagesCompleteAuditHistoryWithStableOrdering(){
+        var audits=mock(ReplayAuditRepository.class);var service=new ReplayService(mock(DeadLetterEventRepository.class),audits,mock(KafkaTemplate.class),new SimpleMeterRegistry());
+        when(audits.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(),PageRequest.of(2,25),76));
+        var result=service.auditPage(2,25);assertEquals(76,result.totalElements());assertTrue(result.hasMore());
+        var request=org.mockito.ArgumentCaptor.forClass(Pageable.class);verify(audits).findAll(request.capture());
+        assertEquals(Sort.Direction.DESC,request.getValue().getSort().getOrderFor("occurredAt").getDirection());assertEquals(Sort.Direction.DESC,request.getValue().getSort().getOrderFor("id").getDirection());
+    }
     @Test void pagesPendingEventsWithoutHidingOlderBacklog(){
         var events=mock(DeadLetterEventRepository.class);var service=new ReplayService(events,mock(ReplayAuditRepository.class),mock(KafkaTemplate.class),new SimpleMeterRegistry());
         var first=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,1);

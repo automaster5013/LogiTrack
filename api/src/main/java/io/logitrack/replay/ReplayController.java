@@ -31,6 +31,13 @@ public class ReplayController {
     @GetMapping("/replay-audits")
     public List<ReplayAudit> audits(){return service.audits();}
 
+    @GetMapping("/replay-audits/page")
+    public ReplayService.AuditPage auditPage(@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="100") int size){
+        if(page<0)throw new IllegalArgumentException("page must be zero or greater");
+        if(size<1||size>100)throw new IllegalArgumentException("size must be between 1 and 100");
+        return service.auditPage(page,size);
+    }
+
     @PostMapping("/replay-plans")
     public ReplayPlan prepare(@RequestBody CreateReplayPlanRequest request, @RequestHeader("X-Operator") String actor){return plans.prepare(request,actor);}
 
