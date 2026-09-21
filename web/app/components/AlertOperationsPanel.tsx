@@ -27,6 +27,14 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
       const delivery=deliveries.find(item=>item.id===alert.deliveryId);
       const matchesAcknowledgement=acknowledgement==="ALL"||(acknowledgement==="ACKNOWLEDGED"?Boolean(alert.acknowledgedAt):!alert.acknowledgedAt);
       return (scope==="ALL"||alert.status==="ACTIVE")&&(severity==="ALL"||alert.severity===severity)&&matchesAcknowledgement&&(!normalizedQuery||[delivery?.vehicleId||"",delivery?.orderNumber||"",alert.message,alertTypeLabel[alert.alertType]].some(value=>value.toLowerCase().includes(normalizedQuery)));
+    }).sort((left,right)=>{
+      const statusOrder=Number(left.status!=="ACTIVE")-Number(right.status!=="ACTIVE");
+      if(statusOrder)return statusOrder;
+      const acknowledgementOrder=Number(Boolean(left.acknowledgedAt))-Number(Boolean(right.acknowledgedAt));
+      if(acknowledgementOrder)return acknowledgementOrder;
+      const severityOrder=Number(left.severity!=="CRITICAL")-Number(right.severity!=="CRITICAL");
+      if(severityOrder)return severityOrder;
+      return new Date(right.lastObservedAt).getTime()-new Date(left.lastObservedAt).getTime();
     });
   },[acknowledgement,alerts,deliveries,query,scope,severity]);
   const visibleAlerts=scopedAlerts.slice(0,visibleCount);
