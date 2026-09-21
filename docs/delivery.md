@@ -40,9 +40,10 @@ GitHub repository의 `staging` environment에 승인자를 지정하고 아래 e
 
 - `AWS_ROLE_ARN`: 이 저장소와 `staging` environment에서만 assume할 수 있는 GitHub OIDC IAM role
 - `AWS_REGION`: ECR repository가 위치한 확정 리전
+- `AWS_ACCOUNT_ID`: 게시가 허용된 AWS 계정의 12자리 ID
 - `ECR_REPOSITORY_PREFIX`: 사전에 생성한 repository prefix(예: `logitrack`)
 
-ECR에는 `<prefix>/api`, `<prefix>/analytics`, `<prefix>/simulator`, `<prefix>/web`, `<prefix>/otel-collector` repository가 먼저 존재해야 한다. workflow는 repository나 다른 AWS 자원을 생성하지 않으며, 하나라도 없으면 build 전에 실패한다. 장기 access key와 AWS 로그인 이메일은 GitHub secret·variable·소스 코드에 저장하지 않는다.
+ECR에는 `<prefix>/api`, `<prefix>/analytics`, `<prefix>/simulator`, `<prefix>/web`, `<prefix>/otel-collector` repository가 먼저 존재해야 한다. workflow는 OIDC 자격 증명이 `AWS_ACCOUNT_ID`와 정확히 일치하는지 먼저 확인하며, 계정이 다르거나 변수가 없으면 ECR 접근 전에 실패한다. repository나 다른 AWS 자원을 생성하지 않으며, 하나라도 없으면 build 전에 실패한다. 장기 access key와 AWS 로그인 이메일은 GitHub secret·variable·소스 코드에 저장하지 않는다.
 
 `infra/aws/bootstrap` Terraform root는 이 사전 구성을 재현한다. 기존 GitHub Actions OIDC provider ARN과 확정 리전만 입력받아 immutable tag·scan-on-push·비어 있지 않으면 삭제 불가인 ECR repository 5개와 해당 repository에만 push 가능한 IAM role을 정의한다. role trust는 `automaster5013/LogiTrack`의 `staging` environment subject로 제한한다. Terraform state backend와 비용 상한을 확정한 뒤 plan을 사람이 검토하기 전에는 apply하지 않는다.
 

@@ -37,8 +37,12 @@ def main() -> None:
     required = (
         "vars.AWS_ROLE_ARN",
         "vars.AWS_REGION",
+        "vars.AWS_ACCOUNT_ID",
         "vars.ECR_REPOSITORY_PREFIX",
         "git merge-base --is-ancestor",
+        "aws sts get-caller-identity --query Account --output text",
+        '[[ "$EXPECTED_AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ ]]',
+        'actual_account_id" != "$EXPECTED_AWS_ACCOUNT_ID',
         "aws ecr describe-repositories",
         "--severity CRITICAL",
         "scripts/sbom-smoke.py",
@@ -52,6 +56,10 @@ def main() -> None:
 
     scan_index = source.index("Generate and validate SBOMs and vulnerability reports")
     push_index = source.index("Push commit-addressed images")
+    identity_index = source.index("Verify the intended AWS account")
+    repository_index = source.index("Validate pre-provisioned ECR repositories")
+    if identity_index >= repository_index:
+        raise AssertionError("AWS account identity must be verified before ECR access")
     if scan_index >= push_index:
         raise AssertionError("images can be pushed before supply-chain validation")
     if re.search(r"\b(ecs|cloudformation|terraform|route53)\b", source, re.IGNORECASE):

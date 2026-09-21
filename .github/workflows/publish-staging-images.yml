@@ -47,6 +47,19 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
           role-session-name: logitrack-staging-${{ github.run_id }}
+      - name: Verify the intended AWS account
+        env:
+          EXPECTED_AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+        run: |
+          if ! [[ "$EXPECTED_AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ ]]; then
+            echo "::error::AWS_ACCOUNT_ID is missing or invalid"
+            exit 1
+          fi
+          actual_account_id="$(aws sts get-caller-identity --query Account --output text)"
+          if [ "$actual_account_id" != "$EXPECTED_AWS_ACCOUNT_ID" ]; then
+            echo "::error::OIDC role resolved to an unexpected AWS account"
+            exit 1
+          fi
       - name: Validate pre-provisioned ECR repositories
         env:
           ECR_REPOSITORY_PREFIX: ${{ vars.ECR_REPOSITORY_PREFIX }}

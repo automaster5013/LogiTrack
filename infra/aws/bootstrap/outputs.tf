@@ -3,6 +3,7 @@ output "github_environment_variables" {
   value = {
     AWS_ROLE_ARN          = aws_iam_role.image_publisher.arn
     AWS_REGION            = var.aws_region
+    AWS_ACCOUNT_ID        = data.aws_caller_identity.current.account_id
     ECR_REPOSITORY_PREFIX = var.repository_prefix
   }
 }
