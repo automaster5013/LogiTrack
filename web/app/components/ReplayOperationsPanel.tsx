@@ -14,10 +14,19 @@ export default function ReplayOperationsPanel({ events, totalEvents, audits, bus
   const [approval,setApproval]=useState("");
   const [scope,setScope]=useState<"ALL"|DeadLetterEvent["status"]>("PENDING");
   const [query,setQuery]=useState("");
+  const [auditQuery,setAuditQuery]=useState("");
+  const [visibleAudits,setVisibleAudits]=useState(8);
   const filteredEvents=useMemo(()=>{
     const normalizedQuery=query.trim().toLowerCase();
     return events.filter(event=>(scope==="ALL"||event.status===scope)&&(!normalizedQuery||[event.originalTopic,event.traceId||"",event.messageKey||"",event.exceptionMessage||""].some(value=>value.toLowerCase().includes(normalizedQuery))));
   },[events,query,scope]);
+  const filteredAudits=useMemo(()=>{
+    const normalizedQuery=auditQuery.trim().toLowerCase();
+    return normalizedQuery?audits.filter(audit=>[audit.actor,audit.deadLetterEventId,auditActionLabel[audit.action],audit.reason||""].some(value=>value.toLowerCase().includes(normalizedQuery))):audits;
+  },[auditQuery,audits]);
+  const shownAudits=filteredAudits.slice(0,visibleAudits);
+  useEffect(()=>setVisibleAudits(8),[auditQuery]);
+  useEffect(()=>setVisibleAudits(current=>Math.min(Math.max(current,8),Math.max(filteredAudits.length,8))),[filteredAudits.length]);
   useEffect(()=>setSelectedIds(current=>current.filter(id=>events.some(event=>event.id===id&&event.status==="PENDING"))),[events]);
   const toggle=(id:string)=>setSelectedIds(current=>current.includes(id)?current.filter(value=>value!==id):current.length<20?[...current,id]:current);
   const prepare=(event:FormEvent)=>{event.preventDefault();onPrepareDiscard(selectedIds,reason)};
@@ -38,8 +47,9 @@ export default function ReplayOperationsPanel({ events, totalEvents, audits, bus
           {discardPlan&&<div className={`discardReview ${discardPlan.status.toLowerCase()}`}><div><b>{planStatusLabel[discardPlan.status]} · {discardPlan.eventIds.length}건</b><small>{discardPlan.reason}</small><small>만료 {new Date(discardPlan.expiresAt).toLocaleString("ko-KR")}</small></div>{discardPlan.status==="PREPARED"?<><label><span>승인어 DISCARD 입력</span><input value={approval} onChange={event=>setApproval(event.target.value)} autoComplete="off"/></label><span className="discardApprovalActions"><button type="button" className="discard" disabled={discardPlanBusy||approval!=="DISCARD"} onClick={()=>onExecuteDiscard(discardPlan.id)}>{discardPlanBusy?"폐기 중…":"영구 폐기 실행"}</button><button type="button" disabled={discardPlanBusy} onClick={reset}>취소</button></span></>:<><strong>성공 {discardPlan.succeededCount}건 · 실패 {discardPlan.failedCount}건</strong><button type="button" onClick={reset}>새 계획</button></>}</div>}
         </form>
       </div>
-      <div className="auditPane"><h4>복구 작업 이력</h4>
-        {audits.length === 0 ? <p className="replayEmpty">재처리 또는 폐기 작업이 여기에 기록됩니다.</p> : audits.slice(0, 8).map((audit) => <div className="auditRow" key={audit.id}><span>{audit.action === "DISCARD" ? "×" : "↻"}</span><span><b>{auditActionLabel[audit.action]} · {audit.actor}</b><small>{audit.deadLetterEventId.slice(0, 8)} · {new Date(audit.occurredAt).toLocaleString("ko-KR")}</small>{audit.reason&&<small>{audit.reason}</small>}</span></div>)}
+      <div className="auditPane"><div className="recoveryPaneHeader"><h4>복구 작업 이력</h4><label htmlFor="dlqAuditSearch"><span>작업 이력 검색</span><input id="dlqAuditSearch" type="search" value={auditQuery} onChange={event=>setAuditQuery(event.target.value)} placeholder="작업자 · 이벤트 ID · 사유"/></label>{auditQuery&&<button type="button" onClick={()=>setAuditQuery("")}>초기화</button>}</div>
+        {audits.length === 0 ? <p className="replayEmpty">재처리 또는 폐기 작업이 여기에 기록됩니다.</p> : filteredAudits.length===0?<p className="replayEmpty">검색 조건에 맞는 복구 작업 이력이 없습니다.</p>:shownAudits.map((audit) => <div className="auditRow" key={audit.id}><span>{audit.action === "DISCARD" ? "×" : "↻"}</span><span><b>{auditActionLabel[audit.action]} · {audit.actor}</b><small>{audit.deadLetterEventId.slice(0, 8)} · {new Date(audit.occurredAt).toLocaleString("ko-KR")}</small>{audit.reason&&<small>{audit.reason}</small>}</span></div>)}
+        {filteredAudits.length>8&&<div className="policyAuditFooter"><span aria-live="polite">이력 {shownAudits.length} / {filteredAudits.length}건 표시</span>{shownAudits.length<filteredAudits.length?<button type="button" onClick={()=>setVisibleAudits(current=>Math.min(current+8,filteredAudits.length))}>다음 {Math.min(8,filteredAudits.length-shownAudits.length)}건 보기</button>:<button type="button" onClick={()=>setVisibleAudits(8)}>최근 8건만 보기</button>}</div>}
       </div>
     </div>
   </section>;
