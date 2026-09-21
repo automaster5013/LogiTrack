@@ -4,6 +4,7 @@
 
 ## 완료
 
+- ECR immutable repository 5개와 GitHub staging OIDC 최소 권한 publisher role을 정의하는 비적용 Terraform bootstrap 및 CI validate gate
 - GitHub staging environment 수동 승인과 AWS OIDC를 사용하는 ECR 불변 SHA image publication CD 1단계, pre-push SBOM·CRITICAL 취약점 gate
 - KPI projection 마지막 성공 시각과 설정 주기 Prometheus 지표, 3주기 stale 경보로 scheduler 정지·반복 실패 조기 탐지
 

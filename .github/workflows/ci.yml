@@ -71,6 +71,17 @@ jobs:
         run: python scripts/workflow-config-smoke.py
       - name: Validate staging publication trust boundaries
         run: python scripts/cd-workflow-smoke.py
+      - name: Validate AWS bootstrap trust boundaries
+        run: python scripts/aws-bootstrap-smoke.py
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: "1.16.3"
+          terraform_wrapper: false
+      - name: Validate AWS bootstrap Terraform
+        run: |
+          terraform -chdir=infra/aws/bootstrap fmt -check
+          terraform -chdir=infra/aws/bootstrap init -backend=false -input=false
+          terraform -chdir=infra/aws/bootstrap validate
       - name: Validate Docker build contexts
         run: python scripts/docker-context-smoke.py
       - name: Verify PostgreSQL backup and restore round trip

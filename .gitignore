@@ -12,3 +12,9 @@ outputs/
 output/pdf/*.pdf
 output/backups/
 tmp/pdfs/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+**/terraform.tfvars
+crash.log
