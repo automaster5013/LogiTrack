@@ -97,7 +97,7 @@ python -m unittest discover analytics/tests
 
 GitHub Actions의 `CI` workflow는 main push와 pull request마다 API 테스트·coverage gate, Python analytics/simulator 테스트, Docker Compose 구성 검증, TypeScript production build를 병렬 실행합니다. workflow 권한은 저장소 읽기로 제한됩니다.
 
-배포 가능한 production image와 non-root runtime은 `./scripts/container-build.ps1`로 검증합니다. CD 1단계는 수동 승인된 GitHub `staging` environment와 AWS OIDC를 통해 기대 AWS 계정 ID를 확인한 뒤 검증된 이미지를 commit SHA tag로 ECR에 게시합니다. 실제 AWS runtime 배포는 리전·비용 상한·비밀정보·rollback 정책 승인 후 연결합니다.
+배포 가능한 production image와 non-root runtime은 `./scripts/container-build.ps1`로 검증합니다. CD 1단계는 수동 승인된 GitHub `staging` environment와 AWS OIDC를 통해 기대 AWS 계정 ID를 확인한 뒤 검증된 이미지를 commit SHA tag로 ECR에 게시하고, ECR에서 확인한 digest 고정 release manifest를 보관합니다. 실제 AWS runtime 배포는 리전·비용 상한·비밀정보·rollback 정책 승인 후 연결합니다.
 
 ECR repository 5개와 최소 권한 OIDC publisher role의 사전 구성은 `infra/aws/bootstrap` Terraform root에 정의되어 있습니다. CI는 format·provider 초기화·validate와 별도 trust-boundary smoke를 실행하지만, AWS 비용·리전·원격 state가 승인되기 전에는 plan/apply하지 않습니다.
 

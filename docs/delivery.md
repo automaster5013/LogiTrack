@@ -47,7 +47,7 @@ ECR에는 `<prefix>/api`, `<prefix>/analytics`, `<prefix>/simulator`, `<prefix>/
 
 `infra/aws/bootstrap` Terraform root는 이 사전 구성을 재현한다. 기존 GitHub Actions OIDC provider ARN과 확정 리전만 입력받아 immutable tag·scan-on-push·비어 있지 않으면 삭제 불가인 ECR repository 5개와 해당 repository에만 push 가능한 IAM role을 정의한다. role trust는 `automaster5013/LogiTrack`의 `staging` environment subject로 제한한다. Terraform state backend와 비용 상한을 확정한 뒤 plan을 사람이 검토하기 전에는 apply하지 않는다.
 
-`Publish staging images` workflow를 수동 실행하면서 `main`에 포함된 40자리 commit SHA를 전달한다. workflow는 이미지 5종의 non-root/healthcheck, CycloneDX SBOM provenance, CRITICAL 취약점 0건을 다시 확인한 뒤에만 `<ECR registry>/<prefix>/<service>:<commit SHA>`로 push한다. `latest` tag는 만들지 않는다.
+`Publish staging images` workflow를 수동 실행하면서 `main`에 포함된 40자리 commit SHA를 전달한다. workflow는 이미지 5종의 non-root/healthcheck, CycloneDX SBOM provenance, CRITICAL 취약점 0건을 다시 확인한 뒤에만 `<ECR registry>/<prefix>/<service>:<commit SHA>`로 push한다. 이어서 ECR에서 각 digest를 다시 조회해 계정·리전·revision과 digest 고정 URI 5개를 담은 `staging-release-manifest-<commit SHA>` artifact를 30일 보관한다. 이후 배포 단계는 tag 대신 이 manifest의 digest URI를 사용한다. `latest` tag는 만들지 않는다.
 
 현재 단계는 배포 가능한 artifact publication까지다. 실제 staging 서비스 전환은 runtime topology, 월 비용 상한, DB migration/rollback, TLS와 `logitrack.kr` DNS 정책 승인 후 별도 단계로 추가한다.
 

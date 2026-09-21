@@ -23,4 +23,4 @@ The plan should contain exactly five immutable, scan-on-push ECR repositories, o
 
 After an approved apply, copy the `github_environment_variables` output (`AWS_ROLE_ARN`, `AWS_REGION`, `AWS_ACCOUNT_ID`, and `ECR_REPOSITORY_PREFIX`) into variables on the protected GitHub `staging` environment. The publication workflow compares the OIDC caller account to `AWS_ACCOUNT_ID` before it accesses ECR. The AWS login email and long-lived access keys must never be stored in Terraform, GitHub variables, or this repository.
 
-Repository deletion is protected by `force_delete = false`; Terraform cannot remove a non-empty repository. Published tags are immutable and the role trust policy accepts only OIDC tokens for `automaster5013/LogiTrack` using the `staging` environment.
+Repository deletion is protected by `force_delete = false`; Terraform cannot remove a non-empty repository. Published tags are immutable, the publisher can read back only the image metadata needed to create a digest-pinned release manifest, and the role trust policy accepts only OIDC tokens for `automaster5013/LogiTrack` using the `staging` environment.

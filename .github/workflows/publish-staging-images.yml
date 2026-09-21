@@ -134,3 +134,51 @@ jobs:
             docker tag "$source" "$destination"
             docker push "$destination"
           done
+      - name: Verify published digests and create release manifest
+        env:
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+          ECR_REPOSITORY_PREFIX: ${{ vars.ECR_REPOSITORY_PREFIX }}
+          EXPECTED_AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+          REVISION: ${{ steps.revision.outputs.sha }}
+        run: |
+          mkdir -p work/release
+          manifest="work/release/staging-release-manifest.json"
+          jq -n \
+            --arg revision "$REVISION" \
+            --arg accountId "$EXPECTED_AWS_ACCOUNT_ID" \
+            --arg region "$AWS_REGION" \
+            '{schemaVersion: 1, revision: $revision, awsAccountId: $accountId, awsRegion: $region, images: []}' \
+            > "$manifest"
+          for service in api analytics simulator web otel-collector; do
+            repository="$ECR_REPOSITORY_PREFIX/$service"
+            digest="$(aws ecr describe-images \
+              --repository-name "$repository" \
+              --image-ids "imageTag=$REVISION" \
+              --query 'imageDetails[0].imageDigest' \
+              --output text)"
+            if ! [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "::error::$repository:$REVISION has no valid published digest"
+              exit 1
+            fi
+            jq \
+              --arg service "$service" \
+              --arg repository "$repository" \
+              --arg digest "$digest" \
+              --arg uri "$ECR_REGISTRY/$repository@$digest" \
+              '.images += [{service: $service, repository: $repository, digest: $digest, uri: $uri}]' \
+              "$manifest" > "$manifest.tmp"
+            mv "$manifest.tmp" "$manifest"
+          done
+          python scripts/release-manifest-smoke.py "$manifest" \
+            --revision "$REVISION" \
+            --account-id "$EXPECTED_AWS_ACCOUNT_ID" \
+            --region "$AWS_REGION" \
+            --registry "$ECR_REGISTRY" \
+            --repository-prefix "$ECR_REPOSITORY_PREFIX"
+      - name: Upload immutable staging release manifest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: staging-release-manifest-${{ steps.revision.outputs.sha }}
+          path: work/release/staging-release-manifest.json
+          if-no-files-found: error
+          retention-days: 30

@@ -44,8 +44,11 @@ def main() -> None:
         '[[ "$EXPECTED_AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ ]]',
         'actual_account_id" != "$EXPECTED_AWS_ACCOUNT_ID',
         "aws ecr describe-repositories",
+        "aws ecr describe-images",
         "--severity CRITICAL",
         "scripts/sbom-smoke.py",
+        "scripts/release-manifest-smoke.py",
+        "staging-release-manifest-${{ steps.revision.outputs.sha }}",
     )
     for value in required:
         if value not in source:
@@ -56,12 +59,16 @@ def main() -> None:
 
     scan_index = source.index("Generate and validate SBOMs and vulnerability reports")
     push_index = source.index("Push commit-addressed images")
+    manifest_index = source.index("Verify published digests and create release manifest")
+    manifest_upload_index = source.index("Upload immutable staging release manifest")
     identity_index = source.index("Verify the intended AWS account")
     repository_index = source.index("Validate pre-provisioned ECR repositories")
     if identity_index >= repository_index:
         raise AssertionError("AWS account identity must be verified before ECR access")
     if scan_index >= push_index:
         raise AssertionError("images can be pushed before supply-chain validation")
+    if not push_index < manifest_index < manifest_upload_index:
+        raise AssertionError("release manifest must verify ECR digests after push and before upload")
     if re.search(r"\b(ecs|cloudformation|terraform|route53)\b", source, re.IGNORECASE):
         raise AssertionError("image publication must not mutate runtime infrastructure")
 
