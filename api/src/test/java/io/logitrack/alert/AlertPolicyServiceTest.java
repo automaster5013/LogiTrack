@@ -5,6 +5,7 @@ import org.mockito.ArgumentCaptor;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import org.springframework.data.domain.*;
 
 class AlertPolicyServiceTest {
     private final AlertPolicyRepository policies=mock(AlertPolicyRepository.class);
@@ -76,5 +77,11 @@ class AlertPolicyServiceTest {
     @Test void delegatesLists() {
         when(policies.findAllByActiveTrueOrderByVehicleIdAsc()).thenReturn(List.of());when(audits.findTop50ByOrderByOccurredAtDesc()).thenReturn(List.of());
         assertTrue(service.list().isEmpty());assertTrue(service.auditTrail().isEmpty());
+    }
+    @Test void pagesCompleteAuditHistoryWithStableNewestFirstOrdering(){
+        when(audits.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(),PageRequest.of(2,25),76));
+        var result=service.auditPage(2,25);assertEquals(76,result.totalElements());assertTrue(result.hasMore());
+        var request=ArgumentCaptor.forClass(Pageable.class);verify(audits).findAll(request.capture());
+        assertEquals(Sort.Direction.DESC,request.getValue().getSort().getOrderFor("occurredAt").getDirection());assertEquals(Sort.Direction.DESC,request.getValue().getSort().getOrderFor("id").getDirection());
     }
 }

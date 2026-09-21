@@ -11,6 +11,7 @@ public class AlertPolicyController {
     public AlertPolicyController(AlertPolicyService service){this.service=service;}
     @GetMapping public List<AlertPolicy> list(){return service.list();}
     @GetMapping("/audits") public List<AlertPolicyAudit> audits(){return service.auditTrail();}
+    @GetMapping("/audits/page") public AlertPolicyService.AuditPage auditPage(@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="100") int size){if(page<0)throw new IllegalArgumentException("page must be zero or greater");if(size<1||size>100)throw new IllegalArgumentException("size must be between 1 and 100");return service.auditPage(page,size);}
     @PostMapping public AlertPolicy upsert(@RequestBody UpsertAlertPolicyRequest request,@RequestHeader("X-Operator") String actor){return service.upsert(request,actor);}
     @PostMapping("/audits/{auditId}/restore") public AlertPolicy restore(@PathVariable UUID auditId,@RequestHeader("X-Operator") String actor){return service.restore(auditId,actor);}
     @DeleteMapping("/{vehicleId}") public void reset(@PathVariable String vehicleId,@RequestHeader("X-Operator") String actor){service.reset(vehicleId,actor);}

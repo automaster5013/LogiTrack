@@ -2,6 +2,7 @@ package io.logitrack.alert;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.*;
 import java.util.*;
 
 @Service
@@ -13,6 +14,8 @@ public class AlertPolicyService {
         .orElseThrow(()->new IllegalStateException("Default alert policy is missing")));}
     @Transactional(readOnly=true) public List<AlertPolicy> list(){return policies.findAllByActiveTrueOrderByVehicleIdAsc();}
     @Transactional(readOnly=true) public List<AlertPolicyAudit> auditTrail(){return audits.findTop50ByOrderByOccurredAtDesc();}
+    @Transactional(readOnly=true) public AuditPage auditPage(int page,int size){var result=audits.findAll(PageRequest.of(page,size,Sort.by(Sort.Direction.DESC,"occurredAt").and(Sort.by(Sort.Direction.DESC,"id"))));return new AuditPage(result.getContent(),result.getNumber(),result.getSize(),result.getTotalElements(),result.hasNext());}
+    public record AuditPage(List<AlertPolicyAudit> items,int page,int size,long totalElements,boolean hasMore){}
     @Transactional
     public AlertPolicy upsert(UpsertAlertPolicyRequest request,String actor){
         if(request==null)throw new IllegalArgumentException("Alert policy request is required");
