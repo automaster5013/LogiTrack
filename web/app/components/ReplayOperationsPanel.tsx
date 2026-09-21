@@ -9,6 +9,8 @@ const planStatusLabel: Record<DiscardPlan["status"],string> = {PREPARED:"승인 
 
 export default function ReplayOperationsPanel({ events, totalEvents, audits, busyId, pageBusy, discardPlan, discardPlanBusy, onReplay, onDiscard, onLoadMore, onPrepareDiscard, onExecuteDiscard, onResetDiscardPlan }: Props) {
   const pending = events.filter((event) => event.status === "PENDING");
+  const replayed = events.filter((event) => event.status === "REPLAYED").length;
+  const discarded = events.filter((event) => event.status === "DISCARDED").length;
   const [selectedIds,setSelectedIds]=useState<string[]>([]);
   const [reason,setReason]=useState("");
   const [approval,setApproval]=useState("");
@@ -34,7 +36,7 @@ export default function ReplayOperationsPanel({ events, totalEvents, audits, bus
   return <section className="replayBoard">
     <div className="replayHeader"><div><p className="eyebrow">복구 / 격리 이벤트</p><h2>실패 이벤트 검토</h2></div><div><b>{totalEvents}</b><span>복구 대기 · {pending.length}건 불러옴</span></div></div>
     <div className="replayColumns">
-      <div className="deadLetters"><div className="recoveryPaneHeader dlqPaneHeader"><h4>격리된 이벤트</h4><label htmlFor="dlqScope"><span>상태</span><select id="dlqScope" value={scope} onChange={event=>setScope(event.target.value as "ALL"|DeadLetterEvent["status"])}><option value="PENDING">복구 대기 {pending.length}</option><option value="REPLAYED">재처리 완료</option><option value="DISCARDED">폐기 완료</option><option value="ALL">전체 {events.length}</option></select></label><label htmlFor="dlqSearch"><span>불러온 이벤트 검색</span><input id="dlqSearch" type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="토픽 · trace ID · 오류"/></label>{(query||scope!=="PENDING")&&<button type="button" onClick={()=>{setQuery("");setScope("PENDING")}}>초기화</button>}</div>
+      <div className="deadLetters"><div className="recoveryPaneHeader dlqPaneHeader"><h4>격리된 이벤트</h4><label htmlFor="dlqScope"><span>상태</span><select id="dlqScope" value={scope} onChange={event=>setScope(event.target.value as "ALL"|DeadLetterEvent["status"])}><option value="PENDING">복구 대기 {pending.length}</option><option value="REPLAYED">재처리 완료 {replayed}</option><option value="DISCARDED">폐기 완료 {discarded}</option><option value="ALL">전체 {events.length}</option></select></label><label htmlFor="dlqSearch"><span>불러온 이벤트 검색</span><input id="dlqSearch" type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="토픽 · trace ID · 오류"/></label>{(query||scope!=="PENDING")&&<><span className="alertFilterResult" aria-live="polite">{filteredEvents.length}건</span><button type="button" onClick={()=>{setQuery("");setScope("PENDING")}}>초기화</button></>}</div>
         {events.length === 0 ? <p className="replayEmpty">격리된 telemetry 이벤트가 없습니다.</p> : filteredEvents.length===0?<p className="replayEmpty">현재 상태와 검색 조건에 맞는 불러온 이벤트가 없습니다.</p>:filteredEvents.map((event) => <div className={`deadLetterRow ${selectedIds.includes(event.id)?"selected":""}`} key={event.id}>
           <input className="discardSelect" type="checkbox" aria-label={`${event.traceId||event.id} 일괄 폐기 선택`} checked={selectedIds.includes(event.id)} disabled={Boolean(discardPlan)||(!selectedIds.includes(event.id)&&selectedIds.length>=20)} onChange={()=>toggle(event.id)}/>
           <span className={`replayState ${event.status.toLowerCase()}`}>{eventStatusLabel[event.status]}</span>
