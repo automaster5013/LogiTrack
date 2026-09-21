@@ -6,8 +6,8 @@ public class TelemetryController {
     private final TelemetryPointRepository repository;
     public TelemetryController(TelemetryPointRepository repository){this.repository=repository;}
     @GetMapping public List<TelemetryPoint> list(@RequestParam(required=false) List<UUID> deliveryIds){
-        if(deliveryIds==null)return repository.findTop5000ByOrderByOccurredAtDesc();
+        if(deliveryIds==null)return repository.findTop5000ByOrderByOccurredAtDescEventIdDesc();
         var ids=new LinkedHashSet<>(deliveryIds);if(ids.size()>100)throw new IllegalArgumentException("At most 100 deliveryIds are allowed");
-        return ids.isEmpty()?List.of():repository.findTop5000ByDeliveryIdInOrderByOccurredAtDesc(ids);
+        return ids.isEmpty()?List.of():repository.findRecentWithLatestPerDelivery(ids);
     }
 }
