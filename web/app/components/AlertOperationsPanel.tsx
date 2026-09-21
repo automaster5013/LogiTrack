@@ -38,6 +38,10 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
     }).sort((left,right)=>{
       const statusOrder=Number(left.status!=="ACTIVE")-Number(right.status!=="ACTIVE");
       if(statusOrder)return statusOrder;
+      if(left.status==="RESOLVED"&&right.status==="RESOLVED"){
+        const resolvedAtOrder=new Date(right.resolvedAt||right.lastObservedAt).getTime()-new Date(left.resolvedAt||left.lastObservedAt).getTime();
+        if(resolvedAtOrder)return resolvedAtOrder;
+      }
       const acknowledgementOrder=Number(Boolean(left.acknowledgedAt))-Number(Boolean(right.acknowledgedAt));
       if(acknowledgementOrder)return acknowledgementOrder;
       if(left.acknowledgedAt&&right.acknowledgedAt){
@@ -76,7 +80,7 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
       const delivery=deliveries.find(item=>item.id===alert.deliveryId);
       return <div key={alert.id} className={`alertCard ${alert.status.toLowerCase()} ${alert.severity.toLowerCase()} ${alert.acknowledgedAt?"acknowledged":""}`}>
         <button className="alertFocus" onClick={()=>onSelect(alert.deliveryId)} aria-label={`${delivery?.vehicleId||alert.deliveryId} 지도에서 보기`}>
-          <span className="alertState">{alertStatusLabel[alert.status]}</span><span className="alertKind">{alertTypeLabel[alert.alertType]} · {alertSeverityLabel[alert.severity]}</span>
+          <span className="alertState">{alertStatusLabel[alert.status]}{alert.status==="RESOLVED"&&alert.resolvedAt?` · ${new Date(alert.resolvedAt).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}`:""}</span><span className="alertKind">{alertTypeLabel[alert.alertType]} · {alertSeverityLabel[alert.severity]}</span>
           <strong>{delivery?.vehicleId||alert.deliveryId.slice(0,8)}</strong><p>{alert.message}</p>
           <small>{alert.occurrenceCount}회 감지 · 최근 {new Date(alert.lastObservedAt).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</small>
         </button>
