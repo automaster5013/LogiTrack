@@ -28,7 +28,7 @@ export default function OrderFlowPanel({ orders, busyId, onCreate, onDispatch }:
       <div><p className="eyebrow">주문 처리</p><h2>주문 → 배송 흐름</h2></div>
       <button disabled={Boolean(busyId)} onClick={onCreate}>+ 새 주문</button>
     </div>
-    <div className="orderStats"><span><b>{ready}</b> 배차 대기</span><span><b>{dispatched}</b> 운송 중</span><span><b>{fulfilled}</b> 배송 완료</span><small>주문과 배송 연결 상태</small></div>
+    <div className="orderStats"><span><b>{ready}</b> 배차 대기</span><span><b>{dispatched}</b> 운송 중</span><span><b>{fulfilled}</b> 배송 완료</span><small>등록 주문 {orders.length}건 기준 · 차량 현황은 전체 배송 기준</small></div>
     <div className="orderList">
       {orders.length===0?<p className="orderEmpty">새 주문을 만들면 배차 흐름이 여기에 표시됩니다.</p>:visibleOrders.map(order=><div className="orderRow" key={order.id}>
         <span className={`orderState ${order.status.toLowerCase()}`}>{orderStatusLabel[order.status]}</span>
