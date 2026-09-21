@@ -27,6 +27,8 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
   const routeDeviationAlerts=alertsInScope.filter(alert=>alert.alertType==="ROUTE_DEVIATION").length;
   const criticalAlerts=alertsInScope.filter(alert=>alert.severity==="CRITICAL").length;
   const warningAlerts=alertsInScope.filter(alert=>alert.severity==="WARNING").length;
+  const unacknowledgedAlerts=alertsInScope.filter(alert=>!alert.acknowledgedAt).length;
+  const acknowledgedAlerts=alertsInScope.filter(alert=>Boolean(alert.acknowledgedAt)).length;
   const scopedAlerts=useMemo(()=>{
     const normalizedQuery=query.trim().toLowerCase();
     return alerts.filter(alert=>{
@@ -60,7 +62,7 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
         <div className="alertScope" aria-label="경고 표시 범위"><button type="button" aria-pressed={scope==="ACTIVE"} onClick={()=>setScope("ACTIVE")}>현재 경고 {active.length}</button><button type="button" aria-pressed={scope==="ALL"} onClick={()=>setScope("ALL")}>전체 이력 {alerts.length}</button></div>
         <label className="alertFilter" htmlFor="alertType"><span>경고 유형</span><select id="alertType" value={alertType} onChange={event=>setAlertType(event.target.value as "ALL"|DeliveryAlert["alertType"])}><option value="ALL">전체 {alertsInScope.length}</option><option value="DELAY">도착 지연 {delayAlerts}</option><option value="ROUTE_DEVIATION">경로 이탈 {routeDeviationAlerts}</option></select></label>
         <label className="alertFilter" htmlFor="alertSeverity"><span>심각도</span><select id="alertSeverity" value={severity} onChange={event=>setSeverity(event.target.value as "ALL"|DeliveryAlert["severity"])}><option value="ALL">전체 {alertsInScope.length}</option><option value="CRITICAL">긴급 {criticalAlerts}</option><option value="WARNING">주의 {warningAlerts}</option></select></label>
-        <label className="alertFilter" htmlFor="alertAcknowledgement"><span>확인 상태</span><select id="alertAcknowledgement" value={acknowledgement} onChange={event=>setAcknowledgement(event.target.value as "ALL"|"UNACKNOWLEDGED"|"ACKNOWLEDGED")}><option value="ALL">전체</option><option value="UNACKNOWLEDGED">미확인</option><option value="ACKNOWLEDGED">확인 완료</option></select></label>
+        <label className="alertFilter" htmlFor="alertAcknowledgement"><span>확인 상태</span><select id="alertAcknowledgement" value={acknowledgement} onChange={event=>setAcknowledgement(event.target.value as "ALL"|"UNACKNOWLEDGED"|"ACKNOWLEDGED")}><option value="ALL">전체 {alertsInScope.length}</option><option value="UNACKNOWLEDGED">미확인 {unacknowledgedAlerts}</option><option value="ACKNOWLEDGED">확인 완료 {acknowledgedAlerts}</option></select></label>
         <label className="alertSearch" htmlFor="alertSearch"><span>경고 검색</span><input id="alertSearch" type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="차량 · 주문 · 내용"/></label>
         {(query||alertType!=="ALL"||severity!=="ALL"||acknowledgement!=="ALL")&&<span className="alertFilterResult" aria-live="polite">{scopedAlerts.length}건</span>}
         {(query||alertType!=="ALL"||severity!=="ALL"||acknowledgement!=="ALL")&&<button type="button" className="alertReset" onClick={()=>{setQuery("");setAlertType("ALL");setSeverity("ALL");setAcknowledgement("ALL")}}>초기화</button>}
