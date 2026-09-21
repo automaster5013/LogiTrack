@@ -17,6 +17,8 @@ export type Delivery = {
   lastTelemetryAt?: string;
 };
 
+export type DeliveryPage = { items:Delivery[]; page:number; size:number; totalElements:number; hasMore:boolean };
+
 export type CustomerOrder = {
   id: string;
   orderNumber: string;

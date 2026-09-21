@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.NoSuchElementException;
 import java.time.Instant;
+import org.springframework.data.domain.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -80,6 +81,17 @@ class DeliveryServiceTest {
         when(deliveries.findById(missing)).thenReturn(Optional.empty());
         assertSame(existing,service.get(existing.getId()));
         assertThrows(NoSuchElementException.class,()->service.get(missing));
+    }
+
+    @Test void pagesDeliveriesWithStableNewestFirstOrdering(){
+        var first=Delivery.create(request(),"key-1");
+        when(deliveries.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(first),PageRequest.of(1,100),201));
+        var result=service.page(1,100);
+        assertEquals(List.of(first),result.items());assertEquals(201,result.totalElements());assertTrue(result.hasMore());
+        var pageable=ArgumentCaptor.forClass(Pageable.class);verify(deliveries).findAll(pageable.capture());
+        assertEquals(1,pageable.getValue().getPageNumber());assertEquals(100,pageable.getValue().getPageSize());
+        assertEquals(Sort.Direction.DESC,pageable.getValue().getSort().getOrderFor("createdAt").getDirection());
+        assertEquals(Sort.Direction.DESC,pageable.getValue().getSort().getOrderFor("id").getDirection());
     }
 
     private CreateDeliveryRequest request(){return new CreateDeliveryRequest("ORD-1","TRUCK-1",
