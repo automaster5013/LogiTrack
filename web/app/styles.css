@@ -59,3 +59,4 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 .fleetTelemetryAge{display:block;margin-top:8px;color:#4d7166;font:800 9px monospace}.fleetTelemetryAge.stale{color:#b34836}
 .alertOrder{display:block;margin-top:5px;color:var(--muted);font:700 9px monospace}
 .alertRoute{display:block;margin-top:4px;color:var(--muted);font-size:10px}
+.alertMetric{display:block;margin:-4px 0 9px;color:#3f6258;font:700 9px monospace}

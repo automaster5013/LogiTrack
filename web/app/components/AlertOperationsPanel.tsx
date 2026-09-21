@@ -21,6 +21,7 @@ const formatAlertDuration=(first:string,last:string)=>{
   if(totalHours<24)return `${totalHours}시간 ${totalMinutes%60}분`;
   return `${Math.floor(totalHours/24)}일 ${totalHours%24}시간`;
 };
+const formatAlertValue=(value:number,type:DeliveryAlert["alertType"])=>type==="ROUTE_DEVIATION"?`${Math.round(value).toLocaleString("ko-KR")}m`:value<60?`${Math.round(value)}초`:`${Math.round(value/60)}분`;
 
 export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,onAcknowledge}:Props){
   const [scope,setScope]=useState<"ACTIVE"|"ALL">("ACTIVE");
@@ -102,7 +103,7 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
       return <div key={alert.id} className={`alertCard ${alert.status.toLowerCase()} ${alert.severity.toLowerCase()} ${alert.acknowledgedAt?"acknowledged":""}`}>
         <button className="alertFocus" onClick={()=>onSelect(alert.deliveryId)} aria-label={`${delivery?.vehicleId||alert.deliveryId}${delivery?.orderNumber?` 주문 ${delivery.orderNumber}`:""}${delivery?` ${delivery.originName}에서 ${delivery.destinationName}`:""} 지도에서 보기`}>
           <span className="alertState">{alertStatusLabel[alert.status]}{alert.status==="RESOLVED"&&alert.resolvedAt?` · ${formatAlertTime(alert.resolvedAt)}`:""}</span><span className="alertKind">{alertTypeLabel[alert.alertType]} · {alertSeverityLabel[alert.severity]}</span>
-          <strong>{delivery?.vehicleId||alert.deliveryId.slice(0,8)}</strong>{delivery?.orderNumber?<span className="alertOrder">주문 {delivery.orderNumber}</span>:null}{delivery?<span className="alertRoute">{delivery.originName} → {delivery.destinationName}</span>:null}<p>{alert.message}</p>
+          <strong>{delivery?.vehicleId||alert.deliveryId.slice(0,8)}</strong>{delivery?.orderNumber?<span className="alertOrder">주문 {delivery.orderNumber}</span>:null}{delivery?<span className="alertRoute">{delivery.originName} → {delivery.destinationName}</span>:null}<p>{alert.message}</p><span className="alertMetric">관측 {formatAlertValue(alert.observedValue,alert.alertType)} · 기준 {formatAlertValue(alert.thresholdValue,alert.alertType)}</span>
           <small>{alert.occurrenceCount}회 감지 · 지속 {formatAlertDuration(alert.firstObservedAt,alert.lastObservedAt)} · 최초 {formatAlertTime(alert.firstObservedAt)} · 최근 {formatAlertTime(alert.lastObservedAt)}</small>
         </button>
         {alert.status==="ACTIVE"&&!alert.acknowledgedAt?<button className="alertAck" disabled={busyId===alert.id} onClick={()=>onAcknowledge(alert.id)} aria-label={`${delivery?.vehicleId||alert.deliveryId}${delivery?.orderNumber?` 주문 ${delivery.orderNumber}`:""}${delivery?` ${delivery.originName}에서 ${delivery.destinationName}`:""} 경고 확인 처리`}>{busyId===alert.id?"확인 처리 중…":"확인 완료"}</button>
