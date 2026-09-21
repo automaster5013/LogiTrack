@@ -31,6 +31,14 @@ export default function ReplayOperationsPanel({ events, totalEvents, audits, bus
   useEffect(()=>setVisibleAudits(current=>Math.min(Math.max(current,8),Math.max(filteredAudits.length,8))),[filteredAudits.length]);
   useEffect(()=>setSelectedIds(current=>current.filter(id=>events.some(event=>event.id===id&&event.status==="PENDING"))),[events]);
   const toggle=(id:string)=>setSelectedIds(current=>current.includes(id)?current.filter(value=>value!==id):current.length<20?[...current,id]:current);
+  const replayEvent=(event:DeadLetterEvent)=>{
+    const identifier=event.traceId||event.messageKey||event.id;
+    if(window.confirm(`${identifier} 이벤트를 재처리하시겠습니까? 성공한 작업은 복구 감사 이력에 기록됩니다.`)) onReplay(event.id);
+  };
+  const discardEvent=(event:DeadLetterEvent)=>{
+    const identifier=event.traceId||event.messageKey||event.id;
+    if(window.confirm(`${identifier} 이벤트를 영구 폐기하시겠습니까? 이 작업은 되돌릴 수 없으며 복구 감사 이력에 기록됩니다.`)) onDiscard(event.id);
+  };
   const prepare=(event:FormEvent)=>{event.preventDefault();onPrepareDiscard(selectedIds,reason)};
   const reset=()=>{setSelectedIds([]);setReason("");setApproval("");onResetDiscardPlan()};
   return <section className="replayBoard">
@@ -41,11 +49,11 @@ export default function ReplayOperationsPanel({ events, totalEvents, audits, bus
           <input className="discardSelect" type="checkbox" aria-label={`${event.traceId||event.id} 일괄 폐기 선택`} checked={selectedIds.includes(event.id)} disabled={Boolean(discardPlan)||(!selectedIds.includes(event.id)&&selectedIds.length>=20)} onChange={()=>toggle(event.id)}/>
           <span className={`replayState ${event.status.toLowerCase()}`}>{eventStatusLabel[event.status]}</span>
           <span><b>{event.originalTopic}</b><small>{event.traceId || event.messageKey || event.id.slice(0, 8)} · 파티션 {event.dlqPartition} / 오프셋 {event.dlqOffset}</small><em>{event.exceptionMessage || "이벤트 처리에 실패했습니다."}</em></span>
-          <span className="replayActions"><button disabled={event.status !== "PENDING" || busyId === event.id} onClick={() => onReplay(event.id)} aria-label={`${event.traceId||event.id} 재처리`}>{busyId === event.id ? "처리 중…" : "재처리"}</button><button className="discard" disabled={event.status !== "PENDING" || busyId === event.id} onClick={() => onDiscard(event.id)} aria-label={`${event.traceId||event.id} 영구 폐기`}>영구 폐기</button></span>
+          <span className="replayActions"><button disabled={event.status !== "PENDING" || busyId === event.id} onClick={() => replayEvent(event)} aria-label={`${event.traceId||event.id} 재처리`}>{busyId === event.id ? "처리 중…" : "재처리"}</button><button className="discard" disabled={event.status !== "PENDING" || busyId === event.id} onClick={() => discardEvent(event)} aria-label={`${event.traceId||event.id} 영구 폐기`}>영구 폐기</button></span>
         </div>)}
         {events.length<totalEvents&&<button className="loadMoreDlq" disabled={pageBusy} onClick={onLoadMore}>{pageBusy?"불러오는 중…":`이전 이벤트 ${Math.min(100,totalEvents-events.length)}건 더 보기`}</button>}
         <form className="discardPlan" onSubmit={prepare}>
-          {!discardPlan&&<><label><span>일괄 폐기 사유</span><input value={reason} maxLength={500} onChange={event=>setReason(event.target.value)} placeholder="폐기 사유를 입력하세요"/></label><button disabled={discardPlanBusy||selectedIds.length===0||!reason.trim()}>{discardPlanBusy?"검토 준비 중…":`선택한 ${selectedIds.length}건 검토`}</button><small>최대 20건 · 검토 계획 생성 후 10분 이내 별도 승인이 필요합니다.</small></>}
+          {!discardPlan&&<><label><span>일괄 폐기 사유</span><input value={reason} maxLength={500} onChange={event=>setReason(event.target.value)} placeholder="폐기 사유를 입력하세요"/></label><button disabled={discardPlanBusy||selectedIds.length===0||!reason.trim()}>{discardPlanBusy?"검토 준비 중…":`선택한 ${selectedIds.length}건 검토`}</button><small>단건 재처리·폐기도 대상 확인 후 실행됩니다. 일괄 폐기는 최대 20건이며 계획 생성 후 10분 이내 별도 승인이 필요합니다.</small></>}
           {discardPlan&&<div className={`discardReview ${discardPlan.status.toLowerCase()}`}><div><b>{planStatusLabel[discardPlan.status]} · {discardPlan.eventIds.length}건</b><small>{discardPlan.reason}</small><small>만료 {new Date(discardPlan.expiresAt).toLocaleString("ko-KR")}</small></div>{discardPlan.status==="PREPARED"?<><label><span>승인어 DISCARD 입력</span><input value={approval} onChange={event=>setApproval(event.target.value)} autoComplete="off"/></label><span className="discardApprovalActions"><button type="button" className="discard" disabled={discardPlanBusy||approval!=="DISCARD"} onClick={()=>onExecuteDiscard(discardPlan.id)}>{discardPlanBusy?"폐기 중…":"영구 폐기 실행"}</button><button type="button" disabled={discardPlanBusy} onClick={reset}>취소</button></span></>:<><strong>성공 {discardPlan.succeededCount}건 · 실패 {discardPlan.failedCount}건</strong><button type="button" onClick={reset}>새 계획</button></>}</div>}
         </form>
       </div>
