@@ -10,7 +10,7 @@
 
 ## 결정
 
-- Spring API가 요청 시 PostgreSQL KPI projection을 갱신하고 1~90일 범위의 행을 조회한다.
+- Spring API가 시작 시 초기화되고 주기적으로 갱신되는 PostgreSQL KPI projection에서 1~90일 범위의 행을 읽는다.
 - Python analytics 서비스가 ReportLab으로 A4 가로형 PDF를 생성한다.
 - 보고서는 운영 요약, 최근 14일 차트, 전체 일별 상세 표, 데이터 출처, 페이지 번호를 포함한다.
 - API는 `GET /api/reports/daily-kpis.pdf?days=30`에서 고정 파일명 attachment로 반환한다.

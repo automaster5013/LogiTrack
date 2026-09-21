@@ -1,6 +1,5 @@
 package io.logitrack.report;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -17,24 +16,20 @@ import java.util.Locale;
 public class DailyKpiService {
     private static final int MAX_DAYS = 90;
     private final JdbcTemplate jdbc;
-    private final int projectionDays;
 
-    public DailyKpiService(JdbcTemplate jdbc,
-                           @Value("${logitrack.reports.projection-days:30}") int projectionDays) {
+    public DailyKpiService(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        this.projectionDays = boundedDays(projectionDays);
     }
 
     @Scheduled(fixedDelayString = "${logitrack.reports.refresh-ms:60000}")
     @Transactional
     public void refreshScheduledProjection() {
-        refresh(projectionDays);
+        refresh(MAX_DAYS);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<DailyDeliveryKpi> getDailyKpis(int requestedDays) {
         int days = boundedDays(requestedDays);
-        refresh(days);
         return jdbc.query("""
             SELECT metric_date, total_deliveries, active_deliveries, delivered_deliveries,
                    delayed_deliveries, average_progress_percent, average_cycle_minutes,

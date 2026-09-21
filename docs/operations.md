@@ -56,7 +56,7 @@ telemetry `traceId`도 HTTP와 같은 1~128자 안전 문자만 허용한다. �
 
 `logitrack_telemetry_events_total{outcome="applied|stale"}`에서 현재 상태에 적용된 이벤트와 워터마크 때문에 이력에만 보존된 이벤트를 구분해 확인할 수 있다.
 
-일별 KPI는 UTC 배송 생성일 cohort 기준으로 60초마다 갱신한다. `GET /api/reports/daily-kpis?days=14`는 JSON, `GET /api/reports/daily-kpis.csv?days=30`은 UTF-8 CSV, `GET /api/reports/daily-kpis.pdf?days=30`은 A4 가로형 운영 보고서를 반환하며 요청 범위는 1~90일이다. 범위 밖 요청은 조용히 보정하지 않고 400으로 거부하고 `logitrack.reports.projection-days`가 범위 밖이면 시작을 거부한다. PDF는 API가 PostgreSQL projection을 조회한 뒤 analytics 서비스의 ReportLab 렌더러에 전달하므로 PDF만 실패할 때는 먼저 `http://localhost:8090/health`와 analytics 로그를 확인한다.
+일별 KPI는 UTC 배송 생성일 cohort 기준으로 공개 API 최대 범위인 최근 90일을 트래픽 수락 전에 초기화하고 이후 60초마다 갱신한다. `GET /api/reports/daily-kpis?days=14`는 JSON, `GET /api/reports/daily-kpis.csv?days=30`은 UTF-8 CSV, `GET /api/reports/daily-kpis.pdf?days=30`은 A4 가로형 운영 보고서를 반환하며 요청 범위는 1~90일이다. 모든 보고서 GET은 projection을 읽기만 하고 범위 밖 요청은 조용히 보정하지 않고 400으로 거부한다. PDF는 API가 PostgreSQL projection을 조회한 뒤 analytics 서비스의 ReportLab 렌더러에 전달하므로 PDF만 실패할 때는 먼저 `http://localhost:8090/health`와 analytics 로그를 확인한다.
 
 공개 route provider 보호와 반복 경로 응답 안정화를 위해 analytics는 동일 좌표 결과를 기본 300초 캐시한다. `ROUTING_CACHE_TTL_SECONDS`로 조정하며 최대 1,024개 bounded LRU에서 가장 오래 사용하지 않은 항목만 축출한다. TTL 0은 캐시를 비활성화한다.
 
