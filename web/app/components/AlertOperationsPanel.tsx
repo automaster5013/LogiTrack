@@ -34,7 +34,7 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
     return alerts.filter(alert=>{
       const delivery=deliveries.find(item=>item.id===alert.deliveryId);
       const matchesAcknowledgement=acknowledgement==="ALL"||(acknowledgement==="ACKNOWLEDGED"?Boolean(alert.acknowledgedAt):!alert.acknowledgedAt);
-      return (scope==="ALL"||alert.status==="ACTIVE")&&(severity==="ALL"||alert.severity===severity)&&(alertType==="ALL"||alert.alertType===alertType)&&matchesAcknowledgement&&(!normalizedQuery||[delivery?.vehicleId||"",delivery?.orderNumber||"",alert.message,alertTypeLabel[alert.alertType]].some(value=>value.toLowerCase().includes(normalizedQuery)));
+      return (scope==="ALL"||alert.status==="ACTIVE")&&(severity==="ALL"||alert.severity===severity)&&(alertType==="ALL"||alert.alertType===alertType)&&matchesAcknowledgement&&(!normalizedQuery||[delivery?.vehicleId||"",delivery?.orderNumber||"",alert.message,alertTypeLabel[alert.alertType],alert.acknowledgedBy||""].some(value=>value.toLowerCase().includes(normalizedQuery)));
     }).sort((left,right)=>{
       const statusOrder=Number(left.status!=="ACTIVE")-Number(right.status!=="ACTIVE");
       if(statusOrder)return statusOrder;
@@ -77,7 +77,7 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
           <small>{alert.occurrenceCount}회 감지 · 최근 {new Date(alert.lastObservedAt).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</small>
         </button>
         {alert.status==="ACTIVE"&&!alert.acknowledgedAt?<button className="alertAck" disabled={busyId===alert.id} onClick={()=>onAcknowledge(alert.id)} aria-label={`${delivery?.vehicleId||alert.deliveryId} 경고 확인 처리`}>{busyId===alert.id?"확인 처리 중…":"확인 완료"}</button>
-          :alert.acknowledgedAt?<span className="alertAcknowledged">확인 · {alert.acknowledgedBy}</span>:null}
+          :alert.acknowledgedAt?<span className="alertAcknowledged">확인 · {alert.acknowledgedBy} · {new Date(alert.acknowledgedAt).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</span>:null}
       </div>})}
       {scopedAlerts.length>8?<div className="alertListFooter">
         <span aria-live="polite">경고 {visibleAlerts.length} / {scopedAlerts.length}건 표시</span>
