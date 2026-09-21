@@ -94,7 +94,7 @@ export type AlertPolicyAudit = Omit<AlertPolicy,"updatedAt"|"updatedBy"> & {
 };
 
 export type WarehouseStock = { id:string; warehouseId:string; sku:string; onHand:number; reserved:number; available:number; updatedAt:string };
-export type WarehouseTask = { id:string; taskType:"INBOUND"|"OUTBOUND"; status:"RECEIVED"|"PICKED"|"DISPATCHED"; referenceNumber:string; warehouseId:string; sku:string; quantity:number; createdAt:string };
+export type WarehouseTask = { id:string; taskType:"INBOUND"|"OUTBOUND"; status:"RECEIVED"|"PICKED"|"DISPATCHED"; referenceNumber:string; warehouseId:string; sku:string; quantity:number; createdAt:string; updatedAt:string };
 export type LedgerEntry = { id:string; taskId:string; warehouseId:string; sku:string; transactionType:"RECEIPT"|"PICK"|"DISPATCH"; onHandDelta:number; reservedDelta:number; onHandAfter:number; reservedAfter:number; occurredAt:string };
 
 export type DailyDeliveryKpi = {
