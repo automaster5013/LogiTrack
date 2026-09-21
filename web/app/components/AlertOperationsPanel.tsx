@@ -27,6 +27,7 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
   const [severity,setSeverity]=useState<"ALL"|DeliveryAlert["severity"]>("ALL");
   const [alertType,setAlertType]=useState<"ALL"|DeliveryAlert["alertType"]>("ALL");
   const [acknowledgement,setAcknowledgement]=useState<"ALL"|"UNACKNOWLEDGED"|"ACKNOWLEDGED">("ALL");
+  const [sort,setSort]=useState<"PRIORITY"|"RECENT"|"LONGEST">("PRIORITY");
   const [query,setQuery]=useState("");
   const [visibleCount,setVisibleCount]=useState(8);
   const active=alerts.filter(alert=>alert.status==="ACTIVE");
@@ -45,6 +46,12 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
       const matchesAcknowledgement=acknowledgement==="ALL"||(acknowledgement==="ACKNOWLEDGED"?Boolean(alert.acknowledgedAt):!alert.acknowledgedAt);
       return (scope==="ALL"||alert.status==="ACTIVE")&&(severity==="ALL"||alert.severity===severity)&&(alertType==="ALL"||alert.alertType===alertType)&&matchesAcknowledgement&&(!normalizedQuery||[delivery?.vehicleId||"",delivery?.orderNumber||"",alert.message,alertTypeLabel[alert.alertType],alert.acknowledgedBy||""].some(value=>value.toLowerCase().includes(normalizedQuery)));
     }).sort((left,right)=>{
+      if(sort==="RECENT")return new Date(right.lastObservedAt).getTime()-new Date(left.lastObservedAt).getTime();
+      if(sort==="LONGEST"){
+        const leftDuration=new Date(left.lastObservedAt).getTime()-new Date(left.firstObservedAt).getTime();
+        const rightDuration=new Date(right.lastObservedAt).getTime()-new Date(right.firstObservedAt).getTime();
+        if(rightDuration!==leftDuration)return rightDuration-leftDuration;
+      }
       const statusOrder=Number(left.status!=="ACTIVE")-Number(right.status!=="ACTIVE");
       if(statusOrder)return statusOrder;
       if(left.status==="RESOLVED"&&right.status==="RESOLVED"){
@@ -61,13 +68,13 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
       if(severityOrder)return severityOrder;
       return new Date(right.lastObservedAt).getTime()-new Date(left.lastObservedAt).getTime();
     });
-  },[acknowledgement,alertType,alerts,deliveries,query,scope,severity]);
+  },[acknowledgement,alertType,alerts,deliveries,query,scope,severity,sort]);
   const visibleAlerts=scopedAlerts.slice(0,visibleCount);
   const remaining=Math.max(0,scopedAlerts.length-visibleAlerts.length);
 
   useEffect(()=>{
     setVisibleCount(8);
-  },[acknowledgement,alertType,query,scope,severity]);
+  },[acknowledgement,alertType,query,scope,severity,sort]);
 
   useEffect(()=>{
     setVisibleCount(current=>Math.max(8,Math.min(current,Math.max(scopedAlerts.length,8))));
@@ -80,6 +87,7 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
         <label className="alertFilter" htmlFor="alertType"><span>경고 유형</span><select id="alertType" value={alertType} onChange={event=>setAlertType(event.target.value as "ALL"|DeliveryAlert["alertType"])}><option value="ALL">전체 {alertsInScope.length}</option><option value="DELAY">도착 지연 {delayAlerts}</option><option value="ROUTE_DEVIATION">경로 이탈 {routeDeviationAlerts}</option></select></label>
         <label className="alertFilter" htmlFor="alertSeverity"><span>심각도</span><select id="alertSeverity" value={severity} onChange={event=>setSeverity(event.target.value as "ALL"|DeliveryAlert["severity"])}><option value="ALL">전체 {alertsInScope.length}</option><option value="CRITICAL">긴급 {criticalAlerts}</option><option value="WARNING">주의 {warningAlerts}</option></select></label>
         <label className="alertFilter" htmlFor="alertAcknowledgement"><span>확인 상태</span><select id="alertAcknowledgement" value={acknowledgement} onChange={event=>setAcknowledgement(event.target.value as "ALL"|"UNACKNOWLEDGED"|"ACKNOWLEDGED")}><option value="ALL">전체 {alertsInScope.length}</option><option value="UNACKNOWLEDGED">미확인 {unacknowledgedAlerts}</option><option value="ACKNOWLEDGED">확인 완료 {acknowledgedAlerts}</option></select></label>
+        <label className="alertFilter" htmlFor="alertSort"><span>정렬</span><select id="alertSort" value={sort} onChange={event=>setSort(event.target.value as "PRIORITY"|"RECENT"|"LONGEST")}><option value="PRIORITY">대응 우선순위</option><option value="RECENT">최근 감지순</option><option value="LONGEST">지속 시간순</option></select></label>
         <label className="alertSearch" htmlFor="alertSearch"><span>경고 검색</span><input id="alertSearch" type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="차량 · 주문 · 내용 · 담당자"/></label>
         {(query||alertType!=="ALL"||severity!=="ALL"||acknowledgement!=="ALL")&&<span className="alertFilterResult" aria-live="polite">{scopedAlerts.length}건</span>}
         {(query||alertType!=="ALL"||severity!=="ALL"||acknowledgement!=="ALL")&&<button type="button" className="alertReset" onClick={()=>{setQuery("");setAlertType("ALL");setSeverity("ALL");setAcknowledgement("ALL")}}>초기화</button>}
