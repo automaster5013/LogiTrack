@@ -33,8 +33,8 @@ export default function OrderFlowPanel({ orders, busyId, onCreate, onDispatch }:
       {orders.length===0?<p className="orderEmpty">새 주문을 만들면 배차 흐름이 여기에 표시됩니다.</p>:visibleOrders.map(order=><div className="orderRow" key={order.id}>
         <span className={`orderState ${order.status.toLowerCase()}`}>{orderStatusLabel[order.status]}</span>
         <span className="orderIdentity"><b>{order.orderNumber}</b><small>{order.originName} → {order.destinationName}</small></span>
-        <span className="orderLink">{order.deliveryId?<><b>{order.vehicleId}</b><small>{deliveryStatusLabel[order.deliveryStatus||""]||order.deliveryStatus?.replace("_"," ")}</small></>:<><b>미배차</b><small>차량 배차 대기</small></>}</span>
-        {order.status==="READY"?<button disabled={Boolean(busyId)} onClick={()=>onDispatch(order.id)} aria-label={`${order.orderNumber} 차량 배차`}>{busyId===order.id?"배차 중…":"차량 배차"}</button>:<span className="orderProgress"><i className={order.status.toLowerCase()}/>{order.status==="FULFILLED"?"배송 완료":"운송 중"}</span>}
+        <span className="orderLink">{order.deliveryId?<><b>{order.vehicleId}</b><small>배차 차량</small></>:<><b>미배차</b><small>차량 배차 대기</small></>}</span>
+        {order.status==="READY"?<button disabled={Boolean(busyId)} onClick={()=>onDispatch(order.id)} aria-label={`${order.orderNumber} 차량 배차`}>{busyId===order.id?"배차 중…":"차량 배차"}</button>:<span className="orderProgress"><i className={(order.deliveryStatus||order.status).toLowerCase()}/>{deliveryStatusLabel[order.deliveryStatus||""]||orderStatusLabel[order.status]}</span>}
       </div>)}
       {orders.length>8?<div className="orderListFooter">
         <span>{visibleOrders.length} / {orders.length}건 표시</span>
