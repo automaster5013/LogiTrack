@@ -3,6 +3,16 @@ import type { OutboxFailure, OutboxRetryAudit } from "../types";
 
 type Props = { failures:OutboxFailure[]; audits:OutboxRetryAudit[]; busyId?:string; onRetry:(id:string)=>void };
 
+function elapsedLabel(createdAt:string){
+  const elapsed=Math.max(0,Date.now()-new Date(createdAt).getTime());
+  const minutes=Math.floor(elapsed/60_000);
+  if(minutes<1) return "1분 미만";
+  if(minutes<60) return `${minutes}분`;
+  const hours=Math.floor(minutes/60);
+  if(hours<24) return `${hours}시간`;
+  return `${Math.floor(hours/24)}일`;
+}
+
 export default function OutboxRecoveryPanel({failures,audits,busyId,onRetry}:Props){
   const [visibleFailures,setVisibleFailures]=useState(8);
   const [visibleAudits,setVisibleAudits]=useState(8);
@@ -10,7 +20,8 @@ export default function OutboxRecoveryPanel({failures,audits,busyId,onRetry}:Pro
   const [auditQuery,setAuditQuery]=useState("");
   const filteredFailures=useMemo(()=>{
     const query=failureQuery.trim().toLowerCase();
-    return query?failures.filter(event=>[event.eventType,event.aggregateType,event.aggregateId,event.topic,event.lastError||""].some(value=>value.toLowerCase().includes(query))):failures;
+    const oldestFirst=[...failures].sort((left,right)=>new Date(left.createdAt).getTime()-new Date(right.createdAt).getTime());
+    return query?oldestFirst.filter(event=>[event.eventType,event.aggregateType,event.aggregateId,event.topic,event.lastError||""].some(value=>value.toLowerCase().includes(query))):oldestFirst;
   },[failureQuery,failures]);
   const filteredAudits=useMemo(()=>{
     const query=auditQuery.trim().toLowerCase();
@@ -31,7 +42,7 @@ export default function OutboxRecoveryPanel({failures,audits,busyId,onRetry}:Pro
       <div className="deadLetters"><div className="recoveryPaneHeader"><h4>발행 실패 이벤트</h4><label htmlFor="outboxFailureSearch"><span>실패 이벤트 검색</span><input id="outboxFailureSearch" type="search" value={failureQuery} onChange={event=>setFailureQuery(event.target.value)} placeholder="유형 · ID · 토픽 · 오류"/></label>{failureQuery&&<button type="button" onClick={()=>setFailureQuery("")}>초기화</button>}</div>
         {failures.length===0?<p className="replayEmpty">발행에 실패한 outbox 이벤트가 없습니다.</p>:filteredFailures.length===0?<p className="replayEmpty">검색 조건에 맞는 발행 실패 이벤트가 없습니다.</p>:shownFailures.map(event=><div className="deadLetterRow" key={event.id}>
           <span className="replayState pending">실패 {event.attempts}회</span>
-          <span><b>{event.eventType}</b><small>{event.aggregateType} · {event.aggregateId.slice(0,8)} · {event.topic}</small><em>{event.lastError||"이벤트 발행에 실패했습니다."}</em></span>
+          <span><b>{event.eventType}</b><small>{event.aggregateType} · {event.aggregateId.slice(0,8)} · {event.topic}</small><small>발생 {new Date(event.createdAt).toLocaleString("ko-KR")} · {elapsedLabel(event.createdAt)} 경과</small><em>{event.lastError||"이벤트 발행에 실패했습니다."}</em></span>
           <button disabled={busyId===event.id} onClick={()=>retryEvent(event)} aria-label={`${event.eventType} ${event.id.slice(0,8)} 재발행`}>{busyId===event.id?"대기열 등록 중…":"다시 발행"}</button>
         </div>)}
         {filteredFailures.length>8&&<RecoveryListFooter label="실패 이벤트" shown={shownFailures.length} total={filteredFailures.length} step={8} onChange={setVisibleFailures}/>}
