@@ -131,7 +131,7 @@ API readiness는 필수 source of truth인 PostgreSQL 연결을 포함합니다.
 
 지연·경로 이탈 lifecycle과 운영자 확인은 `./scripts/alert-smoke.ps1`로 검증합니다. 활성 경고는 `POST /api/alerts/{id}/acknowledgement`와 `X-Operator` 헤더로 멱등 확인할 수 있으며, 콘솔에서도 미확인 경고 수와 최초 확인자를 표시합니다. 검증은 결정론적 telemetry 주입을 위해 simulator를 일시 중단한 뒤 자동으로 다시 시작합니다.
 
-Redis 기반 다중 API SSE fan-out은 `./scripts/sse-fanout-smoke.ps1`로 검증합니다. 스크립트가 `scale-test` profile의 API replica를 8081 포트에 일시 실행하고 primary에서 발생한 배송 갱신과 단일 `telemetry-point`가 replica 구독자에게 전달되는지 확인한 뒤 종료합니다. 브라우저는 초기 궤적을 한 번 조회한 뒤 각 GPS 점을 event ID로 멱등 병합해 이벤트마다 전체 이력을 다시 받지 않습니다.
+Redis 기반 다중 API SSE fan-out은 `./scripts/sse-fanout-smoke.ps1`로 검증합니다. 스크립트가 `scale-test` profile의 API replica를 8081 포트에 일시 실행하고 primary에서 발생한 배송 갱신과 단일 `telemetry-point`가 replica 구독자에게 전달되는지 확인한 뒤 종료합니다. 브라우저는 초기 궤적을 한 번 조회한 뒤 각 GPS 점을 event ID로 멱등 병합해 이벤트마다 전체 이력을 다시 받지 않으며, SSE 재연결 시 누락 가능 구간을 읽기 전용 API snapshot으로 다시 동기화합니다.
 
 API에서 Python analytics까지 이어지는 trace는 `./scripts/tracing-smoke.ps1`로 검증합니다. 알려진 W3C trace ID를 주입하고 Tempo에서 두 서비스의 span을 직접 조회합니다.
 

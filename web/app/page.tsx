@@ -37,6 +37,8 @@ export default function Home(){
  const [workspaceUpdatedAt,setWorkspaceUpdatedAt]=useState<Partial<Record<Workspace,Date>>>({});
  const workspaceRef=useRef<Workspace>("overview");
  const workspaceNavRef=useRef<HTMLElement>(null);
+ const streamConnectedOnce=useRef(false);
+ const streamResyncing=useRef(false);
  const [items,setItems]=useState<Delivery[]>([]); const [connected,setConnected]=useState(false); const [streamWarning,setStreamWarning]=useState(false); const [workspaceErrors,setWorkspaceErrors]=useState<Partial<Record<Workspace,string>>>({}); const [selected,setSelected]=useState<string>();
  const knownDeliveryIds=useRef(new Set<string>());
  const requestedMapIds=useRef(new Set<string>());
@@ -82,6 +84,7 @@ export default function Home(){
  const loadPolicyWorkspace=()=>loadPolicies().finally(()=>markLoaded("settings"));
  useEffect(()=>{const sync=()=>{const next=workspaceFromHash(window.location.hash);if(next){workspaceRef.current=next;setWorkspace(next)}};sync();if(!window.location.hash)window.history.replaceState(null,"",`${window.location.pathname}${window.location.search}#overview`);setWorkspaceReady(true);window.addEventListener("popstate",sync);window.addEventListener("hashchange",sync);return()=>{window.removeEventListener("popstate",sync);window.removeEventListener("hashchange",sync)}},[]);
  useEffect(()=>{if(!workspaceReady)return;load(); const source=new EventSource(`${API}/api/stream/deliveries`); source.onopen=()=>setConnected(true); source.onerror=()=>setConnected(false);
+  source.addEventListener("connected",()=>{setConnected(true);if(!streamConnectedOnce.current){streamConnectedOnce.current=true;return}if(streamResyncing.current)return;streamResyncing.current=true;requestedMapIds.current.clear();load().finally(()=>{streamResyncing.current=false})});
   source.addEventListener("delivery-update",e=>{const next:Delivery=JSON.parse((e as MessageEvent).data);if(!knownDeliveryIds.current.has(next.id)){knownDeliveryIds.current.add(next.id);if(workspaceRef.current==="overview"||workspaceRef.current==="orders")loadMapData([next.id]).catch(()=>{})}setItems(old=>[next,...old.filter(x=>x.id!==next.id)])});
   source.addEventListener("telemetry-point",e=>{const next:TelemetryPoint=JSON.parse((e as MessageEvent).data);setTelemetry(old=>old.some(point=>point.eventId===next.eventId)?old:[next,...old].slice(0,5000))});
   source.addEventListener("alert-update",e=>{const next:DeliveryAlert=JSON.parse((e as MessageEvent).data);setAlerts(old=>[next,...old.filter(x=>x.id!==next.id)])});return()=>source.close()},[workspaceReady]);
