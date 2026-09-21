@@ -43,13 +43,13 @@ public class OrderService {
 
     @Transactional(readOnly=true)
     public List<OrderSummary> list(int limit) {
-        var page=orders.findAll(PageRequest.of(0,limit,Sort.by(Sort.Direction.DESC,"createdAt"))).getContent();
+        var page=orders.findAll(PageRequest.of(0,limit,stableSort())).getContent();
         return summaries(page);
     }
 
     @Transactional(readOnly=true)
     public OrderPage page(int page,int size) {
-        var result=orders.findAll(PageRequest.of(page,size,Sort.by(Sort.Direction.DESC,"createdAt").and(Sort.by(Sort.Direction.DESC,"id"))));
+        var result=orders.findAll(PageRequest.of(page,size,stableSort()));
         return new OrderPage(summaries(result.getContent()),result.getNumber(),result.getSize(),result.getTotalElements(),result.hasNext());
     }
 
@@ -61,6 +61,8 @@ public class OrderService {
     }
 
     public record OrderPage(List<OrderSummary> items,int page,int size,long totalElements,boolean hasMore){}
+
+    private Sort stableSort(){return Sort.by(Sort.Direction.DESC,"createdAt").and(Sort.by(Sort.Direction.DESC,"id"));}
 
     @Transactional
     public OrderSummary dispatch(UUID orderId, DispatchOrderRequest request, String idempotencyKey, String traceId) {

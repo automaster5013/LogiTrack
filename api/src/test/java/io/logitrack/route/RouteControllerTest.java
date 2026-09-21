@@ -1,7 +1,7 @@
 package io.logitrack.route;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.*;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -12,7 +12,7 @@ class RouteControllerTest {
     @Test void scopesRoutesToDistinctDeliveryIds(){
         var id=UUID.randomUUID();controller.list(List.of(id,id),200);
         verify(repository).findLatestByDeliveryIdIn(new LinkedHashSet<>(List.of(id)));
-        verify(repository,never()).findAllByOrderByGeneratedAtDesc(any());
+        verify(repository,never()).findAll(any(Pageable.class));
     }
     @Test void rejectsMoreThanOneHundredDeliveryIds(){
         var ids=new ArrayList<UUID>();for(int i=0;i<101;i++)ids.add(UUID.randomUUID());
@@ -20,8 +20,12 @@ class RouteControllerTest {
         verifyNoInteractions(repository);
     }
     @Test void boundsUnscopedRouteHistory(){
+        when(repository.findAll(any(Pageable.class))).thenReturn(Page.empty());
         controller.list(null,25);
-        verify(repository).findAllByOrderByGeneratedAtDesc(PageRequest.of(0,25));
+        var pageable=org.mockito.ArgumentCaptor.forClass(Pageable.class);verify(repository).findAll(pageable.capture());
+        assertEquals(25,pageable.getValue().getPageSize());
+        assertEquals(Sort.Direction.DESC,pageable.getValue().getSort().getOrderFor("generatedAt").getDirection());
+        assertEquals(Sort.Direction.DESC,pageable.getValue().getSort().getOrderFor("id").getDirection());
         assertThrows(IllegalArgumentException.class,()->controller.list(null,501));
     }
 }

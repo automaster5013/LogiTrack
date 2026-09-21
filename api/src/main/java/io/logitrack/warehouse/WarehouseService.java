@@ -32,11 +32,14 @@ public class WarehouseService {
   var stock=stocks.lockByWarehouseAndSku(task.getWarehouseId(),task.getSku()).orElseThrow();stock.dispatch(task.getQuantity());task.dispatch();
   ledger.save(new InventoryLedgerEntry(task,InventoryLedgerEntry.Type.DISPATCH,-task.getQuantity(),-task.getQuantity(),stock));event(task,stock,"warehouse.outbound.dispatched.v1",traceId);return task;
  }
- public List<WarehouseStock> stock(int limit){return stocks.findAllByOrderByWarehouseIdAscSkuAsc(PageRequest.of(0,limit));} public List<WarehouseTask> tasks(int limit){return tasks.findAllByOrderByCreatedAtDesc(PageRequest.of(0,limit));} public List<InventoryLedgerEntry> ledger(){return ledger.findTop100ByOrderByOccurredAtDesc();}
- public WarehousePage<WarehouseStock> stockPage(int page,int size){return page(stocks.findAll(PageRequest.of(page,size,Sort.by(Sort.Direction.ASC,"warehouseId").and(Sort.by(Sort.Direction.ASC,"sku")).and(Sort.by(Sort.Direction.ASC,"id")))));}
- public WarehousePage<WarehouseTask> taskPage(int page,int size){return page(tasks.findAll(PageRequest.of(page,size,Sort.by(Sort.Direction.DESC,"createdAt").and(Sort.by(Sort.Direction.DESC,"id")))));}
- public WarehousePage<InventoryLedgerEntry> ledgerPage(int page,int size){return page(ledger.findAll(PageRequest.of(page,size,Sort.by(Sort.Direction.DESC,"occurredAt").and(Sort.by(Sort.Direction.DESC,"id")))));}
+ public List<WarehouseStock> stock(int limit){return stocks.findAll(PageRequest.of(0,limit,stockSort())).getContent();} public List<WarehouseTask> tasks(int limit){return tasks.findAll(PageRequest.of(0,limit,taskSort())).getContent();} public List<InventoryLedgerEntry> ledger(){return ledger.findAll(PageRequest.of(0,100,ledgerSort())).getContent();}
+ public WarehousePage<WarehouseStock> stockPage(int page,int size){return page(stocks.findAll(PageRequest.of(page,size,stockSort())));}
+ public WarehousePage<WarehouseTask> taskPage(int page,int size){return page(tasks.findAll(PageRequest.of(page,size,taskSort())));}
+ public WarehousePage<InventoryLedgerEntry> ledgerPage(int page,int size){return page(ledger.findAll(PageRequest.of(page,size,ledgerSort())));}
  private <T> WarehousePage<T> page(org.springframework.data.domain.Page<T> result){return new WarehousePage<>(result.getContent(),result.getNumber(),result.getSize(),result.getTotalElements(),result.hasNext());}
+ private Sort stockSort(){return Sort.by(Sort.Direction.ASC,"warehouseId").and(Sort.by(Sort.Direction.ASC,"sku")).and(Sort.by(Sort.Direction.ASC,"id"));}
+ private Sort taskSort(){return Sort.by(Sort.Direction.DESC,"createdAt").and(Sort.by(Sort.Direction.DESC,"id"));}
+ private Sort ledgerSort(){return Sort.by(Sort.Direction.DESC,"occurredAt").and(Sort.by(Sort.Direction.DESC,"id"));}
  public record WarehousePage<T>(List<T> items,int page,int size,long totalElements,boolean hasMore){}
  private WarehouseStock lockedStock(WarehouseCommand c){stocks.lockStockKey(c.warehouseId(),c.sku());return stocks.lockByWarehouseAndSku(c.warehouseId(),c.sku()).orElseGet(()->new WarehouseStock(c.warehouseId(),c.sku()));}
  private void validate(WarehouseCommand c,String key){

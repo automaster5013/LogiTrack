@@ -91,7 +91,7 @@ class OrderServiceTest {
         var second=CustomerOrder.create(new CreateOrderRequest("ORD-2",request().origin(),request().destination()),"order-key-2");
         var linked=Delivery.create(new CreateDeliveryRequest(first.getOrderNumber(),"TRUCK-1",
             new CreateDeliveryRequest.Location("Seoul",37.5665,126.978),new CreateDeliveryRequest.Location("Incheon",37.4563,126.7052)),"dispatch-key",first.getId());
-        var pageable=PageRequest.of(0,25,Sort.by(Sort.Direction.DESC,"createdAt"));
+        var pageable=PageRequest.of(0,25,Sort.by(Sort.Direction.DESC,"createdAt").and(Sort.by(Sort.Direction.DESC,"id")));
         when(orders.findAll(pageable)).thenReturn(new PageImpl<>(List.of(first,second)));
         when(deliveries.findByOrderIdIn(any())).thenReturn(List.of(linked));
         var result=service.list(25);

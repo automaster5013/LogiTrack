@@ -58,16 +58,17 @@ public class DeliveryService {
         return saved;
     }
     @Transactional(readOnly=true)
-    public List<Delivery> list(int limit){return repository.findAll(PageRequest.of(0,limit,Sort.by(Sort.Direction.DESC,"createdAt"))).getContent();}
+    public List<Delivery> list(int limit){return repository.findAll(PageRequest.of(0,limit,stableSort())).getContent();}
     @Transactional(readOnly=true)
     public DeliveryPage page(int page,int size){
-        var pageable=PageRequest.of(page,size,Sort.by(Sort.Direction.DESC,"createdAt").and(Sort.by(Sort.Direction.DESC,"id")));
+        var pageable=PageRequest.of(page,size,stableSort());
         var result=repository.findAll(pageable);
         return new DeliveryPage(result.getContent(),result.getNumber(),result.getSize(),result.getTotalElements(),result.hasNext());
     }
     @Transactional(readOnly=true)
     public Delivery get(UUID id){return repository.findById(id).orElseThrow(()->new NoSuchElementException("Delivery not found"));}
     public record DeliveryPage(List<Delivery> items,int page,int size,long totalElements,boolean hasMore){}
+    private Sort stableSort(){return Sort.by(Sort.Direction.DESC,"createdAt").and(Sort.by(Sort.Direction.DESC,"id"));}
     private void validate(CreateDeliveryRequest r){
         if(r==null||r.origin()==null||r.destination()==null)throw new IllegalArgumentException("orderNumber, vehicleId, origin and destination are required");
         InputLimits.required(r.orderNumber(),"orderNumber",80);InputLimits.required(r.vehicleId(),"vehicleId",80);
