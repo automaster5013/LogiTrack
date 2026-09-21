@@ -47,6 +47,7 @@ export default function AlertOperationsPanel({alerts,deliveries,busyId,onSelect,
         <label className="alertFilter" htmlFor="alertSeverity"><span>심각도</span><select id="alertSeverity" value={severity} onChange={event=>setSeverity(event.target.value as "ALL"|DeliveryAlert["severity"])}><option value="ALL">전체</option><option value="CRITICAL">긴급</option><option value="WARNING">주의</option></select></label>
         <label className="alertFilter" htmlFor="alertAcknowledgement"><span>확인 상태</span><select id="alertAcknowledgement" value={acknowledgement} onChange={event=>setAcknowledgement(event.target.value as "ALL"|"UNACKNOWLEDGED"|"ACKNOWLEDGED")}><option value="ALL">전체</option><option value="UNACKNOWLEDGED">미확인</option><option value="ACKNOWLEDGED">확인 완료</option></select></label>
         <label className="alertSearch" htmlFor="alertSearch"><span>경고 검색</span><input id="alertSearch" type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="차량 · 주문 · 내용"/></label>
+        {(query||severity!=="ALL"||acknowledgement!=="ALL")&&<span className="alertFilterResult" aria-live="polite">{scopedAlerts.length}건</span>}
         {(query||severity!=="ALL"||acknowledgement!=="ALL")&&<button type="button" className="alertReset" onClick={()=>{setQuery("");setSeverity("ALL");setAcknowledgement("ALL")}}>초기화</button>}
       </div>
     </div>
