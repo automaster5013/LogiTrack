@@ -109,7 +109,7 @@ production image 다섯 개의 CycloneDX SBOM 생성과 CRITICAL 취약점 0건 
 
 주문과 배송의 독립 lifecycle은 `./scripts/order-smoke.ps1`로 검증합니다. 이 테스트는 주문 생성 멱등성, 단일 배송 연결, `READY → DISPATCHED → FULFILLED`, 주문 outbox 이벤트 3종과 simulator 원상 복구를 확인합니다.
 
-창고 흐름 검증은 `./scripts/warehouse-smoke.ps1`로 실행합니다. API는 `POST /api/warehouse/receipts`, `POST /api/warehouse/outbounds`, `POST /api/warehouse/outbounds/{id}/dispatch`와 재고·작업·ledger 조회를 제공합니다.
+창고 흐름 검증은 `./scripts/warehouse-smoke.ps1`로 실행합니다. API는 `POST /api/warehouse/receipts`, `POST /api/warehouse/outbounds`, `POST /api/warehouse/outbounds/{id}/dispatch`와 재고·작업·ledger 조회를 제공합니다. 누적 이력은 `GET /api/warehouse/stock/page`, `/tasks/page`, `/ledger/page`에서 안정 정렬된 페이지로 조회할 수 있습니다.
 
 도로 경로와 ETA 흐름 검증은 `./scripts/route-smoke.ps1`로 실행합니다. 1KB 이상의 JSON·GeoJSON·CSV 응답은 gzip 협상을 지원하며 `./scripts/response-compression-smoke.ps1`가 경로 응답의 압축 헤더와 50% 이상 전송량 절감을 검증합니다.
 
