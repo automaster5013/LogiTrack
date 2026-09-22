@@ -29,6 +29,7 @@ jobs:
       IMAGE_PLATFORM: linux/amd64
       MAX_IMAGE_SIZE_BYTES: 2147483648
       MAX_TOTAL_IMAGE_SIZE_BYTES: 5368709120
+      TRIVY_IMAGE: ghcr.io/aquasecurity/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969
       AWS_RETRY_MODE: standard
       AWS_MAX_ATTEMPTS: 5
       AWS_PAGER: ""
@@ -167,7 +168,6 @@ jobs:
       - name: Generate and validate SBOMs and vulnerability reports
         env:
           REVISION: ${{ steps.revision.outputs.sha }}
-          TRIVY_IMAGE: ghcr.io/aquasecurity/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969
         run: |
           mkdir -p work/sbom
           for service in api analytics simulator web otel-collector; do
@@ -270,6 +270,7 @@ jobs:
             --arg sbomArtifact "staging-container-sboms-$REVISION" \
             --arg sbomArtifactDigest "$SBOM_ARTIFACT_DIGEST" \
             --arg sbomArtifactUrl "$SBOM_ARTIFACT_URL" \
+            --arg scannerImage "$TRIVY_IMAGE" \
             --arg workflowRunUrl "$WORKFLOW_RUN_URL" \
             --arg workflowActor "$WORKFLOW_ACTOR" \
             --arg workflowEvent "$WORKFLOW_EVENT" \
@@ -282,7 +283,7 @@ jobs:
             --argjson maxTotalImageSizeBytes "$MAX_TOTAL_IMAGE_SIZE_BYTES" \
             --argjson workflowRunId "$WORKFLOW_RUN_ID" \
             --argjson workflowRunAttempt "$WORKFLOW_RUN_ATTEMPT" \
-            '{schemaVersion: 16, revision: $revision, publishedAt: $publishedAt, deploymentEnvironment: $deploymentEnvironment, imagePlatform: $imagePlatform, maxImageSizeBytes: $maxImageSizeBytes, maxTotalImageSizeBytes: $maxTotalImageSizeBytes, totalImageSizeBytes: 0, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, sbomArtifactUrl: $sbomArtifactUrl, images: []}' \
+            '{schemaVersion: 17, revision: $revision, publishedAt: $publishedAt, deploymentEnvironment: $deploymentEnvironment, imagePlatform: $imagePlatform, maxImageSizeBytes: $maxImageSizeBytes, maxTotalImageSizeBytes: $maxTotalImageSizeBytes, totalImageSizeBytes: 0, scannerImage: $scannerImage, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, sbomArtifactUrl: $sbomArtifactUrl, images: []}' \
             > "$manifest"
           for service in api analytics simulator web otel-collector; do
             repository="$ECR_REPOSITORY_PREFIX/$service"
@@ -364,6 +365,7 @@ jobs:
             --repository-prefix "$ECR_REPOSITORY_PREFIX" \
             --sbom-artifact-digest "$SBOM_ARTIFACT_DIGEST" \
             --sbom-artifact-url "$SBOM_ARTIFACT_URL" \
+            --scanner-image "$TRIVY_IMAGE" \
             --sbom-dir work/sbom
       - name: Upload immutable staging release manifest
         id: release-manifest
@@ -449,6 +451,7 @@ jobs:
             echo "- Maximum image size: \`$MAX_IMAGE_SIZE_BYTES bytes\`"
             echo "- Maximum total image size: \`$MAX_TOTAL_IMAGE_SIZE_BYTES bytes\`"
             echo "- Published image total: \`$TOTAL_IMAGE_SIZE_BYTES bytes\`"
+            echo "- Supply-chain scanner: \`$TRIVY_IMAGE\`"
             echo "- Publication run: [$GITHUB_RUN_ID]($WORKFLOW_RUN_URL), attempt \`$WORKFLOW_RUN_ATTEMPT\`"
             echo "- Workflow definition SHA: \`$WORKFLOW_SHA\`"
             echo "- Workflow definition ref: \`$WORKFLOW_REF\`"

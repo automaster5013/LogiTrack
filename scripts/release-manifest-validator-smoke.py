@@ -16,6 +16,7 @@ IMAGE_MEDIA_TYPE = "application/vnd.oci.image.manifest.v1+json"
 MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024 * 1024
 MAX_TOTAL_IMAGE_SIZE_BYTES = 5 * 1024 * 1024 * 1024
 IMAGE_SIZE_BYTES = 123456789
+SCANNER_IMAGE = "ghcr.io/aquasecurity/trivy@sha256:" + "e" * 64
 REGION = "ap-northeast-2"
 REGISTRY = f"{ACCOUNT_ID}.dkr.ecr.{REGION}.amazonaws.com"
 PREFIX = "logitrack"
@@ -86,6 +87,8 @@ def run_validator(path: Path, sbom_dir: Path) -> subprocess.CompletedProcess[str
             SBOM_ARTIFACT_DIGEST,
             "--sbom-artifact-url",
             SBOM_ARTIFACT_URL,
+            "--scanner-image",
+            SCANNER_IMAGE,
             "--sbom-dir",
             str(sbom_dir),
         ],
@@ -110,7 +113,7 @@ def main() -> None:
         for service in SERVICES
     ]
     manifest = {
-        "schemaVersion": 16,
+        "schemaVersion": 17,
         "revision": REVISION,
         "publishedAt": PUBLISHED_AT,
         "deploymentEnvironment": DEPLOYMENT_ENVIRONMENT,
@@ -118,6 +121,7 @@ def main() -> None:
         "maxImageSizeBytes": MAX_IMAGE_SIZE_BYTES,
         "maxTotalImageSizeBytes": MAX_TOTAL_IMAGE_SIZE_BYTES,
         "totalImageSizeBytes": IMAGE_SIZE_BYTES * len(SERVICES),
+        "scannerImage": SCANNER_IMAGE,
         "awsAccountId": ACCOUNT_ID,
         "awsRegion": REGION,
         "sourceRepository": REPOSITORY,
@@ -283,6 +287,13 @@ def main() -> None:
             raise AssertionError("validator accepted an incorrect total image size")
 
         manifest["totalImageSizeBytes"] = IMAGE_SIZE_BYTES * len(SERVICES)
+        manifest["scannerImage"] = "ghcr.io/aquasecurity/trivy:latest"
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        invalid = run_validator(path, sbom_dir)
+        if invalid.returncode == 0:
+            raise AssertionError("validator accepted a tag-based scanner image")
+
+        manifest["scannerImage"] = SCANNER_IMAGE
         manifest["publishedAt"] = "2026-99-99T03:04:05Z"
         path.write_text(json.dumps(manifest), encoding="utf-8")
         invalid = run_validator(path, sbom_dir)
