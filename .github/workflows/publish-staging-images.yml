@@ -277,7 +277,8 @@ jobs:
             --run-id "$WORKFLOW_RUN_ID" \
             --run-attempt "$WORKFLOW_RUN_ATTEMPT" \
             --registry "$ECR_REGISTRY" \
-            --repository-prefix "$ECR_REPOSITORY_PREFIX"
+            --repository-prefix "$ECR_REPOSITORY_PREFIX" \
+            --sbom-dir work/sbom
       - name: Upload immutable staging release manifest
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:

@@ -290,3 +290,5 @@
 - staging OIDC 설정에서 runner의 잔존 AWS 자격 증명을 제거하고 환경 변수의 암묵적 입력 변환을 차단해 명시된 신뢰 경계만 사용
 - ECR login 결과를 승인 AWS 계정·리전의 registry endpoint와 대조해 image·manifest가 잘못된 registry를 가리키는 게시 차단
 - staging release manifest에 SBOM artifact 이름과 서비스별 SBOM SHA-256을 포함해 image와 공급망 증적의 무결성 연결
+- release manifest의 서비스별 SBOM SHA-256을 실제 CycloneDX 파일 내용과 대조해 누락·변조된 공급망 증적 차단
+- 취소된 경로 계산의 background cache 확정 테스트를 inflight 정리와 cache 기록 모두의 bounded 대기로 바꿔 경쟁 조건 제거

@@ -125,7 +125,7 @@ class RoutePlannerCacheTest(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0.005);request.cancel()
         with self.assertRaises(asyncio.CancelledError): await request
         for _ in range(40):
-            if not planner._inflight:
+            if not planner._inflight and len(planner._cache) == 1:
                 break
             await asyncio.sleep(0.005)
         self.assertEqual(0,len(planner._inflight));self.assertEqual(1,len(planner._cache))

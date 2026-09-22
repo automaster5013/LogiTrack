@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -24,6 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--run-attempt", required=True, type=int)
     parser.add_argument("--registry", required=True)
     parser.add_argument("--repository-prefix", required=True)
+    parser.add_argument("--sbom-dir", required=True, type=Path)
     return parser.parse_args()
 
 
@@ -84,6 +86,12 @@ def main() -> None:
             image["sbomSha256"]
         ):
             raise AssertionError(f"release manifest SBOM identity is invalid: {service}")
+        sbom_path = args.sbom_dir / image["sbomFile"]
+        if not sbom_path.is_file():
+            raise AssertionError(f"release manifest SBOM file is missing: {service}")
+        actual_sbom_sha256 = hashlib.sha256(sbom_path.read_bytes()).hexdigest()
+        if image["sbomSha256"] != actual_sbom_sha256:
+            raise AssertionError(f"release manifest SBOM hash does not match: {service}")
 
     print("PASS: staging release manifest binds five digest-pinned images to hashed SBOMs")
 

@@ -99,6 +99,7 @@ def main() -> None:
         'sbom_sha256="$(sha256sum "work/sbom/$sbom_file"',
         "sbomFile: $sbomFile",
         "sbomSha256: $sbomSha256",
+        "--sbom-dir work/sbom",
         "--repository \"$SOURCE_REPOSITORY\"",
         "staging-release-manifest-${{ steps.revision.outputs.sha }}",
     )
