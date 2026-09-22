@@ -312,3 +312,4 @@
 - 신규 빌드와 기존 ECR image 재사용 모두 `linux/amd64` 플랫폼을 강제하고 release manifest에 배포 호환성 계약으로 기록
 - ECR의 서비스별 image manifest media type을 재조회해 OCI·Docker v2 단일 image 형식만 허용하고 release manifest에 기록
 - ECR의 서비스별 압축 image 크기를 재조회해 2 GiB 상한을 강제하고 release manifest에 기록해 비정상 팽창 차단
+- staging image 5종의 압축 크기 합계를 검증해 5 GiB 전체 상한과 실제 합계를 release manifest에 기록

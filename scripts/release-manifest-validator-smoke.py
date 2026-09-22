@@ -14,6 +14,8 @@ DEPLOYMENT_ENVIRONMENT = "staging"
 IMAGE_PLATFORM = "linux/amd64"
 IMAGE_MEDIA_TYPE = "application/vnd.oci.image.manifest.v1+json"
 MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024 * 1024
+MAX_TOTAL_IMAGE_SIZE_BYTES = 5 * 1024 * 1024 * 1024
+IMAGE_SIZE_BYTES = 123456789
 REGION = "ap-northeast-2"
 REGISTRY = f"{ACCOUNT_ID}.dkr.ecr.{REGION}.amazonaws.com"
 PREFIX = "logitrack"
@@ -52,6 +54,8 @@ def run_validator(path: Path, sbom_dir: Path) -> subprocess.CompletedProcess[str
             IMAGE_PLATFORM,
             "--max-image-size-bytes",
             str(MAX_IMAGE_SIZE_BYTES),
+            "--max-total-image-size-bytes",
+            str(MAX_TOTAL_IMAGE_SIZE_BYTES),
             "--region",
             REGION,
             "--repository",
@@ -98,7 +102,7 @@ def main() -> None:
             "repository": f"{PREFIX}/{service}",
             "digest": DIGEST,
             "mediaType": IMAGE_MEDIA_TYPE,
-            "sizeBytes": 123456789,
+            "sizeBytes": IMAGE_SIZE_BYTES,
             "uri": f"{REGISTRY}/{PREFIX}/{service}@{DIGEST}",
             "sbomFile": f"logitrack-{service}.cdx.json",
             "sbomSha256": SBOM_SHA256,
@@ -106,12 +110,14 @@ def main() -> None:
         for service in SERVICES
     ]
     manifest = {
-        "schemaVersion": 15,
+        "schemaVersion": 16,
         "revision": REVISION,
         "publishedAt": PUBLISHED_AT,
         "deploymentEnvironment": DEPLOYMENT_ENVIRONMENT,
         "imagePlatform": IMAGE_PLATFORM,
         "maxImageSizeBytes": MAX_IMAGE_SIZE_BYTES,
+        "maxTotalImageSizeBytes": MAX_TOTAL_IMAGE_SIZE_BYTES,
+        "totalImageSizeBytes": IMAGE_SIZE_BYTES * len(SERVICES),
         "awsAccountId": ACCOUNT_ID,
         "awsRegion": REGION,
         "sourceRepository": REPOSITORY,
@@ -161,7 +167,7 @@ def main() -> None:
         if invalid.returncode == 0:
             raise AssertionError("validator accepted an oversized image")
 
-        manifest["images"][0]["sizeBytes"] = 123456789
+        manifest["images"][0]["sizeBytes"] = IMAGE_SIZE_BYTES
         manifest["images"][0]["sbomSha256"] = "not-a-sha256"
         path.write_text(json.dumps(manifest), encoding="utf-8")
         invalid = run_validator(path, sbom_dir)
@@ -263,6 +269,20 @@ def main() -> None:
             raise AssertionError("validator accepted a mismatched image size policy")
 
         manifest["maxImageSizeBytes"] = MAX_IMAGE_SIZE_BYTES
+        manifest["maxTotalImageSizeBytes"] = MAX_TOTAL_IMAGE_SIZE_BYTES // 2
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        invalid = run_validator(path, sbom_dir)
+        if invalid.returncode == 0:
+            raise AssertionError("validator accepted a mismatched total image size policy")
+
+        manifest["maxTotalImageSizeBytes"] = MAX_TOTAL_IMAGE_SIZE_BYTES
+        manifest["totalImageSizeBytes"] += 1
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        invalid = run_validator(path, sbom_dir)
+        if invalid.returncode == 0:
+            raise AssertionError("validator accepted an incorrect total image size")
+
+        manifest["totalImageSizeBytes"] = IMAGE_SIZE_BYTES * len(SERVICES)
         manifest["publishedAt"] = "2026-99-99T03:04:05Z"
         path.write_text(json.dumps(manifest), encoding="utf-8")
         invalid = run_validator(path, sbom_dir)

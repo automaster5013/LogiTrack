@@ -30,6 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--deployment-environment", required=True)
     parser.add_argument("--image-platform", required=True)
     parser.add_argument("--max-image-size-bytes", required=True, type=int)
+    parser.add_argument("--max-total-image-size-bytes", required=True, type=int)
     parser.add_argument("--region", required=True)
     parser.add_argument("--repository", required=True)
     parser.add_argument("--published-at", required=True)
@@ -70,6 +71,8 @@ def main() -> None:
         "deploymentEnvironment",
         "imagePlatform",
         "maxImageSizeBytes",
+        "maxTotalImageSizeBytes",
+        "totalImageSizeBytes",
         "awsAccountId",
         "awsRegion",
         "sourceRepository",
@@ -87,7 +90,7 @@ def main() -> None:
         "sbomArtifactUrl",
         "images",
     }
-    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 15:
+    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 16:
         raise AssertionError("release manifest schema is invalid")
     if manifest["revision"] != args.revision:
         raise AssertionError("release manifest revision does not match")
@@ -113,6 +116,11 @@ def main() -> None:
         or manifest["maxImageSizeBytes"] != args.max_image_size_bytes
     ):
         raise AssertionError("maximum image size must be exactly 2 GiB")
+    if (
+        args.max_total_image_size_bytes != 5 * 1024 * 1024 * 1024
+        or manifest["maxTotalImageSizeBytes"] != args.max_total_image_size_bytes
+    ):
+        raise AssertionError("maximum total image size must be exactly 5 GiB")
     if manifest["awsAccountId"] != args.account_id or manifest["awsRegion"] != args.region:
         raise AssertionError("release manifest AWS boundary does not match")
     if (
@@ -205,6 +213,12 @@ def main() -> None:
         actual_sbom_sha256 = hashlib.sha256(sbom_path.read_bytes()).hexdigest()
         if image["sbomSha256"] != actual_sbom_sha256:
             raise AssertionError(f"release manifest SBOM hash does not match: {service}")
+    expected_total = sum(image["sizeBytes"] for image in images)
+    if (
+        manifest["totalImageSizeBytes"] != expected_total
+        or not 1 <= expected_total <= args.max_total_image_size_bytes
+    ):
+        raise AssertionError("release manifest total image size is invalid")
 
     print("PASS: staging release manifest binds five digest-pinned images to hashed SBOMs")
 

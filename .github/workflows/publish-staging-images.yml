@@ -28,6 +28,7 @@ jobs:
       DEPLOYMENT_ENVIRONMENT: staging
       IMAGE_PLATFORM: linux/amd64
       MAX_IMAGE_SIZE_BYTES: 2147483648
+      MAX_TOTAL_IMAGE_SIZE_BYTES: 5368709120
       AWS_RETRY_MODE: standard
       AWS_MAX_ATTEMPTS: 5
       AWS_PAGER: ""
@@ -278,9 +279,10 @@ jobs:
             --arg publishedAt "$published_at" \
             --argjson artifactRetentionDays "$ARTIFACT_RETENTION_DAYS" \
             --argjson maxImageSizeBytes "$MAX_IMAGE_SIZE_BYTES" \
+            --argjson maxTotalImageSizeBytes "$MAX_TOTAL_IMAGE_SIZE_BYTES" \
             --argjson workflowRunId "$WORKFLOW_RUN_ID" \
             --argjson workflowRunAttempt "$WORKFLOW_RUN_ATTEMPT" \
-            '{schemaVersion: 15, revision: $revision, publishedAt: $publishedAt, deploymentEnvironment: $deploymentEnvironment, imagePlatform: $imagePlatform, maxImageSizeBytes: $maxImageSizeBytes, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, sbomArtifactUrl: $sbomArtifactUrl, images: []}' \
+            '{schemaVersion: 16, revision: $revision, publishedAt: $publishedAt, deploymentEnvironment: $deploymentEnvironment, imagePlatform: $imagePlatform, maxImageSizeBytes: $maxImageSizeBytes, maxTotalImageSizeBytes: $maxTotalImageSizeBytes, totalImageSizeBytes: 0, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, sbomArtifactUrl: $sbomArtifactUrl, images: []}' \
             > "$manifest"
           for service in api analytics simulator web otel-collector; do
             repository="$ECR_REPOSITORY_PREFIX/$service"
@@ -329,10 +331,16 @@ jobs:
               --arg sbomFile "$sbom_file" \
               --arg sbomSha256 "$sbom_sha256" \
               --argjson sizeBytes "$size_bytes" \
-              '.images += [{service: $service, repository: $repository, digest: $digest, mediaType: $mediaType, sizeBytes: $sizeBytes, uri: $uri, sbomFile: $sbomFile, sbomSha256: $sbomSha256}]' \
+              '.images += [{service: $service, repository: $repository, digest: $digest, mediaType: $mediaType, sizeBytes: $sizeBytes, uri: $uri, sbomFile: $sbomFile, sbomSha256: $sbomSha256}] | .totalImageSizeBytes = ([.images[].sizeBytes] | add)' \
               "$manifest" > "$manifest.tmp"
             mv "$manifest.tmp" "$manifest"
           done
+          total_image_size_bytes="$(jq -r '.totalImageSizeBytes' "$manifest")"
+          if ! [[ "$total_image_size_bytes" =~ ^[1-9][0-9]*$ ]] || [ "$total_image_size_bytes" -gt "$MAX_TOTAL_IMAGE_SIZE_BYTES" ]; then
+            echo "::error::release image total must be between 1 and $MAX_TOTAL_IMAGE_SIZE_BYTES bytes"
+            exit 1
+          fi
+          echo "total-image-size-bytes=$total_image_size_bytes" >> "$GITHUB_OUTPUT"
           python scripts/release-manifest-smoke.py "$manifest" \
             --revision "$REVISION" \
             --account-id "$EXPECTED_AWS_ACCOUNT_ID" \
@@ -340,6 +348,7 @@ jobs:
             --deployment-environment "$DEPLOYMENT_ENVIRONMENT" \
             --image-platform "$IMAGE_PLATFORM" \
             --max-image-size-bytes "$MAX_IMAGE_SIZE_BYTES" \
+            --max-total-image-size-bytes "$MAX_TOTAL_IMAGE_SIZE_BYTES" \
             --region "$AWS_REGION" \
             --repository "$SOURCE_REPOSITORY" \
             --published-at "$published_at" \
@@ -369,6 +378,7 @@ jobs:
           RELEASE_MANIFEST_DIGEST: ${{ steps.release-manifest.outputs.artifact-digest }}
           RELEASE_MANIFEST_URL: ${{ steps.release-manifest.outputs.artifact-url }}
           PUBLISHED_AT: ${{ steps.release.outputs.published-at }}
+          TOTAL_IMAGE_SIZE_BYTES: ${{ steps.release.outputs.total-image-size-bytes }}
           REVISION: ${{ steps.revision.outputs.sha }}
           SBOM_ARTIFACT_DIGEST: ${{ steps.sboms.outputs.artifact-digest }}
           SBOM_ARTIFACT_URL: ${{ steps.sboms.outputs.artifact-url }}
@@ -437,6 +447,8 @@ jobs:
             echo "- Deployment environment: \`$DEPLOYMENT_ENVIRONMENT\`"
             echo "- Image platform: \`$IMAGE_PLATFORM\`"
             echo "- Maximum image size: \`$MAX_IMAGE_SIZE_BYTES bytes\`"
+            echo "- Maximum total image size: \`$MAX_TOTAL_IMAGE_SIZE_BYTES bytes\`"
+            echo "- Published image total: \`$TOTAL_IMAGE_SIZE_BYTES bytes\`"
             echo "- Publication run: [$GITHUB_RUN_ID]($WORKFLOW_RUN_URL), attempt \`$WORKFLOW_RUN_ATTEMPT\`"
             echo "- Workflow definition SHA: \`$WORKFLOW_SHA\`"
             echo "- Workflow definition ref: \`$WORKFLOW_REF\`"
