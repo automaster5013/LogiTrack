@@ -135,6 +135,7 @@ data "aws_iam_policy_document" "publisher" {
     sid    = "PublishVerifiedImages"
     effect = "Allow"
     actions = [
+      "ecr:BatchGetImage",
       "ecr:BatchCheckLayerAvailability",
       "ecr:CompleteLayerUpload",
       "ecr:DescribeImages",

@@ -43,6 +43,7 @@ def main() -> None:
         'resources = values(aws_ecr_repository.service)[*].arn',
         'actions   = ["ecr:GetAuthorizationToken"]',
         'actions   = ["ecr:DescribeRepositories"]',
+        '"ecr:BatchGetImage"',
         '"ecr:DescribeImages"',
         "github_environment_variables",
         'data "aws_caller_identity" "current"',
