@@ -22,6 +22,8 @@ def main() -> None:
         raise AssertionError("publication must pass through the staging GitHub environment")
     if job.get("runs-on") != "ubuntu-24.04" or job.get("timeout-minutes") != 45:
         raise AssertionError("publication runner and timeout are not bounded")
+    if job.get("env") != {"AWS_RETRY_MODE": "standard", "AWS_MAX_ATTEMPTS": 5}:
+        raise AssertionError("AWS API retries must use the bounded standard policy")
     if workflow.get("concurrency", {}).get("cancel-in-progress") is not False:
         raise AssertionError("an in-flight immutable publication must not be cancelled")
 

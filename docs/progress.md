@@ -283,3 +283,4 @@
 - staging image의 OCI source label을 build·재실행 양쪽에서 repository와 대조해 동일 SHA를 가장한 외부 출처 image 재사용 차단
 - 취소된 analytics route background 정리 테스트를 고정 지연 대신 bounded 상태 대기로 바꿔 느린 runner의 간헐 실패 제거
 - 기존 staging image 재사용 검증을 tag가 아닌 ECR에서 확인한 digest URI pull로 고정해 조회·검증 사이 변경 가능성 제거
+- staging image 게시의 AWS API 호출에 최대 5회 bounded standard retry를 적용해 일시적 STS·ECR 오류의 불필요한 수동 재실행 감소
