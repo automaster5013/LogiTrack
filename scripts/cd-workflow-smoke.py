@@ -14,6 +14,8 @@ def main() -> None:
     workflow = yaml.safe_load(source)
     job = workflow.get("jobs", {}).get("publish", {})
 
+    if workflow.get("run-name") != "Publish staging ${{ inputs.revision }}":
+        raise AssertionError("staging publication run name must identify the requested revision")
     if not re.search(r"(?m)^on:\s*\n\s+workflow_dispatch:\s*$", source):
         raise AssertionError("staging publication must only be manually dispatched")
     if workflow.get("permissions") != {"contents": "read", "id-token": "write"}:

@@ -1,4 +1,5 @@
 name: Publish staging images
+run-name: Publish staging ${{ inputs.revision }}
 
 on:
   workflow_dispatch:
