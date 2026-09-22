@@ -7,6 +7,7 @@
 - staging image push 후 ECR digest 5종을 재검증하고 계정·리전·revision과 digest URI를 담은 불변 release manifest artifact 생성
 - staging image 부분 게시 실패 후 재실행 시 기존 immutable tag의 digest 형식·OCI revision provenance를 검증해 안전하게 재사용
 - staging image 게시 전 OIDC caller의 12자리 AWS 계정 ID를 검증해 잘못 구성된 역할에 의한 타 계정 ECR 오배포 차단
+- staging image build 전 실제 ECR repository의 immutable tag·scan-on-push·AES256 설정 drift 검증
 - ECR immutable repository 5개와 GitHub staging OIDC 최소 권한 publisher role을 정의하는 비적용 Terraform bootstrap 및 CI validate gate
 - ECR repository별 최신 image 30개 rollback 보존과 미태그 image 7일 만료를 강제하는 검증 가능 lifecycle 정책
 - ECR repository의 Terraform `prevent_destroy`와 AWS 비어 있지 않은 저장소 삭제 거부를 결합한 이중 삭제 방어

@@ -69,7 +69,17 @@ jobs:
             exit 1
           fi
           for service in api analytics simulator web otel-collector; do
-            aws ecr describe-repositories --repository-names "$ECR_REPOSITORY_PREFIX/$service" >/dev/null
+            repository="$ECR_REPOSITORY_PREFIX/$service"
+            configuration="$(aws ecr describe-repositories \
+              --repository-names "$repository" \
+              --query 'repositories[0].{tagMutability:imageTagMutability,scanOnPush:imageScanningConfiguration.scanOnPush,encryptionType:encryptionConfiguration.encryptionType}' \
+              --output json)"
+            if ! jq -e \
+              '.tagMutability == "IMMUTABLE" and .scanOnPush == true and .encryptionType == "AES256"' \
+              <<< "$configuration" >/dev/null; then
+              echo "::error::$repository must use immutable tags, scan-on-push, and AES256 encryption"
+              exit 1
+            fi
           done
       - name: Log in to Amazon ECR
         id: ecr

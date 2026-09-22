@@ -44,6 +44,8 @@ def main() -> None:
         '[[ "$EXPECTED_AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ ]]',
         'actual_account_id" != "$EXPECTED_AWS_ACCOUNT_ID',
         "aws ecr describe-repositories",
+        '.tagMutability == "IMMUTABLE" and .scanOnPush == true and .encryptionType == "AES256"',
+        "must use immutable tags, scan-on-push, and AES256 encryption",
         "aws ecr describe-images",
         'published_revision" != "$REVISION',
         "already exists with verified revision label",
