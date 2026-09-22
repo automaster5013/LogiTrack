@@ -279,3 +279,4 @@
 - 다중 차량 telemetry 조회의 5,000건 상한 안에서 차량별 최신 좌표를 우선 보장해 고빈도 차량에 의한 지도 위치 누락 방지
 - 중단된 staging image 게시 재실행 시 기존 immutable image를 pull·검증할 수 있도록 ECR publisher의 repository 한정 read 권한 보완
 - staging image 게시 전에 ECR lifecycle policy의 rule 수·순서·보존 범위를 검증해 비용·rollback 보호 설정 drift 차단
+- staging release manifest에 source repository와 GitHub workflow run ID·attempt를 포함해 standalone artifact의 게시 실행 추적성 확보

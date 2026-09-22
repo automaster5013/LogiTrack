@@ -12,6 +12,9 @@ REGION = "ap-northeast-2"
 REGISTRY = f"{ACCOUNT_ID}.dkr.ecr.{REGION}.amazonaws.com"
 PREFIX = "logitrack"
 DIGEST = "sha256:" + "b" * 64
+REPOSITORY = "automaster5013/LogiTrack"
+RUN_ID = 123456789
+RUN_ATTEMPT = 2
 
 
 def run_validator(path: Path) -> subprocess.CompletedProcess[str]:
@@ -26,6 +29,12 @@ def run_validator(path: Path) -> subprocess.CompletedProcess[str]:
             ACCOUNT_ID,
             "--region",
             REGION,
+            "--repository",
+            REPOSITORY,
+            "--run-id",
+            str(RUN_ID),
+            "--run-attempt",
+            str(RUN_ATTEMPT),
             "--registry",
             REGISTRY,
             "--repository-prefix",
@@ -52,6 +61,9 @@ def main() -> None:
         "revision": REVISION,
         "awsAccountId": ACCOUNT_ID,
         "awsRegion": REGION,
+        "sourceRepository": REPOSITORY,
+        "workflowRunId": RUN_ID,
+        "workflowRunAttempt": RUN_ATTEMPT,
         "images": images,
     }
     with tempfile.TemporaryDirectory() as directory:
@@ -67,7 +79,14 @@ def main() -> None:
         if invalid.returncode == 0:
             raise AssertionError("validator accepted an invalid image digest")
 
-    print("PASS: release manifest validator accepts pinned images and rejects invalid digests")
+        manifest["images"][0]["digest"] = DIGEST
+        manifest["workflowRunAttempt"] = RUN_ATTEMPT + 1
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        invalid = run_validator(path)
+        if invalid.returncode == 0:
+            raise AssertionError("validator accepted mismatched workflow provenance")
+
+    print("PASS: release manifest validator accepts pinned images and rejects invalid digest or workflow provenance")
 
 
 if __name__ == "__main__":

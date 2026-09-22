@@ -195,6 +195,9 @@ jobs:
           ECR_REPOSITORY_PREFIX: ${{ vars.ECR_REPOSITORY_PREFIX }}
           EXPECTED_AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
           REVISION: ${{ steps.revision.outputs.sha }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
         run: |
           mkdir -p work/release
           manifest="work/release/staging-release-manifest.json"
@@ -202,7 +205,10 @@ jobs:
             --arg revision "$REVISION" \
             --arg accountId "$EXPECTED_AWS_ACCOUNT_ID" \
             --arg region "$AWS_REGION" \
-            '{schemaVersion: 1, revision: $revision, awsAccountId: $accountId, awsRegion: $region, images: []}' \
+            --arg sourceRepository "$SOURCE_REPOSITORY" \
+            --argjson workflowRunId "$WORKFLOW_RUN_ID" \
+            --argjson workflowRunAttempt "$WORKFLOW_RUN_ATTEMPT" \
+            '{schemaVersion: 1, revision: $revision, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, images: []}' \
             > "$manifest"
           for service in api analytics simulator web otel-collector; do
             repository="$ECR_REPOSITORY_PREFIX/$service"
@@ -228,6 +234,9 @@ jobs:
             --revision "$REVISION" \
             --account-id "$EXPECTED_AWS_ACCOUNT_ID" \
             --region "$AWS_REGION" \
+            --repository "$SOURCE_REPOSITORY" \
+            --run-id "$WORKFLOW_RUN_ID" \
+            --run-attempt "$WORKFLOW_RUN_ATTEMPT" \
             --registry "$ECR_REGISTRY" \
             --repository-prefix "$ECR_REPOSITORY_PREFIX"
       - name: Upload immutable staging release manifest

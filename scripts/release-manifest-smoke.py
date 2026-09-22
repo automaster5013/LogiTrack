@@ -9,6 +9,7 @@ DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 REVISION = re.compile(r"^[0-9a-f]{40}$")
 ACCOUNT_ID = re.compile(r"^[0-9]{12}$")
 REGION = re.compile(r"^[a-z]{2}(-gov)?-[a-z]+-[0-9]+$")
+REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 
 
 def parse_args() -> argparse.Namespace:
@@ -17,6 +18,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--revision", required=True)
     parser.add_argument("--account-id", required=True)
     parser.add_argument("--region", required=True)
+    parser.add_argument("--repository", required=True)
+    parser.add_argument("--run-id", required=True, type=int)
+    parser.add_argument("--run-attempt", required=True, type=int)
     parser.add_argument("--registry", required=True)
     parser.add_argument("--repository-prefix", required=True)
     return parser.parse_args()
@@ -30,6 +34,10 @@ def main() -> None:
         raise AssertionError("account ID must contain exactly 12 digits")
     if not REGION.fullmatch(args.region):
         raise AssertionError("AWS region is invalid")
+    if not REPOSITORY.fullmatch(args.repository):
+        raise AssertionError("source repository is invalid")
+    if args.run_id <= 0 or args.run_attempt <= 0:
+        raise AssertionError("workflow run identity must be positive")
 
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     expected_top_level = {
@@ -37,6 +45,9 @@ def main() -> None:
         "revision",
         "awsAccountId",
         "awsRegion",
+        "sourceRepository",
+        "workflowRunId",
+        "workflowRunAttempt",
         "images",
     }
     if set(manifest) != expected_top_level or manifest["schemaVersion"] != 1:
@@ -45,6 +56,12 @@ def main() -> None:
         raise AssertionError("release manifest revision does not match")
     if manifest["awsAccountId"] != args.account_id or manifest["awsRegion"] != args.region:
         raise AssertionError("release manifest AWS boundary does not match")
+    if (
+        manifest["sourceRepository"] != args.repository
+        or manifest["workflowRunId"] != args.run_id
+        or manifest["workflowRunAttempt"] != args.run_attempt
+    ):
+        raise AssertionError("release manifest workflow provenance does not match")
 
     images = manifest["images"]
     if not isinstance(images, list) or [image.get("service") for image in images] != list(SERVICES):

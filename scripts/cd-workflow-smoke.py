@@ -58,6 +58,9 @@ def main() -> None:
         "--severity CRITICAL",
         "scripts/sbom-smoke.py",
         "scripts/release-manifest-smoke.py",
+        "workflowRunId: $workflowRunId",
+        "workflowRunAttempt: $workflowRunAttempt",
+        "--repository \"$SOURCE_REPOSITORY\"",
         "staging-release-manifest-${{ steps.revision.outputs.sha }}",
     )
     for value in required:
