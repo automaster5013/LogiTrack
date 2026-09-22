@@ -12,6 +12,11 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
+resource "aws_iam_openid_connect_provider" "github" {
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
+}
+
 locals {
   services = toset([
     "api",
@@ -85,7 +90,7 @@ data "aws_iam_policy_document" "publisher_trust" {
 
     principals {
       type        = "Federated"
-      identifiers = [var.github_oidc_provider_arn]
+      identifiers = [aws_iam_openid_connect_provider.github.arn]
     }
 
     condition {
@@ -108,12 +113,6 @@ resource "aws_iam_role" "image_publisher" {
   assume_role_policy   = data.aws_iam_policy_document.publisher_trust.json
   max_session_duration = 3600
 
-  lifecycle {
-    precondition {
-      condition     = split(":", var.github_oidc_provider_arn)[4] == data.aws_caller_identity.current.account_id
-      error_message = "github_oidc_provider_arn must belong to the AWS account running this bootstrap."
-    }
-  }
 }
 
 data "aws_iam_policy_document" "publisher" {

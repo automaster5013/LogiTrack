@@ -20,6 +20,10 @@ def main() -> None:
     for fragment in (
         'required_version = ">= 1.16.0, < 2.0.0"',
         'version = "~> 6.0"',
+        'backend "s3" {}',
+        'resource "aws_iam_openid_connect_provider" "github"',
+        'url            = "https://token.actions.githubusercontent.com"',
+        'client_id_list = ["sts.amazonaws.com"]',
         'image_tag_mutability = "IMMUTABLE"',
         "force_delete         = false",
         "prevent_destroy = true",
@@ -49,8 +53,7 @@ def main() -> None:
         "github_environment_variables",
         'data "aws_caller_identity" "current"',
         "AWS_ACCOUNT_ID        = data.aws_caller_identity.current.account_id",
-        'split(":", var.github_oidc_provider_arn)[4] == data.aws_caller_identity.current.account_id',
-        "github_oidc_provider_arn must belong to the AWS account running this bootstrap.",
+        "aws_iam_openid_connect_provider.github.arn",
     ):
         require(source, fragment)
 

@@ -8,16 +8,6 @@ variable "aws_region" {
   }
 }
 
-variable "github_oidc_provider_arn" {
-  description = "ARN of the account's existing token.actions.githubusercontent.com OIDC provider."
-  type        = string
-
-  validation {
-    condition     = can(regex("^arn:aws[a-z-]*:iam::[0-9]{12}:oidc-provider/token\\.actions\\.githubusercontent\\.com$", var.github_oidc_provider_arn))
-    error_message = "github_oidc_provider_arn must identify GitHub's OIDC provider in the target account."
-  }
-}
-
 variable "github_owner" {
   description = "GitHub organization or user that owns the repository."
   type        = string

@@ -1,5 +1,4 @@
 aws_region              = "ap-northeast-2"
-github_oidc_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
 
 # Defaults match this repository and the protected staging environment.
 # github_owner        = "automaster5013"

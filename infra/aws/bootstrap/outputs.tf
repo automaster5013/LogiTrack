@@ -8,6 +8,11 @@ output "github_environment_variables" {
   }
 }
 
+output "github_oidc_provider_arn" {
+  description = "Account-scoped GitHub Actions OIDC provider used by the publisher role."
+  value       = aws_iam_openid_connect_provider.github.arn
+}
+
 output "ecr_repository_urls" {
   description = "Immutable repositories used by the staging image publication workflow."
   value       = { for service, repository in aws_ecr_repository.service : service => repository.repository_url }
