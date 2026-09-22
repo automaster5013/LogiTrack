@@ -36,6 +36,19 @@ def main() -> None:
         if action and not PINNED_ACTION.fullmatch(action):
             raise AssertionError(f"publication uses a mutable action reference: {action}")
 
+    credential_steps = [
+        step
+        for step in job.get("steps", [])
+        if str(step.get("uses", "")).startswith("aws-actions/configure-aws-credentials@")
+    ]
+    if len(credential_steps) != 1:
+        raise AssertionError("publication must configure AWS credentials exactly once")
+    credential_inputs = credential_steps[0].get("with", {})
+    if credential_inputs.get("allowed-account-ids") != "${{ vars.AWS_ACCOUNT_ID }}":
+        raise AssertionError("OIDC credentials must be restricted to the configured AWS account")
+    if credential_inputs.get("mask-aws-account-id") is not True:
+        raise AssertionError("AWS account IDs must be masked in publication logs")
+
     forbidden = ("secrets.", "latest", "aws-access-key-id", "aws-secret-access-key", "kaiser5013")
     for value in forbidden:
         if value.lower() in source.lower():
