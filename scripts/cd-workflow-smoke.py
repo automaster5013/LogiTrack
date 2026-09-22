@@ -45,6 +45,9 @@ def main() -> None:
         'actual_account_id" != "$EXPECTED_AWS_ACCOUNT_ID',
         "aws ecr describe-repositories",
         "aws ecr describe-images",
+        'published_revision" != "$REVISION',
+        "already exists with verified revision label",
+        "returned an invalid existing digest",
         "--severity CRITICAL",
         "scripts/sbom-smoke.py",
         "scripts/release-manifest-smoke.py",
@@ -58,7 +61,7 @@ def main() -> None:
             raise AssertionError(f"publication does not build the {service} image by commit SHA")
 
     scan_index = source.index("Generate and validate SBOMs and vulnerability reports")
-    push_index = source.index("Push commit-addressed images")
+    push_index = source.index("Push or verify commit-addressed images")
     manifest_index = source.index("Verify published digests and create release manifest")
     manifest_upload_index = source.index("Upload immutable staging release manifest")
     identity_index = source.index("Verify the intended AWS account")

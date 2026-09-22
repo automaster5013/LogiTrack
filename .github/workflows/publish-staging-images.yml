@@ -122,7 +122,7 @@ jobs:
           path: work/sbom/*.cdx.json
           if-no-files-found: error
           retention-days: 30
-      - name: Push commit-addressed images
+      - name: Push or verify commit-addressed images
         env:
           ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
           ECR_REPOSITORY_PREFIX: ${{ vars.ECR_REPOSITORY_PREFIX }}
@@ -131,6 +131,27 @@ jobs:
           for service in api analytics simulator web otel-collector; do
             source="logitrack-$service:$REVISION"
             destination="$ECR_REGISTRY/$ECR_REPOSITORY_PREFIX/$service:$REVISION"
+            repository="$ECR_REPOSITORY_PREFIX/$service"
+            if existing_digest="$(aws ecr describe-images \
+              --repository-name "$repository" \
+              --image-ids "imageTag=$REVISION" \
+              --query 'imageDetails[0].imageDigest' \
+              --output text 2>/dev/null)"; then
+              if ! [[ "$existing_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+                echo "::error::$repository:$REVISION returned an invalid existing digest"
+                exit 1
+              fi
+              docker pull "$destination"
+              published_revision="$(docker image inspect \
+                --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' \
+                "$destination")"
+              if [ "$published_revision" != "$REVISION" ]; then
+                echo "::error::$repository:$REVISION is occupied by an image with mismatched provenance"
+                exit 1
+              fi
+              echo "$repository:$REVISION already exists with verified revision label; reusing $existing_digest"
+              continue
+            fi
             docker tag "$source" "$destination"
             docker push "$destination"
           done
