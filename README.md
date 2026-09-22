@@ -25,6 +25,7 @@ docker compose up --build
 웹과 관측성 서비스는 HTTP 응답으로, simulator는 Kafka 소비 루프 heartbeat로 준비 상태를 판정하므로 `docker compose up --wait`가 모든 장기 실행 서비스의 실제 동작 가능 상태까지 기다립니다.
 
 - 운영 콘솔: http://localhost:3000 또는 http://127.0.0.1:3000
+- 프로젝트 쇼케이스: http://localhost:3000/showcase
 - API health: http://localhost:8080/actuator/health
 - 경로 분석 health: http://localhost:8090/health
 - Prometheus: http://localhost:9090
@@ -63,6 +64,7 @@ curl -X POST http://localhost:8080/api/orders/{orderId}/dispatch \
 - [요구사항과 성공 기준](docs/requirements.md)
 - [8~10주 로드맵](docs/roadmap.md)
 - [아키텍처 및 데이터 모델](docs/architecture.md)
+- [운영자 QR·패스키 인증 설계](docs/qr-passkey-authentication.md)
 - [기술 선택 ADR](docs/adr/0001-technology-stack.md)
 - [실시간 지도 ADR](docs/adr/0002-live-map.md)
 - [경로 분석 ADR](docs/adr/0003-route-analytics.md)

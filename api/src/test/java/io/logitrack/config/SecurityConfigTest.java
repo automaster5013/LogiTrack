@@ -26,6 +26,13 @@ class SecurityConfigTest{
             .containsExactly("ROLE_VIEWER","ROLE_RECOVERY_OPERATOR");
     }
 
+    @Test void mapsCognitoGroupsBeforeGenericRoles(){
+        var jwt=Jwt.withTokenValue("token").header("alg","none").subject("operator-8")
+            .issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(60))
+            .claim("cognito:groups",List.of("ADMIN")).claim("roles",List.of("VIEWER")).build();
+        assertThat(new SecurityConfig.RoleClaimConverter().convert(jwt)).extracting("authority").containsExactly("ROLE_ADMIN");
+    }
+
     @Test void replacesSpoofedOperatorHeaderWithAuthenticatedSubject()throws Exception{
         var authentication=new TestingAuthenticationToken("oidc-subject-42","n/a");
         authentication.setAuthenticated(true);

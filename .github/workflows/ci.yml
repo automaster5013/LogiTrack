@@ -84,6 +84,11 @@ jobs:
           terraform -chdir=infra/aws/bootstrap fmt -check
           terraform -chdir=infra/aws/bootstrap init -backend=false -input=false
           terraform -chdir=infra/aws/bootstrap validate
+      - name: Validate Cognito passkey Terraform
+        run: |
+          terraform -chdir=infra/aws/auth fmt -check
+          terraform -chdir=infra/aws/auth init -backend=false -input=false
+          terraform -chdir=infra/aws/auth validate
       - name: Validate Docker build contexts
         run: python scripts/docker-context-smoke.py
       - name: Verify PostgreSQL backup and restore round trip
