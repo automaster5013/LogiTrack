@@ -6,6 +6,7 @@ from pathlib import Path
 
 SERVICES = ("api", "analytics", "simulator", "web", "otel-collector")
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+SHA256 = re.compile(r"^[0-9a-f]{64}$")
 REVISION = re.compile(r"^[0-9a-f]{40}$")
 ACCOUNT_ID = re.compile(r"^[0-9]{12}$")
 REGION = re.compile(r"^[a-z]{2}(-gov)?-[a-z]+-[0-9]+$")
@@ -48,9 +49,10 @@ def main() -> None:
         "sourceRepository",
         "workflowRunId",
         "workflowRunAttempt",
+        "sbomArtifact",
         "images",
     }
-    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 1:
+    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 2:
         raise AssertionError("release manifest schema is invalid")
     if manifest["revision"] != args.revision:
         raise AssertionError("release manifest revision does not match")
@@ -62,12 +64,14 @@ def main() -> None:
         or manifest["workflowRunAttempt"] != args.run_attempt
     ):
         raise AssertionError("release manifest workflow provenance does not match")
+    if manifest["sbomArtifact"] != f"staging-container-sboms-{args.revision}":
+        raise AssertionError("release manifest SBOM artifact does not match the revision")
 
     images = manifest["images"]
     if not isinstance(images, list) or [image.get("service") for image in images] != list(SERVICES):
         raise AssertionError("release manifest must contain each service exactly once in stable order")
     for image in images:
-        if set(image) != {"service", "repository", "digest", "uri"}:
+        if set(image) != {"service", "repository", "digest", "uri", "sbomFile", "sbomSha256"}:
             raise AssertionError("release manifest image schema is invalid")
         service = image["service"]
         repository = f"{args.repository_prefix}/{service}"
@@ -76,8 +80,12 @@ def main() -> None:
             raise AssertionError(f"release manifest image identity is invalid: {service}")
         if image["uri"] != f"{args.registry}/{repository}@{digest}":
             raise AssertionError(f"release manifest image URI is not digest-pinned: {service}")
+        if image["sbomFile"] != f"logitrack-{service}.cdx.json" or not SHA256.fullmatch(
+            image["sbomSha256"]
+        ):
+            raise AssertionError(f"release manifest SBOM identity is invalid: {service}")
 
-    print("PASS: staging release manifest contains five verified digest-pinned images")
+    print("PASS: staging release manifest binds five digest-pinned images to hashed SBOMs")
 
 
 if __name__ == "__main__":

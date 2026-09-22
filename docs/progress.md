@@ -289,3 +289,4 @@
 - staging OIDC 역할 인수를 최대 5회·120초로 제한해 STS 장애나 오구성 시 게시 workflow 장기 정체 방지
 - staging OIDC 설정에서 runner의 잔존 AWS 자격 증명을 제거하고 환경 변수의 암묵적 입력 변환을 차단해 명시된 신뢰 경계만 사용
 - ECR login 결과를 승인 AWS 계정·리전의 registry endpoint와 대조해 image·manifest가 잘못된 registry를 가리키는 게시 차단
+- staging release manifest에 SBOM artifact 이름과 서비스별 SBOM SHA-256을 포함해 image와 공급망 증적의 무결성 연결

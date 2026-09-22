@@ -95,6 +95,10 @@ def main() -> None:
         "scripts/release-manifest-smoke.py",
         "workflowRunId: $workflowRunId",
         "workflowRunAttempt: $workflowRunAttempt",
+        "sbomArtifact: $sbomArtifact",
+        'sbom_sha256="$(sha256sum "work/sbom/$sbom_file"',
+        "sbomFile: $sbomFile",
+        "sbomSha256: $sbomSha256",
         "--repository \"$SOURCE_REPOSITORY\"",
         "staging-release-manifest-${{ steps.revision.outputs.sha }}",
     )

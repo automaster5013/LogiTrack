@@ -236,12 +236,19 @@ jobs:
             --arg accountId "$EXPECTED_AWS_ACCOUNT_ID" \
             --arg region "$AWS_REGION" \
             --arg sourceRepository "$SOURCE_REPOSITORY" \
+            --arg sbomArtifact "staging-container-sboms-$REVISION" \
             --argjson workflowRunId "$WORKFLOW_RUN_ID" \
             --argjson workflowRunAttempt "$WORKFLOW_RUN_ATTEMPT" \
-            '{schemaVersion: 1, revision: $revision, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, images: []}' \
+            '{schemaVersion: 2, revision: $revision, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, sbomArtifact: $sbomArtifact, images: []}' \
             > "$manifest"
           for service in api analytics simulator web otel-collector; do
             repository="$ECR_REPOSITORY_PREFIX/$service"
+            sbom_file="logitrack-$service.cdx.json"
+            sbom_sha256="$(sha256sum "work/sbom/$sbom_file" | awk '{print $1}')"
+            if ! [[ "$sbom_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "::error::$service SBOM has no valid SHA-256"
+              exit 1
+            fi
             digest="$(aws ecr describe-images \
               --repository-name "$repository" \
               --image-ids "imageTag=$REVISION" \
@@ -256,7 +263,9 @@ jobs:
               --arg repository "$repository" \
               --arg digest "$digest" \
               --arg uri "$ECR_REGISTRY/$repository@$digest" \
-              '.images += [{service: $service, repository: $repository, digest: $digest, uri: $uri}]' \
+              --arg sbomFile "$sbom_file" \
+              --arg sbomSha256 "$sbom_sha256" \
+              '.images += [{service: $service, repository: $repository, digest: $digest, uri: $uri, sbomFile: $sbomFile, sbomSha256: $sbomSha256}]' \
               "$manifest" > "$manifest.tmp"
             mv "$manifest.tmp" "$manifest"
           done
