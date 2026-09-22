@@ -53,6 +53,12 @@ resource "aws_cognito_user_pool_client" "web" {
   }
 }
 
+resource "aws_cognito_managed_login_branding" "web" {
+  client_id                   = aws_cognito_user_pool_client.web.id
+  user_pool_id                = aws_cognito_user_pool.operators.id
+  use_cognito_provided_values = true
+}
+
 # Cognito requires the custom domain's parent to resolve before it will create
 # the CloudFront distribution. Replace this TEST-NET address with the runtime
 # load-balancer alias when the web stack is provisioned.
