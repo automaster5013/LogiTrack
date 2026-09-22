@@ -1,6 +1,6 @@
 # AWS image publication bootstrap
 
-This Terraform root creates only the five private ECR repositories and the least-privilege IAM role required by `Publish staging images`. It does not create or update ECS, databases, networking, DNS, certificates, or other runtime infrastructure.
+This Terraform root creates only the five private ECR repositories, their bounded lifecycle policies, and the least-privilege IAM role required by `Publish staging images`. It does not create or update ECS, databases, networking, DNS, certificates, or other runtime infrastructure.
 
 ## Prerequisites
 
@@ -19,8 +19,8 @@ terraform -chdir=infra/aws/bootstrap plan -out=bootstrap.tfplan
 terraform -chdir=infra/aws/bootstrap show bootstrap.tfplan
 ```
 
-The plan should contain exactly five immutable, scan-on-push ECR repositories, one IAM role, and one inline role policy. Review it before apply. Applying is intentionally a separate operator action because it creates billable external resources.
+The plan should contain exactly five immutable, scan-on-push ECR repositories, five lifecycle policies, one IAM role, and one inline role policy. By default each repository retains its newest 30 images for rollback and expires untagged images after 7 days. The validated inputs allow 10–200 retained images and a 1–30 day untagged grace period. Review the plan before apply. Applying is intentionally a separate operator action because it creates billable external resources and later expires images outside the configured rollback window.
 
 After an approved apply, copy the `github_environment_variables` output (`AWS_ROLE_ARN`, `AWS_REGION`, `AWS_ACCOUNT_ID`, and `ECR_REPOSITORY_PREFIX`) into variables on the protected GitHub `staging` environment. The publication workflow compares the OIDC caller account to `AWS_ACCOUNT_ID` before it accesses ECR. The AWS login email and long-lived access keys must never be stored in Terraform, GitHub variables, or this repository.
 
-Repository deletion is protected by `force_delete = false`; Terraform cannot remove a non-empty repository. Published tags are immutable, the publisher can read back only the image metadata needed to create a digest-pinned release manifest, and the role trust policy accepts only OIDC tokens for `automaster5013/LogiTrack` using the `staging` environment.
+Repository deletion is protected by `force_delete = false`; Terraform cannot remove a non-empty repository. Published tags are immutable, lifecycle expiry is bounded by explicit retention inputs, the publisher can read back only the image metadata needed to create a digest-pinned release manifest, and the role trust policy accepts only OIDC tokens for `automaster5013/LogiTrack` using the `staging` environment.

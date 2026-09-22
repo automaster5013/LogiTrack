@@ -24,6 +24,15 @@ def main() -> None:
         "force_delete         = false",
         "scan_on_push = true",
         'encryption_type = "AES256"',
+        'resource "aws_ecr_lifecycle_policy" "service"',
+        'tagStatus   = "untagged"',
+        'countType   = "sinceImagePushed"',
+        'countNumber = var.untagged_image_retention_days',
+        'tagStatus   = "any"',
+        'countType   = "imageCountMoreThan"',
+        'countNumber = var.retained_images',
+        'default     = 30',
+        'default     = 7',
         'actions = ["sts:AssumeRoleWithWebIdentity"]',
         'variable = "token.actions.githubusercontent.com:aud"',
         'values   = ["sts.amazonaws.com"]',
@@ -67,7 +76,7 @@ def main() -> None:
     if not trust or trust.group(1) != "repo:${var.github_owner}/${var.github_repository}:environment:${var.github_environment}":
         raise AssertionError("OIDC subject is not restricted to one repository environment")
 
-    print("PASS: AWS bootstrap is immutable, least-privilege, environment-scoped, and runtime-free")
+    print("PASS: AWS bootstrap is immutable, lifecycle-bounded, least-privilege, environment-scoped, and runtime-free")
 
 
 if __name__ == "__main__":

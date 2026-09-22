@@ -12,3 +12,11 @@ output "ecr_repository_urls" {
   description = "Immutable repositories used by the staging image publication workflow."
   value       = { for service, repository in aws_ecr_repository.service : service => repository.repository_url }
 }
+
+output "ecr_retention" {
+  description = "Lifecycle guardrails applied independently to every service repository."
+  value = {
+    retained_images               = var.retained_images
+    untagged_image_retention_days = var.untagged_image_retention_days
+  }
+}

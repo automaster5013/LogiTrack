@@ -38,6 +38,41 @@ resource "aws_ecr_repository" "service" {
   }
 }
 
+resource "aws_ecr_lifecycle_policy" "service" {
+  for_each = local.services
+
+  repository = aws_ecr_repository.service[each.key].name
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Expire untagged images after the configured grace period"
+        selection = {
+          tagStatus   = "untagged"
+          countType   = "sinceImagePushed"
+          countUnit   = "days"
+          countNumber = var.untagged_image_retention_days
+        }
+        action = {
+          type = "expire"
+        }
+      },
+      {
+        rulePriority = 2
+        description  = "Retain the newest images for rollback"
+        selection = {
+          tagStatus   = "any"
+          countType   = "imageCountMoreThan"
+          countNumber = var.retained_images
+        }
+        action = {
+          type = "expire"
+        }
+      },
+    ]
+  })
+}
+
 data "aws_iam_policy_document" "publisher_trust" {
   statement {
     sid     = "GitHubStagingEnvironmentOnly"

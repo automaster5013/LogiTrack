@@ -61,3 +61,25 @@ variable "repository_prefix" {
     error_message = "repository_prefix must be a valid private ECR repository prefix."
   }
 }
+
+variable "retained_images" {
+  description = "Number of newest images retained in each service repository for staging rollback."
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.retained_images >= 10 && var.retained_images <= 200 && floor(var.retained_images) == var.retained_images
+    error_message = "retained_images must be an integer between 10 and 200."
+  }
+}
+
+variable "untagged_image_retention_days" {
+  description = "Days to retain untagged images before ECR expires them."
+  type        = number
+  default     = 7
+
+  validation {
+    condition     = var.untagged_image_retention_days >= 1 && var.untagged_image_retention_days <= 30 && floor(var.untagged_image_retention_days) == var.untagged_image_retention_days
+    error_message = "untagged_image_retention_days must be an integer between 1 and 30."
+  }
+}

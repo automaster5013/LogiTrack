@@ -45,7 +45,7 @@ GitHub repository의 `staging` environment에 승인자를 지정하고 아래 e
 
 ECR에는 `<prefix>/api`, `<prefix>/analytics`, `<prefix>/simulator`, `<prefix>/web`, `<prefix>/otel-collector` repository가 먼저 존재해야 한다. workflow는 OIDC 자격 증명이 `AWS_ACCOUNT_ID`와 정확히 일치하는지 먼저 확인하며, 계정이 다르거나 변수가 없으면 ECR 접근 전에 실패한다. repository나 다른 AWS 자원을 생성하지 않으며, 하나라도 없으면 build 전에 실패한다. 장기 access key와 AWS 로그인 이메일은 GitHub secret·variable·소스 코드에 저장하지 않는다.
 
-`infra/aws/bootstrap` Terraform root는 이 사전 구성을 재현한다. 기존 GitHub Actions OIDC provider ARN과 확정 리전만 입력받아 immutable tag·scan-on-push·비어 있지 않으면 삭제 불가인 ECR repository 5개와 해당 repository에만 push 가능한 IAM role을 정의한다. role trust는 `automaster5013/LogiTrack`의 `staging` environment subject로 제한한다. Terraform state backend와 비용 상한을 확정한 뒤 plan을 사람이 검토하기 전에는 apply하지 않는다.
+`infra/aws/bootstrap` Terraform root는 이 사전 구성을 재현한다. 기존 GitHub Actions OIDC provider ARN과 확정 리전만 입력받아 immutable tag·scan-on-push·비어 있지 않으면 삭제 불가인 ECR repository 5개와 해당 repository에만 push 가능한 IAM role을 정의한다. 각 repository는 기본적으로 rollback용 최신 image 30개를 유지하고 tag가 없는 image는 7일 뒤 만료해 저장 비용이 무한히 증가하지 않도록 한다. 보존 개수(10~200)와 미태그 유예 기간(1~30일)은 검증된 Terraform 입력으로만 조정한다. role trust는 `automaster5013/LogiTrack`의 `staging` environment subject로 제한한다. Terraform state backend와 비용 상한을 확정한 뒤 plan을 사람이 검토하기 전에는 apply하지 않는다.
 
 `Publish staging images` workflow를 수동 실행하면서 `main`에 포함된 40자리 commit SHA를 전달한다. workflow는 이미지 5종의 non-root/healthcheck, CycloneDX SBOM provenance, CRITICAL 취약점 0건을 다시 확인한 뒤에만 `<ECR registry>/<prefix>/<service>:<commit SHA>`로 push한다. 이어서 ECR에서 각 digest를 다시 조회해 계정·리전·revision과 digest 고정 URI 5개를 담은 `staging-release-manifest-<commit SHA>` artifact를 30일 보관한다. 이후 배포 단계는 tag 대신 이 manifest의 digest URI를 사용한다. `latest` tag는 만들지 않는다.
 

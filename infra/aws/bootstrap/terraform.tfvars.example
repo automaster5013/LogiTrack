@@ -6,3 +6,5 @@ github_oidc_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.action
 # github_repository   = "LogiTrack"
 # github_environment  = "staging"
 # repository_prefix   = "logitrack"
+# retained_images     = 30
+# untagged_image_retention_days = 7
