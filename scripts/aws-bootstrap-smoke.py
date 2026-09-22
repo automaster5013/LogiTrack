@@ -45,6 +45,7 @@ def main() -> None:
         'actions   = ["ecr:DescribeRepositories"]',
         '"ecr:BatchGetImage"',
         '"ecr:DescribeImages"',
+        '"ecr:GetLifecyclePolicy"',
         "github_environment_variables",
         'data "aws_caller_identity" "current"',
         "AWS_ACCOUNT_ID        = data.aws_caller_identity.current.account_id",

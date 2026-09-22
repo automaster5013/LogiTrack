@@ -80,6 +80,30 @@ jobs:
               echo "::error::$repository must use immutable tags, scan-on-push, and AES256 encryption"
               exit 1
             fi
+            lifecycle_policy="$(aws ecr get-lifecycle-policy \
+              --repository-name "$repository" \
+              --query lifecyclePolicyText \
+              --output text)"
+            if ! jq -e '
+              .rules as $rules |
+              ($rules | length) == 2 and
+              any($rules[];
+                .rulePriority == 1 and
+                .selection.tagStatus == "untagged" and
+                .selection.countType == "sinceImagePushed" and
+                .selection.countUnit == "days" and
+                (.selection.countNumber >= 1 and .selection.countNumber <= 30) and
+                .action.type == "expire") and
+              any($rules[];
+                .rulePriority == 2 and
+                .selection.tagStatus == "any" and
+                .selection.countType == "imageCountMoreThan" and
+                (.selection.countNumber >= 10 and .selection.countNumber <= 200) and
+                .action.type == "expire")
+            ' <<< "$lifecycle_policy" >/dev/null; then
+              echo "::error::$repository must keep the bounded two-rule staging lifecycle policy"
+              exit 1
+            fi
           done
       - name: Log in to Amazon ECR
         id: ecr

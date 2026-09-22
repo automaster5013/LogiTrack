@@ -140,6 +140,7 @@ data "aws_iam_policy_document" "publisher" {
       "ecr:CompleteLayerUpload",
       "ecr:DescribeImages",
       "ecr:GetDownloadUrlForLayer",
+      "ecr:GetLifecyclePolicy",
       "ecr:InitiateLayerUpload",
       "ecr:PutImage",
       "ecr:UploadLayerPart",
