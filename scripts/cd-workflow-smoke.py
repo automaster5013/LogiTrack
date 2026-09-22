@@ -112,6 +112,8 @@ def main() -> None:
     'artifact_url_pattern="^https://github\\.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts/[0-9]+$"',
     "Record immutable publication summary",
     'echo "- Release manifest artifact digest: \\`$RELEASE_MANIFEST_DIGEST\\`"',
+    'echo "- Publication run: [$GITHUB_RUN_ID]($WORKFLOW_RUN_URL)"',
+    'if [ "$WORKFLOW_RUN_URL" != "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" ]; then',
         "--repository \"$SOURCE_REPOSITORY\"",
         "staging-release-manifest-${{ steps.revision.outputs.sha }}",
     )
