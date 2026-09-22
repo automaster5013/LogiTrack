@@ -52,6 +52,8 @@ def main() -> None:
         '.selection.countType == "imageCountMoreThan"',
         "must keep the bounded two-rule staging lifecycle policy",
         "aws ecr describe-images",
+        'pinned_destination="$ECR_REGISTRY/$repository@$existing_digest"',
+        'docker pull "$pinned_destination"',
         'org.opencontainers.image.source="$SOURCE_URL"',
         'published_source" != "$SOURCE_URL',
         'published_revision" != "$REVISION',

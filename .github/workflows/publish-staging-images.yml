@@ -181,13 +181,14 @@ jobs:
                 echo "::error::$repository:$REVISION returned an invalid existing digest"
                 exit 1
               fi
-              docker pull "$destination"
+              pinned_destination="$ECR_REGISTRY/$repository@$existing_digest"
+              docker pull "$pinned_destination"
               published_revision="$(docker image inspect \
                 --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' \
-                "$destination")"
+                "$pinned_destination")"
               published_source="$(docker image inspect \
                 --format '{{ index .Config.Labels "org.opencontainers.image.source" }}' \
-                "$destination")"
+                "$pinned_destination")"
               if [ "$published_revision" != "$REVISION" ] || [ "$published_source" != "$SOURCE_URL" ]; then
                 echo "::error::$repository:$REVISION is occupied by an image with mismatched provenance"
                 exit 1
