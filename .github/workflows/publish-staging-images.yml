@@ -284,9 +284,31 @@ jobs:
             --sbom-artifact-digest "$SBOM_ARTIFACT_DIGEST" \
             --sbom-dir work/sbom
       - name: Upload immutable staging release manifest
+        id: release-manifest
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: staging-release-manifest-${{ steps.revision.outputs.sha }}
           path: work/release/staging-release-manifest.json
           if-no-files-found: error
           retention-days: 30
+      - name: Record immutable publication summary
+        env:
+          RELEASE_MANIFEST_DIGEST: ${{ steps.release-manifest.outputs.artifact-digest }}
+          REVISION: ${{ steps.revision.outputs.sha }}
+          SBOM_ARTIFACT_DIGEST: ${{ steps.sboms.outputs.artifact-digest }}
+        run: |
+          for digest in "$SBOM_ARTIFACT_DIGEST" "$RELEASE_MANIFEST_DIGEST"; do
+            if ! [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "::error::GitHub returned an invalid artifact digest"
+              exit 1
+            fi
+          done
+          {
+            echo "## Immutable staging publication"
+            echo
+            echo "- Revision: \`$REVISION\`"
+            echo "- SBOM artifact: \`staging-container-sboms-$REVISION\`"
+            echo "- SBOM artifact digest: \`$SBOM_ARTIFACT_DIGEST\`"
+            echo "- Release manifest artifact: \`staging-release-manifest-$REVISION\`"
+            echo "- Release manifest artifact digest: \`$RELEASE_MANIFEST_DIGEST\`"
+          } >> "$GITHUB_STEP_SUMMARY"

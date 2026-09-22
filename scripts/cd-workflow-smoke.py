@@ -102,6 +102,9 @@ def main() -> None:
     "--sbom-dir work/sbom",
     '--sbom-artifact-digest "$SBOM_ARTIFACT_DIGEST"',
     "SBOM_ARTIFACT_DIGEST: ${{ steps.sboms.outputs.artifact-digest }}",
+    "RELEASE_MANIFEST_DIGEST: ${{ steps.release-manifest.outputs.artifact-digest }}",
+    "Record immutable publication summary",
+    'echo "- Release manifest artifact digest: \\`$RELEASE_MANIFEST_DIGEST\\`"',
         "--repository \"$SOURCE_REPOSITORY\"",
         "staging-release-manifest-${{ steps.revision.outputs.sha }}",
     )
