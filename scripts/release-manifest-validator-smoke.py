@@ -9,6 +9,7 @@ from pathlib import Path
 SERVICES = ("api", "analytics", "simulator", "web", "otel-collector")
 REVISION = "a" * 40
 ACCOUNT_ID = "123456789012"
+DEPLOYMENT_ENVIRONMENT = "staging"
 REGION = "ap-northeast-2"
 REGISTRY = f"{ACCOUNT_ID}.dkr.ecr.{REGION}.amazonaws.com"
 PREFIX = "logitrack"
@@ -37,6 +38,8 @@ def run_validator(path: Path, sbom_dir: Path) -> subprocess.CompletedProcess[str
             REVISION,
             "--account-id",
             ACCOUNT_ID,
+            "--deployment-environment",
+            DEPLOYMENT_ENVIRONMENT,
             "--region",
             REGION,
             "--repository",
@@ -85,8 +88,9 @@ def main() -> None:
         for service in SERVICES
     ]
     manifest = {
-        "schemaVersion": 8,
+        "schemaVersion": 9,
         "revision": REVISION,
+        "deploymentEnvironment": DEPLOYMENT_ENVIRONMENT,
         "awsAccountId": ACCOUNT_ID,
         "awsRegion": REGION,
         "sourceRepository": REPOSITORY,
@@ -190,6 +194,13 @@ def main() -> None:
         invalid = run_validator(path, sbom_dir)
         if invalid.returncode == 0:
             raise AssertionError("validator accepted a non-manual workflow event")
+
+        manifest["workflowEvent"] = WORKFLOW_EVENT
+        manifest["deploymentEnvironment"] = "production"
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        invalid = run_validator(path, sbom_dir)
+        if invalid.returncode == 0:
+            raise AssertionError("validator accepted a non-staging deployment environment")
 
     print("PASS: release manifest validator rejects invalid image, SBOM contents, or workflow provenance")
 

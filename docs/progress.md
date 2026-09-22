@@ -4,6 +4,7 @@
 
 ## 완료
 
+- staging release manifest와 실행 요약에 배포 대상 환경을 기록·검증해 게시 증적을 `staging` 승인 경계에 고정
 - staging release manifest와 실행 요약에 `workflow_dispatch` 실행 이벤트를 기록·검증해 수동 승인 게시 경로를 증적에 고정
 - staging release manifest와 실행 요약에 권한 주체·재실행 주체를 구분 기록해 수동 게시와 재실행의 운영자 감사 추적 강화
 - staging 게시 workflow 정의 ref를 repository의 `main` 경로로 제한하고 release manifest에 보존해 임시 브랜치 게시 경로 차단
