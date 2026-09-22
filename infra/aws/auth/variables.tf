@@ -2,6 +2,15 @@ variable "aws_region" {
   type    = string
   default = "ap-northeast-2"
 }
+variable "environment" {
+  description = "Deployment environment name used in Cognito resource names"
+  type        = string
+  default     = "test"
+  validation {
+    condition     = contains(["test", "production"], var.environment)
+    error_message = "environment must be either test or production."
+  }
+}
 variable "hosted_zone_id" {
   description = "Route 53 public hosted zone ID for logitrack.kr"
   type        = string

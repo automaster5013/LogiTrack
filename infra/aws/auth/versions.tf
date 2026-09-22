@@ -1,5 +1,6 @@
 terraform {
   required_version = ">= 1.16.0, < 2.0.0"
+  backend "s3" {}
   required_providers {
     aws = { source = "hashicorp/aws", version = "~> 6.0" }
   }
@@ -7,5 +8,5 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
-  default_tags { tags = { Application = "LogiTrack", Environment = "production", ManagedBy = "terraform" } }
+  default_tags { tags = { Application = "LogiTrack", Environment = var.environment, ManagedBy = "terraform" } }
 }

@@ -1,5 +1,5 @@
 resource "aws_cognito_user_pool" "operators" {
-  name                     = "logitrack-production-operators"
+  name                     = "logitrack-${var.environment}-operators"
   deletion_protection      = "ACTIVE"
   user_pool_tier           = "PLUS"
   username_attributes      = ["email"]
@@ -31,7 +31,7 @@ resource "aws_cognito_user_pool" "operators" {
 }
 
 resource "aws_cognito_user_pool_client" "web" {
-  name                                 = "logitrack-production-web"
+  name                                 = "logitrack-${var.environment}-web"
   user_pool_id                         = aws_cognito_user_pool.operators.id
   generate_secret                      = false
   allowed_oauth_flows_user_pool_client = true
@@ -53,11 +53,23 @@ resource "aws_cognito_user_pool_client" "web" {
   }
 }
 
+# Cognito requires the custom domain's parent to resolve before it will create
+# the CloudFront distribution. Replace this TEST-NET address with the runtime
+# load-balancer alias when the web stack is provisioned.
+resource "aws_route53_record" "apex_validation_placeholder" {
+  zone_id = var.hosted_zone_id
+  name    = "logitrack.kr"
+  type    = "A"
+  ttl     = 60
+  records = ["192.0.2.1"]
+}
+
 resource "aws_cognito_user_pool_domain" "auth" {
   domain                = var.auth_domain
   certificate_arn       = var.certificate_arn
   user_pool_id          = aws_cognito_user_pool.operators.id
   managed_login_version = 2
+  depends_on            = [aws_route53_record.apex_validation_placeholder]
 }
 
 resource "aws_route53_record" "auth" {
