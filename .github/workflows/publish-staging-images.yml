@@ -230,6 +230,7 @@ jobs:
           REVISION: ${{ steps.revision.outputs.sha }}
           SOURCE_REPOSITORY: ${{ github.repository }}
           WORKFLOW_ACTOR: ${{ github.actor }}
+          WORKFLOW_EVENT: ${{ github.event_name }}
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SBOM_ARTIFACT_DIGEST: ${{ steps.sboms.outputs.artifact-digest }}
           WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
@@ -254,12 +255,13 @@ jobs:
             --arg sbomArtifactDigest "$SBOM_ARTIFACT_DIGEST" \
             --arg workflowRunUrl "$WORKFLOW_RUN_URL" \
             --arg workflowActor "$WORKFLOW_ACTOR" \
+            --arg workflowEvent "$WORKFLOW_EVENT" \
             --arg workflowRef "$WORKFLOW_REF" \
             --arg workflowSha "$WORKFLOW_SHA" \
             --arg workflowTriggeringActor "$WORKFLOW_TRIGGERING_ACTOR" \
             --argjson workflowRunId "$WORKFLOW_RUN_ID" \
             --argjson workflowRunAttempt "$WORKFLOW_RUN_ATTEMPT" \
-            '{schemaVersion: 7, revision: $revision, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowRef: $workflowRef, workflowSha: $workflowSha, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, images: []}' \
+            '{schemaVersion: 8, revision: $revision, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, images: []}' \
             > "$manifest"
           for service in api analytics simulator web otel-collector; do
             repository="$ECR_REPOSITORY_PREFIX/$service"
@@ -298,6 +300,7 @@ jobs:
             --run-attempt "$WORKFLOW_RUN_ATTEMPT" \
             --run-url "$WORKFLOW_RUN_URL" \
             --workflow-actor "$WORKFLOW_ACTOR" \
+            --workflow-event "$WORKFLOW_EVENT" \
             --workflow-ref "$WORKFLOW_REF" \
             --workflow-sha "$WORKFLOW_SHA" \
             --workflow-triggering-actor "$WORKFLOW_TRIGGERING_ACTOR" \
@@ -323,6 +326,7 @@ jobs:
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
           WORKFLOW_ACTOR: ${{ github.actor }}
+          WORKFLOW_EVENT: ${{ github.event_name }}
           WORKFLOW_REF: ${{ github.workflow_ref }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
           WORKFLOW_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
@@ -346,6 +350,10 @@ jobs:
           fi
           if ! [[ "$WORKFLOW_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]; then
             echo "::error::workflow run attempt must be positive"
+            exit 1
+          fi
+          if [ "$WORKFLOW_EVENT" != "workflow_dispatch" ]; then
+            echo "::error::staging publication must use the workflow_dispatch event"
             exit 1
           fi
           if ! [[ "$WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -377,6 +385,7 @@ jobs:
             echo "- Workflow definition ref: \`$WORKFLOW_REF\`"
             echo "- Workflow actor: \`$WORKFLOW_ACTOR\`"
             echo "- Triggering actor: \`$WORKFLOW_TRIGGERING_ACTOR\`"
+            echo "- Workflow event: \`$WORKFLOW_EVENT\`"
             echo "- Artifact retention: \`$ARTIFACT_RETENTION_DAYS days\`"
             echo "- SBOM artifact: [\`staging-container-sboms-$REVISION\`]($SBOM_ARTIFACT_URL)"
             echo "- SBOM artifact digest: \`$SBOM_ARTIFACT_DIGEST\`"

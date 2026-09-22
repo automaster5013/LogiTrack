@@ -24,6 +24,7 @@ WORKFLOW_SHA = "d" * 40
 WORKFLOW_REF = f"{REPOSITORY}/.github/workflows/publish-staging-images.yml@refs/heads/main"
 WORKFLOW_ACTOR = "release-operator"
 WORKFLOW_TRIGGERING_ACTOR = "rerun-operator"
+WORKFLOW_EVENT = "workflow_dispatch"
 
 
 def run_validator(path: Path, sbom_dir: Path) -> subprocess.CompletedProcess[str]:
@@ -50,6 +51,8 @@ def run_validator(path: Path, sbom_dir: Path) -> subprocess.CompletedProcess[str
             WORKFLOW_SHA,
             "--workflow-actor",
             WORKFLOW_ACTOR,
+            "--workflow-event",
+            WORKFLOW_EVENT,
             "--workflow-triggering-actor",
             WORKFLOW_TRIGGERING_ACTOR,
             "--workflow-ref",
@@ -82,7 +85,7 @@ def main() -> None:
         for service in SERVICES
     ]
     manifest = {
-        "schemaVersion": 7,
+        "schemaVersion": 8,
         "revision": REVISION,
         "awsAccountId": ACCOUNT_ID,
         "awsRegion": REGION,
@@ -92,6 +95,7 @@ def main() -> None:
         "workflowRunUrl": RUN_URL,
         "workflowActor": WORKFLOW_ACTOR,
         "workflowTriggeringActor": WORKFLOW_TRIGGERING_ACTOR,
+        "workflowEvent": WORKFLOW_EVENT,
         "workflowRef": WORKFLOW_REF,
         "workflowSha": WORKFLOW_SHA,
         "sbomArtifact": f"staging-container-sboms-{REVISION}",
@@ -179,6 +183,13 @@ def main() -> None:
         invalid = run_validator(path, sbom_dir)
         if invalid.returncode == 0:
             raise AssertionError("validator accepted an invalid triggering actor")
+
+        manifest["workflowTriggeringActor"] = WORKFLOW_TRIGGERING_ACTOR
+        manifest["workflowEvent"] = "push"
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        invalid = run_validator(path, sbom_dir)
+        if invalid.returncode == 0:
+            raise AssertionError("validator accepted a non-manual workflow event")
 
     print("PASS: release manifest validator rejects invalid image, SBOM contents, or workflow provenance")
 

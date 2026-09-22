@@ -26,6 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--run-attempt", required=True, type=int)
     parser.add_argument("--run-url", required=True)
     parser.add_argument("--workflow-actor", required=True)
+    parser.add_argument("--workflow-event", required=True)
     parser.add_argument("--workflow-ref", required=True)
     parser.add_argument("--workflow-sha", required=True)
     parser.add_argument("--workflow-triggering-actor", required=True)
@@ -61,13 +62,14 @@ def main() -> None:
         "workflowRunUrl",
         "workflowActor",
         "workflowTriggeringActor",
+        "workflowEvent",
         "workflowRef",
         "workflowSha",
         "sbomArtifact",
         "sbomArtifactDigest",
         "images",
     }
-    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 7:
+    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 8:
         raise AssertionError("release manifest schema is invalid")
     if manifest["revision"] != args.revision:
         raise AssertionError("release manifest revision does not match")
@@ -89,6 +91,11 @@ def main() -> None:
     ):
         if not GITHUB_LOGIN.fullmatch(value) or manifest[field] != value:
             raise AssertionError(f"release manifest {field} is invalid")
+    if (
+        args.workflow_event != "workflow_dispatch"
+        or manifest["workflowEvent"] != args.workflow_event
+    ):
+        raise AssertionError("release manifest workflow event must be workflow_dispatch")
     expected_workflow_ref = (
         f"{args.repository}/.github/workflows/publish-staging-images.yml@refs/heads/main"
     )
