@@ -20,6 +20,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("manifest", type=Path)
     parser.add_argument("--revision", required=True)
     parser.add_argument("--account-id", required=True)
+    parser.add_argument("--artifact-retention-days", required=True, type=int)
     parser.add_argument("--deployment-environment", required=True)
     parser.add_argument("--region", required=True)
     parser.add_argument("--repository", required=True)
@@ -67,11 +68,12 @@ def main() -> None:
         "workflowEvent",
         "workflowRef",
         "workflowSha",
+        "artifactRetentionDays",
         "sbomArtifact",
         "sbomArtifactDigest",
         "images",
     }
-    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 9:
+    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 10:
         raise AssertionError("release manifest schema is invalid")
     if manifest["revision"] != args.revision:
         raise AssertionError("release manifest revision does not match")
@@ -112,6 +114,10 @@ def main() -> None:
         raise AssertionError("workflow definition SHA must be a full lowercase Git SHA")
     if manifest["workflowSha"] != args.workflow_sha:
         raise AssertionError("release manifest workflow definition SHA does not match")
+    if not 1 <= args.artifact_retention_days <= 90:
+        raise AssertionError("artifact retention must be between 1 and 90 days")
+    if manifest["artifactRetentionDays"] != args.artifact_retention_days:
+        raise AssertionError("release manifest artifact retention does not match")
     if manifest["sbomArtifact"] != f"staging-container-sboms-{args.revision}":
         raise AssertionError("release manifest SBOM artifact does not match the revision")
     if not DIGEST.fullmatch(args.sbom_artifact_digest):

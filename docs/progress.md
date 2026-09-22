@@ -4,6 +4,7 @@
 
 ## 완료
 
+- staging release manifest에 artifact 보존 기간을 숫자로 기록·검증해 독립 증적에서도 30일 만료 정책 확인 가능
 - staging release manifest와 실행 요약에 배포 대상 환경을 기록·검증해 게시 증적을 `staging` 승인 경계에 고정
 - staging release manifest와 실행 요약에 `workflow_dispatch` 실행 이벤트를 기록·검증해 수동 승인 게시 경로를 증적에 고정
 - staging release manifest와 실행 요약에 권한 주체·재실행 주체를 구분 기록해 수동 게시와 재실행의 운영자 감사 추적 강화

@@ -261,9 +261,10 @@ jobs:
             --arg workflowRef "$WORKFLOW_REF" \
             --arg workflowSha "$WORKFLOW_SHA" \
             --arg workflowTriggeringActor "$WORKFLOW_TRIGGERING_ACTOR" \
+            --argjson artifactRetentionDays "$ARTIFACT_RETENTION_DAYS" \
             --argjson workflowRunId "$WORKFLOW_RUN_ID" \
             --argjson workflowRunAttempt "$WORKFLOW_RUN_ATTEMPT" \
-            '{schemaVersion: 9, revision: $revision, deploymentEnvironment: $deploymentEnvironment, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, images: []}' \
+            '{schemaVersion: 10, revision: $revision, deploymentEnvironment: $deploymentEnvironment, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, images: []}' \
             > "$manifest"
           for service in api analytics simulator web otel-collector; do
             repository="$ECR_REPOSITORY_PREFIX/$service"
@@ -296,6 +297,7 @@ jobs:
           python scripts/release-manifest-smoke.py "$manifest" \
             --revision "$REVISION" \
             --account-id "$EXPECTED_AWS_ACCOUNT_ID" \
+            --artifact-retention-days "$ARTIFACT_RETENTION_DAYS" \
             --deployment-environment "$DEPLOYMENT_ENVIRONMENT" \
             --region "$AWS_REGION" \
             --repository "$SOURCE_REPOSITORY" \

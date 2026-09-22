@@ -9,6 +9,7 @@ from pathlib import Path
 SERVICES = ("api", "analytics", "simulator", "web", "otel-collector")
 REVISION = "a" * 40
 ACCOUNT_ID = "123456789012"
+ARTIFACT_RETENTION_DAYS = 30
 DEPLOYMENT_ENVIRONMENT = "staging"
 REGION = "ap-northeast-2"
 REGISTRY = f"{ACCOUNT_ID}.dkr.ecr.{REGION}.amazonaws.com"
@@ -38,6 +39,8 @@ def run_validator(path: Path, sbom_dir: Path) -> subprocess.CompletedProcess[str
             REVISION,
             "--account-id",
             ACCOUNT_ID,
+            "--artifact-retention-days",
+            str(ARTIFACT_RETENTION_DAYS),
             "--deployment-environment",
             DEPLOYMENT_ENVIRONMENT,
             "--region",
@@ -88,7 +91,7 @@ def main() -> None:
         for service in SERVICES
     ]
     manifest = {
-        "schemaVersion": 9,
+        "schemaVersion": 10,
         "revision": REVISION,
         "deploymentEnvironment": DEPLOYMENT_ENVIRONMENT,
         "awsAccountId": ACCOUNT_ID,
@@ -102,6 +105,7 @@ def main() -> None:
         "workflowEvent": WORKFLOW_EVENT,
         "workflowRef": WORKFLOW_REF,
         "workflowSha": WORKFLOW_SHA,
+        "artifactRetentionDays": ARTIFACT_RETENTION_DAYS,
         "sbomArtifact": f"staging-container-sboms-{REVISION}",
         "sbomArtifactDigest": SBOM_ARTIFACT_DIGEST,
         "images": images,
@@ -201,6 +205,13 @@ def main() -> None:
         invalid = run_validator(path, sbom_dir)
         if invalid.returncode == 0:
             raise AssertionError("validator accepted a non-staging deployment environment")
+
+        manifest["deploymentEnvironment"] = DEPLOYMENT_ENVIRONMENT
+        manifest["artifactRetentionDays"] = ARTIFACT_RETENTION_DAYS + 1
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        invalid = run_validator(path, sbom_dir)
+        if invalid.returncode == 0:
+            raise AssertionError("validator accepted mismatched artifact retention")
 
     print("PASS: release manifest validator rejects invalid image, SBOM contents, or workflow provenance")
 
