@@ -27,6 +27,7 @@ jobs:
       ARTIFACT_RETENTION_DAYS: 30
       DEPLOYMENT_ENVIRONMENT: staging
       IMAGE_PLATFORM: linux/amd64
+      MAX_IMAGE_SIZE_BYTES: 2147483648
       AWS_RETRY_MODE: standard
       AWS_MAX_ATTEMPTS: 5
       AWS_PAGER: ""
@@ -276,9 +277,10 @@ jobs:
             --arg workflowTriggeringActor "$WORKFLOW_TRIGGERING_ACTOR" \
             --arg publishedAt "$published_at" \
             --argjson artifactRetentionDays "$ARTIFACT_RETENTION_DAYS" \
+            --argjson maxImageSizeBytes "$MAX_IMAGE_SIZE_BYTES" \
             --argjson workflowRunId "$WORKFLOW_RUN_ID" \
             --argjson workflowRunAttempt "$WORKFLOW_RUN_ATTEMPT" \
-            '{schemaVersion: 14, revision: $revision, publishedAt: $publishedAt, deploymentEnvironment: $deploymentEnvironment, imagePlatform: $imagePlatform, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, sbomArtifactUrl: $sbomArtifactUrl, images: []}' \
+            '{schemaVersion: 15, revision: $revision, publishedAt: $publishedAt, deploymentEnvironment: $deploymentEnvironment, imagePlatform: $imagePlatform, maxImageSizeBytes: $maxImageSizeBytes, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, sbomArtifactUrl: $sbomArtifactUrl, images: []}' \
             > "$manifest"
           for service in api analytics simulator web otel-collector; do
             repository="$ECR_REPOSITORY_PREFIX/$service"
@@ -309,6 +311,15 @@ jobs:
                 exit 1
                 ;;
             esac
+            size_bytes="$(aws ecr describe-images \
+              --repository-name "$repository" \
+              --image-ids "imageDigest=$digest" \
+              --query 'imageDetails[0].imageSizeInBytes' \
+              --output text)"
+            if ! [[ "$size_bytes" =~ ^[1-9][0-9]*$ ]] || [ "$size_bytes" -gt "$MAX_IMAGE_SIZE_BYTES" ]; then
+              echo "::error::$repository@$digest size must be between 1 and $MAX_IMAGE_SIZE_BYTES bytes"
+              exit 1
+            fi
             jq \
               --arg service "$service" \
               --arg repository "$repository" \
@@ -317,7 +328,8 @@ jobs:
               --arg uri "$ECR_REGISTRY/$repository@$digest" \
               --arg sbomFile "$sbom_file" \
               --arg sbomSha256 "$sbom_sha256" \
-              '.images += [{service: $service, repository: $repository, digest: $digest, mediaType: $mediaType, uri: $uri, sbomFile: $sbomFile, sbomSha256: $sbomSha256}]' \
+              --argjson sizeBytes "$size_bytes" \
+              '.images += [{service: $service, repository: $repository, digest: $digest, mediaType: $mediaType, sizeBytes: $sizeBytes, uri: $uri, sbomFile: $sbomFile, sbomSha256: $sbomSha256}]' \
               "$manifest" > "$manifest.tmp"
             mv "$manifest.tmp" "$manifest"
           done
@@ -327,6 +339,7 @@ jobs:
             --artifact-retention-days "$ARTIFACT_RETENTION_DAYS" \
             --deployment-environment "$DEPLOYMENT_ENVIRONMENT" \
             --image-platform "$IMAGE_PLATFORM" \
+            --max-image-size-bytes "$MAX_IMAGE_SIZE_BYTES" \
             --region "$AWS_REGION" \
             --repository "$SOURCE_REPOSITORY" \
             --published-at "$published_at" \
@@ -423,6 +436,7 @@ jobs:
             echo "- Published at: \`$PUBLISHED_AT\`"
             echo "- Deployment environment: \`$DEPLOYMENT_ENVIRONMENT\`"
             echo "- Image platform: \`$IMAGE_PLATFORM\`"
+            echo "- Maximum image size: \`$MAX_IMAGE_SIZE_BYTES bytes\`"
             echo "- Publication run: [$GITHUB_RUN_ID]($WORKFLOW_RUN_URL), attempt \`$WORKFLOW_RUN_ATTEMPT\`"
             echo "- Workflow definition SHA: \`$WORKFLOW_SHA\`"
             echo "- Workflow definition ref: \`$WORKFLOW_REF\`"

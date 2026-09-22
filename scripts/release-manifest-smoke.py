@@ -29,6 +29,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--artifact-retention-days", required=True, type=int)
     parser.add_argument("--deployment-environment", required=True)
     parser.add_argument("--image-platform", required=True)
+    parser.add_argument("--max-image-size-bytes", required=True, type=int)
     parser.add_argument("--region", required=True)
     parser.add_argument("--repository", required=True)
     parser.add_argument("--published-at", required=True)
@@ -68,6 +69,7 @@ def main() -> None:
         "publishedAt",
         "deploymentEnvironment",
         "imagePlatform",
+        "maxImageSizeBytes",
         "awsAccountId",
         "awsRegion",
         "sourceRepository",
@@ -85,7 +87,7 @@ def main() -> None:
         "sbomArtifactUrl",
         "images",
     }
-    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 14:
+    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 15:
         raise AssertionError("release manifest schema is invalid")
     if manifest["revision"] != args.revision:
         raise AssertionError("release manifest revision does not match")
@@ -106,6 +108,11 @@ def main() -> None:
         raise AssertionError("release manifest deployment environment must be staging")
     if args.image_platform != "linux/amd64" or manifest["imagePlatform"] != args.image_platform:
         raise AssertionError("release manifest image platform must be linux/amd64")
+    if (
+        args.max_image_size_bytes != 2 * 1024 * 1024 * 1024
+        or manifest["maxImageSizeBytes"] != args.max_image_size_bytes
+    ):
+        raise AssertionError("maximum image size must be exactly 2 GiB")
     if manifest["awsAccountId"] != args.account_id or manifest["awsRegion"] != args.region:
         raise AssertionError("release manifest AWS boundary does not match")
     if (
@@ -166,6 +173,7 @@ def main() -> None:
             "repository",
             "digest",
             "mediaType",
+            "sizeBytes",
             "uri",
             "sbomFile",
             "sbomSha256",
@@ -180,6 +188,13 @@ def main() -> None:
             raise AssertionError(f"release manifest image URI is not digest-pinned: {service}")
         if image["mediaType"] not in IMAGE_MEDIA_TYPES:
             raise AssertionError(f"release manifest image media type is unsupported: {service}")
+        size_bytes = image["sizeBytes"]
+        if (
+            isinstance(size_bytes, bool)
+            or not isinstance(size_bytes, int)
+            or not 1 <= size_bytes <= args.max_image_size_bytes
+        ):
+            raise AssertionError(f"release manifest image size is invalid: {service}")
         if image["sbomFile"] != f"logitrack-{service}.cdx.json" or not SHA256.fullmatch(
             image["sbomSha256"]
         ):
