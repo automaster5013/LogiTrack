@@ -18,6 +18,7 @@ MAX_TOTAL_IMAGE_SIZE_BYTES = 5 * 1024 * 1024 * 1024
 IMAGE_SIZE_BYTES = 123456789
 SCANNER_IMAGE = "ghcr.io/aquasecurity/trivy@sha256:" + "e" * 64
 SCANNER_VERSION = "0.74.0"
+BLOCKED_VULNERABILITY_SEVERITIES = "CRITICAL"
 REGION = "ap-northeast-2"
 REGISTRY = f"{ACCOUNT_ID}.dkr.ecr.{REGION}.amazonaws.com"
 PREFIX = "logitrack"
@@ -52,6 +53,8 @@ def run_validator(path: Path, sbom_dir: Path) -> subprocess.CompletedProcess[str
             str(ARTIFACT_RETENTION_DAYS),
             "--deployment-environment",
             DEPLOYMENT_ENVIRONMENT,
+            "--blocked-vulnerability-severities",
+            BLOCKED_VULNERABILITY_SEVERITIES,
             "--image-platform",
             IMAGE_PLATFORM,
             "--max-image-size-bytes",
@@ -116,7 +119,7 @@ def main() -> None:
         for service in SERVICES
     ]
     manifest = {
-        "schemaVersion": 18,
+        "schemaVersion": 19,
         "revision": REVISION,
         "publishedAt": PUBLISHED_AT,
         "deploymentEnvironment": DEPLOYMENT_ENVIRONMENT,
@@ -126,6 +129,7 @@ def main() -> None:
         "totalImageSizeBytes": IMAGE_SIZE_BYTES * len(SERVICES),
         "scannerImage": SCANNER_IMAGE,
         "scannerVersion": SCANNER_VERSION,
+        "blockedVulnerabilitySeverities": [BLOCKED_VULNERABILITY_SEVERITIES],
         "awsAccountId": ACCOUNT_ID,
         "awsRegion": REGION,
         "sourceRepository": REPOSITORY,
@@ -305,6 +309,13 @@ def main() -> None:
             raise AssertionError("validator accepted an invalid scanner version")
 
         manifest["scannerVersion"] = SCANNER_VERSION
+        manifest["blockedVulnerabilitySeverities"] = ["HIGH", "CRITICAL"]
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        invalid = run_validator(path, sbom_dir)
+        if invalid.returncode == 0:
+            raise AssertionError("validator accepted a mismatched vulnerability policy")
+
+        manifest["blockedVulnerabilitySeverities"] = [BLOCKED_VULNERABILITY_SEVERITIES]
         manifest["publishedAt"] = "2026-99-99T03:04:05Z"
         path.write_text(json.dumps(manifest), encoding="utf-8")
         invalid = run_validator(path, sbom_dir)

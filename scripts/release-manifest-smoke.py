@@ -30,6 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--account-id", required=True)
     parser.add_argument("--artifact-retention-days", required=True, type=int)
     parser.add_argument("--deployment-environment", required=True)
+    parser.add_argument("--blocked-vulnerability-severities", required=True)
     parser.add_argument("--image-platform", required=True)
     parser.add_argument("--max-image-size-bytes", required=True, type=int)
     parser.add_argument("--max-total-image-size-bytes", required=True, type=int)
@@ -79,6 +80,7 @@ def main() -> None:
         "totalImageSizeBytes",
         "scannerImage",
         "scannerVersion",
+        "blockedVulnerabilitySeverities",
         "awsAccountId",
         "awsRegion",
         "sourceRepository",
@@ -96,7 +98,7 @@ def main() -> None:
         "sbomArtifactUrl",
         "images",
     }
-    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 18:
+    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 19:
         raise AssertionError("release manifest schema is invalid")
     if manifest["revision"] != args.revision:
         raise AssertionError("release manifest revision does not match")
@@ -135,6 +137,10 @@ def main() -> None:
         raise AssertionError("supply-chain scanner version must be semantic")
     if manifest["scannerVersion"] != args.scanner_version:
         raise AssertionError("release manifest scanner version does not match")
+    if args.blocked_vulnerability_severities != "CRITICAL":
+        raise AssertionError("blocked vulnerability severity must be CRITICAL")
+    if manifest["blockedVulnerabilitySeverities"] != ["CRITICAL"]:
+        raise AssertionError("release manifest vulnerability policy does not match")
     if manifest["awsAccountId"] != args.account_id or manifest["awsRegion"] != args.region:
         raise AssertionError("release manifest AWS boundary does not match")
     if (
