@@ -52,6 +52,10 @@ def main() -> None:
         raise AssertionError("OIDC role assumption retries must be bounded")
     if credential_inputs.get("action-timeout-s") != 120:
         raise AssertionError("OIDC credential setup must have a bounded timeout")
+    if credential_inputs.get("unset-current-credentials") is not True:
+        raise AssertionError("OIDC setup must clear inherited AWS credentials")
+    if credential_inputs.get("translate-env-variables") is not False:
+        raise AssertionError("OIDC setup must only use explicit workflow inputs")
 
     forbidden = ("secrets.", "latest", "aws-access-key-id", "aws-secret-access-key", "kaiser5013")
     for value in forbidden:

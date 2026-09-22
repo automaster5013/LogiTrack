@@ -287,3 +287,4 @@
 - staging image 게시의 AWS CLI pager를 비활성화해 CI가 대화형 출력 대기 상태에 빠질 가능성 제거
 - staging OIDC 자격 증명 발급 단계에서 허용 AWS 계정을 강제하고 계정 ID를 log에서 마스킹해 오계정 게시 위험과 정보 노출 축소
 - staging OIDC 역할 인수를 최대 5회·120초로 제한해 STS 장애나 오구성 시 게시 workflow 장기 정체 방지
+- staging OIDC 설정에서 runner의 잔존 AWS 자격 증명을 제거하고 환경 변수의 암묵적 입력 변환을 차단해 명시된 신뢰 경계만 사용

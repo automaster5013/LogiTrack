@@ -55,6 +55,8 @@ jobs:
           mask-aws-account-id: true
           retry-max-attempts: 5
           action-timeout-s: 120
+          unset-current-credentials: true
+          translate-env-variables: false
       - name: Verify the intended AWS account
         env:
           EXPECTED_AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
