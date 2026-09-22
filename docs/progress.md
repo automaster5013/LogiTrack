@@ -310,3 +310,4 @@
 - staging release manifest와 실행 요약에 단일 UTC 게시 시각을 기록하고 엄격히 검증해 독립 증적의 실제 게시 완료 시점 추적성 강화
 - staging release manifest에 동일 실행의 검증된 SBOM artifact URL을 결합해 독립 증적에서 공급망 자료로 바로 이동 가능
 - 신규 빌드와 기존 ECR image 재사용 모두 `linux/amd64` 플랫폼을 강제하고 release manifest에 배포 호환성 계약으로 기록
+- ECR의 서비스별 image manifest media type을 재조회해 OCI·Docker v2 단일 image 형식만 허용하고 release manifest에 기록

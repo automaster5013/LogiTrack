@@ -12,6 +12,7 @@ ACCOUNT_ID = "123456789012"
 ARTIFACT_RETENTION_DAYS = 30
 DEPLOYMENT_ENVIRONMENT = "staging"
 IMAGE_PLATFORM = "linux/amd64"
+IMAGE_MEDIA_TYPE = "application/vnd.oci.image.manifest.v1+json"
 REGION = "ap-northeast-2"
 REGISTRY = f"{ACCOUNT_ID}.dkr.ecr.{REGION}.amazonaws.com"
 PREFIX = "logitrack"
@@ -93,6 +94,7 @@ def main() -> None:
             "service": service,
             "repository": f"{PREFIX}/{service}",
             "digest": DIGEST,
+            "mediaType": IMAGE_MEDIA_TYPE,
             "uri": f"{REGISTRY}/{PREFIX}/{service}@{DIGEST}",
             "sbomFile": f"logitrack-{service}.cdx.json",
             "sbomSha256": SBOM_SHA256,
@@ -100,7 +102,7 @@ def main() -> None:
         for service in SERVICES
     ]
     manifest = {
-        "schemaVersion": 13,
+        "schemaVersion": 14,
         "revision": REVISION,
         "publishedAt": PUBLISHED_AT,
         "deploymentEnvironment": DEPLOYMENT_ENVIRONMENT,
@@ -141,6 +143,13 @@ def main() -> None:
             raise AssertionError("validator accepted an invalid image digest")
 
         manifest["images"][0]["digest"] = DIGEST
+        manifest["images"][0]["mediaType"] = "application/vnd.oci.image.index.v1+json"
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        invalid = run_validator(path, sbom_dir)
+        if invalid.returncode == 0:
+            raise AssertionError("validator accepted an image index media type")
+
+        manifest["images"][0]["mediaType"] = IMAGE_MEDIA_TYPE
         manifest["images"][0]["sbomSha256"] = "not-a-sha256"
         path.write_text(json.dumps(manifest), encoding="utf-8")
         invalid = run_validator(path, sbom_dir)

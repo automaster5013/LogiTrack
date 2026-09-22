@@ -15,6 +15,10 @@ REGION = re.compile(r"^[a-z]{2}(-gov)?-[a-z]+-[0-9]+$")
 REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 GITHUB_LOGIN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
 UTC_TIMESTAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+IMAGE_MEDIA_TYPES = {
+    "application/vnd.docker.distribution.manifest.v2+json",
+    "application/vnd.oci.image.manifest.v1+json",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -81,7 +85,7 @@ def main() -> None:
         "sbomArtifactUrl",
         "images",
     }
-    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 13:
+    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 14:
         raise AssertionError("release manifest schema is invalid")
     if manifest["revision"] != args.revision:
         raise AssertionError("release manifest revision does not match")
@@ -157,7 +161,15 @@ def main() -> None:
     if not isinstance(images, list) or [image.get("service") for image in images] != list(SERVICES):
         raise AssertionError("release manifest must contain each service exactly once in stable order")
     for image in images:
-        if set(image) != {"service", "repository", "digest", "uri", "sbomFile", "sbomSha256"}:
+        if set(image) != {
+            "service",
+            "repository",
+            "digest",
+            "mediaType",
+            "uri",
+            "sbomFile",
+            "sbomSha256",
+        }:
             raise AssertionError("release manifest image schema is invalid")
         service = image["service"]
         repository = f"{args.repository_prefix}/{service}"
@@ -166,6 +178,8 @@ def main() -> None:
             raise AssertionError(f"release manifest image identity is invalid: {service}")
         if image["uri"] != f"{args.registry}/{repository}@{digest}":
             raise AssertionError(f"release manifest image URI is not digest-pinned: {service}")
+        if image["mediaType"] not in IMAGE_MEDIA_TYPES:
+            raise AssertionError(f"release manifest image media type is unsupported: {service}")
         if image["sbomFile"] != f"logitrack-{service}.cdx.json" or not SHA256.fullmatch(
             image["sbomSha256"]
         ):

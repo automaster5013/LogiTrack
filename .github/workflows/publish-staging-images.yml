@@ -278,7 +278,7 @@ jobs:
             --argjson artifactRetentionDays "$ARTIFACT_RETENTION_DAYS" \
             --argjson workflowRunId "$WORKFLOW_RUN_ID" \
             --argjson workflowRunAttempt "$WORKFLOW_RUN_ATTEMPT" \
-            '{schemaVersion: 13, revision: $revision, publishedAt: $publishedAt, deploymentEnvironment: $deploymentEnvironment, imagePlatform: $imagePlatform, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, sbomArtifactUrl: $sbomArtifactUrl, images: []}' \
+            '{schemaVersion: 14, revision: $revision, publishedAt: $publishedAt, deploymentEnvironment: $deploymentEnvironment, imagePlatform: $imagePlatform, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, sbomArtifactUrl: $sbomArtifactUrl, images: []}' \
             > "$manifest"
           for service in api analytics simulator web otel-collector; do
             repository="$ECR_REPOSITORY_PREFIX/$service"
@@ -297,14 +297,27 @@ jobs:
               echo "::error::$repository:$REVISION has no valid published digest"
               exit 1
             fi
+            media_type="$(aws ecr describe-images \
+              --repository-name "$repository" \
+              --image-ids "imageDigest=$digest" \
+              --query 'imageDetails[0].imageManifestMediaType' \
+              --output text)"
+            case "$media_type" in
+              application/vnd.docker.distribution.manifest.v2+json|application/vnd.oci.image.manifest.v1+json) ;;
+              *)
+                echo "::error::$repository@$digest has unsupported manifest media type $media_type"
+                exit 1
+                ;;
+            esac
             jq \
               --arg service "$service" \
               --arg repository "$repository" \
               --arg digest "$digest" \
+              --arg mediaType "$media_type" \
               --arg uri "$ECR_REGISTRY/$repository@$digest" \
               --arg sbomFile "$sbom_file" \
               --arg sbomSha256 "$sbom_sha256" \
-              '.images += [{service: $service, repository: $repository, digest: $digest, uri: $uri, sbomFile: $sbomFile, sbomSha256: $sbomSha256}]' \
+              '.images += [{service: $service, repository: $repository, digest: $digest, mediaType: $mediaType, uri: $uri, sbomFile: $sbomFile, sbomSha256: $sbomSha256}]' \
               "$manifest" > "$manifest.tmp"
             mv "$manifest.tmp" "$manifest"
           done
