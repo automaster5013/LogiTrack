@@ -15,6 +15,7 @@ PREFIX = "logitrack"
 DIGEST = "sha256:" + "b" * 64
 SBOM_CONTENT = b'{"bomFormat":"CycloneDX"}\n'
 SBOM_SHA256 = hashlib.sha256(SBOM_CONTENT).hexdigest()
+SBOM_ARTIFACT_DIGEST = "sha256:" + "c" * 64
 REPOSITORY = "automaster5013/LogiTrack"
 RUN_ID = 123456789
 RUN_ATTEMPT = 2
@@ -42,6 +43,8 @@ def run_validator(path: Path, sbom_dir: Path) -> subprocess.CompletedProcess[str
             REGISTRY,
             "--repository-prefix",
             PREFIX,
+            "--sbom-artifact-digest",
+            SBOM_ARTIFACT_DIGEST,
             "--sbom-dir",
             str(sbom_dir),
         ],
@@ -64,7 +67,7 @@ def main() -> None:
         for service in SERVICES
     ]
     manifest = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "revision": REVISION,
         "awsAccountId": ACCOUNT_ID,
         "awsRegion": REGION,
@@ -72,6 +75,7 @@ def main() -> None:
         "workflowRunId": RUN_ID,
         "workflowRunAttempt": RUN_ATTEMPT,
         "sbomArtifact": f"staging-container-sboms-{REVISION}",
+        "sbomArtifactDigest": SBOM_ARTIFACT_DIGEST,
         "images": images,
     }
     with tempfile.TemporaryDirectory() as directory:
@@ -108,6 +112,13 @@ def main() -> None:
             raise AssertionError("validator accepted tampered SBOM contents")
 
         api_sbom.write_bytes(SBOM_CONTENT)
+        manifest["sbomArtifactDigest"] = "sha256:" + "d" * 64
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        invalid = run_validator(path, sbom_dir)
+        if invalid.returncode == 0:
+            raise AssertionError("validator accepted mismatched SBOM artifact digest")
+
+        manifest["sbomArtifactDigest"] = SBOM_ARTIFACT_DIGEST
         manifest["workflowRunAttempt"] = RUN_ATTEMPT + 1
         path.write_text(json.dumps(manifest), encoding="utf-8")
         invalid = run_validator(path, sbom_dir)

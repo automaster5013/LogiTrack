@@ -25,6 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--run-attempt", required=True, type=int)
     parser.add_argument("--registry", required=True)
     parser.add_argument("--repository-prefix", required=True)
+    parser.add_argument("--sbom-artifact-digest", required=True)
     parser.add_argument("--sbom-dir", required=True, type=Path)
     return parser.parse_args()
 
@@ -52,9 +53,10 @@ def main() -> None:
         "workflowRunId",
         "workflowRunAttempt",
         "sbomArtifact",
+        "sbomArtifactDigest",
         "images",
     }
-    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 2:
+    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 3:
         raise AssertionError("release manifest schema is invalid")
     if manifest["revision"] != args.revision:
         raise AssertionError("release manifest revision does not match")
@@ -68,6 +70,10 @@ def main() -> None:
         raise AssertionError("release manifest workflow provenance does not match")
     if manifest["sbomArtifact"] != f"staging-container-sboms-{args.revision}":
         raise AssertionError("release manifest SBOM artifact does not match the revision")
+    if not DIGEST.fullmatch(args.sbom_artifact_digest):
+        raise AssertionError("expected SBOM artifact digest is invalid")
+    if manifest["sbomArtifactDigest"] != args.sbom_artifact_digest:
+        raise AssertionError("release manifest SBOM artifact digest does not match")
 
     images = manifest["images"]
     if not isinstance(images, list) or [image.get("service") for image in images] != list(SERVICES):

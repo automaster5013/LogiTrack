@@ -292,3 +292,4 @@
 - staging release manifest에 SBOM artifact 이름과 서비스별 SBOM SHA-256을 포함해 image와 공급망 증적의 무결성 연결
 - release manifest의 서비스별 SBOM SHA-256을 실제 CycloneDX 파일 내용과 대조해 누락·변조된 공급망 증적 차단
 - 취소된 경로 계산의 background cache 확정 테스트를 inflight 정리와 cache 기록 모두의 bounded 대기로 바꿔 경쟁 조건 제거
+- staging release manifest에 GitHub가 계산한 SBOM artifact archive digest를 포함해 다운로드된 증적 묶음의 동일성 검증 지원
