@@ -327,6 +327,10 @@ jobs:
             echo "::error::workflow run attempt must be positive"
             exit 1
           fi
+          if ! [[ "$ARTIFACT_RETENTION_DAYS" =~ ^[1-9][0-9]*$ ]] || [ "$ARTIFACT_RETENTION_DAYS" -gt 90 ]; then
+            echo "::error::artifact retention must be between 1 and 90 days"
+            exit 1
+          fi
           {
             echo "## Immutable staging publication"
             echo

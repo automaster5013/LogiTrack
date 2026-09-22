@@ -118,6 +118,7 @@ def main() -> None:
     'echo "- Release manifest artifact digest: \\`$RELEASE_MANIFEST_DIGEST\\`"',
     'echo "- Publication run: [$GITHUB_RUN_ID]($WORKFLOW_RUN_URL), attempt \\`$WORKFLOW_RUN_ATTEMPT\\`"',
     'if ! [[ "$WORKFLOW_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]; then',
+    'if ! [[ "$ARTIFACT_RETENTION_DAYS" =~ ^[1-9][0-9]*$ ]] || [ "$ARTIFACT_RETENTION_DAYS" -gt 90 ]; then',
     'if [ "$WORKFLOW_RUN_URL" != "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" ]; then',
         "--repository \"$SOURCE_REPOSITORY\"",
         "staging-release-manifest-${{ steps.revision.outputs.sha }}",

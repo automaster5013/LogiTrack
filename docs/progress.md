@@ -300,3 +300,4 @@
 - staging 게시 실행 요약에 현재 Actions 실행 링크를 제공해 로그·승인·artifact 증적 확인 동선 통합
 - staging 게시 실행 요약에 run attempt를 명시해 동일 revision 재실행의 증적·로그 혼동 방지
 - staging 공급망 artifact의 30일 보존 정책을 단일 설정으로 통합하고 실행 요약에 표시해 증적 만료 예측과 설정 drift 방지
+- staging artifact 보존 기간을 GitHub 허용 범위인 1~90일로 검증해 잘못된 설정으로 게시 증적 업로드가 뒤늦게 실패하는 상황 차단
