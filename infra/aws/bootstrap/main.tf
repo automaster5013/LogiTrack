@@ -36,6 +36,10 @@ resource "aws_ecr_repository" "service" {
   image_scanning_configuration {
     scan_on_push = true
   }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_ecr_lifecycle_policy" "service" {

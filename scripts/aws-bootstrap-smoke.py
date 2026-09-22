@@ -22,6 +22,7 @@ def main() -> None:
         'version = "~> 6.0"',
         'image_tag_mutability = "IMMUTABLE"',
         "force_delete         = false",
+        "prevent_destroy = true",
         "scan_on_push = true",
         'encryption_type = "AES256"',
         'resource "aws_ecr_lifecycle_policy" "service"',
@@ -62,6 +63,7 @@ def main() -> None:
         "aws_route53_",
         "aws_acm_",
         "force_delete         = true",
+        "prevent_destroy = false",
         'image_tag_mutability = "MUTABLE"',
     )
     for fragment in forbidden:

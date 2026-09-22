@@ -8,6 +8,7 @@
 - staging image 게시 전 OIDC caller의 12자리 AWS 계정 ID를 검증해 잘못 구성된 역할에 의한 타 계정 ECR 오배포 차단
 - ECR immutable repository 5개와 GitHub staging OIDC 최소 권한 publisher role을 정의하는 비적용 Terraform bootstrap 및 CI validate gate
 - ECR repository별 최신 image 30개 rollback 보존과 미태그 image 7일 만료를 강제하는 검증 가능 lifecycle 정책
+- ECR repository의 Terraform `prevent_destroy`와 AWS 비어 있지 않은 저장소 삭제 거부를 결합한 이중 삭제 방어
 - GitHub staging environment 수동 승인과 AWS OIDC를 사용하는 ECR 불변 SHA image publication CD 1단계, pre-push SBOM·CRITICAL 취약점 gate
 - KPI projection 마지막 성공 시각과 설정 주기 Prometheus 지표, 3주기 stale 경보로 scheduler 정지·반복 실패 조기 탐지
 
