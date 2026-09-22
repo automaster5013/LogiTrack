@@ -189,7 +189,9 @@ jobs:
             docker run --rm \
               --volume /var/run/docker.sock:/var/run/docker.sock \
               --volume trivy-cache:/root/.cache/ \
+              --volume "$GITHUB_WORKSPACE/work/sbom:/output" \
               "$TRIVY_IMAGE" image --scanners vuln --severity "$BLOCKED_VULNERABILITY_SEVERITIES" \
+              --format json --output "/output/logitrack-$service.critical.json" \
               --exit-code 1 --no-progress "$image"
           done
           python scripts/sbom-smoke.py work/sbom --tag "$REVISION" --revision "$REVISION"
@@ -198,7 +200,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: staging-container-sboms-${{ steps.revision.outputs.sha }}
-          path: work/sbom/*.cdx.json
+          path: |
+            work/sbom/*.cdx.json
+            work/sbom/*.critical.json
           if-no-files-found: error
           retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
       - name: Push or verify commit-addressed images
@@ -294,7 +298,7 @@ jobs:
             --argjson maxTotalImageSizeBytes "$MAX_TOTAL_IMAGE_SIZE_BYTES" \
             --argjson workflowRunId "$WORKFLOW_RUN_ID" \
             --argjson workflowRunAttempt "$WORKFLOW_RUN_ATTEMPT" \
-            '{schemaVersion: 19, revision: $revision, publishedAt: $publishedAt, deploymentEnvironment: $deploymentEnvironment, imagePlatform: $imagePlatform, maxImageSizeBytes: $maxImageSizeBytes, maxTotalImageSizeBytes: $maxTotalImageSizeBytes, totalImageSizeBytes: 0, scannerImage: $scannerImage, scannerVersion: $scannerVersion, blockedVulnerabilitySeverities: ($blockedVulnerabilitySeverities | split(",")), awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, sbomArtifactUrl: $sbomArtifactUrl, images: []}' \
+            '{schemaVersion: 20, revision: $revision, publishedAt: $publishedAt, deploymentEnvironment: $deploymentEnvironment, imagePlatform: $imagePlatform, maxImageSizeBytes: $maxImageSizeBytes, maxTotalImageSizeBytes: $maxTotalImageSizeBytes, totalImageSizeBytes: 0, scannerImage: $scannerImage, scannerVersion: $scannerVersion, blockedVulnerabilitySeverities: ($blockedVulnerabilitySeverities | split(",")), awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, sbomArtifactUrl: $sbomArtifactUrl, images: []}' \
             > "$manifest"
           for service in api analytics simulator web otel-collector; do
             repository="$ECR_REPOSITORY_PREFIX/$service"
@@ -302,6 +306,12 @@ jobs:
             sbom_sha256="$(sha256sum "work/sbom/$sbom_file" | awk '{print $1}')"
             if ! [[ "$sbom_sha256" =~ ^[0-9a-f]{64}$ ]]; then
               echo "::error::$service SBOM has no valid SHA-256"
+              exit 1
+            fi
+            vulnerability_report_file="logitrack-$service.critical.json"
+            vulnerability_report_sha256="$(sha256sum "work/sbom/$vulnerability_report_file" | awk '{print $1}')"
+            if ! [[ "$vulnerability_report_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "::error::$service vulnerability report has no valid SHA-256"
               exit 1
             fi
             digest="$(aws ecr describe-images \
@@ -342,8 +352,10 @@ jobs:
               --arg uri "$ECR_REGISTRY/$repository@$digest" \
               --arg sbomFile "$sbom_file" \
               --arg sbomSha256 "$sbom_sha256" \
+              --arg vulnerabilityReportFile "$vulnerability_report_file" \
+              --arg vulnerabilityReportSha256 "$vulnerability_report_sha256" \
               --argjson sizeBytes "$size_bytes" \
-              '.images += [{service: $service, repository: $repository, digest: $digest, mediaType: $mediaType, sizeBytes: $sizeBytes, uri: $uri, sbomFile: $sbomFile, sbomSha256: $sbomSha256}] | .totalImageSizeBytes = ([.images[].sizeBytes] | add)' \
+              '.images += [{service: $service, repository: $repository, digest: $digest, mediaType: $mediaType, sizeBytes: $sizeBytes, uri: $uri, sbomFile: $sbomFile, sbomSha256: $sbomSha256, vulnerabilityReportFile: $vulnerabilityReportFile, vulnerabilityReportSha256: $vulnerabilityReportSha256}] | .totalImageSizeBytes = ([.images[].sizeBytes] | add)' \
               "$manifest" > "$manifest.tmp"
             mv "$manifest.tmp" "$manifest"
           done

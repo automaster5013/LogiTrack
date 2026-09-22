@@ -25,6 +25,8 @@ PREFIX = "logitrack"
 DIGEST = "sha256:" + "b" * 64
 SBOM_CONTENT = b'{"bomFormat":"CycloneDX"}\n'
 SBOM_SHA256 = hashlib.sha256(SBOM_CONTENT).hexdigest()
+REPORT_CONTENT = b'{"SchemaVersion":2,"Results":[]}\n'
+REPORT_SHA256 = hashlib.sha256(REPORT_CONTENT).hexdigest()
 SBOM_ARTIFACT_DIGEST = "sha256:" + "c" * 64
 REPOSITORY = "automaster5013/LogiTrack"
 RUN_ID = 123456789
@@ -115,11 +117,13 @@ def main() -> None:
             "uri": f"{REGISTRY}/{PREFIX}/{service}@{DIGEST}",
             "sbomFile": f"logitrack-{service}.cdx.json",
             "sbomSha256": SBOM_SHA256,
+            "vulnerabilityReportFile": f"logitrack-{service}.critical.json",
+            "vulnerabilityReportSha256": REPORT_SHA256,
         }
         for service in SERVICES
     ]
     manifest = {
-        "schemaVersion": 19,
+        "schemaVersion": 20,
         "revision": REVISION,
         "publishedAt": PUBLISHED_AT,
         "deploymentEnvironment": DEPLOYMENT_ENVIRONMENT,
@@ -154,6 +158,7 @@ def main() -> None:
         sbom_dir.mkdir()
         for service in SERVICES:
             (sbom_dir / f"logitrack-{service}.cdx.json").write_bytes(SBOM_CONTENT)
+            (sbom_dir / f"logitrack-{service}.critical.json").write_bytes(REPORT_CONTENT)
         path.write_text(json.dumps(manifest), encoding="utf-8")
         valid = run_validator(path, sbom_dir)
         if valid.returncode != 0:
@@ -195,6 +200,26 @@ def main() -> None:
             raise AssertionError("validator accepted tampered SBOM contents")
 
         api_sbom.write_bytes(SBOM_CONTENT)
+        api_report = sbom_dir / "logitrack-api.critical.json"
+        api_report.write_bytes(b"tampered")
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        invalid = run_validator(path, sbom_dir)
+        if invalid.returncode == 0:
+            raise AssertionError("validator accepted tampered vulnerability report contents")
+
+        api_report.write_bytes(REPORT_CONTENT)
+        invalid_report = b'{"SchemaVersion":1,"Results":[]}\n'
+        api_report.write_bytes(invalid_report)
+        manifest["images"][0]["vulnerabilityReportSha256"] = hashlib.sha256(
+            invalid_report
+        ).hexdigest()
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        invalid = run_validator(path, sbom_dir)
+        if invalid.returncode == 0:
+            raise AssertionError("validator accepted an invalid vulnerability report schema")
+
+        api_report.write_bytes(REPORT_CONTENT)
+        manifest["images"][0]["vulnerabilityReportSha256"] = REPORT_SHA256
         manifest["sbomArtifactDigest"] = "sha256:" + "d" * 64
         path.write_text(json.dumps(manifest), encoding="utf-8")
         invalid = run_validator(path, sbom_dir)

@@ -98,7 +98,7 @@ def main() -> None:
         "sbomArtifactUrl",
         "images",
     }
-    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 19:
+    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 20:
         raise AssertionError("release manifest schema is invalid")
     if manifest["revision"] != args.revision:
         raise AssertionError("release manifest revision does not match")
@@ -205,6 +205,8 @@ def main() -> None:
             "uri",
             "sbomFile",
             "sbomSha256",
+            "vulnerabilityReportFile",
+            "vulnerabilityReportSha256",
         }:
             raise AssertionError("release manifest image schema is invalid")
         service = image["service"]
@@ -233,6 +235,24 @@ def main() -> None:
         actual_sbom_sha256 = hashlib.sha256(sbom_path.read_bytes()).hexdigest()
         if image["sbomSha256"] != actual_sbom_sha256:
             raise AssertionError(f"release manifest SBOM hash does not match: {service}")
+        report_file = f"logitrack-{service}.critical.json"
+        if image["vulnerabilityReportFile"] != report_file or not SHA256.fullmatch(
+            image["vulnerabilityReportSha256"]
+        ):
+            raise AssertionError(f"release manifest vulnerability report is invalid: {service}")
+        report_path = args.sbom_dir / report_file
+        if not report_path.is_file():
+            raise AssertionError(f"release manifest vulnerability report is missing: {service}")
+        actual_report_sha256 = hashlib.sha256(report_path.read_bytes()).hexdigest()
+        if image["vulnerabilityReportSha256"] != actual_report_sha256:
+            raise AssertionError(
+                f"release manifest vulnerability report hash does not match: {service}"
+            )
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        if report.get("SchemaVersion") != 2 or not isinstance(report.get("Results"), list):
+            raise AssertionError(
+                f"release manifest vulnerability report schema is invalid: {service}"
+            )
     expected_total = sum(image["sizeBytes"] for image in images)
     if (
         manifest["totalImageSizeBytes"] != expected_total
