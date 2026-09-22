@@ -23,13 +23,13 @@ if($api -notmatch "(?im)^Access-Control-Allow-Origin:\s*http://localhost:3000\s*
 if($loopbackApi -notmatch "(?im)^Access-Control-Allow-Origin:\s*http://127\.0\.0\.1:3000\s*$") { throw "Published loopback web origin was not allowed" }
 if($api -notmatch "(?im)^Cache-Control:\s*no-store\s*$") { throw "API responses were not protected from intermediary caching" }
 if($untrusted -match "(?im)^Access-Control-Allow-Origin:") { throw "Untrusted origin was allowed" }
-$allowedPreflight=Preflight "Content-Type, Idempotency-Key, X-Trace-Id, X-Operator, X-Replay-Approval, X-Discard-Approval"
+$allowedPreflight=Preflight "Authorization, Content-Type, Idempotency-Key, X-Trace-Id, X-Operator, X-Replay-Approval, X-Discard-Approval"
 $loopbackPreflight=Preflight "Content-Type" "http://127.0.0.1:3000"
 if($loopbackPreflight -notmatch "(?im)^Access-Control-Allow-Origin:\s*http://127\.0\.0\.1:3000\s*$") { throw "Published loopback web origin preflight was not allowed" }
-foreach($header in @("Content-Type","Idempotency-Key","X-Trace-Id","X-Operator","X-Replay-Approval","X-Discard-Approval")) {
+foreach($header in @("Authorization","Content-Type","Idempotency-Key","X-Trace-Id","X-Operator","X-Replay-Approval","X-Discard-Approval")) {
   if($allowedPreflight -notmatch "(?im)^Access-Control-Allow-Headers:.*$([regex]::Escape($header))") { throw "Required CORS preflight header was not allowed: $header" }
 }
 if($allowedPreflight -notmatch "(?im)^Access-Control-Allow-Methods:.*POST") { throw "Required CORS preflight method was not allowed: POST" }
-$rejectedPreflight=Preflight "Authorization"
+$rejectedPreflight=Preflight "X-Unapproved-Header"
 if($rejectedPreflight -match "(?im)^Access-Control-Allow-Origin:") { throw "Unapproved CORS request header was allowed" }
 Write-Host "PASS: API/web security headers present, both local console origins and required headers allowed, untrusted origin/header rejected"

@@ -54,6 +54,7 @@ server:
       max: ${SERVER_MAX_THREADS:128}
       min-spare: ${SERVER_MIN_SPARE_THREADS:10}
 logitrack:
+  security.enabled: ${SECURITY_ENABLED:false}
   http.max-request-body-size: ${HTTP_MAX_REQUEST_BODY_SIZE:1MB}
   analytics:
     url: ${ANALYTICS_URL:http://localhost:8090}

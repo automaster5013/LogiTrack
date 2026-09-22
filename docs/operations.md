@@ -8,7 +8,8 @@
 
 - API liveness/readiness: `/actuator/health/liveness`, `/actuator/health/readiness`. Readiness는 애플리케이션 상태와 PostgreSQL을 포함하며 Redis는 로컬 SSE fallback이 있으므로 제외한다.
 - HTTP 요청에서 생성한 outbox 이벤트는 원래 W3C trace context를 함께 저장하고 비동기 Kafka producer span의 parent로 복원한다. `./scripts/outbox-trace-smoke.ps1`는 PostgreSQL 저장, 발행 완료, Tempo의 동일 trace 연결을 왕복 검증하고 fixture를 정리한다.
-- CORS는 `CORS_ALLOWED_ORIGINS`의 exact HTTP(S) origin과 `Content-Type`, `Idempotency-Key`, `X-Trace-Id`, `X-Operator`, `X-Replay-Approval`, `X-Discard-Approval` 요청 헤더만 허용한다. 기본 origin은 `http://localhost:3000,http://127.0.0.1:3000`이며 와일드카드·경로·자격 증명·쿼리·fragment가 포함된 값은 시작 시 거부한다. 허용 preflight는 1시간 캐시하며 임의 인증·사용자 정의 헤더는 거부한다.
+- CORS는 `CORS_ALLOWED_ORIGINS`의 exact HTTP(S) origin과 `Authorization`, `Content-Type`, `Idempotency-Key`, `X-Trace-Id`, `X-Operator`, `X-Replay-Approval`, `X-Discard-Approval` 요청 헤더만 허용한다. 기본 origin은 `http://localhost:3000,http://127.0.0.1:3000`이며 와일드카드·경로·자격 증명·쿼리·fragment가 포함된 값은 시작 시 거부한다. 허용 preflight는 1시간 캐시하며 그 밖의 임의 사용자 정의 헤더는 거부한다.
+- 로컬 loopback 데모만 `SECURITY_ENABLED=false`를 허용한다. non-loopback CORS origin에서는 `SECURITY_ENABLED=true`와 `SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI`가 필수다. API는 JWT `roles` claim의 `VIEWER`, `OPERATOR`, `RECOVERY_OPERATOR`, `ADMIN`만 권한으로 인정하며 감사 actor는 검증된 token subject로 덮어써 클라이언트 `X-Operator` 위조를 차단한다.
 - 주문·배송·위치·감사·복구·보고서를 포함한 모든 `/api/**` 응답은 `Cache-Control: no-store`로 브라우저와 중간 프록시 저장을 금지한다. 웹 정적 자산과 actuator의 별도 cache 정책은 변경하지 않는다.
 - PostgreSQL 연결 획득은 기본 3초(`DB_CONNECTION_TIMEOUT_MS`), 연결 검증은 2초(`DB_VALIDATION_TIMEOUT_MS`) 안에 실패한다. DB 장애 중 요청·consumer·예약 작업이 JDBC 기본 30초 대기로 누적되는 것을 막고, 연결 풀이 복구되면 별도 재시작 없이 다시 처리한다.
 - analytics health: `http://localhost:8090/health`

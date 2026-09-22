@@ -32,7 +32,7 @@ docker compose up --build
 - Tempo API: http://localhost:3200 (`Grafana → Explore → Tempo`에서 trace 조회)
 - OpenTelemetry Collector health: http://localhost:13133
 
-Compose가 공개하는 모든 개발용 포트는 호스트의 `127.0.0.1`에만 바인딩되므로 같은 네트워크의 다른 장치에서는 접근할 수 없습니다. 외부 공개 배포는 인증과 TLS를 갖춘 별도 ingress를 사용하세요.
+Compose가 공개하는 모든 개발용 포트는 호스트의 `127.0.0.1`에만 바인딩되므로 같은 네트워크의 다른 장치에서는 접근할 수 없습니다. 로컬 기본값은 `SECURITY_ENABLED=false`이지만 CORS에 loopback 이외 origin이 하나라도 있으면 API가 시작을 거부합니다. 외부 배포는 `SECURITY_ENABLED=true`와 `SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI`를 설정하고 TLS ingress를 사용하세요.
 컨테이너 간 통신도 `edge`, `data`, `analytics-egress`, `observability` 영역으로 분리됩니다. 웹은 API에만, 데이터 서비스는 필요한 API·simulator에만 연결되며 analytics와 관측성 구성 요소도 별도 영역에서 필요한 상대만 탐색할 수 있습니다. 개발용 host port를 유지하면서 불필요한 컨테이너 간 DNS·직접 연결 경로를 제거합니다.
 Kafka JVM heap은 256~512 MiB로 고정해 1 GiB 컨테이너 상한 안에 native memory와 page cache 여유를 남깁니다. 기본·성능 Compose 검증과 runtime smoke가 이 간격을 회귀 검사합니다.
 
