@@ -224,6 +224,7 @@ jobs:
             docker push "$destination"
           done
       - name: Verify published digests and create release manifest
+        id: release
         env:
           ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
           ECR_REPOSITORY_PREFIX: ${{ vars.ECR_REPOSITORY_PREFIX }}
@@ -242,6 +243,8 @@ jobs:
         run: |
           mkdir -p work/release
           manifest="work/release/staging-release-manifest.json"
+          published_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          echo "published-at=$published_at" >> "$GITHUB_OUTPUT"
           expected_workflow_ref="$SOURCE_REPOSITORY/.github/workflows/publish-staging-images.yml@refs/heads/main"
           if [ "$WORKFLOW_REF" != "$expected_workflow_ref" ]; then
             echo "::error::staging publication must run from the main workflow definition"
@@ -261,10 +264,11 @@ jobs:
             --arg workflowRef "$WORKFLOW_REF" \
             --arg workflowSha "$WORKFLOW_SHA" \
             --arg workflowTriggeringActor "$WORKFLOW_TRIGGERING_ACTOR" \
+            --arg publishedAt "$published_at" \
             --argjson artifactRetentionDays "$ARTIFACT_RETENTION_DAYS" \
             --argjson workflowRunId "$WORKFLOW_RUN_ID" \
             --argjson workflowRunAttempt "$WORKFLOW_RUN_ATTEMPT" \
-            '{schemaVersion: 10, revision: $revision, deploymentEnvironment: $deploymentEnvironment, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, images: []}' \
+            '{schemaVersion: 11, revision: $revision, publishedAt: $publishedAt, deploymentEnvironment: $deploymentEnvironment, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, images: []}' \
             > "$manifest"
           for service in api analytics simulator web otel-collector; do
             repository="$ECR_REPOSITORY_PREFIX/$service"
@@ -301,6 +305,7 @@ jobs:
             --deployment-environment "$DEPLOYMENT_ENVIRONMENT" \
             --region "$AWS_REGION" \
             --repository "$SOURCE_REPOSITORY" \
+            --published-at "$published_at" \
             --run-id "$WORKFLOW_RUN_ID" \
             --run-attempt "$WORKFLOW_RUN_ATTEMPT" \
             --run-url "$WORKFLOW_RUN_URL" \
@@ -325,6 +330,7 @@ jobs:
         env:
           RELEASE_MANIFEST_DIGEST: ${{ steps.release-manifest.outputs.artifact-digest }}
           RELEASE_MANIFEST_URL: ${{ steps.release-manifest.outputs.artifact-url }}
+          PUBLISHED_AT: ${{ steps.release.outputs.published-at }}
           REVISION: ${{ steps.revision.outputs.sha }}
           SBOM_ARTIFACT_DIGEST: ${{ steps.sboms.outputs.artifact-digest }}
           SBOM_ARTIFACT_URL: ${{ steps.sboms.outputs.artifact-url }}
@@ -389,6 +395,7 @@ jobs:
             echo "## Immutable staging publication"
             echo
             echo "- Revision: \`$REVISION\`"
+            echo "- Published at: \`$PUBLISHED_AT\`"
             echo "- Deployment environment: \`$DEPLOYMENT_ENVIRONMENT\`"
             echo "- Publication run: [$GITHUB_RUN_ID]($WORKFLOW_RUN_URL), attempt \`$WORKFLOW_RUN_ATTEMPT\`"
             echo "- Workflow definition SHA: \`$WORKFLOW_SHA\`"

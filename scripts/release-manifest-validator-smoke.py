@@ -27,6 +27,7 @@ WORKFLOW_REF = f"{REPOSITORY}/.github/workflows/publish-staging-images.yml@refs/
 WORKFLOW_ACTOR = "release-operator"
 WORKFLOW_TRIGGERING_ACTOR = "rerun-operator"
 WORKFLOW_EVENT = "workflow_dispatch"
+PUBLISHED_AT = "2026-09-22T03:04:05Z"
 
 
 def run_validator(path: Path, sbom_dir: Path) -> subprocess.CompletedProcess[str]:
@@ -47,6 +48,8 @@ def run_validator(path: Path, sbom_dir: Path) -> subprocess.CompletedProcess[str
             REGION,
             "--repository",
             REPOSITORY,
+            "--published-at",
+            PUBLISHED_AT,
             "--run-id",
             str(RUN_ID),
             "--run-attempt",
@@ -91,8 +94,9 @@ def main() -> None:
         for service in SERVICES
     ]
     manifest = {
-        "schemaVersion": 10,
+        "schemaVersion": 11,
         "revision": REVISION,
+        "publishedAt": PUBLISHED_AT,
         "deploymentEnvironment": DEPLOYMENT_ENVIRONMENT,
         "awsAccountId": ACCOUNT_ID,
         "awsRegion": REGION,
@@ -207,6 +211,13 @@ def main() -> None:
             raise AssertionError("validator accepted a non-staging deployment environment")
 
         manifest["deploymentEnvironment"] = DEPLOYMENT_ENVIRONMENT
+        manifest["publishedAt"] = "2026-99-99T03:04:05Z"
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        invalid = run_validator(path, sbom_dir)
+        if invalid.returncode == 0:
+            raise AssertionError("validator accepted an invalid publication timestamp")
+
+        manifest["publishedAt"] = PUBLISHED_AT
         manifest["artifactRetentionDays"] = ARTIFACT_RETENTION_DAYS + 1
         path.write_text(json.dumps(manifest), encoding="utf-8")
         invalid = run_validator(path, sbom_dir)

@@ -2,6 +2,7 @@ import argparse
 import hashlib
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 
 
@@ -13,6 +14,7 @@ ACCOUNT_ID = re.compile(r"^[0-9]{12}$")
 REGION = re.compile(r"^[a-z]{2}(-gov)?-[a-z]+-[0-9]+$")
 REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 GITHUB_LOGIN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
+UTC_TIMESTAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 
 def parse_args() -> argparse.Namespace:
@@ -24,6 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--deployment-environment", required=True)
     parser.add_argument("--region", required=True)
     parser.add_argument("--repository", required=True)
+    parser.add_argument("--published-at", required=True)
     parser.add_argument("--run-id", required=True, type=int)
     parser.add_argument("--run-attempt", required=True, type=int)
     parser.add_argument("--run-url", required=True)
@@ -56,6 +59,7 @@ def main() -> None:
     expected_top_level = {
         "schemaVersion",
         "revision",
+        "publishedAt",
         "deploymentEnvironment",
         "awsAccountId",
         "awsRegion",
@@ -73,10 +77,20 @@ def main() -> None:
         "sbomArtifactDigest",
         "images",
     }
-    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 10:
+    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 11:
         raise AssertionError("release manifest schema is invalid")
     if manifest["revision"] != args.revision:
         raise AssertionError("release manifest revision does not match")
+    if not UTC_TIMESTAMP.fullmatch(args.published_at):
+        raise AssertionError("release manifest publication time must be an exact UTC timestamp")
+    try:
+        datetime.strptime(args.published_at, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError as error:
+        raise AssertionError(
+            "release manifest publication time must be a valid UTC timestamp"
+        ) from error
+    if manifest["publishedAt"] != args.published_at:
+        raise AssertionError("release manifest publication time must be an exact UTC timestamp")
     if (
         args.deployment_environment != "staging"
         or manifest["deploymentEnvironment"] != args.deployment_environment
