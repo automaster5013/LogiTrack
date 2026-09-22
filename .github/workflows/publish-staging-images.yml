@@ -25,6 +25,7 @@ jobs:
     env:
       AWS_RETRY_MODE: standard
       AWS_MAX_ATTEMPTS: 5
+      AWS_PAGER: ""
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
