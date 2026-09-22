@@ -38,6 +38,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--registry", required=True)
     parser.add_argument("--repository-prefix", required=True)
     parser.add_argument("--sbom-artifact-digest", required=True)
+    parser.add_argument("--sbom-artifact-url", required=True)
     parser.add_argument("--sbom-dir", required=True, type=Path)
     return parser.parse_args()
 
@@ -75,9 +76,10 @@ def main() -> None:
         "artifactRetentionDays",
         "sbomArtifact",
         "sbomArtifactDigest",
+        "sbomArtifactUrl",
         "images",
     }
-    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 11:
+    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 12:
         raise AssertionError("release manifest schema is invalid")
     if manifest["revision"] != args.revision:
         raise AssertionError("release manifest revision does not match")
@@ -138,6 +140,14 @@ def main() -> None:
         raise AssertionError("expected SBOM artifact digest is invalid")
     if manifest["sbomArtifactDigest"] != args.sbom_artifact_digest:
         raise AssertionError("release manifest SBOM artifact digest does not match")
+    artifact_url = re.compile(
+        rf"^https://github\.com/{re.escape(args.repository)}/actions/runs/"
+        rf"{args.run_id}/artifacts/[1-9][0-9]*$"
+    )
+    if not artifact_url.fullmatch(args.sbom_artifact_url):
+        raise AssertionError("expected SBOM artifact URL is outside the workflow run")
+    if manifest["sbomArtifactUrl"] != args.sbom_artifact_url:
+        raise AssertionError("release manifest SBOM artifact URL does not match")
 
     images = manifest["images"]
     if not isinstance(images, list) or [image.get("service") for image in images] != list(SERVICES):

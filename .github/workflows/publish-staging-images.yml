@@ -235,6 +235,7 @@ jobs:
           WORKFLOW_EVENT: ${{ github.event_name }}
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SBOM_ARTIFACT_DIGEST: ${{ steps.sboms.outputs.artifact-digest }}
+          SBOM_ARTIFACT_URL: ${{ steps.sboms.outputs.artifact-url }}
           WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
           WORKFLOW_RUN_ID: ${{ github.run_id }}
           WORKFLOW_REF: ${{ github.workflow_ref }}
@@ -258,6 +259,7 @@ jobs:
             --arg sourceRepository "$SOURCE_REPOSITORY" \
             --arg sbomArtifact "staging-container-sboms-$REVISION" \
             --arg sbomArtifactDigest "$SBOM_ARTIFACT_DIGEST" \
+            --arg sbomArtifactUrl "$SBOM_ARTIFACT_URL" \
             --arg workflowRunUrl "$WORKFLOW_RUN_URL" \
             --arg workflowActor "$WORKFLOW_ACTOR" \
             --arg workflowEvent "$WORKFLOW_EVENT" \
@@ -268,7 +270,7 @@ jobs:
             --argjson artifactRetentionDays "$ARTIFACT_RETENTION_DAYS" \
             --argjson workflowRunId "$WORKFLOW_RUN_ID" \
             --argjson workflowRunAttempt "$WORKFLOW_RUN_ATTEMPT" \
-            '{schemaVersion: 11, revision: $revision, publishedAt: $publishedAt, deploymentEnvironment: $deploymentEnvironment, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, images: []}' \
+            '{schemaVersion: 12, revision: $revision, publishedAt: $publishedAt, deploymentEnvironment: $deploymentEnvironment, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, sbomArtifactUrl: $sbomArtifactUrl, images: []}' \
             > "$manifest"
           for service in api analytics simulator web otel-collector; do
             repository="$ECR_REPOSITORY_PREFIX/$service"
@@ -317,6 +319,7 @@ jobs:
             --registry "$ECR_REGISTRY" \
             --repository-prefix "$ECR_REPOSITORY_PREFIX" \
             --sbom-artifact-digest "$SBOM_ARTIFACT_DIGEST" \
+            --sbom-artifact-url "$SBOM_ARTIFACT_URL" \
             --sbom-dir work/sbom
       - name: Upload immutable staging release manifest
         id: release-manifest

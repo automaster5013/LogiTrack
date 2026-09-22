@@ -22,6 +22,7 @@ REPOSITORY = "automaster5013/LogiTrack"
 RUN_ID = 123456789
 RUN_ATTEMPT = 2
 RUN_URL = f"https://github.com/{REPOSITORY}/actions/runs/{RUN_ID}"
+SBOM_ARTIFACT_URL = f"{RUN_URL}/artifacts/987654321"
 WORKFLOW_SHA = "d" * 40
 WORKFLOW_REF = f"{REPOSITORY}/.github/workflows/publish-staging-images.yml@refs/heads/main"
 WORKFLOW_ACTOR = "release-operator"
@@ -72,6 +73,8 @@ def run_validator(path: Path, sbom_dir: Path) -> subprocess.CompletedProcess[str
             PREFIX,
             "--sbom-artifact-digest",
             SBOM_ARTIFACT_DIGEST,
+            "--sbom-artifact-url",
+            SBOM_ARTIFACT_URL,
             "--sbom-dir",
             str(sbom_dir),
         ],
@@ -94,7 +97,7 @@ def main() -> None:
         for service in SERVICES
     ]
     manifest = {
-        "schemaVersion": 11,
+        "schemaVersion": 12,
         "revision": REVISION,
         "publishedAt": PUBLISHED_AT,
         "deploymentEnvironment": DEPLOYMENT_ENVIRONMENT,
@@ -112,6 +115,7 @@ def main() -> None:
         "artifactRetentionDays": ARTIFACT_RETENTION_DAYS,
         "sbomArtifact": f"staging-container-sboms-{REVISION}",
         "sbomArtifactDigest": SBOM_ARTIFACT_DIGEST,
+        "sbomArtifactUrl": SBOM_ARTIFACT_URL,
         "images": images,
     }
     with tempfile.TemporaryDirectory() as directory:
@@ -155,6 +159,15 @@ def main() -> None:
             raise AssertionError("validator accepted mismatched SBOM artifact digest")
 
         manifest["sbomArtifactDigest"] = SBOM_ARTIFACT_DIGEST
+        manifest["sbomArtifactUrl"] = SBOM_ARTIFACT_URL.replace(
+            f"runs/{RUN_ID}", f"runs/{RUN_ID + 1}"
+        )
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        invalid = run_validator(path, sbom_dir)
+        if invalid.returncode == 0:
+            raise AssertionError("validator accepted an SBOM artifact URL from another run")
+
+        manifest["sbomArtifactUrl"] = SBOM_ARTIFACT_URL
         manifest["workflowRunUrl"] = RUN_URL + "/unexpected"
         path.write_text(json.dumps(manifest), encoding="utf-8")
         invalid = run_validator(path, sbom_dir)
