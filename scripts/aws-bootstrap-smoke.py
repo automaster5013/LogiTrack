@@ -47,6 +47,8 @@ def main() -> None:
         "github_environment_variables",
         'data "aws_caller_identity" "current"',
         "AWS_ACCOUNT_ID        = data.aws_caller_identity.current.account_id",
+        'split(":", var.github_oidc_provider_arn)[4] == data.aws_caller_identity.current.account_id',
+        "github_oidc_provider_arn must belong to the AWS account running this bootstrap.",
     ):
         require(source, fragment)
 
