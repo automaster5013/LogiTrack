@@ -103,6 +103,8 @@ def main() -> None:
         "sbomSha256: $sbomSha256",
     "--sbom-dir work/sbom",
     '--sbom-artifact-digest "$SBOM_ARTIFACT_DIGEST"',
+    '--run-url "$WORKFLOW_RUN_URL"',
+    "WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
     "SBOM_ARTIFACT_DIGEST: ${{ steps.sboms.outputs.artifact-digest }}",
     "RELEASE_MANIFEST_DIGEST: ${{ steps.release-manifest.outputs.artifact-digest }}",
     "RELEASE_MANIFEST_URL: ${{ steps.release-manifest.outputs.artifact-url }}",

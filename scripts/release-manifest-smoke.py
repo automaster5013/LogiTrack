@@ -23,6 +23,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repository", required=True)
     parser.add_argument("--run-id", required=True, type=int)
     parser.add_argument("--run-attempt", required=True, type=int)
+    parser.add_argument("--run-url", required=True)
     parser.add_argument("--registry", required=True)
     parser.add_argument("--repository-prefix", required=True)
     parser.add_argument("--sbom-artifact-digest", required=True)
@@ -52,11 +53,12 @@ def main() -> None:
         "sourceRepository",
         "workflowRunId",
         "workflowRunAttempt",
+        "workflowRunUrl",
         "sbomArtifact",
         "sbomArtifactDigest",
         "images",
     }
-    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 3:
+    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 4:
         raise AssertionError("release manifest schema is invalid")
     if manifest["revision"] != args.revision:
         raise AssertionError("release manifest revision does not match")
@@ -66,8 +68,12 @@ def main() -> None:
         manifest["sourceRepository"] != args.repository
         or manifest["workflowRunId"] != args.run_id
         or manifest["workflowRunAttempt"] != args.run_attempt
+        or manifest["workflowRunUrl"] != args.run_url
     ):
         raise AssertionError("release manifest workflow provenance does not match")
+    expected_run_url = f"https://github.com/{args.repository}/actions/runs/{args.run_id}"
+    if args.run_url != expected_run_url:
+        raise AssertionError("workflow run URL does not match the source repository and run ID")
     if manifest["sbomArtifact"] != f"staging-container-sboms-{args.revision}":
         raise AssertionError("release manifest SBOM artifact does not match the revision")
     if not DIGEST.fullmatch(args.sbom_artifact_digest):

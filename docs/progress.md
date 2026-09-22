@@ -296,3 +296,4 @@
 - staging 게시 실행 요약에 revision과 SBOM·release manifest artifact archive digest를 기록해 운영 인수 시 무결성 대조 간소화
 - staging 게시 실행 요약에 repository·run 범위를 검증한 SBOM·release manifest 다운로드 링크를 제공해 증적 인수 동선 단축
 - staging 게시 Actions 실행 이름에 요청 revision을 표시해 재실행·감사 대상 검색성 개선
+- staging release manifest에 검증된 GitHub Actions 실행 URL을 포함해 게시 provenance 원본으로 즉시 이동 지원

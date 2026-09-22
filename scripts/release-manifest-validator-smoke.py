@@ -19,6 +19,7 @@ SBOM_ARTIFACT_DIGEST = "sha256:" + "c" * 64
 REPOSITORY = "automaster5013/LogiTrack"
 RUN_ID = 123456789
 RUN_ATTEMPT = 2
+RUN_URL = f"https://github.com/{REPOSITORY}/actions/runs/{RUN_ID}"
 
 
 def run_validator(path: Path, sbom_dir: Path) -> subprocess.CompletedProcess[str]:
@@ -39,6 +40,8 @@ def run_validator(path: Path, sbom_dir: Path) -> subprocess.CompletedProcess[str
             str(RUN_ID),
             "--run-attempt",
             str(RUN_ATTEMPT),
+            "--run-url",
+            RUN_URL,
             "--registry",
             REGISTRY,
             "--repository-prefix",
@@ -67,13 +70,14 @@ def main() -> None:
         for service in SERVICES
     ]
     manifest = {
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "revision": REVISION,
         "awsAccountId": ACCOUNT_ID,
         "awsRegion": REGION,
         "sourceRepository": REPOSITORY,
         "workflowRunId": RUN_ID,
         "workflowRunAttempt": RUN_ATTEMPT,
+        "workflowRunUrl": RUN_URL,
         "sbomArtifact": f"staging-container-sboms-{REVISION}",
         "sbomArtifactDigest": SBOM_ARTIFACT_DIGEST,
         "images": images,
@@ -119,6 +123,13 @@ def main() -> None:
             raise AssertionError("validator accepted mismatched SBOM artifact digest")
 
         manifest["sbomArtifactDigest"] = SBOM_ARTIFACT_DIGEST
+        manifest["workflowRunUrl"] = RUN_URL + "/unexpected"
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        invalid = run_validator(path, sbom_dir)
+        if invalid.returncode == 0:
+            raise AssertionError("validator accepted a mismatched workflow run URL")
+
+        manifest["workflowRunUrl"] = RUN_URL
         manifest["workflowRunAttempt"] = RUN_ATTEMPT + 1
         path.write_text(json.dumps(manifest), encoding="utf-8")
         invalid = run_validator(path, sbom_dir)

@@ -228,6 +228,7 @@ jobs:
           EXPECTED_AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
           REVISION: ${{ steps.revision.outputs.sha }}
           SOURCE_REPOSITORY: ${{ github.repository }}
+          WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SBOM_ARTIFACT_DIGEST: ${{ steps.sboms.outputs.artifact-digest }}
           WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
           WORKFLOW_RUN_ID: ${{ github.run_id }}
@@ -241,9 +242,10 @@ jobs:
             --arg sourceRepository "$SOURCE_REPOSITORY" \
             --arg sbomArtifact "staging-container-sboms-$REVISION" \
             --arg sbomArtifactDigest "$SBOM_ARTIFACT_DIGEST" \
+            --arg workflowRunUrl "$WORKFLOW_RUN_URL" \
             --argjson workflowRunId "$WORKFLOW_RUN_ID" \
             --argjson workflowRunAttempt "$WORKFLOW_RUN_ATTEMPT" \
-            '{schemaVersion: 3, revision: $revision, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, images: []}' \
+            '{schemaVersion: 4, revision: $revision, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, images: []}' \
             > "$manifest"
           for service in api analytics simulator web otel-collector; do
             repository="$ECR_REPOSITORY_PREFIX/$service"
@@ -280,6 +282,7 @@ jobs:
             --repository "$SOURCE_REPOSITORY" \
             --run-id "$WORKFLOW_RUN_ID" \
             --run-attempt "$WORKFLOW_RUN_ATTEMPT" \
+            --run-url "$WORKFLOW_RUN_URL" \
             --registry "$ECR_REGISTRY" \
             --repository-prefix "$ECR_REPOSITORY_PREFIX" \
             --sbom-artifact-digest "$SBOM_ARTIFACT_DIGEST" \
