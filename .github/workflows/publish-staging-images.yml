@@ -118,6 +118,16 @@ jobs:
       - name: Log in to Amazon ECR
         id: ecr
         uses: aws-actions/amazon-ecr-login@b040164c4934333d597f3f9c67502ff28f814e9c # v2.1.6
+      - name: Verify the ECR registry endpoint
+        env:
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+          EXPECTED_AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+        run: |
+          expected_registry="$EXPECTED_AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
+          if [ "$ECR_REGISTRY" != "$expected_registry" ]; then
+            echo "::error::ECR login resolved to an unexpected registry"
+            exit 1
+          fi
       - name: Build deployable service images
         env:
           REVISION: ${{ steps.revision.outputs.sha }}

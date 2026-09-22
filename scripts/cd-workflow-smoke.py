@@ -78,6 +78,10 @@ def main() -> None:
         '.selection.countType == "sinceImagePushed"',
         '.selection.countType == "imageCountMoreThan"',
         "must keep the bounded two-rule staging lifecycle policy",
+        "Verify the ECR registry endpoint",
+        'expected_registry="$EXPECTED_AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"',
+        'ECR_REGISTRY" != "$expected_registry',
+        "ECR login resolved to an unexpected registry",
         "aws ecr describe-images",
         'pinned_destination="$ECR_REGISTRY/$repository@$existing_digest"',
         'docker pull "$pinned_destination"',
@@ -107,8 +111,12 @@ def main() -> None:
     manifest_upload_index = source.index("Upload immutable staging release manifest")
     identity_index = source.index("Verify the intended AWS account")
     repository_index = source.index("Validate pre-provisioned ECR repositories")
+    registry_index = source.index("Verify the ECR registry endpoint")
+    build_index = source.index("Build deployable service images")
     if identity_index >= repository_index:
         raise AssertionError("AWS account identity must be verified before ECR access")
+    if registry_index >= build_index:
+        raise AssertionError("the ECR registry endpoint must be verified before image builds")
     if scan_index >= push_index:
         raise AssertionError("images can be pushed before supply-chain validation")
     if not push_index < manifest_index < manifest_upload_index:
