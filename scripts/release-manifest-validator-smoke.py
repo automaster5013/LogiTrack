@@ -21,6 +21,7 @@ RUN_ID = 123456789
 RUN_ATTEMPT = 2
 RUN_URL = f"https://github.com/{REPOSITORY}/actions/runs/{RUN_ID}"
 WORKFLOW_SHA = "d" * 40
+WORKFLOW_REF = f"{REPOSITORY}/.github/workflows/publish-staging-images.yml@refs/heads/main"
 
 
 def run_validator(path: Path, sbom_dir: Path) -> subprocess.CompletedProcess[str]:
@@ -45,6 +46,8 @@ def run_validator(path: Path, sbom_dir: Path) -> subprocess.CompletedProcess[str
             RUN_URL,
             "--workflow-sha",
             WORKFLOW_SHA,
+            "--workflow-ref",
+            WORKFLOW_REF,
             "--registry",
             REGISTRY,
             "--repository-prefix",
@@ -73,7 +76,7 @@ def main() -> None:
         for service in SERVICES
     ]
     manifest = {
-        "schemaVersion": 5,
+        "schemaVersion": 6,
         "revision": REVISION,
         "awsAccountId": ACCOUNT_ID,
         "awsRegion": REGION,
@@ -81,6 +84,7 @@ def main() -> None:
         "workflowRunId": RUN_ID,
         "workflowRunAttempt": RUN_ATTEMPT,
         "workflowRunUrl": RUN_URL,
+        "workflowRef": WORKFLOW_REF,
         "workflowSha": WORKFLOW_SHA,
         "sbomArtifact": f"staging-container-sboms-{REVISION}",
         "sbomArtifactDigest": SBOM_ARTIFACT_DIGEST,
@@ -146,6 +150,13 @@ def main() -> None:
         invalid = run_validator(path, sbom_dir)
         if invalid.returncode == 0:
             raise AssertionError("validator accepted an invalid workflow definition SHA")
+
+        manifest["workflowSha"] = WORKFLOW_SHA
+        manifest["workflowRef"] = WORKFLOW_REF.replace("refs/heads/main", "refs/heads/feature")
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        invalid = run_validator(path, sbom_dir)
+        if invalid.returncode == 0:
+            raise AssertionError("validator accepted a non-main workflow definition ref")
 
     print("PASS: release manifest validator rejects invalid image, SBOM contents, or workflow provenance")
 
