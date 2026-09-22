@@ -229,12 +229,14 @@ jobs:
           EXPECTED_AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
           REVISION: ${{ steps.revision.outputs.sha }}
           SOURCE_REPOSITORY: ${{ github.repository }}
+          WORKFLOW_ACTOR: ${{ github.actor }}
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SBOM_ARTIFACT_DIGEST: ${{ steps.sboms.outputs.artifact-digest }}
           WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
           WORKFLOW_RUN_ID: ${{ github.run_id }}
           WORKFLOW_REF: ${{ github.workflow_ref }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
+          WORKFLOW_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
         run: |
           mkdir -p work/release
           manifest="work/release/staging-release-manifest.json"
@@ -251,11 +253,13 @@ jobs:
             --arg sbomArtifact "staging-container-sboms-$REVISION" \
             --arg sbomArtifactDigest "$SBOM_ARTIFACT_DIGEST" \
             --arg workflowRunUrl "$WORKFLOW_RUN_URL" \
+            --arg workflowActor "$WORKFLOW_ACTOR" \
             --arg workflowRef "$WORKFLOW_REF" \
             --arg workflowSha "$WORKFLOW_SHA" \
+            --arg workflowTriggeringActor "$WORKFLOW_TRIGGERING_ACTOR" \
             --argjson workflowRunId "$WORKFLOW_RUN_ID" \
             --argjson workflowRunAttempt "$WORKFLOW_RUN_ATTEMPT" \
-            '{schemaVersion: 6, revision: $revision, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowRef: $workflowRef, workflowSha: $workflowSha, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, images: []}' \
+            '{schemaVersion: 7, revision: $revision, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowRef: $workflowRef, workflowSha: $workflowSha, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, images: []}' \
             > "$manifest"
           for service in api analytics simulator web otel-collector; do
             repository="$ECR_REPOSITORY_PREFIX/$service"
@@ -293,8 +297,10 @@ jobs:
             --run-id "$WORKFLOW_RUN_ID" \
             --run-attempt "$WORKFLOW_RUN_ATTEMPT" \
             --run-url "$WORKFLOW_RUN_URL" \
+            --workflow-actor "$WORKFLOW_ACTOR" \
             --workflow-ref "$WORKFLOW_REF" \
             --workflow-sha "$WORKFLOW_SHA" \
+            --workflow-triggering-actor "$WORKFLOW_TRIGGERING_ACTOR" \
             --registry "$ECR_REGISTRY" \
             --repository-prefix "$ECR_REPOSITORY_PREFIX" \
             --sbom-artifact-digest "$SBOM_ARTIFACT_DIGEST" \
@@ -316,8 +322,10 @@ jobs:
           SBOM_ARTIFACT_URL: ${{ steps.sboms.outputs.artifact-url }}
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
+          WORKFLOW_ACTOR: ${{ github.actor }}
           WORKFLOW_REF: ${{ github.workflow_ref }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
+          WORKFLOW_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
         run: |
           for digest in "$SBOM_ARTIFACT_DIGEST" "$RELEASE_MANIFEST_DIGEST"; do
             if ! [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
@@ -344,6 +352,13 @@ jobs:
             echo "::error::workflow definition SHA must be a full lowercase Git SHA"
             exit 1
           fi
+          github_login_pattern='^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$'
+          for actor in "$WORKFLOW_ACTOR" "$WORKFLOW_TRIGGERING_ACTOR"; do
+            if ! [[ "$actor" =~ $github_login_pattern ]]; then
+              echo "::error::workflow actor must be a valid GitHub login"
+              exit 1
+            fi
+          done
           expected_workflow_ref="$GITHUB_REPOSITORY/.github/workflows/publish-staging-images.yml@refs/heads/main"
           if [ "$WORKFLOW_REF" != "$expected_workflow_ref" ]; then
             echo "::error::workflow definition ref does not match main"
@@ -360,6 +375,8 @@ jobs:
             echo "- Publication run: [$GITHUB_RUN_ID]($WORKFLOW_RUN_URL), attempt \`$WORKFLOW_RUN_ATTEMPT\`"
             echo "- Workflow definition SHA: \`$WORKFLOW_SHA\`"
             echo "- Workflow definition ref: \`$WORKFLOW_REF\`"
+            echo "- Workflow actor: \`$WORKFLOW_ACTOR\`"
+            echo "- Triggering actor: \`$WORKFLOW_TRIGGERING_ACTOR\`"
             echo "- Artifact retention: \`$ARTIFACT_RETENTION_DAYS days\`"
             echo "- SBOM artifact: [\`staging-container-sboms-$REVISION\`]($SBOM_ARTIFACT_URL)"
             echo "- SBOM artifact digest: \`$SBOM_ARTIFACT_DIGEST\`"

@@ -4,6 +4,7 @@
 
 ## 완료
 
+- staging release manifest와 실행 요약에 권한 주체·재실행 주체를 구분 기록해 수동 게시와 재실행의 운영자 감사 추적 강화
 - staging 게시 workflow 정의 ref를 repository의 `main` 경로로 제한하고 release manifest에 보존해 임시 브랜치 게시 경로 차단
 - staging release manifest와 실행 요약에 workflow 정의 commit SHA를 기록·검증해 동일 대상 revision의 게시 로직 provenance를 고정
 - staging image push 후 ECR digest 5종을 재검증하고 계정·리전·revision과 digest URI를 담은 불변 release manifest artifact 생성

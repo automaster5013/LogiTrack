@@ -12,6 +12,7 @@ REVISION = re.compile(r"^[0-9a-f]{40}$")
 ACCOUNT_ID = re.compile(r"^[0-9]{12}$")
 REGION = re.compile(r"^[a-z]{2}(-gov)?-[a-z]+-[0-9]+$")
 REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+GITHUB_LOGIN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
 
 
 def parse_args() -> argparse.Namespace:
@@ -24,8 +25,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--run-id", required=True, type=int)
     parser.add_argument("--run-attempt", required=True, type=int)
     parser.add_argument("--run-url", required=True)
+    parser.add_argument("--workflow-actor", required=True)
     parser.add_argument("--workflow-ref", required=True)
     parser.add_argument("--workflow-sha", required=True)
+    parser.add_argument("--workflow-triggering-actor", required=True)
     parser.add_argument("--registry", required=True)
     parser.add_argument("--repository-prefix", required=True)
     parser.add_argument("--sbom-artifact-digest", required=True)
@@ -56,13 +59,15 @@ def main() -> None:
         "workflowRunId",
         "workflowRunAttempt",
         "workflowRunUrl",
+        "workflowActor",
+        "workflowTriggeringActor",
         "workflowRef",
         "workflowSha",
         "sbomArtifact",
         "sbomArtifactDigest",
         "images",
     }
-    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 6:
+    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 7:
         raise AssertionError("release manifest schema is invalid")
     if manifest["revision"] != args.revision:
         raise AssertionError("release manifest revision does not match")
@@ -78,6 +83,12 @@ def main() -> None:
     expected_run_url = f"https://github.com/{args.repository}/actions/runs/{args.run_id}"
     if args.run_url != expected_run_url:
         raise AssertionError("workflow run URL does not match the source repository and run ID")
+    for field, value in (
+        ("workflowActor", args.workflow_actor),
+        ("workflowTriggeringActor", args.workflow_triggering_actor),
+    ):
+        if not GITHUB_LOGIN.fullmatch(value) or manifest[field] != value:
+            raise AssertionError(f"release manifest {field} is invalid")
     expected_workflow_ref = (
         f"{args.repository}/.github/workflows/publish-staging-images.yml@refs/heads/main"
     )
