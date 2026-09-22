@@ -303,6 +303,7 @@ jobs:
           SBOM_ARTIFACT_DIGEST: ${{ steps.sboms.outputs.artifact-digest }}
           SBOM_ARTIFACT_URL: ${{ steps.sboms.outputs.artifact-url }}
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           for digest in "$SBOM_ARTIFACT_DIGEST" "$RELEASE_MANIFEST_DIGEST"; do
             if ! [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
@@ -321,11 +322,15 @@ jobs:
             echo "::error::workflow run URL does not match the current run"
             exit 1
           fi
+          if ! [[ "$WORKFLOW_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::workflow run attempt must be positive"
+            exit 1
+          fi
           {
             echo "## Immutable staging publication"
             echo
             echo "- Revision: \`$REVISION\`"
-            echo "- Publication run: [$GITHUB_RUN_ID]($WORKFLOW_RUN_URL)"
+            echo "- Publication run: [$GITHUB_RUN_ID]($WORKFLOW_RUN_URL), attempt \`$WORKFLOW_RUN_ATTEMPT\`"
             echo "- SBOM artifact: [\`staging-container-sboms-$REVISION\`]($SBOM_ARTIFACT_URL)"
             echo "- SBOM artifact digest: \`$SBOM_ARTIFACT_DIGEST\`"
             echo "- Release manifest artifact: [\`staging-release-manifest-$REVISION\`]($RELEASE_MANIFEST_URL)"
