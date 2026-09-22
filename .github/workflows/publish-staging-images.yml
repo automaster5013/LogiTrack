@@ -233,6 +233,7 @@ jobs:
           SBOM_ARTIFACT_DIGEST: ${{ steps.sboms.outputs.artifact-digest }}
           WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
           WORKFLOW_RUN_ID: ${{ github.run_id }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
         run: |
           mkdir -p work/release
           manifest="work/release/staging-release-manifest.json"
@@ -244,9 +245,10 @@ jobs:
             --arg sbomArtifact "staging-container-sboms-$REVISION" \
             --arg sbomArtifactDigest "$SBOM_ARTIFACT_DIGEST" \
             --arg workflowRunUrl "$WORKFLOW_RUN_URL" \
+            --arg workflowSha "$WORKFLOW_SHA" \
             --argjson workflowRunId "$WORKFLOW_RUN_ID" \
             --argjson workflowRunAttempt "$WORKFLOW_RUN_ATTEMPT" \
-            '{schemaVersion: 4, revision: $revision, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, images: []}' \
+            '{schemaVersion: 5, revision: $revision, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowSha: $workflowSha, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, images: []}' \
             > "$manifest"
           for service in api analytics simulator web otel-collector; do
             repository="$ECR_REPOSITORY_PREFIX/$service"
@@ -284,6 +286,7 @@ jobs:
             --run-id "$WORKFLOW_RUN_ID" \
             --run-attempt "$WORKFLOW_RUN_ATTEMPT" \
             --run-url "$WORKFLOW_RUN_URL" \
+            --workflow-sha "$WORKFLOW_SHA" \
             --registry "$ECR_REGISTRY" \
             --repository-prefix "$ECR_REPOSITORY_PREFIX" \
             --sbom-artifact-digest "$SBOM_ARTIFACT_DIGEST" \
@@ -305,6 +308,7 @@ jobs:
           SBOM_ARTIFACT_URL: ${{ steps.sboms.outputs.artifact-url }}
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
         run: |
           for digest in "$SBOM_ARTIFACT_DIGEST" "$RELEASE_MANIFEST_DIGEST"; do
             if ! [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
@@ -327,6 +331,10 @@ jobs:
             echo "::error::workflow run attempt must be positive"
             exit 1
           fi
+          if ! [[ "$WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::workflow definition SHA must be a full lowercase Git SHA"
+            exit 1
+          fi
           if ! [[ "$ARTIFACT_RETENTION_DAYS" =~ ^[1-9][0-9]*$ ]] || [ "$ARTIFACT_RETENTION_DAYS" -gt 90 ]; then
             echo "::error::artifact retention must be between 1 and 90 days"
             exit 1
@@ -336,6 +344,7 @@ jobs:
             echo
             echo "- Revision: \`$REVISION\`"
             echo "- Publication run: [$GITHUB_RUN_ID]($WORKFLOW_RUN_URL), attempt \`$WORKFLOW_RUN_ATTEMPT\`"
+            echo "- Workflow definition SHA: \`$WORKFLOW_SHA\`"
             echo "- Artifact retention: \`$ARTIFACT_RETENTION_DAYS days\`"
             echo "- SBOM artifact: [\`staging-container-sboms-$REVISION\`]($SBOM_ARTIFACT_URL)"
             echo "- SBOM artifact digest: \`$SBOM_ARTIFACT_DIGEST\`"

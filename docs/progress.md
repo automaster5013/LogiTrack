@@ -4,6 +4,7 @@
 
 ## 완료
 
+- staging release manifest와 실행 요약에 workflow 정의 commit SHA를 기록·검증해 동일 대상 revision의 게시 로직 provenance를 고정
 - staging image push 후 ECR digest 5종을 재검증하고 계정·리전·revision과 digest URI를 담은 불변 release manifest artifact 생성
 - staging image 부분 게시 실패 후 재실행 시 기존 immutable tag의 digest 형식·OCI revision provenance를 검증해 안전하게 재사용
 - staging image 게시 전 OIDC caller의 12자리 AWS 계정 ID를 검증해 잘못 구성된 역할에 의한 타 계정 ECR 오배포 차단

@@ -20,6 +20,7 @@ REPOSITORY = "automaster5013/LogiTrack"
 RUN_ID = 123456789
 RUN_ATTEMPT = 2
 RUN_URL = f"https://github.com/{REPOSITORY}/actions/runs/{RUN_ID}"
+WORKFLOW_SHA = "d" * 40
 
 
 def run_validator(path: Path, sbom_dir: Path) -> subprocess.CompletedProcess[str]:
@@ -42,6 +43,8 @@ def run_validator(path: Path, sbom_dir: Path) -> subprocess.CompletedProcess[str
             str(RUN_ATTEMPT),
             "--run-url",
             RUN_URL,
+            "--workflow-sha",
+            WORKFLOW_SHA,
             "--registry",
             REGISTRY,
             "--repository-prefix",
@@ -70,7 +73,7 @@ def main() -> None:
         for service in SERVICES
     ]
     manifest = {
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "revision": REVISION,
         "awsAccountId": ACCOUNT_ID,
         "awsRegion": REGION,
@@ -78,6 +81,7 @@ def main() -> None:
         "workflowRunId": RUN_ID,
         "workflowRunAttempt": RUN_ATTEMPT,
         "workflowRunUrl": RUN_URL,
+        "workflowSha": WORKFLOW_SHA,
         "sbomArtifact": f"staging-container-sboms-{REVISION}",
         "sbomArtifactDigest": SBOM_ARTIFACT_DIGEST,
         "images": images,
@@ -135,6 +139,13 @@ def main() -> None:
         invalid = run_validator(path, sbom_dir)
         if invalid.returncode == 0:
             raise AssertionError("validator accepted mismatched workflow provenance")
+
+        manifest["workflowRunAttempt"] = RUN_ATTEMPT
+        manifest["workflowSha"] = "not-a-sha"
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        invalid = run_validator(path, sbom_dir)
+        if invalid.returncode == 0:
+            raise AssertionError("validator accepted an invalid workflow definition SHA")
 
     print("PASS: release manifest validator rejects invalid image, SBOM contents, or workflow provenance")
 
