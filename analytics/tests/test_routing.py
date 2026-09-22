@@ -124,7 +124,10 @@ class RoutePlannerCacheTest(unittest.IsolatedAsyncioTestCase):
         request=asyncio.create_task(planner.plan(Coordinate(0,0),Coordinate(1,1)))
         await asyncio.sleep(0.005);request.cancel()
         with self.assertRaises(asyncio.CancelledError): await request
-        await asyncio.sleep(0.03)
+        for _ in range(40):
+            if not planner._inflight:
+                break
+            await asyncio.sleep(0.005)
         self.assertEqual(0,len(planner._inflight));self.assertEqual(1,len(planner._cache))
 
 

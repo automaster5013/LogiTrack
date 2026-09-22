@@ -111,22 +111,27 @@ jobs:
       - name: Build deployable service images
         env:
           REVISION: ${{ steps.revision.outputs.sha }}
+          SOURCE_URL: https://github.com/${{ github.repository }}
         run: |
-          docker build --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-api:$REVISION" ./api
-          docker build --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-analytics:$REVISION" ./analytics
-          docker build --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-simulator:$REVISION" ./simulator
-          docker build --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-web:$REVISION" ./web
-          docker build --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-otel-collector:$REVISION" ./infra/otel
+          docker build --label org.opencontainers.image.revision="$REVISION" --label org.opencontainers.image.source="$SOURCE_URL" --tag "logitrack-api:$REVISION" ./api
+          docker build --label org.opencontainers.image.revision="$REVISION" --label org.opencontainers.image.source="$SOURCE_URL" --tag "logitrack-analytics:$REVISION" ./analytics
+          docker build --label org.opencontainers.image.revision="$REVISION" --label org.opencontainers.image.source="$SOURCE_URL" --tag "logitrack-simulator:$REVISION" ./simulator
+          docker build --label org.opencontainers.image.revision="$REVISION" --label org.opencontainers.image.source="$SOURCE_URL" --tag "logitrack-web:$REVISION" ./web
+          docker build --label org.opencontainers.image.revision="$REVISION" --label org.opencontainers.image.source="$SOURCE_URL" --tag "logitrack-otel-collector:$REVISION" ./infra/otel
       - name: Enforce hardened runtime metadata
         env:
           REVISION: ${{ steps.revision.outputs.sha }}
+          SOURCE_URL: https://github.com/${{ github.repository }}
         run: |
           for service in api analytics simulator web otel-collector; do
             image="logitrack-$service:$REVISION"
             user="$(docker image inspect --format '{{.Config.User}}' "$image")"
             healthcheck="$(docker image inspect --format '{{json .Config.Healthcheck.Test}}' "$image")"
+            revision_label="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")"
+            source_label="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.source" }}' "$image")"
             test -n "$user" && test "$user" != "0" && test "$user" != "root"
             test "$healthcheck" != "null" && test "$healthcheck" != "[]"
+            test "$revision_label" = "$REVISION" && test "$source_label" = "$SOURCE_URL"
           done
       - name: Generate and validate SBOMs and vulnerability reports
         env:
@@ -161,6 +166,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
           ECR_REPOSITORY_PREFIX: ${{ vars.ECR_REPOSITORY_PREFIX }}
           REVISION: ${{ steps.revision.outputs.sha }}
+          SOURCE_URL: https://github.com/${{ github.repository }}
         run: |
           for service in api analytics simulator web otel-collector; do
             source="logitrack-$service:$REVISION"
@@ -179,7 +185,10 @@ jobs:
               published_revision="$(docker image inspect \
                 --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' \
                 "$destination")"
-              if [ "$published_revision" != "$REVISION" ]; then
+              published_source="$(docker image inspect \
+                --format '{{ index .Config.Labels "org.opencontainers.image.source" }}' \
+                "$destination")"
+              if [ "$published_revision" != "$REVISION" ] || [ "$published_source" != "$SOURCE_URL" ]; then
                 echo "::error::$repository:$REVISION is occupied by an image with mismatched provenance"
                 exit 1
               fi

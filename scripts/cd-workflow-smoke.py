@@ -52,6 +52,8 @@ def main() -> None:
         '.selection.countType == "imageCountMoreThan"',
         "must keep the bounded two-rule staging lifecycle policy",
         "aws ecr describe-images",
+        'org.opencontainers.image.source="$SOURCE_URL"',
+        'published_source" != "$SOURCE_URL',
         'published_revision" != "$REVISION',
         "already exists with verified revision label",
         "returned an invalid existing digest",

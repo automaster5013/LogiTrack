@@ -280,3 +280,5 @@
 - 중단된 staging image 게시 재실행 시 기존 immutable image를 pull·검증할 수 있도록 ECR publisher의 repository 한정 read 권한 보완
 - staging image 게시 전에 ECR lifecycle policy의 rule 수·순서·보존 범위를 검증해 비용·rollback 보호 설정 drift 차단
 - staging release manifest에 source repository와 GitHub workflow run ID·attempt를 포함해 standalone artifact의 게시 실행 추적성 확보
+- staging image의 OCI source label을 build·재실행 양쪽에서 repository와 대조해 동일 SHA를 가장한 외부 출처 image 재사용 차단
+- 취소된 analytics route background 정리 테스트를 고정 지연 대신 bounded 상태 대기로 바꿔 느린 runner의 간헐 실패 제거
