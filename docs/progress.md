@@ -294,3 +294,4 @@
 - 취소된 경로 계산의 background cache 확정 테스트를 inflight 정리와 cache 기록 모두의 bounded 대기로 바꿔 경쟁 조건 제거
 - staging release manifest에 GitHub가 계산한 SBOM artifact archive digest를 포함해 다운로드된 증적 묶음의 동일성 검증 지원
 - staging 게시 실행 요약에 revision과 SBOM·release manifest artifact archive digest를 기록해 운영 인수 시 무결성 대조 간소화
+- staging 게시 실행 요약에 repository·run 범위를 검증한 SBOM·release manifest 다운로드 링크를 제공해 증적 인수 동선 단축

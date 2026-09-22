@@ -294,8 +294,10 @@ jobs:
       - name: Record immutable publication summary
         env:
           RELEASE_MANIFEST_DIGEST: ${{ steps.release-manifest.outputs.artifact-digest }}
+          RELEASE_MANIFEST_URL: ${{ steps.release-manifest.outputs.artifact-url }}
           REVISION: ${{ steps.revision.outputs.sha }}
           SBOM_ARTIFACT_DIGEST: ${{ steps.sboms.outputs.artifact-digest }}
+          SBOM_ARTIFACT_URL: ${{ steps.sboms.outputs.artifact-url }}
         run: |
           for digest in "$SBOM_ARTIFACT_DIGEST" "$RELEASE_MANIFEST_DIGEST"; do
             if ! [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
@@ -303,12 +305,19 @@ jobs:
               exit 1
             fi
           done
+          artifact_url_pattern="^https://github\.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts/[0-9]+$"
+          for artifact_url in "$SBOM_ARTIFACT_URL" "$RELEASE_MANIFEST_URL"; do
+            if ! [[ "$artifact_url" =~ $artifact_url_pattern ]]; then
+              echo "::error::GitHub returned an unexpected artifact URL"
+              exit 1
+            fi
+          done
           {
             echo "## Immutable staging publication"
             echo
             echo "- Revision: \`$REVISION\`"
-            echo "- SBOM artifact: \`staging-container-sboms-$REVISION\`"
+            echo "- SBOM artifact: [\`staging-container-sboms-$REVISION\`]($SBOM_ARTIFACT_URL)"
             echo "- SBOM artifact digest: \`$SBOM_ARTIFACT_DIGEST\`"
-            echo "- Release manifest artifact: \`staging-release-manifest-$REVISION\`"
+            echo "- Release manifest artifact: [\`staging-release-manifest-$REVISION\`]($RELEASE_MANIFEST_URL)"
             echo "- Release manifest artifact digest: \`$RELEASE_MANIFEST_DIGEST\`"
           } >> "$GITHUB_STEP_SUMMARY"
