@@ -16,6 +16,7 @@ REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 GITHUB_LOGIN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
 UTC_TIMESTAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 SCANNER_IMAGE = re.compile(r"^ghcr\.io/aquasecurity/trivy@sha256:[0-9a-f]{64}$")
+SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 IMAGE_MEDIA_TYPES = {
     "application/vnd.docker.distribution.manifest.v2+json",
     "application/vnd.oci.image.manifest.v1+json",
@@ -48,6 +49,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sbom-artifact-digest", required=True)
     parser.add_argument("--sbom-artifact-url", required=True)
     parser.add_argument("--scanner-image", required=True)
+    parser.add_argument("--scanner-version", required=True)
     parser.add_argument("--sbom-dir", required=True, type=Path)
     return parser.parse_args()
 
@@ -76,6 +78,7 @@ def main() -> None:
         "maxTotalImageSizeBytes",
         "totalImageSizeBytes",
         "scannerImage",
+        "scannerVersion",
         "awsAccountId",
         "awsRegion",
         "sourceRepository",
@@ -93,7 +96,7 @@ def main() -> None:
         "sbomArtifactUrl",
         "images",
     }
-    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 17:
+    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 18:
         raise AssertionError("release manifest schema is invalid")
     if manifest["revision"] != args.revision:
         raise AssertionError("release manifest revision does not match")
@@ -128,6 +131,10 @@ def main() -> None:
         raise AssertionError("supply-chain scanner image must be digest-pinned Trivy")
     if manifest["scannerImage"] != args.scanner_image:
         raise AssertionError("release manifest scanner image does not match")
+    if not SEMVER.fullmatch(args.scanner_version):
+        raise AssertionError("supply-chain scanner version must be semantic")
+    if manifest["scannerVersion"] != args.scanner_version:
+        raise AssertionError("release manifest scanner version does not match")
     if manifest["awsAccountId"] != args.account_id or manifest["awsRegion"] != args.region:
         raise AssertionError("release manifest AWS boundary does not match")
     if (

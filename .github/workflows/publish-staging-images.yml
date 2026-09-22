@@ -166,10 +166,17 @@ jobs:
             fi
           done
       - name: Generate and validate SBOMs and vulnerability reports
+        id: scanner
         env:
           REVISION: ${{ steps.revision.outputs.sha }}
         run: |
           mkdir -p work/sbom
+          scanner_version="$(docker run --rm "$TRIVY_IMAGE" --version | awk '/^Version:/ {print $2; exit}')"
+          if ! [[ "$scanner_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Trivy returned an invalid semantic version"
+            exit 1
+          fi
+          echo "version=$scanner_version" >> "$GITHUB_OUTPUT"
           for service in api analytics simulator web otel-collector; do
             image="logitrack-$service:$REVISION"
             docker run --rm \
@@ -245,6 +252,7 @@ jobs:
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SBOM_ARTIFACT_DIGEST: ${{ steps.sboms.outputs.artifact-digest }}
           SBOM_ARTIFACT_URL: ${{ steps.sboms.outputs.artifact-url }}
+          SCANNER_VERSION: ${{ steps.scanner.outputs.version }}
           WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
           WORKFLOW_RUN_ID: ${{ github.run_id }}
           WORKFLOW_REF: ${{ github.workflow_ref }}
@@ -271,6 +279,7 @@ jobs:
             --arg sbomArtifactDigest "$SBOM_ARTIFACT_DIGEST" \
             --arg sbomArtifactUrl "$SBOM_ARTIFACT_URL" \
             --arg scannerImage "$TRIVY_IMAGE" \
+            --arg scannerVersion "$SCANNER_VERSION" \
             --arg workflowRunUrl "$WORKFLOW_RUN_URL" \
             --arg workflowActor "$WORKFLOW_ACTOR" \
             --arg workflowEvent "$WORKFLOW_EVENT" \
@@ -283,7 +292,7 @@ jobs:
             --argjson maxTotalImageSizeBytes "$MAX_TOTAL_IMAGE_SIZE_BYTES" \
             --argjson workflowRunId "$WORKFLOW_RUN_ID" \
             --argjson workflowRunAttempt "$WORKFLOW_RUN_ATTEMPT" \
-            '{schemaVersion: 17, revision: $revision, publishedAt: $publishedAt, deploymentEnvironment: $deploymentEnvironment, imagePlatform: $imagePlatform, maxImageSizeBytes: $maxImageSizeBytes, maxTotalImageSizeBytes: $maxTotalImageSizeBytes, totalImageSizeBytes: 0, scannerImage: $scannerImage, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, sbomArtifactUrl: $sbomArtifactUrl, images: []}' \
+            '{schemaVersion: 18, revision: $revision, publishedAt: $publishedAt, deploymentEnvironment: $deploymentEnvironment, imagePlatform: $imagePlatform, maxImageSizeBytes: $maxImageSizeBytes, maxTotalImageSizeBytes: $maxTotalImageSizeBytes, totalImageSizeBytes: 0, scannerImage: $scannerImage, scannerVersion: $scannerVersion, awsAccountId: $accountId, awsRegion: $region, sourceRepository: $sourceRepository, workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowActor: $workflowActor, workflowTriggeringActor: $workflowTriggeringActor, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, sbomArtifact: $sbomArtifact, sbomArtifactDigest: $sbomArtifactDigest, sbomArtifactUrl: $sbomArtifactUrl, images: []}' \
             > "$manifest"
           for service in api analytics simulator web otel-collector; do
             repository="$ECR_REPOSITORY_PREFIX/$service"
@@ -366,6 +375,7 @@ jobs:
             --sbom-artifact-digest "$SBOM_ARTIFACT_DIGEST" \
             --sbom-artifact-url "$SBOM_ARTIFACT_URL" \
             --scanner-image "$TRIVY_IMAGE" \
+            --scanner-version "$SCANNER_VERSION" \
             --sbom-dir work/sbom
       - name: Upload immutable staging release manifest
         id: release-manifest
@@ -384,6 +394,7 @@ jobs:
           REVISION: ${{ steps.revision.outputs.sha }}
           SBOM_ARTIFACT_DIGEST: ${{ steps.sboms.outputs.artifact-digest }}
           SBOM_ARTIFACT_URL: ${{ steps.sboms.outputs.artifact-url }}
+          SCANNER_VERSION: ${{ steps.scanner.outputs.version }}
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
           WORKFLOW_ACTOR: ${{ github.actor }}
@@ -452,6 +463,7 @@ jobs:
             echo "- Maximum total image size: \`$MAX_TOTAL_IMAGE_SIZE_BYTES bytes\`"
             echo "- Published image total: \`$TOTAL_IMAGE_SIZE_BYTES bytes\`"
             echo "- Supply-chain scanner: \`$TRIVY_IMAGE\`"
+            echo "- Scanner version: \`$SCANNER_VERSION\`"
             echo "- Publication run: [$GITHUB_RUN_ID]($WORKFLOW_RUN_URL), attempt \`$WORKFLOW_RUN_ATTEMPT\`"
             echo "- Workflow definition SHA: \`$WORKFLOW_SHA\`"
             echo "- Workflow definition ref: \`$WORKFLOW_REF\`"

@@ -314,3 +314,4 @@
 - ECR의 서비스별 압축 image 크기를 재조회해 2 GiB 상한을 강제하고 release manifest에 기록해 비정상 팽창 차단
 - staging image 5종의 압축 크기 합계를 검증해 5 GiB 전체 상한과 실제 합계를 release manifest에 기록
 - SBOM·취약점 검사 Trivy image를 단일 digest 설정으로 고정하고 release manifest와 실행 요약에 scanner provenance 기록
+- digest 고정 Trivy image를 직접 실행해 semantic version을 검증하고 release manifest와 실행 요약에 사람이 읽을 수 있는 scanner 버전 기록
