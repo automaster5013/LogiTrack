@@ -24,6 +24,7 @@ jobs:
     timeout-minutes: 45
     environment: staging
     env:
+      ARTIFACT_RETENTION_DAYS: 30
       AWS_RETRY_MODE: standard
       AWS_MAX_ATTEMPTS: 5
       AWS_PAGER: ""
@@ -182,7 +183,7 @@ jobs:
           name: staging-container-sboms-${{ steps.revision.outputs.sha }}
           path: work/sbom/*.cdx.json
           if-no-files-found: error
-          retention-days: 30
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
       - name: Push or verify commit-addressed images
         env:
           ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
@@ -294,7 +295,7 @@ jobs:
           name: staging-release-manifest-${{ steps.revision.outputs.sha }}
           path: work/release/staging-release-manifest.json
           if-no-files-found: error
-          retention-days: 30
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
       - name: Record immutable publication summary
         env:
           RELEASE_MANIFEST_DIGEST: ${{ steps.release-manifest.outputs.artifact-digest }}
@@ -331,6 +332,7 @@ jobs:
             echo
             echo "- Revision: \`$REVISION\`"
             echo "- Publication run: [$GITHUB_RUN_ID]($WORKFLOW_RUN_URL), attempt \`$WORKFLOW_RUN_ATTEMPT\`"
+            echo "- Artifact retention: \`$ARTIFACT_RETENTION_DAYS days\`"
             echo "- SBOM artifact: [\`staging-container-sboms-$REVISION\`]($SBOM_ARTIFACT_URL)"
             echo "- SBOM artifact digest: \`$SBOM_ARTIFACT_DIGEST\`"
             echo "- Release manifest artifact: [\`staging-release-manifest-$REVISION\`]($RELEASE_MANIFEST_URL)"

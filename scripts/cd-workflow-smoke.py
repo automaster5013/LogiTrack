@@ -25,6 +25,7 @@ def main() -> None:
     if job.get("runs-on") != "ubuntu-24.04" or job.get("timeout-minutes") != 45:
         raise AssertionError("publication runner and timeout are not bounded")
     if job.get("env") != {
+        "ARTIFACT_RETENTION_DAYS": 30,
         "AWS_RETRY_MODE": "standard",
         "AWS_MAX_ATTEMPTS": 5,
         "AWS_PAGER": "",
@@ -111,6 +112,9 @@ def main() -> None:
     "SBOM_ARTIFACT_URL: ${{ steps.sboms.outputs.artifact-url }}",
     'artifact_url_pattern="^https://github\\.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts/[0-9]+$"',
     "Record immutable publication summary",
+    "ARTIFACT_RETENTION_DAYS: 30",
+    "retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}",
+    'echo "- Artifact retention: \\`$ARTIFACT_RETENTION_DAYS days\\`"',
     'echo "- Release manifest artifact digest: \\`$RELEASE_MANIFEST_DIGEST\\`"',
     'echo "- Publication run: [$GITHUB_RUN_ID]($WORKFLOW_RUN_URL), attempt \\`$WORKFLOW_RUN_ATTEMPT\\`"',
     'if ! [[ "$WORKFLOW_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]; then',
@@ -121,6 +125,8 @@ def main() -> None:
     for value in required:
         if value not in source:
             raise AssertionError(f"publication lacks required control: {value}")
+    if source.count("retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}") != 2:
+        raise AssertionError("all publication artifacts must share the configured retention period")
     for service in SERVICES:
         if f"logitrack-{service}:$REVISION" not in source:
             raise AssertionError(f"publication does not build the {service} image by commit SHA")
