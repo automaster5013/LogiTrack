@@ -24,6 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--account-id", required=True)
     parser.add_argument("--artifact-retention-days", required=True, type=int)
     parser.add_argument("--deployment-environment", required=True)
+    parser.add_argument("--image-platform", required=True)
     parser.add_argument("--region", required=True)
     parser.add_argument("--repository", required=True)
     parser.add_argument("--published-at", required=True)
@@ -62,6 +63,7 @@ def main() -> None:
         "revision",
         "publishedAt",
         "deploymentEnvironment",
+        "imagePlatform",
         "awsAccountId",
         "awsRegion",
         "sourceRepository",
@@ -79,7 +81,7 @@ def main() -> None:
         "sbomArtifactUrl",
         "images",
     }
-    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 12:
+    if set(manifest) != expected_top_level or manifest["schemaVersion"] != 13:
         raise AssertionError("release manifest schema is invalid")
     if manifest["revision"] != args.revision:
         raise AssertionError("release manifest revision does not match")
@@ -98,6 +100,8 @@ def main() -> None:
         or manifest["deploymentEnvironment"] != args.deployment_environment
     ):
         raise AssertionError("release manifest deployment environment must be staging")
+    if args.image_platform != "linux/amd64" or manifest["imagePlatform"] != args.image_platform:
+        raise AssertionError("release manifest image platform must be linux/amd64")
     if manifest["awsAccountId"] != args.account_id or manifest["awsRegion"] != args.region:
         raise AssertionError("release manifest AWS boundary does not match")
     if (

@@ -309,3 +309,4 @@
 - staging artifact 보존 기간을 GitHub 허용 범위인 1~90일로 검증해 잘못된 설정으로 게시 증적 업로드가 뒤늦게 실패하는 상황 차단
 - staging release manifest와 실행 요약에 단일 UTC 게시 시각을 기록하고 엄격히 검증해 독립 증적의 실제 게시 완료 시점 추적성 강화
 - staging release manifest에 동일 실행의 검증된 SBOM artifact URL을 결합해 독립 증적에서 공급망 자료로 바로 이동 가능
+- 신규 빌드와 기존 ECR image 재사용 모두 `linux/amd64` 플랫폼을 강제하고 release manifest에 배포 호환성 계약으로 기록

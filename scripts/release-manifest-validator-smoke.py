@@ -11,6 +11,7 @@ REVISION = "a" * 40
 ACCOUNT_ID = "123456789012"
 ARTIFACT_RETENTION_DAYS = 30
 DEPLOYMENT_ENVIRONMENT = "staging"
+IMAGE_PLATFORM = "linux/amd64"
 REGION = "ap-northeast-2"
 REGISTRY = f"{ACCOUNT_ID}.dkr.ecr.{REGION}.amazonaws.com"
 PREFIX = "logitrack"
@@ -45,6 +46,8 @@ def run_validator(path: Path, sbom_dir: Path) -> subprocess.CompletedProcess[str
             str(ARTIFACT_RETENTION_DAYS),
             "--deployment-environment",
             DEPLOYMENT_ENVIRONMENT,
+            "--image-platform",
+            IMAGE_PLATFORM,
             "--region",
             REGION,
             "--repository",
@@ -97,10 +100,11 @@ def main() -> None:
         for service in SERVICES
     ]
     manifest = {
-        "schemaVersion": 12,
+        "schemaVersion": 13,
         "revision": REVISION,
         "publishedAt": PUBLISHED_AT,
         "deploymentEnvironment": DEPLOYMENT_ENVIRONMENT,
+        "imagePlatform": IMAGE_PLATFORM,
         "awsAccountId": ACCOUNT_ID,
         "awsRegion": REGION,
         "sourceRepository": REPOSITORY,
@@ -224,6 +228,13 @@ def main() -> None:
             raise AssertionError("validator accepted a non-staging deployment environment")
 
         manifest["deploymentEnvironment"] = DEPLOYMENT_ENVIRONMENT
+        manifest["imagePlatform"] = "linux/arm64"
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        invalid = run_validator(path, sbom_dir)
+        if invalid.returncode == 0:
+            raise AssertionError("validator accepted an unsupported image platform")
+
+        manifest["imagePlatform"] = IMAGE_PLATFORM
         manifest["publishedAt"] = "2026-99-99T03:04:05Z"
         path.write_text(json.dumps(manifest), encoding="utf-8")
         invalid = run_validator(path, sbom_dir)
