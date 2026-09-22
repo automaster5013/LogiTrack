@@ -53,6 +53,8 @@ jobs:
           role-session-name: logitrack-staging-${{ github.run_id }}
           allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
           mask-aws-account-id: true
+          retry-max-attempts: 5
+          action-timeout-s: 120
       - name: Verify the intended AWS account
         env:
           EXPECTED_AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}

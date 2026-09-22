@@ -48,6 +48,10 @@ def main() -> None:
         raise AssertionError("OIDC credentials must be restricted to the configured AWS account")
     if credential_inputs.get("mask-aws-account-id") is not True:
         raise AssertionError("AWS account IDs must be masked in publication logs")
+    if credential_inputs.get("retry-max-attempts") != 5:
+        raise AssertionError("OIDC role assumption retries must be bounded")
+    if credential_inputs.get("action-timeout-s") != 120:
+        raise AssertionError("OIDC credential setup must have a bounded timeout")
 
     forbidden = ("secrets.", "latest", "aws-access-key-id", "aws-secret-access-key", "kaiser5013")
     for value in forbidden:
