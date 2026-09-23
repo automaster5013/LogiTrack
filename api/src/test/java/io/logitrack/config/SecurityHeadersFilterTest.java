@@ -10,7 +10,7 @@ class SecurityHeadersFilterTest {
     @Test void addsBrowserSecurityHeaders() throws Exception {
         var filter=new SecurityHeadersFilter();var request=new MockHttpServletRequest();var response=new MockHttpServletResponse();var chain=mock(FilterChain.class);
         filter.doFilter(request,response,chain);
-        assertEquals("frame-ancestors 'none'",response.getHeader("Content-Security-Policy"));
+        assertEquals("base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'",response.getHeader("Content-Security-Policy"));
         assertEquals("nosniff",response.getHeader("X-Content-Type-Options"));
         assertEquals("DENY",response.getHeader("X-Frame-Options"));
         assertEquals("no-referrer",response.getHeader("Referrer-Policy"));
