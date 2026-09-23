@@ -255,7 +255,7 @@ jobs:
           WORKFLOW_ACTOR: ${{ github.actor }}
           WORKFLOW_EVENT: ${{ github.event_name }}
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          SBOM_ARTIFACT_DIGEST: ${{ steps.sboms.outputs.artifact-digest }}
+          SBOM_ARTIFACT_DIGEST_RAW: ${{ steps.sboms.outputs.artifact-digest }}
           SBOM_ARTIFACT_URL: ${{ steps.sboms.outputs.artifact-url }}
           SCANNER_VERSION: ${{ steps.scanner.outputs.version }}
           WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
@@ -265,6 +265,15 @@ jobs:
           WORKFLOW_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
         run: |
           mkdir -p work/release
+          case "$SBOM_ARTIFACT_DIGEST_RAW" in
+            sha256:[0-9a-f][0-9a-f]*) SBOM_ARTIFACT_DIGEST="$SBOM_ARTIFACT_DIGEST_RAW" ;;
+            [0-9a-f][0-9a-f]*) SBOM_ARTIFACT_DIGEST="sha256:$SBOM_ARTIFACT_DIGEST_RAW" ;;
+            *) echo "::error::GitHub returned an invalid SBOM artifact digest"; exit 1 ;;
+          esac
+          if ! [[ "$SBOM_ARTIFACT_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::GitHub returned an invalid SBOM artifact digest"
+            exit 1
+          fi
           manifest="work/release/staging-release-manifest.json"
           published_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           echo "published-at=$published_at" >> "$GITHUB_OUTPUT"
@@ -402,12 +411,12 @@ jobs:
           retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
       - name: Record immutable publication summary
         env:
-          RELEASE_MANIFEST_DIGEST: ${{ steps.release-manifest.outputs.artifact-digest }}
+          RELEASE_MANIFEST_DIGEST_RAW: ${{ steps.release-manifest.outputs.artifact-digest }}
           RELEASE_MANIFEST_URL: ${{ steps.release-manifest.outputs.artifact-url }}
           PUBLISHED_AT: ${{ steps.release.outputs.published-at }}
           TOTAL_IMAGE_SIZE_BYTES: ${{ steps.release.outputs.total-image-size-bytes }}
           REVISION: ${{ steps.revision.outputs.sha }}
-          SBOM_ARTIFACT_DIGEST: ${{ steps.sboms.outputs.artifact-digest }}
+          SBOM_ARTIFACT_DIGEST_RAW: ${{ steps.sboms.outputs.artifact-digest }}
           SBOM_ARTIFACT_URL: ${{ steps.sboms.outputs.artifact-url }}
           SCANNER_VERSION: ${{ steps.scanner.outputs.version }}
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -418,6 +427,22 @@ jobs:
           WORKFLOW_SHA: ${{ github.workflow_sha }}
           WORKFLOW_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
         run: |
+          normalize_artifact_digest() {
+            local raw="$1"
+            case "$raw" in
+              sha256:[0-9a-f][0-9a-f]*) printf '%s' "$raw" ;;
+              [0-9a-f][0-9a-f]*) printf 'sha256:%s' "$raw" ;;
+              *) return 1 ;;
+            esac
+          }
+          SBOM_ARTIFACT_DIGEST="$(normalize_artifact_digest "$SBOM_ARTIFACT_DIGEST_RAW")" || {
+            echo "::error::GitHub returned an invalid SBOM artifact digest"
+            exit 1
+          }
+          RELEASE_MANIFEST_DIGEST="$(normalize_artifact_digest "$RELEASE_MANIFEST_DIGEST_RAW")" || {
+            echo "::error::GitHub returned an invalid release manifest artifact digest"
+            exit 1
+          }
           for digest in "$SBOM_ARTIFACT_DIGEST" "$RELEASE_MANIFEST_DIGEST"; do
             if ! [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
               echo "::error::GitHub returned an invalid artifact digest"
