@@ -66,7 +66,7 @@ Assert-True ($workflowPermissions.default_workflow_permissions -eq "read" -and -
 
 $mainProtection = Invoke-GitHubGet "/branches/main/protection"
 $requiredChecks = @($mainProtection.required_status_checks.contexts | Sort-Object)
-$expectedChecks = @("API tests and domain coverage", "Production images and supply-chain security", "Python tests and Compose validation", "TypeScript production build") | Sort-Object
+$expectedChecks = @("API tests and domain coverage", "Dependency vulnerability review", "Production images and supply-chain security", "Python tests and Compose validation", "TypeScript production build") | Sort-Object
 Assert-True ($mainProtection.required_status_checks.strict -and ($requiredChecks -join ",") -eq ($expectedChecks -join ",")) "main required CI checks drifted"
 Assert-True ($mainProtection.enforce_admins.enabled) "administrators may bypass main protection"
 Assert-True ($mainProtection.required_linear_history.enabled -and $mainProtection.required_conversation_resolution.enabled) "main history or conversation protection drifted"
