@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authConfig, authCookie, secureCookie } from "../config";
+import { applicationOrigin, authConfig, authCookie, secureCookie } from "../config";
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
@@ -30,7 +30,7 @@ function isSameOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
   if (origin) {
     try {
-      return new URL(origin).origin === request.nextUrl.origin;
+      return new URL(origin).origin === applicationOrigin(request.nextUrl.origin);
     } catch {
       return false;
     }
