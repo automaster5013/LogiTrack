@@ -77,6 +77,10 @@ publisher는 신규 빌드와 기존 ECR image 재사용 모두 Docker image met
 
 Dependabot은 매주 GitHub Actions, Maven, npm, Python, Dockerfile, Docker Compose 의존성을 확인한다. minor/patch 갱신은 생태계별 단일 PR로 묶고 major 갱신은 독립 PR로 남겨 영향 범위를 명확히 하며, 고정된 컨테이너 tag의 새 digest도 같은 CI 게이트를 통과해야 한다.
 
+Python의 직접 의존성은 각 `requirements.in`에 선언하고 Python 3.12 universal resolution으로 생성한 `requirements.txt`에 전이 의존성과 PyPI SHA-256을 모두 고정한다. analytics·simulator image와 CI는 `pip --require-hashes`로만 설치하므로 버전이 같아도 승인되지 않은 배포 파일은 거부한다. CI 전용 결합 lock은 애플리케이션 세 집합과 pytest를 한 번에 검증한다.
+
+직접 의존성을 변경한 뒤 `./scripts/compile-python-locks.ps1`를 실행해 네 lock을 함께 갱신한다. 생성기는 digest 고정된 uv 0.12.17 image, Python 3.12 universal resolution과 named metadata cache를 사용한다. 생성 결과는 테스트와 image build를 통과한 뒤에만 커밋한다.
+
 모든 pull request는 GitHub dependency review를 별도 필수 검사로 통과해야 한다. PR이 새로 도입하는 moderate 이상 알려진 취약 의존성을 차단하고, dependency graph snapshot 생성 지연은 최대 120초 동안만 재시도한다. workflow는 `pull_request`의 read-only contents 권한에서 SHA로 고정된 단일 action만 실행한다.
 
 각 production image build context는 `.dockerignore`로 `.env*`, 로컬 build/cache, test artifact를 제외한다. OpenTelemetry Collector context는 Dockerfile만 허용하며 CI가 필수 제외 규칙의 누락을 차단한다.

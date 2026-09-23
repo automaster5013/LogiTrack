@@ -1,0 +1,4 @@
+-r ../analytics/requirements.in
+-r ../simulator/requirements.in
+-r requirements.in
+pytest==9.1.1
