@@ -8,7 +8,12 @@ required = (
     "sha_pinning_required",
     "default_workflow_permissions",
     "/branches/main/protection",
+    "allow_squash_merge",
+    "delete_branch_on_merge",
     "required_status_checks.strict",
+    "required_pull_request_reviews",
+    "required_approving_review_count",
+    "dismiss_stale_reviews",
     "enforce_admins.enabled",
     "required_linear_history.enabled",
     "allow_force_pushes.enabled",
@@ -27,4 +32,4 @@ if missing:
 for mutation in ("-Method Post", "-Method Put", "-Method Patch", "-Method Delete"):
     if mutation in source:
         raise SystemExit(f"ERROR: GitHub CD audit must remain read-only: {mutation}")
-print("PASS: GitHub CD audit covers main protection, approval, deployment branch, variables, secrets, and action permissions")
+print("PASS: GitHub CD audit covers PR-only main protection, merge policy, approval, deployment branch, variables, secrets, and action permissions")
