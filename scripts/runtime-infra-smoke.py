@@ -15,6 +15,17 @@ for forbidden in ("aws_nat_gateway", "aws_lb\"", "aws_db_instance", "aws_msk_clu
         errors.append(f"forbidden fixed-cost resource found: {forbidden}")
 if not re.search(r'http_tokens\s*=\s*"required"', tf) or not re.search(r"prevent_destroy\s*=\s*true", tf):
     errors.append("instance must require IMDSv2 and prevent accidental destruction")
+for recovery_control in (
+    "disable_api_termination              = true",
+    'instance_initiated_shutdown_behavior = "stop"',
+    'resource "aws_cloudwatch_metric_alarm" "system_recovery"',
+    'metric_name         = "StatusCheckFailed_System"',
+    'datapoints_to_alarm = 2',
+    'alarm_actions       = ["arn:aws:automate:${var.aws_region}:ec2:recover"]',
+    'treat_missing_data  = "notBreaching"',
+):
+    if recovery_control not in tf:
+        errors.append(f"EC2 termination or system recovery control is missing: {recovery_control}")
 if 'from_port = 22' in tf or 'to_port = 5432' in tf or 'to_port = 9092' in tf:
     errors.append("SSH or a data-tier port is publicly reachable")
 if 'monthly_budget_usd == 70' not in (root / "infra/aws/runtime/variables.tf").read_text():

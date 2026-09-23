@@ -1,8 +1,8 @@
 # 저비용 staging 런타임
 
-이 Terraform root는 `www.logitrack.kr` 테스트 서비스를 위한 단일 호스트 런타임을 정의한다. `t3a.medium` EC2, 암호화된 30 GiB gp3, Elastic IP, Route 53 A record, GitHub OIDC 배포 역할, SSM 관리 권한, 일일 EBS snapshot, 암호화 S3 PostgreSQL dump와 월 USD 70 budget alert를 만든다. NAT Gateway, ALB, RDS, MSK와 SSH ingress는 만들지 않는다. 인터넷에는 Caddy의 80/443만 열리고 PostgreSQL, Redis, Kafka는 Docker internal network와 named volume에 남는다.
+이 Terraform root는 `www.logitrack.kr` 테스트 서비스를 위한 단일 호스트 런타임을 정의한다. `t3a.medium` EC2, 암호화된 30 GiB gp3, Elastic IP, Route 53 A record, GitHub OIDC 배포 역할, SSM 관리 권한, 일일 EBS snapshot, 암호화 S3 PostgreSQL dump, EC2 자동 시스템 복구와 월 USD 70 budget alert를 만든다. NAT Gateway, ALB, RDS, MSK와 SSH ingress는 만들지 않는다. 인터넷에는 Caddy의 80/443만 열리고 PostgreSQL, Redis, Kafka는 Docker internal network와 named volume에 남는다.
 
-이 구성은 비용을 우선한 단일 장애 도메인 staging 설계다. database volume은 instance root EBS에 있고 매일 03:00 KST(18:00 UTC)에 crash-consistent snapshot을 생성해 최신 7개를 보존한다. 매일 03:30 KST에는 PostgreSQL custom dump를 별도 비공개 S3 bucket에 AES256으로 업로드하고 8일 후 만료한다. 이 백업들은 자동 failover나 point-in-time database recovery를 제공하지 않으므로 운영 환경에는 적합하지 않다.
+이 구성은 비용을 우선한 단일 장애 도메인 staging 설계다. API termination protection을 활성화하고 instance 내부 shutdown은 terminate 대신 stop으로 처리한다. EC2 system status check가 2분 연속 실패하면 동일 instance를 AWS가 자동 복구한다. database volume은 instance root EBS에 있고 매일 03:00 KST(18:00 UTC)에 crash-consistent snapshot을 생성해 최신 7개를 보존한다. 매일 03:30 KST에는 PostgreSQL custom dump를 별도 비공개 S3 bucket에 AES256으로 업로드하고 8일 후 만료한다. 자동 시스템 복구와 백업들은 다중 AZ failover나 point-in-time database recovery를 제공하지 않으므로 운영 환경에는 적합하지 않다.
 
 ## 월 비용 추정
 
@@ -56,6 +56,7 @@ sudo docker compose --project-directory /opt/logitrack/current --env-file /opt/l
 aws dlm get-lifecycle-policy --policy-id <snapshot_policy_id> --profile logitrack-test-admin --region ap-northeast-2
 aws ssm describe-association-executions --association-id <postgres_backup_association_id> --profile logitrack-test-admin --region ap-northeast-2
 aws s3api list-objects-v2 --bucket <backup_bucket_name> --prefix postgres/ --profile logitrack-test-admin --region ap-northeast-2
+aws cloudwatch describe-alarms --alarm-names <system_recovery_alarm_name> --profile logitrack-test-admin --region ap-northeast-2
 ```
 
 CloudWatch Logs를 기본 활성화하지 않아 고정 수집 비용을 피한다. 문제 조사에는 bounded Docker json logs와 SSM Session Manager를 사용한다. root 권한 사용자는 Docker inspect로 container environment를 볼 수 있으므로 instance role과 SSM 접근을 배포 관리자에게만 제한해야 한다.

@@ -122,15 +122,17 @@ resource "aws_iam_instance_profile" "runtime" {
 }
 
 resource "aws_instance" "runtime" {
-  ami                         = data.aws_ssm_parameter.al2023_ami.value
-  instance_type               = var.instance_type
-  subnet_id                   = aws_subnet.public.id
-  vpc_security_group_ids      = [aws_security_group.web.id]
-  iam_instance_profile        = aws_iam_instance_profile.runtime.name
-  associate_public_ip_address = false
-  monitoring                  = false
-  user_data_replace_on_change = true
-  user_data                   = file("${path.module}/user-data.sh")
+  ami                                  = data.aws_ssm_parameter.al2023_ami.value
+  instance_type                        = var.instance_type
+  subnet_id                            = aws_subnet.public.id
+  vpc_security_group_ids               = [aws_security_group.web.id]
+  iam_instance_profile                 = aws_iam_instance_profile.runtime.name
+  associate_public_ip_address          = false
+  monitoring                           = false
+  disable_api_termination              = true
+  instance_initiated_shutdown_behavior = "stop"
+  user_data_replace_on_change          = true
+  user_data                            = file("${path.module}/user-data.sh")
   volume_tags = {
     Name             = "logitrack-staging-root"
     SnapshotSchedule = "logitrack-staging-daily"
@@ -153,6 +155,23 @@ resource "aws_instance" "runtime" {
     ignore_changes = [ami, associate_public_ip_address]
   }
   tags = { Name = "logitrack-staging", DeploymentTarget = "logitrack-staging" }
+}
+
+resource "aws_cloudwatch_metric_alarm" "system_recovery" {
+  alarm_name          = "logitrack-staging-ec2-system-recovery"
+  alarm_description   = "Recover the staging EC2 host after two consecutive system status check failures"
+  namespace           = "AWS/EC2"
+  metric_name         = "StatusCheckFailed_System"
+  statistic           = "Maximum"
+  period              = 60
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+  actions_enabled     = true
+  alarm_actions       = ["arn:aws:automate:${var.aws_region}:ec2:recover"]
+  dimensions          = { InstanceId = aws_instance.runtime.id }
 }
 
 data "aws_iam_policy_document" "snapshot_assume" {
