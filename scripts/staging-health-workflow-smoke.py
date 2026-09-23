@@ -5,6 +5,7 @@ import yaml
 
 path = Path(".github/workflows/staging-health.yml")
 source = path.read_text(encoding="utf-8")
+caddy = Path("deploy/staging/Caddyfile").read_text(encoding="utf-8")
 workflow = yaml.safe_load(source)
 trigger = workflow.get(True, workflow.get("on", {}))
 job = workflow.get("jobs", {}).get("health", {})
@@ -28,7 +29,7 @@ for boundary in (
     "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'",
     "x-content-type-options",
     "x-frame-options",
-    "x-powered-by:",
+    "server|via|x-powered-by|x-nextjs-[^:]*",
     "SECURE OPERATOR ACCESS",
     "운영자 로그인",
     "/api/runtime-version",
@@ -42,4 +43,7 @@ for boundary in (
 
 if errors:
     raise SystemExit("\n".join(f"ERROR: {error}" for error in errors))
+for header in ("-Server", "-Via", "-X-Powered-By", "-X-Nextjs-*"):
+    if header not in caddy:
+        raise SystemExit(f"ERROR: staging proxy does not suppress identity header: {header}")
 print("PASS: scheduled staging health verifies public TLS and private port boundaries without credentials")

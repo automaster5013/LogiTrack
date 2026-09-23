@@ -6,6 +6,9 @@ www.logitrack.kr {
     X-Frame-Options DENY
     Referrer-Policy no-referrer
     -Server
+    -Via
+    -X-Powered-By
+    -X-Nextjs-*
   }
   reverse_proxy web:3000
   log {
