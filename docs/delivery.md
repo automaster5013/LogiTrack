@@ -77,6 +77,8 @@ publisher는 신규 빌드와 기존 ECR image 재사용 모두 Docker image met
 
 Dependabot은 매주 GitHub Actions, Maven, npm, Python, Dockerfile, Docker Compose 의존성을 확인한다. minor/patch 갱신은 생태계별 단일 PR로 묶고 major 갱신은 독립 PR로 남겨 영향 범위를 명확히 하며, 고정된 컨테이너 tag의 새 digest도 같은 CI 게이트를 통과해야 한다.
 
+모든 pull request는 GitHub dependency review를 별도 필수 검사로 통과해야 한다. PR이 새로 도입하는 moderate 이상 알려진 취약 의존성을 차단하고, dependency graph snapshot 생성 지연은 최대 120초 동안만 재시도한다. workflow는 `pull_request`의 read-only contents 권한에서 SHA로 고정된 단일 action만 실행한다.
+
 각 production image build context는 `.dockerignore`로 `.env*`, 로컬 build/cache, test artifact를 제외한다. OpenTelemetry Collector context는 Dockerfile만 허용하며 CI가 필수 제외 규칙의 누락을 차단한다.
 
 ## 로컬 릴리스 검증

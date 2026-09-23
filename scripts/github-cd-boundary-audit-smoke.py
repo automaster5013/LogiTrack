@@ -25,6 +25,7 @@ required = (
     "/code-scanning/alerts?state=open",
     "security_severity_level",
     "required_status_checks.strict",
+    "Dependency vulnerability review",
     "required_pull_request_reviews",
     "required_approving_review_count",
     "dismiss_stale_reviews",

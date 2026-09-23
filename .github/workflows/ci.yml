@@ -67,6 +67,8 @@ jobs:
         run: python scripts/perf-compose-config-smoke.py
       - name: Validate Dependabot coverage
         run: python scripts/dependabot-config-smoke.py
+      - name: Validate dependency review trust boundaries
+        run: python scripts/dependency-review-workflow-smoke.py
       - name: Validate CI trust boundaries
         run: python scripts/workflow-config-smoke.py
       - name: Validate OpenSSF Scorecard trust boundaries
