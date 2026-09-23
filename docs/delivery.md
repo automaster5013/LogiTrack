@@ -22,6 +22,8 @@ GitHub의 Dependabot vulnerability alerts와 security update PR, secret scanning
 
 CodeQL default setup은 Actions, Java/Kotlin, JavaScript/TypeScript와 Python을 표준 runner에서 매주 extended query suite로 분석한다. threat model은 원격 입력으로 제한하고, 감사 스크립트는 설정 drift와 미해결 high·critical CodeQL 경고를 차단한다.
 
+OpenSSF Scorecard는 `main` push와 주간 일정에서 저장소의 공급망 보안 상태를 분석한다. workflow 기본 권한은 read-only이며 SARIF 게시와 공개 결과 증명에 필요한 `security-events: write`, `id-token: write`만 분석 job에 부여한다. 결과 SARIF는 30일 보존하고 GitHub code scanning에도 게시한다. PR 코드는 이 쓰기 권한 workflow에서 실행하지 않는다.
+
 `main` branch는 관리자에게도 동일하게 적용되는 PR 경로, 최신 branch 기준 필수 CI 4개, 선형 이력과 대화 해결을 요구하며 force push와 삭제를 금지한다. 1인 유지보수를 막지 않도록 별도 승인 수는 0이지만 stale review는 새 push 때 무효화한다. 저장소는 squash merge만 허용하고 merge 후 source branch를 자동 삭제한다.
 
 현재 운영 경계는 다음과 같다.
