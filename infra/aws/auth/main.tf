@@ -13,6 +13,9 @@ resource "aws_cognito_user_pool" "operators" {
       priority = 1
     }
   }
+  user_attribute_update_settings {
+    attributes_require_verification_before_update = ["email"]
+  }
   sign_in_policy { allowed_first_auth_factors = ["PASSWORD", "WEB_AUTHN"] }
   web_authn_configuration {
     relying_party_id  = var.auth_domain

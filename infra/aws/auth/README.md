@@ -1,6 +1,6 @@
 # Cognito 운영자 인증
 
-`www.logitrack.kr` 운영 콘솔용 관리자 생성 전용 Cognito Plus User Pool, WebAuthn 패스키, OAuth code/PKCE public client, 위협 보호, 역할 그룹과 `auth.logitrack.kr` custom domain을 만든다. 실제 계정·Route 53 zone·us-east-1 ACM 인증서가 필요하므로 CI에서는 `init -backend=false`와 `validate`만 실행하고 자동 apply하지 않는다.
+`www.logitrack.kr` 운영 콘솔용 관리자 생성 전용 Cognito Plus User Pool, WebAuthn 패스키, OAuth code/PKCE public client, 위협 보호, 역할 그룹과 `auth.logitrack.kr` custom domain을 만든다. 이메일 변경은 새 주소 확인이 끝날 때까지 기존 검증 주소를 유지해 잘못 입력한 주소로 계정 접근을 잃지 않도록 한다. 실제 계정·Route 53 zone·us-east-1 ACM 인증서가 필요하므로 CI에서는 `init -backend=false`와 `validate`만 실행하고 자동 apply하지 않는다.
 
 Cognito custom domain 생성 전 상위 도메인이 해석되어야 하므로 이 루트에는 `192.0.2.1` TEST-NET 임시 A 레코드를 만든다. 웹 런타임을 배포할 때 이 레코드를 실제 로드 밸런서 또는 CDN Alias로 반드시 교체한다.
 

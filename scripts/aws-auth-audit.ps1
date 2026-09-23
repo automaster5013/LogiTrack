@@ -41,6 +41,7 @@ $pool = (Invoke-AwsJson @("cognito-idp", "describe-user-pool", "--user-pool-id",
 Assert-True ($pool.DeletionProtection -eq "ACTIVE" -and $pool.UserPoolTier -eq "PLUS") "user pool deletion protection or tier drifted"
 Assert-ExactSet @($pool.UsernameAttributes) @("email") "user pool sign-in identifier drifted"
 Assert-ExactSet @($pool.AutoVerifiedAttributes) @("email") "user pool verification attribute drifted"
+Assert-ExactSet @($pool.UserAttributeUpdateSettings.AttributesRequireVerificationBeforeUpdate) @("email") "email changes can replace the verified sign-in address before ownership verification"
 Assert-True ($pool.AdminCreateUserConfig.AllowAdminCreateUserOnly -eq $true) "public self-registration is enabled"
 Assert-True ($pool.MfaConfiguration -eq "OFF") "unexpected legacy MFA configuration"
 Assert-ExactSet @($pool.Policies.SignInPolicy.AllowedFirstAuthFactors) @("PASSWORD", "WEB_AUTHN") "first authentication factors drifted"
