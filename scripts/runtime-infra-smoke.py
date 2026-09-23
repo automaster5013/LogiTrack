@@ -59,8 +59,12 @@ for backup_control in (
     'apply_only_at_cron_interval = true',
     'actions   = ["s3:PutObject", "s3:GetObject"]',
     '--sse AES256',
+    '--checksum-algorithm SHA256',
     'pg_dump --format=custom',
     'pg_restore --list',
+    'pg_restore --exit-on-error --no-owner --no-privileges',
+    'information_schema.tables',
+    'dropdb --if-exists --force',
 ):
     if backup_control not in tf:
         errors.append(f"encrypted off-host PostgreSQL backup control is missing: {backup_control}")

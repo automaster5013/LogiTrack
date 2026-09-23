@@ -2,7 +2,7 @@
 
 이 Terraform root는 `www.logitrack.kr` 테스트 서비스를 위한 단일 호스트 런타임을 정의한다. `t3a.medium` EC2, 암호화된 30 GiB gp3, Elastic IP, Route 53 A record, GitHub OIDC 배포 역할, SSM 관리 권한, 일일 EBS snapshot, 암호화 S3 PostgreSQL dump, EC2 자동 시스템 복구와 월 USD 70 budget alert를 만든다. NAT Gateway, ALB, RDS, MSK와 SSH ingress는 만들지 않는다. 인터넷에는 Caddy의 80/443만 열리고 PostgreSQL, Redis, Kafka는 Docker internal network와 named volume에 남는다.
 
-이 구성은 비용을 우선한 단일 장애 도메인 staging 설계다. API termination protection을 활성화하고 instance 내부 shutdown은 terminate 대신 stop으로 처리한다. EC2 system status check가 2분 연속 실패하면 동일 instance를 AWS가 자동 복구한다. database volume은 instance root EBS에 있고 매일 03:00 KST(18:00 UTC)에 crash-consistent snapshot을 생성해 최신 7개를 보존한다. 매일 03:30 KST에는 PostgreSQL custom dump를 별도 비공개 S3 bucket에 AES256으로 업로드하고 8일 후 만료한다. 자동 시스템 복구와 백업들은 다중 AZ failover나 point-in-time database recovery를 제공하지 않으므로 운영 환경에는 적합하지 않다.
+이 구성은 비용을 우선한 단일 장애 도메인 staging 설계다. API termination protection을 활성화하고 instance 내부 shutdown은 terminate 대신 stop으로 처리한다. EC2 system status check가 2분 연속 실패하면 동일 instance를 AWS가 자동 복구한다. database volume은 instance root EBS에 있고 매일 03:00 KST(18:00 UTC)에 crash-consistent snapshot을 생성해 최신 7개를 보존한다. 매일 03:30 KST에는 PostgreSQL custom dump를 만들고, 격리된 임시 database에 실제 복원해 public schema를 확인한 뒤 삭제한다. 검증된 dump만 SHA-256 object checksum과 AES256 암호화를 적용해 별도 비공개 S3 bucket에 업로드하고 8일 후 만료한다. 자동 시스템 복구와 백업들은 다중 AZ failover나 point-in-time database recovery를 제공하지 않으므로 운영 환경에는 적합하지 않다.
 
 ## 월 비용 추정
 
@@ -48,7 +48,7 @@ terraform -chdir=infra/aws/runtime show runtime.tfplan
 
 ## 운영 확인
 
-전체 운영 경계를 한 번에 읽기 전용으로 감사하려면 AWS CLI와 PowerShell이 설치된 관리자 환경에서 다음을 실행한다. 계정, IAM runtime·publisher·deployer 역할, ECR 불변성·scan·암호화·보존, instance·disk·보안 그룹, DNS, 자동 복구, snapshot, S3 backup, SSM 일정과 Budget 중 하나라도 기대값에서 벗어나면 즉시 실패한다. 일일 EBS snapshot과 PostgreSQL dump는 기본 30시간 안에 생성된 최신 artifact여야 하며 암호화도 검사한다. 새 DLM policy에는 첫 실행 전까지 같은 시간의 초기 grace period만 허용한다.
+전체 운영 경계를 한 번에 읽기 전용으로 감사하려면 AWS CLI와 PowerShell이 설치된 관리자 환경에서 다음을 실행한다. 계정, IAM runtime·publisher·deployer 역할, ECR 불변성·scan·암호화·보존, instance·disk·보안 그룹, DNS, 자동 복구, snapshot, S3 backup, SSM 일정과 Budget 중 하나라도 기대값에서 벗어나면 즉시 실패한다. 일일 EBS snapshot과 PostgreSQL dump는 기본 30시간 안에 생성된 최신 artifact여야 하며, S3 dump의 AES256 암호화와 저장된 SHA-256 checksum도 검사한다. 새 DLM policy에는 첫 실행 전까지 같은 시간의 초기 grace period만 허용한다.
 
 ```powershell
 ./scripts/aws-runtime-audit.ps1

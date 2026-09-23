@@ -243,8 +243,9 @@ Assert-True ($backupObjects.Count -ge 1 -and $backupObjects[0].Size -gt 0) "no n
 $latestBackup = $backupObjects[0]
 $backupAge = $now - [DateTimeOffset]::Parse([string]$latestBackup.LastModified)
 Assert-True ($backupAge.TotalMinutes -ge -5 -and $backupAge.TotalHours -le $MaximumBackupAgeHours) "latest PostgreSQL backup is stale or future-dated"
-$backupObject = Invoke-AwsJson @("s3api", "head-object", "--bucket", $bucket, "--key", $latestBackup.Key)
+$backupObject = Invoke-AwsJson @("s3api", "head-object", "--bucket", $bucket, "--key", $latestBackup.Key, "--checksum-mode", "ENABLED")
 Assert-True ($backupObject.ServerSideEncryption -eq "AES256") "latest PostgreSQL backup is not AES256 encrypted"
+Assert-True (-not [string]::IsNullOrWhiteSpace([string]$backupObject.ChecksumSHA256)) "latest PostgreSQL backup has no stored SHA-256 checksum"
 
 $associations = Invoke-AwsJson @("ssm", "list-associations", "--association-filter-list", "key=AssociationName,value=logitrack-staging-postgres-backup")
 $association = @($associations.Associations)
@@ -256,7 +257,7 @@ Assert-True ($backupAssociation.Name -eq "AWS-RunShellScript" -and $backupAssoci
 Assert-True ($backupAssociation.ScheduleExpression -eq "cron(30 18 * * ? *)" -and $backupAssociation.ApplyOnlyAtCronInterval -and $backupAssociation.MaxConcurrency -eq "1" -and $backupAssociation.MaxErrors -eq "0" -and $backupAssociation.ComplianceSeverity -eq "HIGH") "PostgreSQL backup association schedule or failure boundary drifted"
 Assert-True ($backupTargets.Count -eq 1 -and $backupTargets[0].Key -eq "InstanceIds" -and @($backupTargets[0].Values).Count -eq 1 -and $backupTargets[0].Values[0] -eq $instanceId) "PostgreSQL backup association targets an unexpected managed node"
 $backupCommand = [string]$backupAssociation.Parameters.commands[0]
-Assert-True ($backupCommand.Contains("pg_restore --list") -and $backupCommand.Contains("--sse AES256") -and $backupCommand.Contains("s3://$bucket/")) "PostgreSQL backup association lost archive validation or encryption"
+Assert-True ($backupCommand.Contains("pg_restore --list") -and $backupCommand.Contains("pg_restore --exit-on-error --no-owner --no-privileges") -and $backupCommand.Contains("information_schema.tables") -and $backupCommand.Contains("dropdb --if-exists --force") -and $backupCommand.Contains("--sse AES256 --checksum-algorithm SHA256") -and $backupCommand.Contains("s3://$bucket/")) "PostgreSQL backup association lost restore validation, checksum, or encryption"
 
 $budget = & aws budgets describe-budget --profile $Profile --account-id $ExpectedAccountId --budget-name logitrack-staging-monthly --output json --no-cli-pager
 if ($LASTEXITCODE -ne 0) { throw "AWS CLI failed while reading the staging budget" }
