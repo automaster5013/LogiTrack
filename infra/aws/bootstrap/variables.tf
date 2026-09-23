@@ -30,6 +30,28 @@ variable "github_repository" {
   }
 }
 
+variable "github_owner_id" {
+  description = "Immutable numeric GitHub user or organization ID used in the customized OIDC subject."
+  type        = number
+  default     = 247691206
+
+  validation {
+    condition     = var.github_owner_id > 0 && floor(var.github_owner_id) == var.github_owner_id
+    error_message = "github_owner_id must be a positive integer."
+  }
+}
+
+variable "github_repository_id" {
+  description = "Immutable numeric GitHub repository ID used in the customized OIDC subject."
+  type        = number
+  default     = 1376500287
+
+  validation {
+    condition     = var.github_repository_id > 0 && floor(var.github_repository_id) == var.github_repository_id
+    error_message = "github_repository_id must be a positive integer."
+  }
+}
+
 variable "github_environment" {
   description = "Protected GitHub environment allowed to assume the publisher role."
   type        = string

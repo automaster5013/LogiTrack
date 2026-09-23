@@ -2,7 +2,9 @@ aws_region              = "ap-northeast-2"
 
 # Defaults match this repository and the protected staging environment.
 # github_owner        = "automaster5013"
+# github_owner_id     = 247691206
 # github_repository   = "LogiTrack"
+# github_repository_id = 1376500287
 # github_environment  = "staging"
 # repository_prefix   = "logitrack"
 # retained_images     = 30

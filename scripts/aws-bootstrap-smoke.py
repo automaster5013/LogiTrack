@@ -42,7 +42,7 @@ def main() -> None:
         'variable = "token.actions.githubusercontent.com:aud"',
         'values   = ["sts.amazonaws.com"]',
         'variable = "token.actions.githubusercontent.com:sub"',
-        "environment:${var.github_environment}",
+        "${var.github_owner}@${var.github_owner_id}/${var.github_repository}@${var.github_repository_id}:environment:${var.github_environment}",
         'default     = "staging"',
         'resources = values(aws_ecr_repository.service)[*].arn',
         'actions   = ["ecr:GetAuthorizationToken"]',
@@ -82,7 +82,7 @@ def main() -> None:
         source,
         re.DOTALL,
     )
-    if not trust or trust.group(1) != "repo:${var.github_owner}/${var.github_repository}:environment:${var.github_environment}":
+    if not trust or trust.group(1) != "repo:${var.github_owner}@${var.github_owner_id}/${var.github_repository}@${var.github_repository_id}:environment:${var.github_environment}":
         raise AssertionError("OIDC subject is not restricted to one repository environment")
 
     print("PASS: AWS bootstrap is immutable, lifecycle-bounded, least-privilege, environment-scoped, and runtime-free")
