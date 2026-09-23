@@ -34,7 +34,7 @@ terraform -chdir=infra/aws/runtime plan -var-file=terraform.tfvars -out=runtime.
 terraform -chdir=infra/aws/runtime show runtime.tfplan
 ```
 
-승인된 plan에만 `terraform apply runtime.tfplan`을 실행한다. apply 후 `github_environment_variables` output의 `AWS_RUNTIME_ROLE_ARN`, `AWS_RUNTIME_INSTANCE_ID`를 GitHub `staging` environment variable에 추가한다. 기존 `AWS_REGION`, `AWS_ACCOUNT_ID`는 동일 값이어야 한다. GitHub environment의 deployment branch/tag rule은 반드시 `main`만 허용하고 required reviewer를 유지한다. Budget email 구독 확인 메일도 승인한다.
+승인된 plan에만 `terraform apply runtime.tfplan`을 실행한다. apply 후 `github_environment_variables` output의 `AWS_RUNTIME_ROLE_ARN`, `AWS_RUNTIME_INSTANCE_ID`를 GitHub `staging` environment variable에 추가한다. 기존 `AWS_REGION`, `AWS_ACCOUNT_ID`는 동일 값이어야 한다. GitHub environment의 deployment branch/tag rule은 반드시 `main`만 허용하고 required reviewer를 유지한다. 직접 등록한 Budget email 수신자는 별도 구독 확인이 필요하지 않으며 임계값을 넘을 때 알림을 받는다. SNS topic을 추가한 경우에만 SNS 구독 확인 절차가 필요하다.
 
 ## 배포와 롤백
 

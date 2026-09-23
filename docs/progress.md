@@ -277,6 +277,11 @@
 ## 현재 상태
 
 모든 예정 우선순위 완료. 이후 작업은 새 요구사항 또는 운영 검증 결과에 따라 결정한다.
+2026-09-23: AWS 서울 리전에 월 USD 70 Budget으로 제한한 단일 호스트 staging runtime과 OIDC·SSM 기반 digest 고정 CD를 실제 적용하고 `www.logitrack.kr` HTTPS 배포를 검증했다.
+- 최초 TLS 인증서 발급 중 일시적인 HTTPS 실패도 bounded retry하도록 배포 readiness를 보강
+- Docker Compose pull·start·rollback 진행 출력을 quiet 모드로 제한해 SSM 응답 truncation 없이 실제 오류를 보존
+- Kafka named volume을 제한된 CHOWN capability의 네트워크 차단 init container로 초기화해 broker는 계속 non-root로 실행
+- Budget 직접 email과 SNS 구독 확인 동작을 문서에서 구분해 존재하지 않는 확인 메일을 기다리는 운영 혼선 제거
 2026-09-21: 주문 목록에 상태 범위와 주문·차량·지역 즉시 검색을 추가해 누적 주문에서 배차 대기와 운송 중 작업을 빠르게 찾도록 개선했다.
 - 배송 경고 목록에 대응 우선순위·최근 감지·지속 시간 정렬을 제공해 운영자가 상황에 맞는 경고를 빠르게 판독
 - 재고·창고 작업·재고 원장을 안정 정렬 페이지로 전체 조회해 100~200건 초과 누적 데이터에서도 집계·검색 누락 방지

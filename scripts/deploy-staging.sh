@@ -55,21 +55,21 @@ unset postgres_password auth_base issuer client_id
 registry="$account_id.dkr.ecr.$region.amazonaws.com"
 aws ecr get-login-password --region "$region" | docker login --username AWS --password-stdin "$registry"
 docker compose --project-directory "$release" --env-file "$release/.env" -f "$release/compose.yml" config --quiet
-docker compose --project-directory "$release" --env-file "$release/.env" -f "$release/compose.yml" pull
+docker compose --progress quiet --project-directory "$release" --env-file "$release/.env" -f "$release/compose.yml" pull
 
 rollback() {
   status=$?
   if [[ $status -ne 0 && -n "$previous" && -d "$previous" ]]; then
     echo "deployment failed; restoring $(basename "$previous")" >&2
     ln -sfn "$previous" "$root/current"
-    docker compose --project-directory "$previous" --env-file "$previous/.env" -f "$previous/compose.yml" up -d --remove-orphans || true
+    docker compose --progress quiet --project-directory "$previous" --env-file "$previous/.env" -f "$previous/compose.yml" up -d --remove-orphans || true
   fi
   exit "$status"
 }
 trap rollback EXIT
 ln -sfn "$release" "$root/current"
-docker compose --project-directory "$release" --env-file "$release/.env" -f "$release/compose.yml" up -d --remove-orphans --wait --wait-timeout 600
-curl --fail --silent --show-error --retry 12 --retry-delay 5 --max-time 10 https://www.logitrack.kr/login >/dev/null
+docker compose --progress quiet --project-directory "$release" --env-file "$release/.env" -f "$release/compose.yml" up -d --remove-orphans --wait --wait-timeout 600
+curl --fail --silent --show-error --retry 24 --retry-delay 5 --retry-all-errors --connect-timeout 10 --max-time 20 https://www.logitrack.kr/login >/dev/null
 printf '%s\n' "$revision" >"$root/deployed-revision"
 chmod 0644 "$root/deployed-revision"
 trap - EXIT

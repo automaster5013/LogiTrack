@@ -7,6 +7,7 @@ root = Path(__file__).resolve().parents[1]
 tf = (root / "infra/aws/runtime/main.tf").read_text()
 compose = yaml.safe_load((root / "deploy/staging/compose.yml").read_text())
 workflow = (root / ".github/workflows/deploy-staging.yml").read_text() if (root / ".github/workflows/deploy-staging.yml").exists() else ""
+deploy_script = (root / "scripts/deploy-staging.sh").read_text()
 
 errors = []
 for forbidden in ("aws_nat_gateway", "aws_lb\"", "aws_db_instance", "aws_msk_cluster"):
@@ -49,6 +50,10 @@ if 'actions = ["ecr:DescribeImages"]' not in tf:
     errors.append("deployment role must be able to verify the five manifest digests")
 if "secrets." in workflow:
     errors.append("deployment workflow must not consume long-lived GitHub secrets")
+if deploy_script.count("docker compose --progress quiet") < 3:
+    errors.append("deployment pull, start, and rollback must bound SSM output with quiet Compose progress")
+if "--retry-all-errors" not in deploy_script or "--connect-timeout" not in deploy_script:
+    errors.append("public readiness must tolerate bounded first-certificate provisioning failures")
 
 if errors:
     print("\n".join(f"ERROR: {e}" for e in errors), file=sys.stderr)

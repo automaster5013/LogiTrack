@@ -5,8 +5,9 @@
 - CI는 구현되어 있다. GitHub Actions가 API 테스트와 coverage, Python 테스트, Compose 구성, PostgreSQL backup/restore 왕복, Prometheus alert rule 문법, TypeScript build를 검증한다.
 - production Docker image 다섯 개도 clean runner에서 빌드하고 모든 runtime이 non-root인지 검사한다.
 - 각 image의 CycloneDX SBOM을 30일 보관하고, 수정 가능 여부와 관계없이 CRITICAL 취약점이 하나라도 있으면 CI를 차단한다.
-- CD 1단계로 수동 승인된 staging image publication을 구현했다. `.github/workflows/publish-staging-images.yml`은 `main`에 포함된 full commit SHA만 받아 GitHub `staging` environment 승인 뒤 OIDC 단기 자격 증명으로 검증 완료 이미지를 ECR에 게시한다.
-- ECS/RDS/ElastiCache/MSK/ALB/Route 53 등 runtime 인프라 생성과 서비스 배포는 아직 구현하지 않았다. 리전·비용 상한·복구 정책이 확정되기 전에는 AWS runtime 자원을 변경하지 않는다.
+- 수동 승인된 staging image publication을 구현했다. `.github/workflows/publish-staging-images.yml`은 `main`에 포함된 full commit SHA만 받아 GitHub `staging` environment 승인 뒤 OIDC 단기 자격 증명으로 검증 완료 이미지를 ECR에 게시한다.
+- 저비용 staging runtime과 실제 배포 단계도 구현했다. 서울 리전의 단일 EC2, 암호화 gp3, Elastic IP, Route 53, Caddy TLS, SSM 배포와 USD 70 Budget을 사용하며 NAT Gateway, ALB, RDS, ElastiCache, MSK와 SSH ingress는 만들지 않는다.
+- `.github/workflows/deploy-staging.yml`은 게시 실행의 release manifest와 ECR digest를 재검증하고 OIDC 단기 자격 증명으로 지정 instance에만 SSM 명령을 보낸다. Compose health와 외부 HTTPS/HSTS가 모두 통과해야 배포가 성공한다.
 
 ## CD를 시작할 시점
 
@@ -51,7 +52,7 @@ ECR에는 `<prefix>/api`, `<prefix>/analytics`, `<prefix>/simulator`, `<prefix>/
 
 publisher는 신규 빌드와 기존 ECR image 재사용 모두 Docker image metadata의 OS·architecture가 `linux/amd64`인지 확인한다. release manifest의 `imagePlatform`도 같은 값으로 고정해 이후 runtime 배포가 호환되지 않는 architecture를 암묵적으로 선택하지 못하게 한다. ECR에서 digest별 manifest media type도 다시 조회해 OCI image manifest 또는 Docker distribution v2 manifest만 허용하고, index나 legacy 형식은 배포 증적 생성 전에 거부한다. ECR이 보고한 압축 image 크기도 서비스별로 기록하며 1 byte 미만 또는 2 GiB 초과 image는 저장 비용과 배포 지연을 키우는 비정상 산출물로 간주해 게시를 중단한다. 다섯 image의 실제 합계도 다시 계산해 5 GiB 이하인지 확인하고, 개별·전체 상한과 실제 합계를 모두 release manifest에 남긴다. SBOM 생성과 CRITICAL 취약점 검사는 digest로 고정한 Trivy image 하나를 공유한다. workflow는 이 image를 직접 실행해 semantic version을 검증하고 scanner digest와 사람이 읽을 수 있는 버전을 release manifest와 실행 요약에 기록해 공급망 증적 생성 도구까지 추적한다. 실패 조건인 `CRITICAL` severity도 단일 설정으로 실제 검사 명령과 증적에 함께 전달해 검사 정책 drift를 차단한다. 서비스별 CRITICAL 검사 결과는 구조화된 Trivy JSON으로 저장해 SBOM artifact에 함께 보존하며, release manifest가 각 보고서 파일명과 SHA-256을 실제 내용에 결합한다.
 
-현재 단계는 배포 가능한 artifact publication까지다. 실제 staging 서비스 전환은 runtime topology, 월 비용 상한, DB migration/rollback, TLS와 `logitrack.kr` DNS 정책 승인 후 별도 단계로 추가한다.
+현재 staging 서비스는 승인된 저비용 단일 호스트 topology로 `www.logitrack.kr`에서 운영된다. 이 구성은 자동 failover가 없는 테스트 환경이며 production 전환에는 별도의 다중 AZ 데이터 계층, backup 보존 정책, 무중단 migration과 비용 승인이 필요하다.
 
 운영 배포에서는 `latest` tag를 사용하지 않고 Git commit SHA로 image를 고정한다. 애플리케이션 migration은 이전 버전과 호환되는 expand/contract 순서를 사용하며, 배포 성공 판정에는 API readiness뿐 아니라 주문 생성·배차·지도 경로 조회까지 포함한다.
 
