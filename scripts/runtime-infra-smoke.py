@@ -35,6 +35,8 @@ if "id-token: write" not in workflow or "AWS-RunShellScript" not in workflow:
     errors.append("deployment workflow must use OIDC and SSM Run Command")
 if "fetch-depth: 0" not in workflow:
     errors.append("deployment workflow must fetch history before validating an earlier release revision")
+if "/bin/bash /tmp/logitrack-deploy/scripts/deploy-staging.sh" not in workflow:
+    errors.append("deployment workflow must not depend on a Windows checkout executable bit")
 if 'actions = ["ecr:DescribeImages"]' not in tf:
     errors.append("deployment role must be able to verify the five manifest digests")
 if "secrets." in workflow:
