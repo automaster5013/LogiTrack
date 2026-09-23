@@ -292,6 +292,7 @@
 - staging SSM agent의 최신 online heartbeat·managed-node 정체성과 PostgreSQL backup association의 단일 instance 대상·일정·실패·암호화 경계를 live 감사
 - staging 배포 직후와 6시간 주기 외부 점검에서 단순 HTTP 200을 넘어 LogiTrack 로그인 표식과 no-store runtime UUID 응답을 검증
 - 실제 IAM runtime·publisher·deployer 역할의 trust·허용 action과 ECR 5개 repository의 불변성·scan·암호화·보존 정책 drift 감사
+- IAM 역할별 단일 trust statement·정확한 OIDC 조건과 action별 허용 resource를 함께 감사해 action 이름은 같지만 wildcard 범위가 넓어진 권한 drift 차단
 - GitHub staging environment의 필수 승인자·main 전용 배포·OIDC 변수·장기 secret 부재와 Actions SHA 고정 설정을 읽기 전용 감사
 - GitHub main branch에 관리자 우회 없는 필수 CI 4개·최신 branch 검사·선형 이력·대화 해결과 force push·삭제 금지 적용 및 live 감사
 - main 변경을 PR로만 제한하고 1인 운영용 승인 0건·stale review 무효화, squash-only merge와 병합 branch 자동 삭제 정책 적용
