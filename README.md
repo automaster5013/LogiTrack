@@ -1,6 +1,7 @@
 # LogiTrack
 
 [![CI](https://github.com/automaster5013/LogiTrack/actions/workflows/ci.yml/badge.svg)](https://github.com/automaster5013/LogiTrack/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 실제 GPS 장비 없이 배송 차량, 창고, 주문의 상태 변화를 재현하는 이벤트 기반 물류 운영 플랫폼입니다.
 
@@ -78,6 +79,10 @@ curl -X POST http://localhost:8080/api/orders/{orderId}/dispatch \
 - [운영 및 장애 처리](docs/operations.md)
 - [장애 주입 및 복구 runbook](docs/failure-recovery-runbook.md)
 - [로컬 성능 기준선](docs/performance.md)
+
+## 라이선스
+
+이 프로젝트는 [Apache License 2.0](LICENSE)에 따라 배포됩니다.
 - [테스트 품질 기준선](docs/quality.md)
 - [CI/CD와 릴리스 전략](docs/delivery.md)
 - [10분 데모 시나리오](docs/demo.md)

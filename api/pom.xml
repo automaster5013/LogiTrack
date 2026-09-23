@@ -5,6 +5,13 @@
     <groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-parent</artifactId><version>3.4.13</version><relativePath/>
   </parent>
   <groupId>io.logitrack</groupId><artifactId>control-api</artifactId><version>0.1.0</version>
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
   <properties>
     <java.version>21</java.version>
     <!-- Security patch levels required by the production-image vulnerability gate. -->
