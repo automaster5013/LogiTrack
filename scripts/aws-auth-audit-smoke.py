@@ -9,6 +9,8 @@ required = (
     'DeletionProtection -eq "ACTIVE"',
     'UserPoolTier -eq "PLUS"',
     "AllowAdminCreateUserOnly",
+    "AttributesRequireVerificationBeforeUpdate",
+    "email changes can replace the verified sign-in address before ownership verification",
     "AllowedFirstAuthFactors",
     'AdvancedSecurityMode -eq "ENFORCED"',
     '"cognito-idp", "get-user-pool-mfa-config"',
