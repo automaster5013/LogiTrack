@@ -93,4 +93,21 @@ foreach ($group in $groups) {
   Assert-True ($group.Precedence -eq $expectedGroups[$group.GroupName] -and $group.Description -eq "LogiTrack $($group.GroupName) authorization group") "$($group.GroupName) authorization group drifted"
 }
 
+$userResult = Invoke-AwsJson @("cognito-idp", "list-users", "--user-pool-id", $poolId, "--max-items", "60")
+$users = @($userResult.Users)
+Assert-True ([string]::IsNullOrWhiteSpace([string]$userResult.NextToken)) "operator count exceeds the bounded 60-user audit"
+Assert-True ($users.Count -ge 1) "user pool has no operator accounts"
+Assert-True (@($users | Where-Object { -not $_.Enabled -or $_.UserStatus -ne "CONFIRMED" }).Count -eq 0) "an operator account is disabled or not confirmed"
+$roleAssignments = @{}
+foreach ($groupName in $expectedGroups.Keys) {
+  $membersResult = Invoke-AwsJson @("cognito-idp", "list-users-in-group", "--user-pool-id", $poolId, "--group-name", $groupName, "--max-items", "60")
+  Assert-True ([string]::IsNullOrWhiteSpace([string]$membersResult.NextToken)) "$groupName membership exceeds the bounded 60-user audit"
+  foreach ($member in @($membersResult.Users)) {
+    $username = [string]$member.Username
+    $roleAssignments[$username] = 1 + [int]($roleAssignments[$username])
+  }
+}
+Assert-True (@($users | Where-Object { [int]($roleAssignments[[string]$_.Username]) -ne 1 }).Count -eq 0) "every operator must belong to exactly one authorization group"
+Assert-True ($roleAssignments.Count -eq $users.Count) "an authorization group contains an unknown operator"
+
 Write-Output "PASS: AWS Cognito authentication audit succeeded for $poolId ($AuthDomain)"

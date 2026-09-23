@@ -30,7 +30,7 @@ aws cognito-idp set-user-pool-mfa-config \
 
 ## 운영 확인
 
-적용 후에는 읽기 전용 감사를 실행해 AWS 계정, User Pool 삭제 보호·Plus tier·관리자 생성 전용 정책·비밀번호 bootstrap·위협 보호, WebAuthn RP와 사용자 확인, OAuth code/PKCE public client allowlist와 token 수명, Managed Login, custom domain TLS, 인증서 만료, Route 53 alias 및 네 개 역할 그룹을 한 번에 확인한다.
+적용 후에는 읽기 전용 감사를 실행해 AWS 계정, User Pool 삭제 보호·Plus tier·관리자 생성 전용 정책·비밀번호 bootstrap·위협 보호, WebAuthn RP와 사용자 확인, OAuth code/PKCE public client allowlist와 token 수명, Managed Login, custom domain TLS, 인증서 만료, Route 53 alias 및 네 개 역할 그룹을 한 번에 확인한다. 운영자 계정은 모두 활성·확정 상태이고 정확히 한 개의 역할 그룹에 속해야 하며, 감사 범위는 60명으로 제한해 그 이상이면 조용히 일부만 검사하지 않고 실패한다.
 
 ```powershell
 ./scripts/aws-auth-audit.ps1

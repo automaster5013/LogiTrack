@@ -30,6 +30,12 @@ required = (
     '"route53", "list-resource-record-sets"',
     '"cognito-idp", "list-groups"',
     "RECOVERY_OPERATOR = 20",
+    '"cognito-idp", "list-users"',
+    '"cognito-idp", "list-users-in-group"',
+    "operator count exceeds the bounded 60-user audit",
+    'UserStatus -ne "CONFIRMED"',
+    "every operator must belong to exactly one authorization group",
+    "an authorization group contains an unknown operator",
 )
 missing = [control for control in required if control not in source]
 if missing:
