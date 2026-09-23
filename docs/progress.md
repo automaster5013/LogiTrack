@@ -289,6 +289,7 @@
 - 최상위 실행 안내와 릴리스 전략을 실제 적용된 staging CD·백업·복구·외부 점검 상태에 맞춰 갱신해 미적용 안내 드리프트 제거
 - AWS staging의 compute·network·복구·snapshot·S3 DB backup·Budget 경계를 단일 읽기 전용 감사 스크립트로 재검증 가능하게 구성
 - 일일 EBS snapshot과 PostgreSQL dump의 최신 생성 시각·암호화를 감사해 정책만 존재하고 실제 backup이 오래된 상태를 정상으로 오인하지 않도록 보강
+- staging SSM agent의 최신 online heartbeat·managed-node 정체성과 PostgreSQL backup association의 단일 instance 대상·일정·실패·암호화 경계를 live 감사
 - 실제 IAM runtime·publisher·deployer 역할의 trust·허용 action과 ECR 5개 repository의 불변성·scan·암호화·보존 정책 drift 감사
 - GitHub staging environment의 필수 승인자·main 전용 배포·OIDC 변수·장기 secret 부재와 Actions SHA 고정 설정을 읽기 전용 감사
 - GitHub main branch에 관리자 우회 없는 필수 CI 4개·최신 branch 검사·선형 이력·대화 해결과 force push·삭제 금지 적용 및 live 감사
