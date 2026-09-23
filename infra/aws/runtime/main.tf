@@ -117,6 +117,10 @@ resource "aws_instance" "runtime" {
   monitoring                  = false
   user_data_replace_on_change = true
   user_data                   = file("${path.module}/user-data.sh")
+  volume_tags = {
+    Name             = "logitrack-staging-root"
+    SnapshotSchedule = "logitrack-staging-daily"
+  }
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = "required"
@@ -135,6 +139,68 @@ resource "aws_instance" "runtime" {
     ignore_changes = [ami, associate_public_ip_address]
   }
   tags = { Name = "logitrack-staging", DeploymentTarget = "logitrack-staging" }
+}
+
+data "aws_iam_policy_document" "snapshot_assume" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["dlm.amazonaws.com"]
+    }
+  }
+}
+resource "aws_iam_role" "snapshot" {
+  name               = "logitrack-staging-ebs-snapshot"
+  assume_role_policy = data.aws_iam_policy_document.snapshot_assume.json
+}
+data "aws_iam_policy_document" "snapshot" {
+  statement {
+    actions   = ["ec2:DescribeInstances", "ec2:DescribeVolumes", "ec2:DescribeSnapshots"]
+    resources = ["*"]
+  }
+  statement {
+    actions   = ["ec2:CreateSnapshot", "ec2:CreateSnapshots"]
+    resources = ["arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:volume/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:ResourceTag/SnapshotSchedule"
+      values   = ["logitrack-staging-daily"]
+    }
+  }
+  statement {
+    actions   = ["ec2:CreateSnapshot", "ec2:CreateSnapshots", "ec2:CreateTags", "ec2:DeleteSnapshot"]
+    resources = ["arn:aws:ec2:${var.aws_region}::snapshot/*"]
+  }
+}
+resource "aws_iam_role_policy" "snapshot" {
+  name   = "manage-logitrack-staging-snapshots"
+  role   = aws_iam_role.snapshot.id
+  policy = data.aws_iam_policy_document.snapshot.json
+}
+resource "aws_dlm_lifecycle_policy" "runtime" {
+  description        = "Daily crash-consistent LogiTrack staging root-volume snapshot"
+  execution_role_arn = aws_iam_role.snapshot.arn
+  state              = "ENABLED"
+  policy_details {
+    resource_types = ["VOLUME"]
+    target_tags    = { SnapshotSchedule = "logitrack-staging-daily" }
+    schedule {
+      name      = "Daily snapshots retained for seven days"
+      copy_tags = true
+      create_rule {
+        interval      = 24
+        interval_unit = "HOURS"
+        times         = ["18:00"]
+      }
+      retain_rule { count = 7 }
+      tags_to_add = {
+        Name       = "logitrack-staging-daily"
+        BackupType = "crash-consistent"
+      }
+    }
+  }
+  depends_on = [aws_iam_role_policy.snapshot]
 }
 
 resource "aws_eip" "runtime" {

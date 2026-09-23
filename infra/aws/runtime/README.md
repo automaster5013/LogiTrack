@@ -1,12 +1,12 @@
 # 저비용 staging 런타임
 
-이 Terraform root는 `www.logitrack.kr` 테스트 서비스를 위한 단일 호스트 런타임을 정의한다. `t3a.medium` EC2, 암호화된 30 GiB gp3, Elastic IP, Route 53 A record, GitHub OIDC 배포 역할, SSM 관리 권한과 월 USD 70 budget alert를 만든다. NAT Gateway, ALB, RDS, MSK와 SSH ingress는 만들지 않는다. 인터넷에는 Caddy의 80/443만 열리고 PostgreSQL, Redis, Kafka는 Docker internal network와 named volume에 남는다.
+이 Terraform root는 `www.logitrack.kr` 테스트 서비스를 위한 단일 호스트 런타임을 정의한다. `t3a.medium` EC2, 암호화된 30 GiB gp3, Elastic IP, Route 53 A record, GitHub OIDC 배포 역할, SSM 관리 권한, 일일 EBS snapshot과 월 USD 70 budget alert를 만든다. NAT Gateway, ALB, RDS, MSK와 SSH ingress는 만들지 않는다. 인터넷에는 Caddy의 80/443만 열리고 PostgreSQL, Redis, Kafka는 Docker internal network와 named volume에 남는다.
 
-이 구성은 비용을 우선한 단일 장애 도메인 staging 설계다. EC2 또는 EBS 장애 시 자동 failover가 없고 database volume은 instance root EBS에 있다. 운영 환경에는 적합하지 않다.
+이 구성은 비용을 우선한 단일 장애 도메인 staging 설계다. database volume은 instance root EBS에 있고 매일 03:00 KST(18:00 UTC)에 crash-consistent snapshot을 생성해 최신 7개를 보존한다. snapshot은 자동 failover나 point-in-time database recovery를 제공하지 않으므로 운영 환경에는 적합하지 않다.
 
 ## 월 비용 추정
 
-2026-09-23 AWS Price List API의 서울 리전 Linux on-demand 단가를 기준으로 `t3a.medium`은 시간당 USD 0.0468, 730시간에 약 USD 34.16이다. gp3 30 GiB 약 USD 2.7, public IPv4 약 USD 3.65, 기존 Route 53 zone의 query와 ECR/전송량 여유분 USD 5~15를 합쳐 정상적인 저부하 월 비용은 약 **USD 41~56**으로 예상한다. T3 Unlimited CPU credit, 인터넷 전송량, 기존 Cognito Plus 사용량이 커지면 증가할 수 있다. Budget은 80% 실제 비용과 100% forecast에서 알리지만 리소스를 자동 중단하는 hard cap은 아니다.
+2026-09-23 AWS Price List API의 서울 리전 Linux on-demand 단가를 기준으로 `t3a.medium`은 시간당 USD 0.0468, 730시간에 약 USD 34.16이다. gp3 30 GiB 약 USD 2.7, public IPv4 약 USD 3.65, 기존 Route 53 zone의 query와 ECR/전송량 및 증분 snapshot 여유분 USD 5~17을 합쳐 정상적인 저부하 월 비용은 약 **USD 41~58**으로 예상한다. T3 Unlimited CPU credit, snapshot 변경량, 인터넷 전송량, 기존 Cognito Plus 사용량이 커지면 증가할 수 있다. Budget은 80% 실제 비용과 100% forecast에서 알리지만 리소스를 자동 중단하는 hard cap은 아니다.
 
 ## 승인 후 최초 적용
 
@@ -53,6 +53,7 @@ curl --fail --proto '=https' --tlsv1.2 https://www.logitrack.kr/login
 curl -I https://www.logitrack.kr/login
 aws ssm start-session --target <instance-id> --profile logitrack-test-admin --region ap-northeast-2
 sudo docker compose --project-directory /opt/logitrack/current --env-file /opt/logitrack/current/.env -f /opt/logitrack/current/compose.yml ps
+aws dlm get-lifecycle-policy --policy-id <snapshot_policy_id> --profile logitrack-test-admin --region ap-northeast-2
 ```
 
 CloudWatch Logs를 기본 활성화하지 않아 고정 수집 비용을 피한다. 문제 조사에는 bounded Docker json logs와 SSM Session Manager를 사용한다. root 권한 사용자는 Docker inspect로 container environment를 볼 수 있으므로 instance role과 SSM 접근을 배포 관리자에게만 제한해야 한다.

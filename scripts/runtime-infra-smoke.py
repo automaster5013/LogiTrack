@@ -19,6 +19,19 @@ if 'from_port = 22' in tf or 'to_port = 5432' in tf or 'to_port = 9092' in tf:
     errors.append("SSH or a data-tier port is publicly reachable")
 if 'monthly_budget_usd == 70' not in (root / "infra/aws/runtime/variables.tf").read_text():
     errors.append("USD 70 budget ceiling validation is missing")
+for snapshot_control in (
+    'resource "aws_dlm_lifecycle_policy" "runtime"',
+    'SnapshotSchedule = "logitrack-staging-daily"',
+    'resource_types = ["VOLUME"]',
+    'state              = "ENABLED"',
+    'retain_rule { count = 7 }',
+    'interval      = 24',
+    'interval_unit = "HOURS"',
+    'times         = ["18:00"]',
+    'identifiers = ["dlm.amazonaws.com"]',
+):
+    if snapshot_control not in tf:
+        errors.append(f"daily seven-copy EBS snapshot control is missing: {snapshot_control}")
 
 services = compose.get("services", {})
 if set(services["caddy"].get("ports", [])) != {"80:80", "443:443"}:
