@@ -8,7 +8,7 @@ LogiTrack is maintained from the `main` branch. Security fixes are applied to th
 
 Please do not disclose suspected vulnerabilities in a public issue, discussion, or pull request.
 
-Use GitHub's **Report a vulnerability** form on the repository Security advisories page so the report and follow-up remain private. Include:
+Use GitHub's [Report a vulnerability](https://github.com/automaster5013/LogiTrack/security/advisories/new) form so the report and follow-up remain private. Include:
 
 - the affected component and revision;
 - steps or a minimal proof of concept that reproduces the issue;

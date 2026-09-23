@@ -296,6 +296,7 @@
 - GitHub Dependabot 경고·자동 보안 수정과 secret scanning·push protection을 활성화하고 미해결 secret·high/critical 의존성 경고 감사
 - GitHub CodeQL default setup으로 Actions·Java/Kotlin·JavaScript/TypeScript·Python extended 주간 분석과 high/critical 경고 감사 적용
 - 공개 GitHub 저장소의 private vulnerability reporting과 `SECURITY.md` 비공개 신고·응답 정책을 적용하고 활성 상태를 live 감사
+- `SECURITY.md`에서 repository 전용 private advisory 신고 화면으로 직접 연결하고 CI에서 비공개 신고·72시간 접수·연구 경계를 검증
 - OpenSSF Scorecard 주간·main 공급망 분석, 최소 job 권한, SHA 고정 action, 30일 SARIF 증적과 code scanning 게시 적용
 - PR dependency review로 새로 도입되는 moderate 이상 취약 의존성을 필수 차단하고 read-only 권한·bounded snapshot 재시도 적용
 2026-09-21: 주문 목록에 상태 범위와 주문·차량·지역 즉시 검색을 추가해 누적 주문에서 배차 대기와 운송 중 작업을 빠르게 찾도록 개선했다.
