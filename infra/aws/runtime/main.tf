@@ -130,7 +130,9 @@ resource "aws_instance" "runtime" {
   }
   lifecycle {
     prevent_destroy = true
-    ignore_changes  = [ami]
+    # The provider reports this as true after the separately managed EIP is
+    # attached, even though the subnet does not auto-assign a public address.
+    ignore_changes = [ami, associate_public_ip_address]
   }
   tags = { Name = "logitrack-staging", DeploymentTarget = "logitrack-staging" }
 }
@@ -172,6 +174,14 @@ resource "aws_iam_role" "deployer" {
   assume_role_policy   = data.aws_iam_policy_document.deployer_trust.json
 }
 data "aws_iam_policy_document" "deployer" {
+  statement {
+    actions = ["ecr:DescribeImages"]
+    resources = [
+      for service in ["api", "analytics", "simulator", "web", "otel-collector"] :
+      "arn:aws:ecr:${var.aws_region}:${data.aws_caller_identity.current.account_id}:repository/${var.repository_prefix}/${service}"
+    ]
+  }
+
   statement {
     actions   = ["ssm:SendCommand"]
     resources = [aws_instance.runtime.arn, "arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript"]

@@ -33,6 +33,8 @@ for network in ("data",):
         errors.append(f"{network} network must be internal")
 if "id-token: write" not in workflow or "AWS-RunShellScript" not in workflow:
     errors.append("deployment workflow must use OIDC and SSM Run Command")
+if 'actions = ["ecr:DescribeImages"]' not in tf:
+    errors.append("deployment role must be able to verify the five manifest digests")
 if "secrets." in workflow:
     errors.append("deployment workflow must not consume long-lived GitHub secrets")
 
