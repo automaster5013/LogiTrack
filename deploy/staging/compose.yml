@@ -136,6 +136,18 @@ services:
     volumes: [redis-data:/data]
     healthcheck: {test: [CMD, redis-cli, ping], interval: 10s, timeout: 5s, retries: 20}
 
+  kafka-storage-init:
+    image: apache/kafka:4.3.1@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837
+    user: "0:0"
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN]
+    pids_limit: 32
+    mem_limit: 64m
+    network_mode: none
+    volumes: [kafka-data:/tmp/kafka-logs]
+    command: [/bin/bash, -c, "chown -R 1000:1000 /tmp/kafka-logs"]
+
   kafka:
     image: apache/kafka:4.3.1@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837
     restart: unless-stopped
@@ -144,6 +156,7 @@ services:
     pids_limit: 512
     security_opt: [no-new-privileges:true]
     networks: [data]
+    depends_on: {kafka-storage-init: {condition: service_completed_successfully}}
     environment:
       KAFKA_HEAP_OPTS: -Xms192m -Xmx384m
       KAFKA_NODE_ID: "1"

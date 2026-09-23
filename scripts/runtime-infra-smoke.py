@@ -34,6 +34,11 @@ for name, service in services.items():
 for network in ("data",):
     if not compose["networks"][network].get("internal"):
         errors.append(f"{network} network must be internal")
+storage_init = services.get("kafka-storage-init", {})
+if storage_init.get("user") != "0:0" or storage_init.get("cap_add") != ["CHOWN"]:
+    errors.append("Kafka storage initialization must be limited to the CHOWN capability")
+if services["kafka"].get("depends_on", {}).get("kafka-storage-init", {}).get("condition") != "service_completed_successfully":
+    errors.append("Kafka must wait for its storage ownership initialization")
 if "id-token: write" not in workflow or "AWS-RunShellScript" not in workflow:
     errors.append("deployment workflow must use OIDC and SSM Run Command")
 if "fetch-depth: 0" not in workflow:
