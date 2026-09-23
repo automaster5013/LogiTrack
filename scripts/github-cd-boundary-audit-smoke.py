@@ -10,6 +10,13 @@ required = (
     "/branches/main/protection",
     "allow_squash_merge",
     "delete_branch_on_merge",
+    "secret_scanning.status",
+    "secret_scanning_push_protection.status",
+    "dependabot_security_updates.status",
+    'Get-GitHubStatus "/vulnerability-alerts"',
+    'Get-GitHubStatus "/automated-security-fixes"',
+    "/dependabot/alerts?state=open",
+    "/secret-scanning/alerts?state=open",
     "required_status_checks.strict",
     "required_pull_request_reviews",
     "required_approving_review_count",
@@ -32,4 +39,4 @@ if missing:
 for mutation in ("-Method Post", "-Method Put", "-Method Patch", "-Method Delete"):
     if mutation in source:
         raise SystemExit(f"ERROR: GitHub CD audit must remain read-only: {mutation}")
-print("PASS: GitHub CD audit covers PR-only main protection, merge policy, approval, deployment branch, variables, secrets, and action permissions")
+print("PASS: GitHub CD audit covers PR-only protection, security alerts, merge policy, deployment approval, secrets, and action permissions")

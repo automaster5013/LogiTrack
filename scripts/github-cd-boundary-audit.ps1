@@ -24,6 +24,12 @@ function Invoke-GitHubGet {
   return Invoke-RestMethod -Method Get -Uri "$baseUri$Path" -Headers $headers
 }
 
+function Get-GitHubStatus {
+  param([Parameter(Mandatory)][string]$Path)
+  $response = Invoke-WebRequest -Method Get -Uri "$baseUri$Path" -Headers $headers
+  return [int]$response.StatusCode
+}
+
 function Assert-True {
   param([bool]$Condition, [string]$Message)
   if (-not $Condition) { throw "AUDIT FAILED: $Message" }
@@ -33,6 +39,15 @@ $repositoryInfo = Invoke-GitHubGet ""
 Assert-True ($repositoryInfo.id -eq 1376500287 -and $repositoryInfo.owner.id -eq 247691206 -and $repositoryInfo.default_branch -eq "main") "repository identity or default branch drifted"
 Assert-True ($repositoryInfo.allow_squash_merge -and -not $repositoryInfo.allow_merge_commit -and -not $repositoryInfo.allow_rebase_merge) "repository must allow squash merge only"
 Assert-True ($repositoryInfo.delete_branch_on_merge -and -not $repositoryInfo.allow_auto_merge) "merged branches must be deleted without automatic merging"
+$security = $repositoryInfo.security_and_analysis
+Assert-True ($security.secret_scanning.status -eq "enabled" -and $security.secret_scanning_push_protection.status -eq "enabled") "secret scanning or push protection is disabled"
+Assert-True ($security.dependabot_security_updates.status -eq "enabled") "Dependabot security updates are disabled"
+Assert-True ((Get-GitHubStatus "/vulnerability-alerts") -eq 204 -and (Get-GitHubStatus "/automated-security-fixes") -eq 200) "Dependabot alerts or automated security fixes are disabled"
+$dependabotAlerts = @((Invoke-GitHubGet "/dependabot/alerts?state=open&per_page=100") | Where-Object { $null -ne $_ })
+$highRiskAlerts = @($dependabotAlerts | Where-Object { $_.security_advisory.severity -in @("critical", "high") })
+Assert-True ($highRiskAlerts.Count -eq 0) "open critical or high Dependabot alerts require remediation"
+$secretAlerts = @((Invoke-GitHubGet "/secret-scanning/alerts?state=open&per_page=100") | Where-Object { $null -ne $_ })
+Assert-True ($secretAlerts.Count -eq 0) "open secret scanning alerts require remediation"
 
 $actions = Invoke-GitHubGet "/actions/permissions"
 Assert-True ($actions.enabled -and $actions.sha_pinning_required) "Actions must be enabled and require full commit SHA pinning"
