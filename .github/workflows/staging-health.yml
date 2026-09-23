@@ -54,6 +54,32 @@ jobs:
           grep -Eqi '^content-type: application/json' /tmp/logitrack-runtime-headers.normalized
           grep -Eqi '^cache-control: .*no-store' /tmp/logitrack-runtime-headers.normalized
 
+          cross_origin_logout_status="$(curl --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
+            --request POST --header 'Origin: https://attacker.invalid' \
+            --dump-header /tmp/logitrack-cross-origin-logout-headers --output /tmp/logitrack-cross-origin-logout \
+            --write-out '%{http_code}' "https://$TARGET_HOST/auth/logout")"
+          test "$cross_origin_logout_status" = 403
+          jq -e '.error == "cross_origin_logout_rejected"' /tmp/logitrack-cross-origin-logout >/dev/null
+          tr -d '\r' </tmp/logitrack-cross-origin-logout-headers >/tmp/logitrack-cross-origin-logout-headers.normalized
+          grep -Eqi '^cache-control: .*no-store' /tmp/logitrack-cross-origin-logout-headers.normalized
+          if grep -Eqi '^set-cookie:' /tmp/logitrack-cross-origin-logout-headers.normalized; then
+            echo 'rejected cross-origin logout must not mutate authentication cookies' >&2
+            exit 1
+          fi
+
+          same_origin_logout_status="$(curl --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
+            --request POST --header "Origin: https://$TARGET_HOST" \
+            --dump-header /tmp/logitrack-same-origin-logout-headers --output /dev/null \
+            --write-out '%{http_code}' "https://$TARGET_HOST/auth/logout")"
+          test "$same_origin_logout_status" = 303
+          tr -d '\r' </tmp/logitrack-same-origin-logout-headers >/tmp/logitrack-same-origin-logout-headers.normalized
+          grep -Eqi '^cache-control: .*no-store' /tmp/logitrack-same-origin-logout-headers.normalized
+          grep -Eqi '^clear-site-data: "cache", "storage"$' /tmp/logitrack-same-origin-logout-headers.normalized
+          grep -Eqi '^location: https://auth\.logitrack\.kr/logout\?' /tmp/logitrack-same-origin-logout-headers.normalized
+          for cookie in lt_access_token lt_oauth_state lt_oidc_nonce lt_pkce_verifier; do
+            grep -Eqi "^set-cookie: $cookie=;.*max-age=0" /tmp/logitrack-same-origin-logout-headers.normalized
+          done
+
           openssl s_client -servername "$TARGET_HOST" -connect "$TARGET_HOST:443" </dev/null 2>/dev/null \
             | openssl x509 -checkend 1209600 -noout
 

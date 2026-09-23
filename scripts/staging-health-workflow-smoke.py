@@ -35,6 +35,15 @@ for boundary in (
     "/api/runtime-version",
     "jq -e",
     "cache-control: .*no-store",
+    "cross_origin_logout_status",
+    "Origin: https://attacker.invalid",
+    'cross_origin_logout_rejected',
+    "rejected cross-origin logout must not mutate authentication cookies",
+    "same_origin_logout_status",
+    'Origin: https://$TARGET_HOST',
+    "clear-site-data",
+    "https://auth\\.logitrack\\.kr/logout\\?",
+    "lt_access_token lt_oauth_state lt_oidc_nonce lt_pkce_verifier",
     "openssl x509 -checkend 1209600",
     "for port in 3000 5432 6379 8080 8090 29092",
 ):
@@ -46,4 +55,4 @@ if errors:
 for header in ("-Server", "-Via", "-X-Powered-By", "-X-Nextjs-*"):
     if header not in caddy:
         raise SystemExit(f"ERROR: staging proxy does not suppress identity header: {header}")
-print("PASS: scheduled staging health verifies public TLS and private port boundaries without credentials")
+print("PASS: scheduled staging health verifies public TLS, logout, and private port boundaries without credentials")
