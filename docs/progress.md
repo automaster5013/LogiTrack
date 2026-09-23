@@ -291,6 +291,7 @@
 - 일일 EBS snapshot과 PostgreSQL dump의 최신 생성 시각·암호화를 감사해 정책만 존재하고 실제 backup이 오래된 상태를 정상으로 오인하지 않도록 보강
 - 실제 IAM runtime·publisher·deployer 역할의 trust·허용 action과 ECR 5개 repository의 불변성·scan·암호화·보존 정책 drift 감사
 - GitHub staging environment의 필수 승인자·main 전용 배포·OIDC 변수·장기 secret 부재와 Actions SHA 고정 설정을 읽기 전용 감사
+- GitHub main branch에 관리자 우회 없는 필수 CI 4개·최신 branch 검사·선형 이력·대화 해결과 force push·삭제 금지 적용 및 live 감사
 2026-09-21: 주문 목록에 상태 범위와 주문·차량·지역 즉시 검색을 추가해 누적 주문에서 배차 대기와 운송 중 작업을 빠르게 찾도록 개선했다.
 - 배송 경고 목록에 대응 우선순위·최근 감지·지속 시간 정렬을 제공해 운영자가 상황에 맞는 경고를 빠르게 판독
 - 재고·창고 작업·재고 원장을 안정 정렬 페이지로 전체 조회해 100~200건 초과 누적 데이터에서도 집계·검색 누락 방지

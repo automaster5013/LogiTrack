@@ -37,6 +37,14 @@ Assert-True ($actions.enabled -and $actions.sha_pinning_required) "Actions must 
 $workflowPermissions = Invoke-GitHubGet "/actions/permissions/workflow"
 Assert-True ($workflowPermissions.default_workflow_permissions -eq "read" -and -not $workflowPermissions.can_approve_pull_request_reviews) "default workflow token permissions are too broad"
 
+$mainProtection = Invoke-GitHubGet "/branches/main/protection"
+$requiredChecks = @($mainProtection.required_status_checks.contexts | Sort-Object)
+$expectedChecks = @("API tests and domain coverage", "Production images and supply-chain security", "Python tests and Compose validation", "TypeScript production build") | Sort-Object
+Assert-True ($mainProtection.required_status_checks.strict -and ($requiredChecks -join ",") -eq ($expectedChecks -join ",")) "main required CI checks drifted"
+Assert-True ($mainProtection.enforce_admins.enabled) "administrators may bypass main protection"
+Assert-True ($mainProtection.required_linear_history.enabled -and $mainProtection.required_conversation_resolution.enabled) "main history or conversation protection drifted"
+Assert-True (-not $mainProtection.allow_force_pushes.enabled -and -not $mainProtection.allow_deletions.enabled) "main permits force pushes or deletion"
+
 $environmentInfo = Invoke-GitHubGet "/environments/$Environment"
 Assert-True (-not $environmentInfo.deployment_branch_policy.protected_branches -and $environmentInfo.deployment_branch_policy.custom_branch_policies) "staging must use an explicit deployment branch policy"
 $reviewRule = @($environmentInfo.protection_rules | Where-Object type -eq "required_reviewers")
@@ -68,4 +76,4 @@ $environmentSecrets = Invoke-GitHubGet "/environments/$Environment/secrets?per_p
 $repositorySecrets = Invoke-GitHubGet "/actions/secrets?per_page=100"
 Assert-True ($environmentSecrets.total_count -eq 0 -and $repositorySecrets.total_count -eq 0) "long-lived GitHub Actions secrets are configured"
 
-Write-Output "PASS: GitHub staging CD approval, branch, variable, secret, and action boundaries are intact"
+Write-Output "PASS: GitHub main and staging CD approval, branch, CI, variable, secret, and action boundaries are intact"

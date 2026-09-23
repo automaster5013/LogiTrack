@@ -16,6 +16,8 @@ staging CD는 서울 리전의 `www.logitrack.kr`에 적용되어 있다. image 
 
 GitHub 저장소의 실제 승인자·`main` 전용 deployment branch·environment 변수·secret 부재·기본 token read 권한과 action SHA 고정 설정은 `./scripts/github-cd-boundary-audit.ps1`로 읽기 전용 감사한다.
 
+`main` branch는 관리자에게도 동일하게 적용되는 최신 branch 기준 필수 CI 4개, 선형 이력과 대화 해결을 요구하며 force push와 삭제를 금지한다. 변경은 별도 branch의 PR에서 CI를 통과한 뒤 merge한다.
+
 현재 운영 경계는 다음과 같다.
 
 1. 월 비용 상한은 USD 70 Budget이며 80% 실제 비용과 100% forecast를 직접 email로 알린다. Budget은 리소스를 자동 중지하는 hard cap이 아니다.
