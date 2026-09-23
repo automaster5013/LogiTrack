@@ -27,3 +27,11 @@ aws cognito-idp set-user-pool-mfa-config \
 ```
 
 일반 운영자 계정은 `ADMIN` 권한으로 생성하지 않는다. 초기 임시 비밀번호 로그인 뒤 `/passkeys/add`에서 패스키를 등록하고, 등록 확인 후 일상 로그인은 패스키만 사용한다. `ADMIN`과 `RECOVERY_OPERATOR` 그룹 변경 권한은 별도 배포 관리자 역할에만 둔다.
+
+## 운영 확인
+
+적용 후에는 읽기 전용 감사를 실행해 AWS 계정, User Pool 삭제 보호·Plus tier·관리자 생성 전용 정책·비밀번호 bootstrap·위협 보호, WebAuthn RP와 사용자 확인, OAuth code/PKCE public client allowlist와 token 수명, Managed Login, custom domain TLS, 인증서 만료, Route 53 alias 및 네 개 역할 그룹을 한 번에 확인한다.
+
+```powershell
+./scripts/aws-auth-audit.ps1
+```
