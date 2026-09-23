@@ -1,0 +1,182 @@
+name: logitrack-staging
+x-service-security: &service-security
+  restart: unless-stopped
+  pids_limit: 512
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  read_only: true
+  logging:
+    driver: json-file
+    options: {max-size: 10m, max-file: "3"}
+
+services:
+  caddy:
+    image: caddy@sha256:d8c17a862962def15cde69863a3a463f25a2664942eafd7bdbf050e9c3116b83
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    read_only: true
+    mem_limit: 128m
+    cpus: 0.25
+    pids_limit: 128
+    ports: ["80:80", "443:443"]
+    networks: [edge]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    tmpfs: [/tmp:size=32m,mode=1777]
+    depends_on:
+      web: {condition: service_healthy}
+
+  web:
+    <<: *service-security
+    image: ${WEB_IMAGE:?WEB_IMAGE must be a digest URI}
+    mem_limit: 400m
+    cpus: 0.75
+    networks: [edge]
+    tmpfs: [/tmp:size=64m,mode=1777]
+    environment:
+      HOSTNAME: 0.0.0.0
+      API_INTERNAL_URL: http://api:8080
+      INTERNAL_API_URL: http://api:8080
+      COGNITO_AUTHORIZATION_BASE_URL: ${COGNITO_AUTHORIZATION_BASE_URL:?required}
+      COGNITO_ISSUER_URI: ${COGNITO_ISSUER_URI:?required}
+      COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID:?required}
+      OIDC_REDIRECT_URI: https://www.logitrack.kr/auth/callback
+      OIDC_POST_LOGOUT_REDIRECT_URI: https://www.logitrack.kr/login
+    depends_on:
+      api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/login').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+
+  api:
+    <<: *service-security
+    image: ${API_IMAGE:?API_IMAGE must be a digest URI}
+    mem_limit: 1100m
+    cpus: 1.5
+    networks: [edge, data, analytics]
+    tmpfs: [/tmp:size=128m,mode=1777]
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/logitrack
+      DB_USER: logitrack
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      KAFKA_BOOTSTRAP: kafka:29092
+      REDIS_HOST: redis
+      ANALYTICS_URL: http://analytics:8090
+      INSTANCE_ID: staging-primary
+      LOGITRACK_REPORTS_WRITER_ENABLED: "true"
+      CORS_ALLOWED_ORIGINS: https://www.logitrack.kr
+      SECURITY_ENABLED: "true"
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${COGNITO_ISSUER_URI:?required}
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+      kafka-init: {condition: service_completed_successfully}
+      analytics: {condition: service_healthy}
+
+  analytics:
+    <<: *service-security
+    image: ${ANALYTICS_IMAGE:?ANALYTICS_IMAGE must be a digest URI}
+    mem_limit: 300m
+    cpus: 0.5
+    networks: [analytics]
+    tmpfs: [/tmp:size=64m,mode=1777]
+    environment:
+      ROUTING_PROVIDER: osrm
+      OSRM_BASE_URL: https://router.project-osrm.org
+      ROUTING_TIMEOUT_SECONDS: "2.5"
+      ROUTING_CACHE_TTL_SECONDS: "300"
+      MAX_REQUEST_BODY_BYTES: "2097152"
+      INSTANCE_ID: staging-analytics
+
+  simulator:
+    <<: *service-security
+    image: ${SIMULATOR_IMAGE:?SIMULATOR_IMAGE must be a digest URI}
+    mem_limit: 200m
+    cpus: 0.25
+    networks: [data]
+    tmpfs: [/tmp:size=64m,mode=1777]
+    environment:
+      KAFKA_BOOTSTRAP: kafka:29092
+      API_URL: http://api:8080
+      SIMULATION_INTERVAL_SECONDS: "2"
+      SIMULATION_STEPS: "20"
+      SIMULATION_MAX_WORKERS: "4"
+      SIMULATOR_HEALTH_FILE: /tmp/logitrack-simulator-heartbeat
+    depends_on:
+      kafka-init: {condition: service_completed_successfully}
+      api: {condition: service_healthy}
+
+  postgres:
+    image: postgres:17-alpine@sha256:f02121de6f74d30d8a94cd1d9584125e2178d7e6c377d8130112d4e52d867995
+    restart: unless-stopped
+    mem_limit: 500m
+    cpus: 0.75
+    pids_limit: 256
+    security_opt: [no-new-privileges:true]
+    networks: [data]
+    environment: {POSTGRES_DB: logitrack, POSTGRES_USER: logitrack, POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?required}"}
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    healthcheck: {test: [CMD-SHELL, "pg_isready -U logitrack -d logitrack"], interval: 10s, timeout: 5s, retries: 20}
+
+  redis:
+    image: redis:7-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
+    restart: unless-stopped
+    mem_limit: 150m
+    cpus: 0.25
+    pids_limit: 128
+    security_opt: [no-new-privileges:true]
+    networks: [data]
+    volumes: [redis-data:/data]
+    healthcheck: {test: [CMD, redis-cli, ping], interval: 10s, timeout: 5s, retries: 20}
+
+  kafka:
+    image: apache/kafka:4.3.1@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837
+    restart: unless-stopped
+    mem_limit: 700m
+    cpus: 1.0
+    pids_limit: 512
+    security_opt: [no-new-privileges:true]
+    networks: [data]
+    environment:
+      KAFKA_HEAP_OPTS: -Xms192m -Xmx384m
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:29092,CONTROLLER://:29093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes: [kafka-data:/tmp/kafka-logs]
+    healthcheck: {test: [CMD-SHELL, "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list"], interval: 15s, timeout: 8s, retries: 20}
+
+  kafka-init:
+    image: apache/kafka:4.3.1@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 128
+    networks: [data]
+    depends_on: {kafka: {condition: service_healthy}}
+    command: [/bin/bash, -c, "for topic in delivery.created.v1 vehicle.telemetry.v1 vehicle.telemetry.dlq.v1 inventory.received.v1 warehouse.outbound.picked.v1 warehouse.outbound.dispatched.v1 delivery.alert.v1 order.created.v1 order.dispatched.v1 order.fulfilled.v1; do /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic $$topic --partitions 3 --replication-factor 1; done"]
+
+volumes:
+  postgres-data: {name: logitrack-staging-postgres}
+  redis-data: {name: logitrack-staging-redis}
+  kafka-data: {name: logitrack-staging-kafka}
+  caddy-data: {name: logitrack-staging-caddy-data}
+  caddy-config: {name: logitrack-staging-caddy-config}
+networks:
+  edge: {internal: false}
+  data: {internal: true}
+  analytics: {internal: false}

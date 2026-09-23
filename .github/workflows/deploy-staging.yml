@@ -1,0 +1,117 @@
+name: Deploy staging runtime
+run-name: Deploy staging ${{ inputs.revision }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Full main commit SHA represented by the release manifest
+        required: true
+        type: string
+      publication_run_id:
+        description: Successful Publish staging images workflow run ID
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+concurrency:
+  group: deploy-staging-runtime
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: staging
+    env:
+      AWS_PAGER: ""
+      AWS_RETRY_MODE: standard
+      AWS_MAX_ATTEMPTS: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Validate immutable inputs
+        env:
+          REVISION: ${{ inputs.revision }}
+          PUBLICATION_RUN_ID: ${{ inputs.publication_run_id }}
+        run: |
+          test "$GITHUB_REF" = refs/heads/main || { echo "::error::deployment workflow must run from main"; exit 1; }
+          [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::revision must be a full lowercase SHA"; exit 1; }
+          [[ "$PUBLICATION_RUN_ID" =~ ^[1-9][0-9]*$ ]] || { echo "::error::publication_run_id must be numeric"; exit 1; }
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$REVISION" origin/main
+      - name: Download the exact publication manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVISION: ${{ inputs.revision }}
+          PUBLICATION_RUN_ID: ${{ inputs.publication_run_id }}
+        run: |
+          mkdir -p work/release
+          artifact_name="staging-release-manifest-$REVISION"
+          artifact_id="$(gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$PUBLICATION_RUN_ID/artifacts" --jq ".artifacts[] | select(.name == \"$artifact_name\" and .expired == false) | .id")"
+          [[ "$artifact_id" =~ ^[1-9][0-9]*$ ]] || { echo "::error::exact release manifest artifact not found"; exit 1; }
+          gh api "/repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" >work/release.zip
+          unzip -q work/release.zip -d work/release
+          test -f work/release/staging-release-manifest.json
+      - name: Configure short-lived AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_RUNTIME_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: logitrack-deploy-${{ github.run_id }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          mask-aws-account-id: true
+          unset-current-credentials: true
+          translate-env-variables: false
+      - name: Verify manifest and live ECR digests
+        env:
+          EXPECTED_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
+          REVISION: ${{ inputs.revision }}
+          PUBLICATION_RUN_ID: ${{ inputs.publication_run_id }}
+        run: |
+          manifest=work/release/staging-release-manifest.json
+          jq -e --arg revision "$REVISION" --arg account "$EXPECTED_ACCOUNT" --arg region "$AWS_REGION" --argjson runId "$PUBLICATION_RUN_ID" --arg repository "$GITHUB_REPOSITORY" '
+            .schemaVersion == 20 and .revision == $revision and .awsAccountId == $account and
+            .awsRegion == $region and .deploymentEnvironment == "staging" and .imagePlatform == "linux/amd64" and
+            .workflowRunId == $runId and .workflowEvent == "workflow_dispatch" and
+            .workflowRef == ($repository + "/.github/workflows/publish-staging-images.yml@refs/heads/main") and
+            (.images | length == 5) and ([.images[].service] | sort == ["analytics","api","otel-collector","simulator","web"]) and
+            all(.images[]; .uri == ($account + ".dkr.ecr." + $region + ".amazonaws.com/" + .repository + "@" + .digest))
+          ' "$manifest" >/dev/null
+          while IFS=$'\t' read -r repository digest; do
+            live="$(aws ecr describe-images --repository-name "$repository" --image-ids "imageDigest=$digest" --query 'imageDetails[0].imageDigest' --output text)"
+            test "$live" = "$digest"
+          done < <(jq -r '.images[] | [.repository,.digest] | @tsv' "$manifest")
+      - name: Deploy through SSM and wait for health verification
+        env:
+          EXPECTED_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
+          INSTANCE_ID: ${{ vars.AWS_RUNTIME_INSTANCE_ID }}
+          REVISION: ${{ inputs.revision }}
+        run: |
+          [[ "$INSTANCE_ID" =~ ^i-[0-9a-f]+$ ]] || { echo "::error::AWS_RUNTIME_INSTANCE_ID is invalid"; exit 1; }
+          jq -c . work/release/staging-release-manifest.json | gzip -9 | base64 -w0 >work/manifest.json.gz.b64
+          command="set -euo pipefail; rm -rf /tmp/logitrack-deploy; git init -q /tmp/logitrack-deploy; git -C /tmp/logitrack-deploy remote add origin https://github.com/$GITHUB_REPOSITORY.git; git -C /tmp/logitrack-deploy fetch -q --depth=1 origin '$REVISION'; git -C /tmp/logitrack-deploy checkout -q --detach FETCH_HEAD; test \"\$(git -C /tmp/logitrack-deploy rev-parse HEAD)\" = '$REVISION'; echo $(cat work/manifest.json.gz.b64) | base64 -d | gzip -d >/tmp/logitrack-deploy/manifest.json; AWS_REGION='$AWS_REGION' AWS_ACCOUNT_ID='$EXPECTED_ACCOUNT' /tmp/logitrack-deploy/scripts/deploy-staging.sh '$REVISION' /tmp/logitrack-deploy/manifest.json"
+          test "${#command}" -le 12000 || { echo "::error::SSM command payload exceeds the reviewed bound"; exit 1; }
+          jq -n --arg command "$command" '{commands:[$command]}' >work/ssm-parameters.json
+          command_id="$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name AWS-RunShellScript --timeout-seconds 900 --parameters file://work/ssm-parameters.json --comment "LogiTrack $REVISION" --query Command.CommandId --output text)"
+          for attempt in $(seq 1 90); do
+            status="$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" --query Status --output text 2>/dev/null || true)"
+            case "$status" in
+              Success) break ;;
+              Failed|Cancelled|TimedOut|Cancelling) echo "::error::SSM deployment ended with $status"; break ;;
+            esac
+            sleep 10
+          done
+          aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' --output json
+          test "$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" --query Status --output text)" = Success
+      - name: Verify public HTTPS boundary
+        run: |
+          curl --fail --silent --show-error --proto '=https' --tlsv1.2 --retry 6 --retry-delay 5 https://www.logitrack.kr/login >/dev/null
+          headers="$(curl --fail --silent --show-error --head --proto '=https' --tlsv1.2 https://www.logitrack.kr/login | tr -d '\r')"
+          grep -qi '^strict-transport-security: max-age=' <<<"$headers"
+          if curl --fail --silent --connect-timeout 5 https://www.logitrack.kr:5432 >/dev/null 2>&1; then echo "::error::data-tier port is reachable"; exit 1; fi

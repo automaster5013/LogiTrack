@@ -1,0 +1,7 @@
+aws_region         = "ap-northeast-2"
+hosted_zone_id     = "Z05031871LL3C3WCCPUJO"
+domain_name        = "www.logitrack.kr"
+instance_type      = "t3a.medium"
+root_volume_gib    = 30
+monthly_budget_usd = 70
+budget_alert_email = "owner@example.com"
