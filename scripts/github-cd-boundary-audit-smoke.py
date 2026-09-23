@@ -17,6 +17,11 @@ required = (
     'Get-GitHubStatus "/automated-security-fixes"',
     "/dependabot/alerts?state=open",
     "/secret-scanning/alerts?state=open",
+    "/code-scanning/default-setup",
+    'query_suite -eq "extended"',
+    'schedule -eq "weekly"',
+    "/code-scanning/alerts?state=open",
+    "security_severity_level",
     "required_status_checks.strict",
     "required_pull_request_reviews",
     "required_approving_review_count",
@@ -39,4 +44,4 @@ if missing:
 for mutation in ("-Method Post", "-Method Put", "-Method Patch", "-Method Delete"):
     if mutation in source:
         raise SystemExit(f"ERROR: GitHub CD audit must remain read-only: {mutation}")
-print("PASS: GitHub CD audit covers PR-only protection, security alerts, merge policy, deployment approval, secrets, and action permissions")
+print("PASS: GitHub audit covers PR protection, dependency, secret, CodeQL, merge, deployment, and action boundaries")

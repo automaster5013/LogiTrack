@@ -18,6 +18,8 @@ GitHub 저장소의 실제 승인자·`main` 전용 deployment branch·environme
 
 GitHub의 Dependabot vulnerability alerts와 security update PR, secret scanning과 push protection을 활성화한다. 같은 감사 스크립트는 설정 drift뿐 아니라 미해결 secret 경고와 high·critical Dependabot 경고가 없는지도 확인한다.
 
+CodeQL default setup은 Actions, Java/Kotlin, JavaScript/TypeScript와 Python을 표준 runner에서 매주 extended query suite로 분석한다. threat model은 원격 입력으로 제한하고, 감사 스크립트는 설정 drift와 미해결 high·critical CodeQL 경고를 차단한다.
+
 `main` branch는 관리자에게도 동일하게 적용되는 PR 경로, 최신 branch 기준 필수 CI 4개, 선형 이력과 대화 해결을 요구하며 force push와 삭제를 금지한다. 1인 유지보수를 막지 않도록 별도 승인 수는 0이지만 stale review는 새 push 때 무효화한다. 저장소는 squash merge만 허용하고 merge 후 source branch를 자동 삭제한다.
 
 현재 운영 경계는 다음과 같다.
