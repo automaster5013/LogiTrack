@@ -295,6 +295,7 @@
 - main 변경을 PR로만 제한하고 1인 운영용 승인 0건·stale review 무효화, squash-only merge와 병합 branch 자동 삭제 정책 적용
 - GitHub Dependabot 경고·자동 보안 수정과 secret scanning·push protection을 활성화하고 미해결 secret·high/critical 의존성 경고 감사
 - GitHub CodeQL default setup으로 Actions·Java/Kotlin·JavaScript/TypeScript·Python extended 주간 분석과 high/critical 경고 감사 적용
+- 공개 GitHub 저장소의 private vulnerability reporting과 `SECURITY.md` 비공개 신고·응답 정책을 적용하고 활성 상태를 live 감사
 2026-09-21: 주문 목록에 상태 범위와 주문·차량·지역 즉시 검색을 추가해 누적 주문에서 배차 대기와 운송 중 작업을 빠르게 찾도록 개선했다.
 - 배송 경고 목록에 대응 우선순위·최근 감지·지속 시간 정렬을 제공해 운영자가 상황에 맞는 경고를 빠르게 판독
 - 재고·창고 작업·재고 원장을 안정 정렬 페이지로 전체 조회해 100~200건 초과 누적 데이터에서도 집계·검색 누락 방지
