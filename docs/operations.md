@@ -53,6 +53,8 @@ Kafka 텔레메트리는 `eventType=vehicle.telemetry.v1`, 정수 `schemaVersion
 
 telemetry `traceId`도 HTTP와 같은 1~128자 안전 문자만 허용한다. 없으면 이벤트당 UUID를 한 번 생성해 배송, 경고, 주문 후속 처리 전체에 동일하게 전파한다.
 
+운영자 OIDC 콜백은 authorization code와 state 길이를 제한하고 state를 상수 시간으로 비교한다. Cognito token 교환은 10초, JWKS 조회는 5초 안에 끝나야 하며 token 응답은 선언 길이와 실제 streaming body 모두 64 KiB를 넘으면 거부한다. redirect 응답은 따라가지 않고, 운영 환경의 issuer·authorization·callback URL은 자격 증명·query·fragment가 없는 HTTPS URL만 허용한다.
+
 텔레메트리가 적용할 수 있는 상태는 `IN_TRANSIT`, `DELAYED`, `DELIVERED`이며 `CREATED`로의 회귀는 거부한다. `DELIVERED`는 terminal 상태라 이후 이벤트는 위치 이력만 보존한다.
 
 배송 행의 `lastTelemetryAt`보다 오래되거나 같은 시각의 replay 이벤트는 불변 GPS 이력에는 저장하지만 현재 배송 상태·ETA, 경고 평가, 주문 완료 판단에는 적용하지 않는다. 워터마크는 기존 이력의 최대 `occurredAt`으로 migration backfill되며, 이벤트마다 최신 이력을 재조회하지 않는다. 따라서 운영자가 늦은 DLQ 이벤트를 복구해도 관제 상태가 과거로 회귀하지 않고 같은 timestamp의 도착 순서에 따라 상태가 흔들리지 않는다.
