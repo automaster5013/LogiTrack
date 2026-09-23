@@ -32,6 +32,23 @@ for snapshot_control in (
 ):
     if snapshot_control not in tf:
         errors.append(f"daily seven-copy EBS snapshot control is missing: {snapshot_control}")
+for backup_control in (
+    'resource "aws_s3_bucket" "backups"',
+    "force_destroy = false",
+    "lifecycle { prevent_destroy = true }",
+    'sse_algorithm = "AES256"',
+    'block_public_acls       = true',
+    'restrict_public_buckets = true',
+    'expiration { days = 8 }',
+    'schedule_expression         = "cron(30 18 * * ? *)"',
+    'apply_only_at_cron_interval = true',
+    'actions   = ["s3:PutObject", "s3:GetObject"]',
+    '--sse AES256',
+    'pg_dump --format=custom',
+    'pg_restore --list',
+):
+    if backup_control not in tf:
+        errors.append(f"encrypted off-host PostgreSQL backup control is missing: {backup_control}")
 
 services = compose.get("services", {})
 if set(services["caddy"].get("ports", [])) != {"80:80", "443:443"}:

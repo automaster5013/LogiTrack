@@ -12,6 +12,7 @@ data "aws_iam_openid_connect_provider" "github" { url = "https://token.actions.g
 
 locals {
   parameter_arns = [for name in values(var.secret_parameter_names) : "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${name}"]
+  backup_bucket  = "logitrack-staging-backups-${data.aws_caller_identity.current.account_id}-${var.aws_region}"
 }
 
 resource "aws_vpc" "runtime" {
@@ -95,6 +96,19 @@ data "aws_iam_policy_document" "instance" {
   statement {
     actions   = ["ssm:GetParameter", "ssm:GetParameters"]
     resources = local.parameter_arns
+  }
+  statement {
+    actions   = ["s3:PutObject", "s3:GetObject"]
+    resources = ["arn:aws:s3:::${local.backup_bucket}/postgres/*"]
+  }
+  statement {
+    actions   = ["s3:ListBucket"]
+    resources = ["arn:aws:s3:::${local.backup_bucket}"]
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values   = ["postgres/*"]
+    }
   }
 }
 resource "aws_iam_role_policy" "instance" {
@@ -201,6 +215,113 @@ resource "aws_dlm_lifecycle_policy" "runtime" {
     }
   }
   depends_on = [aws_iam_role_policy.snapshot]
+}
+
+resource "aws_s3_bucket" "backups" {
+  bucket        = local.backup_bucket
+  force_destroy = false
+  lifecycle { prevent_destroy = true }
+}
+resource "aws_s3_bucket_public_access_block" "backups" {
+  bucket                  = aws_s3_bucket.backups.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+resource "aws_s3_bucket_server_side_encryption_configuration" "backups" {
+  bucket = aws_s3_bucket.backups.id
+  rule {
+    apply_server_side_encryption_by_default { sse_algorithm = "AES256" }
+  }
+}
+resource "aws_s3_bucket_lifecycle_configuration" "backups" {
+  bucket = aws_s3_bucket.backups.id
+  rule {
+    id     = "expire-postgres-backups"
+    status = "Enabled"
+    filter { prefix = "postgres/" }
+    expiration { days = 8 }
+    abort_incomplete_multipart_upload { days_after_initiation = 1 }
+  }
+}
+data "aws_iam_policy_document" "backup_bucket" {
+  statement {
+    sid     = "DenyInsecureTransport"
+    effect  = "Deny"
+    actions = ["s3:*"]
+    resources = [
+      aws_s3_bucket.backups.arn,
+      "${aws_s3_bucket.backups.arn}/*",
+    ]
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+  statement {
+    sid       = "DenyUnencryptedUploads"
+    effect    = "Deny"
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.backups.arn}/*"]
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    condition {
+      test     = "StringNotEquals"
+      variable = "s3:x-amz-server-side-encryption"
+      values   = ["AES256"]
+    }
+  }
+}
+resource "aws_s3_bucket_policy" "backups" {
+  bucket = aws_s3_bucket.backups.id
+  policy = data.aws_iam_policy_document.backup_bucket.json
+  depends_on = [
+    aws_s3_bucket_public_access_block.backups,
+    aws_s3_bucket_server_side_encryption_configuration.backups,
+  ]
+}
+
+resource "aws_ssm_association" "postgres_backup" {
+  name                        = "AWS-RunShellScript"
+  association_name            = "logitrack-staging-postgres-backup"
+  schedule_expression         = "cron(30 18 * * ? *)"
+  apply_only_at_cron_interval = true
+  compliance_severity         = "HIGH"
+  max_concurrency             = "1"
+  max_errors                  = "0"
+  targets {
+    key    = "InstanceIds"
+    values = [aws_instance.runtime.id]
+  }
+  parameters = {
+    commands = <<-SCRIPT
+      set -euo pipefail
+      umask 077
+      tmp="$(mktemp /tmp/logitrack-postgres-backup-XXXXXX.dump)"
+      cleanup() { rm -f "$tmp"; }
+      trap cleanup EXIT
+      container=logitrack-staging-postgres-1
+      docker exec "$container" sh -ec 'export PGPASSWORD="$POSTGRES_PASSWORD"; pg_dump --format=custom --username="$POSTGRES_USER" --dbname="$POSTGRES_DB"' >"$tmp"
+      test -s "$tmp"
+      docker exec -i "$container" pg_restore --list <"$tmp" >/dev/null
+      key="postgres/$(date -u +%Y/%m/%d)/logitrack-$(date -u +%Y%m%dT%H%M%SZ).dump"
+      aws s3 cp "$tmp" "s3://${local.backup_bucket}/$key" --sse AES256 --only-show-errors
+      echo "uploaded encrypted PostgreSQL backup to $key"
+    SCRIPT
+  }
+  depends_on = [
+    aws_iam_role_policy.instance,
+    aws_s3_bucket_policy.backups,
+    aws_s3_bucket_lifecycle_configuration.backups,
+  ]
 }
 
 resource "aws_eip" "runtime" {
