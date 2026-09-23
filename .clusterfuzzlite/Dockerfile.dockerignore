@@ -1,0 +1,13 @@
+**
+!.clusterfuzzlite/
+!.clusterfuzzlite/**
+!api/
+!api/pom.xml
+!api/src/
+!api/src/main/
+!api/src/main/java/
+!api/src/main/java/io/
+!api/src/main/java/io/logitrack/
+!api/src/main/java/io/logitrack/alert/
+!api/src/main/java/io/logitrack/alert/RouteDeviationCalculator.java
+api/target/
