@@ -39,10 +39,14 @@ for snapshot_control in (
     'interval      = 24',
     'interval_unit = "HOURS"',
     'times         = ["18:00"]',
+    "copy_tags = true",
+    'BackupType = "crash-consistent"',
     'identifiers = ["dlm.amazonaws.com"]',
 ):
     if snapshot_control not in tf:
         errors.append(f"daily seven-copy EBS snapshot control is missing: {snapshot_control}")
+if 'Name       = "logitrack-staging-daily"' in tf:
+    errors.append("DLM must not add a Name tag that duplicates the copied source-volume Name tag")
 for backup_control in (
     'resource "aws_s3_bucket" "backups"',
     "force_destroy = false",
