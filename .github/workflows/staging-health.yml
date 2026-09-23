@@ -37,11 +37,15 @@ jobs:
           grep -Fq '운영자 로그인' /tmp/logitrack-login
           tr -d '\r' </tmp/logitrack-headers >/tmp/logitrack-headers.normalized
           grep -Eqi '^strict-transport-security: max-age=31536000; includeSubDomains$' /tmp/logitrack-headers.normalized
-          grep -Eqi "^content-security-policy: frame-ancestors 'none'$" /tmp/logitrack-headers.normalized
+          grep -Eqi "^content-security-policy: base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'$" /tmp/logitrack-headers.normalized
           grep -Eqi '^x-content-type-options: nosniff$' /tmp/logitrack-headers.normalized
           grep -Eqi '^x-frame-options: DENY$' /tmp/logitrack-headers.normalized
           if grep -Eqi '^server:' /tmp/logitrack-headers.normalized; then
             echo 'server identity header must remain suppressed' >&2
+            exit 1
+          fi
+          if grep -Eqi '^x-powered-by:' /tmp/logitrack-headers.normalized; then
+            echo 'application framework identity header must remain suppressed' >&2
             exit 1
           fi
 
