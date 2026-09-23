@@ -2,7 +2,8 @@ param(
   [string]$Profile = "logitrack-test-admin",
   [string]$Region = "ap-northeast-2",
   [string]$ExpectedAccountId = "816954358294",
-  [string]$DomainName = "www.logitrack.kr"
+  [string]$DomainName = "www.logitrack.kr",
+  [ValidateRange(25, 72)][int]$MaximumBackupAgeHours = 30
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,6 +19,20 @@ function Invoke-AwsJson {
 function Assert-True {
   param([bool]$Condition, [string]$Message)
   if (-not $Condition) { throw "AUDIT FAILED: $Message" }
+}
+
+function Resolve-Ipv4WithRetry {
+  param([Parameter(Mandatory)][string]$Name)
+  for ($attempt = 1; $attempt -le 3; $attempt++) {
+    try {
+      $addresses = @(Resolve-DnsName -Name $Name -Type A -ErrorAction Stop | Where-Object Type -eq "A" | Select-Object -ExpandProperty IPAddress)
+      if ($addresses.Count -gt 0) { return $addresses }
+    } catch {
+      if ($attempt -eq 3) { throw "AUDIT FAILED: DNS lookup failed after 3 attempts: $($_.Exception.Message)" }
+    }
+    Start-Sleep -Seconds 2
+  }
+  throw "AUDIT FAILED: DNS returned no IPv4 address after 3 attempts"
 }
 
 $identity = Invoke-AwsJson @("sts", "get-caller-identity")
@@ -65,7 +80,7 @@ Assert-True (($ports -join ",") -eq "80,443") "only ports 80 and 443 may be publ
 $addresses = Invoke-AwsJson @("ec2", "describe-addresses", "--filters", "Name=instance-id,Values=$instanceId")
 $publicIp = @($addresses.Addresses)[0].PublicIp
 Assert-True (-not [string]::IsNullOrWhiteSpace($publicIp)) "instance has no Elastic IP"
-$resolved = @(Resolve-DnsName -Name $DomainName -Type A | Where-Object Type -eq "A" | Select-Object -ExpandProperty IPAddress)
+$resolved = @(Resolve-Ipv4WithRetry -Name $DomainName)
 Assert-True ($resolved -contains $publicIp) "DNS does not resolve to the staging Elastic IP"
 
 $alarm = Invoke-AwsJson @("cloudwatch", "describe-alarms", "--alarm-names", "logitrack-staging-ec2-system-recovery")
@@ -80,6 +95,22 @@ Assert-True ($snapshotPolicy.Count -eq 1) "daily snapshot policy is missing"
 $policy = Invoke-AwsJson @("dlm", "get-lifecycle-policy", "--policy-id", $snapshotPolicy[0].PolicyId)
 $schedule = $policy.Policy.PolicyDetails.Schedules[0]
 Assert-True ($policy.Policy.State -eq "ENABLED" -and $schedule.CreateRule.Times[0] -eq "18:00" -and $schedule.RetainRule.Count -eq 7) "snapshot schedule or retention drifted"
+$now = [DateTimeOffset]::UtcNow
+$snapshotsResult = Invoke-AwsJson @("ec2", "describe-snapshots", "--owner-ids", "self", "--filters", "Name=volume-id,Values=$($rootVolume.VolumeId)", "Name=status,Values=completed")
+$managedSnapshots = @($snapshotsResult.Snapshots | Where-Object {
+  $tags = @{}; foreach ($tag in @($_.Tags)) { $tags[$tag.Key] = $tag.Value }
+  $tags.Name -eq "logitrack-staging-daily" -and $tags.BackupType -eq "crash-consistent"
+} | Sort-Object { [DateTimeOffset]::Parse([string]$_.StartTime) } -Descending)
+if ($managedSnapshots.Count -eq 0) {
+  $policyAge = $now - [DateTimeOffset]::Parse([string]$policy.Policy.DateCreated)
+  Assert-True ($policyAge.TotalHours -le $MaximumBackupAgeHours) "no managed EBS snapshot exists after the initial schedule grace period"
+  Write-Output "INFO: first managed EBS snapshot is still within the initial schedule grace period"
+} else {
+  $latestSnapshot = $managedSnapshots[0]
+  $snapshotAge = $now - [DateTimeOffset]::Parse([string]$latestSnapshot.StartTime)
+  Assert-True ([bool]$latestSnapshot.Encrypted) "latest managed EBS snapshot is not encrypted"
+  Assert-True ($snapshotAge.TotalMinutes -ge -5 -and $snapshotAge.TotalHours -le $MaximumBackupAgeHours) "latest managed EBS snapshot is stale or future-dated"
+}
 
 $bucket = "logitrack-staging-backups-$ExpectedAccountId-$Region"
 $publicAccess = Invoke-AwsJson @("s3api", "get-public-access-block", "--bucket", $bucket)
@@ -90,10 +121,13 @@ Assert-True ($encryption.ServerSideEncryptionConfiguration.Rules[0].ApplyServerS
 $lifecycle = Invoke-AwsJson @("s3api", "get-bucket-lifecycle-configuration", "--bucket", $bucket)
 $backupRule = @($lifecycle.Rules | Where-Object Id -eq "expire-postgres-backups")[0]
 Assert-True ($backupRule.Status -eq "Enabled" -and $backupRule.Expiration.Days -eq 8) "backup expiration drifted"
-$objects = Invoke-AwsJson @("s3api", "list-objects-v2", "--bucket", $bucket, "--prefix", "postgres/", "--max-items", "1")
-$backupObjects = @($objects.Contents)
-Assert-True ($backupObjects.Count -eq 1 -and $backupObjects[0].Size -gt 0) "no non-empty off-host PostgreSQL backup exists"
-$backupObject = Invoke-AwsJson @("s3api", "head-object", "--bucket", $bucket, "--key", $backupObjects[0].Key)
+$objects = Invoke-AwsJson @("s3api", "list-objects-v2", "--bucket", $bucket, "--prefix", "postgres/")
+$backupObjects = @($objects.Contents | Sort-Object { [DateTimeOffset]::Parse([string]$_.LastModified) } -Descending)
+Assert-True ($backupObjects.Count -ge 1 -and $backupObjects[0].Size -gt 0) "no non-empty off-host PostgreSQL backup exists"
+$latestBackup = $backupObjects[0]
+$backupAge = $now - [DateTimeOffset]::Parse([string]$latestBackup.LastModified)
+Assert-True ($backupAge.TotalMinutes -ge -5 -and $backupAge.TotalHours -le $MaximumBackupAgeHours) "latest PostgreSQL backup is stale or future-dated"
+$backupObject = Invoke-AwsJson @("s3api", "head-object", "--bucket", $bucket, "--key", $latestBackup.Key)
 Assert-True ($backupObject.ServerSideEncryption -eq "AES256") "latest PostgreSQL backup is not AES256 encrypted"
 
 $associations = Invoke-AwsJson @("ssm", "list-associations", "--association-filter-list", "key=AssociationName,value=logitrack-staging-postgres-backup")
