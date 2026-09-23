@@ -17,6 +17,13 @@ class RouteDeviationCalculatorTest {
     }
     @Test void invalidGeometryIsNotSilentlyAccepted() throws Exception {
         assertEquals(Double.POSITIVE_INFINITY,RouteDeviationCalculator.distanceMeters(0,0,mapper.readTree("{}")));
+        assertEquals(Double.POSITIVE_INFINITY,RouteDeviationCalculator.distanceMeters(0,0,null));
+        assertEquals(Double.POSITIVE_INFINITY,RouteDeviationCalculator.distanceMeters(0,0,mapper.readTree("{\"coordinates\":[null,[0,0]]}")));
+        assertEquals(Double.POSITIVE_INFINITY,RouteDeviationCalculator.distanceMeters(0,0,mapper.readTree("{\"coordinates\":[[0],[0,0]]}")));
+        assertEquals(Double.POSITIVE_INFINITY,RouteDeviationCalculator.distanceMeters(0,0,mapper.readTree("{\"coordinates\":[[\"x\",0],[0,0]]}")));
+        assertEquals(Double.POSITIVE_INFINITY,RouteDeviationCalculator.distanceMeters(Double.NaN,0,mapper.readTree("{\"coordinates\":[[0,0],[1,1]]}")));
+        assertEquals(Double.POSITIVE_INFINITY,RouteDeviationCalculator.distanceMeters(91,0,mapper.readTree("{\"coordinates\":[[0,0],[1,1]]}")));
+        assertEquals(Double.POSITIVE_INFINITY,RouteDeviationCalculator.distanceMeters(0,0,mapper.readTree("{\"coordinates\":[[181,0],[0,0]]}")));
     }
 
     @Test void supportsDegenerateSegmentsAndClosestEndpoints() throws Exception {
