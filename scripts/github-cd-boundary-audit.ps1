@@ -31,6 +31,8 @@ function Assert-True {
 
 $repositoryInfo = Invoke-GitHubGet ""
 Assert-True ($repositoryInfo.id -eq 1376500287 -and $repositoryInfo.owner.id -eq 247691206 -and $repositoryInfo.default_branch -eq "main") "repository identity or default branch drifted"
+Assert-True ($repositoryInfo.allow_squash_merge -and -not $repositoryInfo.allow_merge_commit -and -not $repositoryInfo.allow_rebase_merge) "repository must allow squash merge only"
+Assert-True ($repositoryInfo.delete_branch_on_merge -and -not $repositoryInfo.allow_auto_merge) "merged branches must be deleted without automatic merging"
 
 $actions = Invoke-GitHubGet "/actions/permissions"
 Assert-True ($actions.enabled -and $actions.sha_pinning_required) "Actions must be enabled and require full commit SHA pinning"
@@ -44,6 +46,9 @@ Assert-True ($mainProtection.required_status_checks.strict -and ($requiredChecks
 Assert-True ($mainProtection.enforce_admins.enabled) "administrators may bypass main protection"
 Assert-True ($mainProtection.required_linear_history.enabled -and $mainProtection.required_conversation_resolution.enabled) "main history or conversation protection drifted"
 Assert-True (-not $mainProtection.allow_force_pushes.enabled -and -not $mainProtection.allow_deletions.enabled) "main permits force pushes or deletion"
+$pullRequestRule = $mainProtection.required_pull_request_reviews
+Assert-True ($null -ne $pullRequestRule -and $pullRequestRule.required_approving_review_count -eq 0) "main changes must pass through a pull request without blocking solo maintenance"
+Assert-True ($pullRequestRule.dismiss_stale_reviews -and -not $pullRequestRule.require_code_owner_reviews -and -not $pullRequestRule.require_last_push_approval) "main pull request review policy drifted"
 
 $environmentInfo = Invoke-GitHubGet "/environments/$Environment"
 Assert-True (-not $environmentInfo.deployment_branch_policy.protected_branches -and $environmentInfo.deployment_branch_policy.custom_branch_policies) "staging must use an explicit deployment branch policy"
