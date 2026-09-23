@@ -8,6 +8,8 @@ callback_boundaries = (
     "const tokenExchangeTimeoutMs = 10_000",
     "const jwksTimeoutMs = 5_000",
     "const maxTokenResponseBytes = 64 * 1024",
+    "const maxAccessTokenCharacters = 32 * 1024",
+    "const maxIdTokenCharacters = 16 * 1024",
     "const maxAuthorizationCodeCharacters = 4096",
     "const maxStateCharacters = 256",
     "timingSafeEqual(supplied, expected)",
@@ -15,10 +17,17 @@ callback_boundaries = (
     'redirect: "error"',
     "timeoutDuration: jwksTimeoutMs",
     'response.headers.get("content-length")',
+    'response.headers.get("content-type")',
+    'mediaType !== "application/json"',
     "response.body.getReader()",
     "total > maxTokenResponseBytes",
     "await reader.cancel()",
     'new TextDecoder("utf-8", { fatal: true })',
+    "isTokenResponse(parsed)",
+    'typeof token.access_token !== "string"',
+    'typeof token.id_token !== "string"',
+    'token.token_type.toLowerCase() !== "bearer"',
+    "Number.isInteger(token.expires_in)",
 )
 missing = [boundary for boundary in callback_boundaries if boundary not in callback]
 if missing:
@@ -33,4 +42,4 @@ missing = [boundary for boundary in config_boundaries if boundary not in config]
 if missing:
     raise SystemExit("ERROR: OIDC configuration is missing boundaries: " + ", ".join(missing))
 
-print("PASS: OIDC callback bounds inputs, upstream waits, token bodies, redirects, and production URLs")
+print("PASS: OIDC callback bounds inputs, upstream waits, token media/schema, redirects, and production URLs")
