@@ -324,15 +324,24 @@ resource "aws_ssm_association" "postgres_backup" {
       set -euo pipefail
       umask 077
       tmp="$(mktemp /tmp/logitrack-postgres-backup-XXXXXX.dump)"
-      cleanup() { rm -f "$tmp"; }
-      trap cleanup EXIT
       container=logitrack-staging-postgres-1
+      verify_db="logitrack_restore_verify_$(date -u +%Y%m%d%H%M%S)_$RANDOM"
+      cleanup() {
+        docker exec -e VERIFY_DB="$verify_db" "$container" sh -ec 'export PGPASSWORD="$POSTGRES_PASSWORD"; dropdb --if-exists --force --username="$POSTGRES_USER" "$VERIFY_DB"' >/dev/null 2>&1 || true
+        rm -f "$tmp"
+      }
+      trap cleanup EXIT
       docker exec "$container" sh -ec 'export PGPASSWORD="$POSTGRES_PASSWORD"; pg_dump --format=custom --username="$POSTGRES_USER" --dbname="$POSTGRES_DB"' >"$tmp"
       test -s "$tmp"
       docker exec -i "$container" pg_restore --list <"$tmp" >/dev/null
+      docker exec -e VERIFY_DB="$verify_db" "$container" sh -ec 'export PGPASSWORD="$POSTGRES_PASSWORD"; createdb --username="$POSTGRES_USER" "$VERIFY_DB"'
+      docker exec -i -e VERIFY_DB="$verify_db" "$container" sh -ec 'export PGPASSWORD="$POSTGRES_PASSWORD"; pg_restore --exit-on-error --no-owner --no-privileges --username="$POSTGRES_USER" --dbname="$VERIFY_DB"' <"$tmp"
+      table_count="$(docker exec -e VERIFY_DB="$verify_db" "$container" sh -ec 'export PGPASSWORD="$POSTGRES_PASSWORD"; psql --username="$POSTGRES_USER" --dbname="$VERIFY_DB" --tuples-only --no-align --command="SELECT count(*) FROM information_schema.tables WHERE table_schema = '\''public'\''"')"
+      test "$table_count" -gt 0
+      docker exec -e VERIFY_DB="$verify_db" "$container" sh -ec 'export PGPASSWORD="$POSTGRES_PASSWORD"; dropdb --if-exists --force --username="$POSTGRES_USER" "$VERIFY_DB"'
       key="postgres/$(date -u +%Y/%m/%d)/logitrack-$(date -u +%Y%m%dT%H%M%SZ).dump"
-      aws s3 cp "$tmp" "s3://${local.backup_bucket}/$key" --sse AES256 --only-show-errors
-      echo "uploaded encrypted PostgreSQL backup to $key"
+      aws s3 cp "$tmp" "s3://${local.backup_bucket}/$key" --sse AES256 --checksum-algorithm SHA256 --only-show-errors
+      echo "restored and uploaded encrypted PostgreSQL backup with SHA-256 checksum to $key"
     SCRIPT
   }
   depends_on = [
