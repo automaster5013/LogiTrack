@@ -44,7 +44,7 @@
 - XSS 토큰 탈취: 토큰을 JavaScript나 local/session storage에 노출하지 않고 HttpOnly 쿠키와 BFF를 사용한다.
 - 권한 상승: UI가 아니라 API에서 역할을 강제하고, Cognito access token의 client ID와 token type을 검증한다.
 - 헤더 위조: API 감사 actor는 외부 `X-Operator` 값을 무시하고 검증된 JWT subject로 덮어쓴다.
-- 세션 도용: TLS 전용, Secure 쿠키, 최대 1시간 세션, refresh token 미사용, 로그아웃 시 쿠키·브라우저 저장소 제거를 적용한다.
+- 세션 도용: TLS 전용, Secure 쿠키, 최대 1시간 세션, refresh token 미사용, 로그아웃 시 모든 인증 쿠키·브라우저 저장소를 제거한다. 로그아웃 POST는 명시적 교차 출처 요청을 거부한다.
 - 자동 공격: AWS WAF rate-based rule, Cognito 위협 보호, CloudWatch 인증 실패 경보를 배포 단계에서 활성화한다.
 
 ## 운영 배포 설정

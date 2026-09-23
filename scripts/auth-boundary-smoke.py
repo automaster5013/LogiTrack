@@ -3,6 +3,7 @@ from pathlib import Path
 
 callback = Path("web/app/auth/callback/route.ts").read_text(encoding="utf-8")
 config = Path("web/app/auth/config.ts").read_text(encoding="utf-8")
+logout = Path("web/app/auth/logout/route.ts").read_text(encoding="utf-8")
 
 callback_boundaries = (
     "const tokenExchangeTimeoutMs = 10_000",
@@ -42,4 +43,21 @@ missing = [boundary for boundary in config_boundaries if boundary not in config]
 if missing:
     raise SystemExit("ERROR: OIDC configuration is missing boundaries: " + ", ".join(missing))
 
-print("PASS: OIDC callback bounds inputs, upstream waits, token media/schema, redirects, and production URLs")
+logout_boundaries = (
+    "isSameOrigin(request)",
+    'request.headers.get("origin")',
+    "new URL(origin).origin === request.nextUrl.origin",
+    'request.headers.get("sec-fetch-site")',
+    'fetchSite === "same-origin"',
+    'fetchSite === "none"',
+    'status: 403, headers: { "Cache-Control": "no-store" }',
+    'response.cookies.set(authCookie.access, "", { ...secureCookie(0, "/")',
+    "[authCookie.state, authCookie.nonce, authCookie.verifier]",
+    'response.headers.set("Cache-Control", "no-store")',
+    'response.headers.set("Clear-Site-Data", \'"cache", "storage"\')',
+)
+missing = [boundary for boundary in logout_boundaries if boundary not in logout]
+if missing:
+    raise SystemExit("ERROR: OIDC logout is missing boundaries: " + ", ".join(missing))
+
+print("PASS: OIDC login, callback, logout, and configuration boundaries are enforced")
