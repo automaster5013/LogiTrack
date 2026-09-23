@@ -281,6 +281,7 @@
 - 암호화된 runtime root EBS를 매일 snapshot하고 최신 7개를 보존하는 DLM 정책 적용, 임시 snapshot 생성 완료와 PostgreSQL 19개 테이블 복원 검증
 - PostgreSQL custom dump를 매일 별도 비공개 S3에 AES256으로 저장하고 8일 후 만료하는 SSM 일정 적용, 실제 예약 실행 객체를 임시 DB로 복원해 19개 테이블 검증
 - EC2 API termination protection과 instance shutdown 시 stop 정책 적용, system status check 2분 연속 실패 시 AWS 자동 복구 alarm 구성
+- 무자격 증명 외부 health workflow로 6시간마다 DNS·HTTPS·TLS 인증서 잔여기간·보안 헤더와 PostgreSQL·Redis·Kafka 비공개 포트 경계를 검증
 - 최초 TLS 인증서 발급 중 일시적인 HTTPS 실패도 bounded retry하도록 배포 readiness를 보강
 - Docker Compose pull·start·rollback 진행 출력을 quiet 모드로 제한해 SSM 응답 truncation 없이 실제 오류를 보존
 - Kafka named volume을 제한된 CHOWN capability의 네트워크 차단 init container로 초기화해 broker는 계속 non-root로 실행

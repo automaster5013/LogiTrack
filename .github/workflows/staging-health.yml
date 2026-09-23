@@ -1,0 +1,54 @@
+name: Staging external health
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+
+permissions: {}
+
+concurrency:
+  group: staging-external-health
+  cancel-in-progress: true
+
+jobs:
+  health:
+    name: Verify public staging boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      TARGET_HOST: www.logitrack.kr
+    steps:
+      - name: Verify DNS, TLS, headers, and private ports
+        shell: bash
+        run: |
+          set -euo pipefail
+          getent ahostsv4 "$TARGET_HOST" >/dev/null
+
+          http_headers="$(curl --silent --show-error --head --max-time 15 "http://$TARGET_HOST/login" | tr -d '\r')"
+          grep -Eq '^HTTP/[0-9.]+ (301|302|307|308)' <<<"$http_headers"
+          grep -Eqi '^location: https://www\.logitrack\.kr/login$' <<<"$http_headers"
+
+          curl --fail --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
+            --dump-header /tmp/logitrack-headers --output /tmp/logitrack-login \
+            "https://$TARGET_HOST/login"
+          test -s /tmp/logitrack-login
+          tr -d '\r' </tmp/logitrack-headers >/tmp/logitrack-headers.normalized
+          grep -Eqi '^strict-transport-security: max-age=31536000; includeSubDomains$' /tmp/logitrack-headers.normalized
+          grep -Eqi "^content-security-policy: frame-ancestors 'none'$" /tmp/logitrack-headers.normalized
+          grep -Eqi '^x-content-type-options: nosniff$' /tmp/logitrack-headers.normalized
+          grep -Eqi '^x-frame-options: DENY$' /tmp/logitrack-headers.normalized
+          if grep -Eqi '^server:' /tmp/logitrack-headers.normalized; then
+            echo 'server identity header must remain suppressed' >&2
+            exit 1
+          fi
+
+          openssl s_client -servername "$TARGET_HOST" -connect "$TARGET_HOST:443" </dev/null 2>/dev/null \
+            | openssl x509 -checkend 1209600 -noout
+
+          for port in 3000 5432 6379 8080 8090 29092; do
+            if timeout 5 bash -c "</dev/tcp/$TARGET_HOST/$port" 2>/dev/null; then
+              echo "private data port is reachable: $port" >&2
+              exit 1
+            fi
+          done
