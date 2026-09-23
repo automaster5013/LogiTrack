@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
+      AUTH_HOST: auth.logitrack.kr
       TARGET_HOST: www.logitrack.kr
     steps:
       - name: Verify DNS, application identity, TLS, headers, and private ports
@@ -24,6 +25,7 @@ jobs:
         run: |
           set -euo pipefail
           getent ahostsv4 "$TARGET_HOST" >/dev/null
+          getent ahostsv4 "$AUTH_HOST" >/dev/null
 
           http_headers="$(curl --silent --show-error --head --max-time 15 "http://$TARGET_HOST/login" | tr -d '\r')"
           grep -Eq '^HTTP/[0-9.]+ (301|302|307|308)' <<<"$http_headers"
@@ -80,7 +82,33 @@ jobs:
             grep -Eqi "^set-cookie: $cookie=;.*max-age=0" /tmp/logitrack-same-origin-logout-headers.normalized
           done
 
+          for method in POST DELETE; do
+            cross_origin_bff_status="$(curl --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
+              --request "$method" --header 'Origin: https://attacker.invalid' \
+              --output /tmp/logitrack-cross-origin-bff --write-out '%{http_code}' \
+              "https://$TARGET_HOST/backend/api/deliveries")"
+            test "$cross_origin_bff_status" = 403
+            jq -e '.error == "cross_origin_request_rejected"' /tmp/logitrack-cross-origin-bff >/dev/null
+          done
+
+          same_origin_bff_status="$(curl --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
+            --request POST --header "Origin: https://$TARGET_HOST" \
+            --output /tmp/logitrack-same-origin-bff --write-out '%{http_code}' \
+            "https://$TARGET_HOST/backend/api/deliveries")"
+          test "$same_origin_bff_status" = 401
+          jq -e '.error == "authentication_required"' /tmp/logitrack-same-origin-bff >/dev/null
+
+          auth_headers="$(curl --silent --show-error --head --proto '=https' --tlsv1.2 --max-time 20 \
+            "https://$AUTH_HOST/oauth2/authorize" | tr -d '\r')"
+          grep -Eq '^HTTP/[0-9.]+ 302' <<<"$auth_headers"
+          grep -Eqi '^location: https://auth\.logitrack\.kr/error\?error=' <<<"$auth_headers"
+          grep -Eqi '^strict-transport-security: max-age=31536000 *; includeSubDomains$' <<<"$auth_headers"
+          grep -Eqi '^cache-control: .*no-store' <<<"$auth_headers"
+          grep -Eqi '^x-frame-options: DENY$' <<<"$auth_headers"
+
           openssl s_client -servername "$TARGET_HOST" -connect "$TARGET_HOST:443" </dev/null 2>/dev/null \
+            | openssl x509 -checkend 1209600 -noout
+          openssl s_client -servername "$AUTH_HOST" -connect "$AUTH_HOST:443" </dev/null 2>/dev/null \
             | openssl x509 -checkend 1209600 -noout
 
           for port in 3000 5432 6379 8080 8090 29092; do
