@@ -4,10 +4,10 @@ import sys
 import yaml
 
 root = Path(__file__).resolve().parents[1]
-tf = (root / "infra/aws/runtime/main.tf").read_text()
-compose = yaml.safe_load((root / "deploy/staging/compose.yml").read_text())
-workflow = (root / ".github/workflows/deploy-staging.yml").read_text() if (root / ".github/workflows/deploy-staging.yml").exists() else ""
-deploy_script = (root / "scripts/deploy-staging.sh").read_text()
+tf = (root / "infra/aws/runtime/main.tf").read_text(encoding="utf-8")
+compose = yaml.safe_load((root / "deploy/staging/compose.yml").read_text(encoding="utf-8"))
+workflow = (root / ".github/workflows/deploy-staging.yml").read_text(encoding="utf-8") if (root / ".github/workflows/deploy-staging.yml").exists() else ""
+deploy_script = (root / "scripts/deploy-staging.sh").read_text(encoding="utf-8")
 
 errors = []
 for forbidden in ("aws_nat_gateway", "aws_lb\"", "aws_db_instance", "aws_msk_cluster"):
@@ -91,6 +91,9 @@ if 'actions = ["ecr:DescribeImages"]' not in tf:
     errors.append("deployment role must be able to verify the five manifest digests")
 if "secrets." in workflow:
     errors.append("deployment workflow must not consume long-lived GitHub secrets")
+for boundary in ("SECURE OPERATOR ACCESS", "운영자 로그인", "/api/runtime-version", "jq -e", "cache-control: .*no-store"):
+    if boundary not in workflow:
+        errors.append(f"post-deployment public verification is missing application boundary: {boundary}")
 if deploy_script.count("docker compose --progress quiet") < 3:
     errors.append("deployment pull, start, and rollback must bound SSM output with quiet Compose progress")
 if "--retry-all-errors" not in deploy_script or "--connect-timeout" not in deploy_script:

@@ -27,6 +27,11 @@ for boundary in (
     "content-security-policy",
     "x-content-type-options",
     "x-frame-options",
+    "SECURE OPERATOR ACCESS",
+    "운영자 로그인",
+    "/api/runtime-version",
+    "jq -e",
+    "cache-control: .*no-store",
     "openssl x509 -checkend 1209600",
     "for port in 3000 5432 6379 8080 8090 29092",
 ):
