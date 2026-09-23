@@ -69,6 +69,8 @@ jobs:
         run: python scripts/dependabot-config-smoke.py
       - name: Validate CI trust boundaries
         run: python scripts/workflow-config-smoke.py
+      - name: Validate OpenSSF Scorecard trust boundaries
+        run: python scripts/scorecard-workflow-smoke.py
       - name: Validate staging publication trust boundaries
         run: python scripts/cd-workflow-smoke.py
       - name: Validate staging release manifest contract
