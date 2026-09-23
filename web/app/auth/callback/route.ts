@@ -6,14 +6,16 @@ import { authConfig, authCookie, secureCookie } from "../config";
 const tokenExchangeTimeoutMs = 10_000;
 const jwksTimeoutMs = 5_000;
 const maxTokenResponseBytes = 64 * 1024;
+const maxAccessTokenCharacters = 32 * 1024;
+const maxIdTokenCharacters = 16 * 1024;
 const maxAuthorizationCodeCharacters = 4096;
 const maxStateCharacters = 256;
 
 type TokenResponse = {
-  access_token?: string;
-  id_token?: string;
+  access_token: string;
+  id_token: string;
   expires_in?: number;
-  token_type?: string;
+  token_type: string;
 };
 
 export async function GET(request: NextRequest) {
@@ -36,7 +38,7 @@ export async function GET(request: NextRequest) {
     });
     if (!tokenResponse.ok) return finish("token_exchange_failed");
     const token = await readBoundedTokenResponse(tokenResponse);
-    if (!token?.access_token || !token.id_token || token.token_type?.toLowerCase() !== "bearer") return finish("invalid_token_response");
+    if (!token) return finish("invalid_token_response");
 
     const jwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`), { timeoutDuration: jwksTimeoutMs });
     const { payload } = await jwtVerify(token.id_token, jwks, { issuer, audience: clientId, requiredClaims: ["nonce"], maxTokenAge: "5 minutes" });
@@ -67,6 +69,8 @@ function validCallbackInput(code: string, state: string, expectedState: string) 
 }
 
 async function readBoundedTokenResponse(response: Response): Promise<TokenResponse | null> {
+  const mediaType = response.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase();
+  if (mediaType !== "application/json") return null;
   const declaredLength = response.headers.get("content-length");
   if (declaredLength && (!/^\d+$/.test(declaredLength) || Number(declaredLength) > maxTokenResponseBytes)) return null;
   if (!response.body) return null;
@@ -91,10 +95,20 @@ async function readBoundedTokenResponse(response: Response): Promise<TokenRespon
     offset += chunk.byteLength;
   }
   try {
-    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body)) as TokenResponse;
+    const parsed: unknown = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body));
+    return isTokenResponse(parsed) ? parsed : null;
   } catch {
     return null;
   }
+}
+
+function isTokenResponse(value: unknown): value is TokenResponse {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const token = value as Record<string, unknown>;
+  if (typeof token.access_token !== "string" || token.access_token.length < 1 || token.access_token.length > maxAccessTokenCharacters) return false;
+  if (typeof token.id_token !== "string" || token.id_token.length < 1 || token.id_token.length > maxIdTokenCharacters) return false;
+  if (typeof token.token_type !== "string" || token.token_type.toLowerCase() !== "bearer") return false;
+  return token.expires_in === undefined || (typeof token.expires_in === "number" && Number.isInteger(token.expires_in) && token.expires_in > 0);
 }
 
 function clearTransient(response: NextResponse) {
