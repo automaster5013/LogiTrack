@@ -10,6 +10,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ pa
 export async function DELETE(request: NextRequest, context: { params: Promise<{ path: string[] }> }) { return proxy(request, context); }
 
 async function proxy(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  if (request.method !== "GET" && !isSameOriginMutation(request)) {
+    return jsonError("cross_origin_request_rejected", 403);
+  }
+
   const token = request.cookies.get(authCookie.access)?.value;
   if (!token) return jsonError("authentication_required", 401);
 
@@ -56,6 +60,19 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path:
   } catch {
     return jsonError("upstream_unavailable", 502);
   }
+}
+
+function isSameOriginMutation(request: NextRequest) {
+  const origin = request.headers.get("origin");
+  if (origin) {
+    try {
+      return new URL(origin).origin === request.nextUrl.origin;
+    } catch {
+      return false;
+    }
+  }
+  const fetchSite = request.headers.get("sec-fetch-site");
+  return fetchSite === null || fetchSite === "same-origin" || fetchSite === "none";
 }
 
 function jsonError(error: string, status: number) {
