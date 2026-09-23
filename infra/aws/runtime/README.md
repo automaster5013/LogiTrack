@@ -48,7 +48,7 @@ terraform -chdir=infra/aws/runtime show runtime.tfplan
 
 ## 운영 확인
 
-전체 운영 경계를 한 번에 읽기 전용으로 감사하려면 AWS CLI와 PowerShell이 설치된 관리자 환경에서 다음을 실행한다. 계정, instance·disk·보안 그룹, DNS, 자동 복구, snapshot, S3 backup, SSM 일정과 Budget 중 하나라도 기대값에서 벗어나면 즉시 실패한다. 일일 EBS snapshot과 PostgreSQL dump는 기본 30시간 안에 생성된 최신 artifact여야 하며 암호화도 검사한다. 새 DLM policy에는 첫 실행 전까지 같은 시간의 초기 grace period만 허용한다.
+전체 운영 경계를 한 번에 읽기 전용으로 감사하려면 AWS CLI와 PowerShell이 설치된 관리자 환경에서 다음을 실행한다. 계정, IAM runtime·publisher·deployer 역할, ECR 불변성·scan·암호화·보존, instance·disk·보안 그룹, DNS, 자동 복구, snapshot, S3 backup, SSM 일정과 Budget 중 하나라도 기대값에서 벗어나면 즉시 실패한다. 일일 EBS snapshot과 PostgreSQL dump는 기본 30시간 안에 생성된 최신 artifact여야 하며 암호화도 검사한다. 새 DLM policy에는 첫 실행 전까지 같은 시간의 초기 grace period만 허용한다.
 
 ```powershell
 ./scripts/aws-runtime-audit.ps1

@@ -4,6 +4,16 @@ from pathlib import Path
 source = Path("scripts/aws-runtime-audit.ps1").read_text(encoding="utf-8")
 required = (
     "sts\", \"get-caller-identity",
+    "Assert-RoleBoundary",
+    "list-attached-role-policies",
+    "get-role-policy",
+    "token.actions.githubusercontent.com:sub",
+    "logitrack-staging-image-publisher",
+    "describe-repositories",
+    "ImageTagMutability",
+    "ScanOnPush",
+    "get-lifecycle-policy",
+    "imageCountMoreThan",
     "disableApiTermination",
     "instanceInitiatedShutdownBehavior",
     "HttpTokens",

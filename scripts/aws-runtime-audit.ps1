@@ -35,8 +35,72 @@ function Resolve-Ipv4WithRetry {
   throw "AUDIT FAILED: DNS returned no IPv4 address after 3 attempts"
 }
 
+function Assert-RoleBoundary {
+  param(
+    [Parameter(Mandatory)][string]$RoleName,
+    [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$ExpectedAttachedPolicies,
+    [Parameter(Mandatory)][string]$ExpectedInlinePolicy,
+    [Parameter(Mandatory)][string[]]$ExpectedActions,
+    [string]$ExpectedServicePrincipal,
+    [string]$ExpectedOidcSubject
+  )
+  $role = Invoke-AwsJson @("iam", "get-role", "--role-name", $RoleName)
+  $trust = $role.Role.AssumeRolePolicyDocument.Statement[0]
+  if ($ExpectedServicePrincipal) {
+    Assert-True ($trust.Effect -eq "Allow" -and $trust.Action -eq "sts:AssumeRole" -and $trust.Principal.Service -eq $ExpectedServicePrincipal) "$RoleName trust policy drifted"
+  } else {
+    $expectedProvider = "arn:aws:iam::${ExpectedAccountId}:oidc-provider/token.actions.githubusercontent.com"
+    Assert-True ($trust.Effect -eq "Allow" -and $trust.Action -eq "sts:AssumeRoleWithWebIdentity" -and $trust.Principal.Federated -eq $expectedProvider) "$RoleName OIDC principal drifted"
+    Assert-True ($trust.Condition.StringEquals.'token.actions.githubusercontent.com:aud' -eq "sts.amazonaws.com") "$RoleName OIDC audience drifted"
+    Assert-True ($trust.Condition.StringEquals.'token.actions.githubusercontent.com:sub' -eq $ExpectedOidcSubject) "$RoleName OIDC subject drifted"
+  }
+  $attached = Invoke-AwsJson @("iam", "list-attached-role-policies", "--role-name", $RoleName)
+  $attachedArns = @($attached.AttachedPolicies.PolicyArn | Sort-Object)
+  Assert-True (($attachedArns -join ",") -eq (($ExpectedAttachedPolicies | Sort-Object) -join ",")) "$RoleName attached policies drifted"
+  $inline = Invoke-AwsJson @("iam", "list-role-policies", "--role-name", $RoleName)
+  Assert-True (@($inline.PolicyNames).Count -eq 1 -and $inline.PolicyNames[0] -eq $ExpectedInlinePolicy) "$RoleName inline policy set drifted"
+  $policy = Invoke-AwsJson @("iam", "get-role-policy", "--role-name", $RoleName, "--policy-name", $ExpectedInlinePolicy)
+  $actions = @($policy.PolicyDocument.Statement | ForEach-Object { @($_.Action) } | Sort-Object -Unique)
+  Assert-True (($actions -join ",") -eq (($ExpectedActions | Sort-Object -Unique) -join ",")) "$RoleName allowed actions drifted"
+}
+
 $identity = Invoke-AwsJson @("sts", "get-caller-identity")
 Assert-True ($identity.Account -eq $ExpectedAccountId) "unexpected AWS account $($identity.Account)"
+$oidcSubject = "repo:automaster5013@247691206/LogiTrack@1376500287:environment:staging"
+Assert-RoleBoundary -RoleName "logitrack-staging-runtime" `
+  -ExpectedAttachedPolicies @("arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore") `
+  -ExpectedInlinePolicy "pull-images-and-read-runtime-secrets" `
+  -ExpectedActions @("ecr:GetAuthorizationToken", "ecr:BatchCheckLayerAvailability", "ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer", "ssm:GetParameter", "ssm:GetParameters", "s3:PutObject", "s3:GetObject", "s3:ListBucket") `
+  -ExpectedServicePrincipal "ec2.amazonaws.com"
+Assert-RoleBoundary -RoleName "logitrack-staging-runtime-deployer" `
+  -ExpectedAttachedPolicies @() `
+  -ExpectedInlinePolicy "deploy-only-to-logitrack-staging" `
+  -ExpectedActions @("ecr:DescribeImages", "ssm:SendCommand", "ssm:GetCommandInvocation", "ssm:ListCommandInvocations", "ec2:DescribeInstances", "ssm:DescribeInstanceInformation") `
+  -ExpectedOidcSubject $oidcSubject
+Assert-RoleBoundary -RoleName "logitrack-staging-image-publisher" `
+  -ExpectedAttachedPolicies @() `
+  -ExpectedInlinePolicy "publish-logitrack-staging-images" `
+  -ExpectedActions @("ecr:DescribeRepositories", "ecr:GetAuthorizationToken", "ecr:BatchGetImage", "ecr:BatchCheckLayerAvailability", "ecr:CompleteLayerUpload", "ecr:DescribeImages", "ecr:GetDownloadUrlForLayer", "ecr:GetLifecyclePolicy", "ecr:InitiateLayerUpload", "ecr:PutImage", "ecr:UploadLayerPart") `
+  -ExpectedOidcSubject $oidcSubject
+
+$services = @("api", "analytics", "simulator", "web", "otel-collector")
+$repositoryNames = @($services | ForEach-Object { "logitrack/$_" })
+$repositoryArguments = @("ecr", "describe-repositories", "--repository-names") + $repositoryNames
+$repositories = Invoke-AwsJson -Arguments $repositoryArguments
+Assert-True (@($repositories.Repositories).Count -eq 5) "expected exactly five LogiTrack ECR repositories"
+foreach ($repositoryName in $repositoryNames) {
+  $repository = @($repositories.Repositories | Where-Object RepositoryName -eq $repositoryName)
+  Assert-True ($repository.Count -eq 1) "ECR repository is missing: $repositoryName"
+  Assert-True ($repository[0].ImageTagMutability -eq "IMMUTABLE") "$repositoryName tags are not immutable"
+  Assert-True ([bool]$repository[0].ImageScanningConfiguration.ScanOnPush) "$repositoryName scan-on-push is disabled"
+  Assert-True ($repository[0].EncryptionConfiguration.EncryptionType -eq "AES256") "$repositoryName encryption drifted"
+  $lifecycleResult = Invoke-AwsJson @("ecr", "get-lifecycle-policy", "--repository-name", $repositoryName)
+  $lifecyclePolicy = $lifecycleResult.LifecyclePolicyText | ConvertFrom-Json
+  $rules = @($lifecyclePolicy.rules | Sort-Object rulePriority)
+  Assert-True ($rules.Count -eq 2) "$repositoryName lifecycle rule count drifted"
+  Assert-True ($rules[0].rulePriority -eq 1 -and $rules[0].selection.tagStatus -eq "untagged" -and $rules[0].selection.countType -eq "sinceImagePushed" -and $rules[0].selection.countUnit -eq "days" -and $rules[0].selection.countNumber -eq 7 -and $rules[0].action.type -eq "expire") "$repositoryName untagged retention drifted"
+  Assert-True ($rules[1].rulePriority -eq 2 -and $rules[1].selection.tagStatus -eq "any" -and $rules[1].selection.countType -eq "imageCountMoreThan" -and $rules[1].selection.countNumber -eq 30 -and $rules[1].action.type -eq "expire") "$repositoryName rollback retention drifted"
+}
 
 $instanceResult = Invoke-AwsJson @(
   "ec2", "describe-instances",
