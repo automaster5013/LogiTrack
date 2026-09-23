@@ -116,6 +116,14 @@ Assert-True ($instance.MetadataOptions.HttpTokens -eq "required") "IMDSv2 tokens
 Assert-True ($instance.Monitoring.State -eq "disabled") "detailed monitoring unexpectedly enabled"
 Assert-True ($instance.IamInstanceProfile.Arn -like "*/logitrack-staging-runtime") "unexpected instance profile"
 
+$managedNodes = Invoke-AwsJson @("ssm", "describe-instance-information", "--filters", "Key=InstanceIds,Values=$instanceId")
+$managedNode = @($managedNodes.InstanceInformationList)
+Assert-True ($managedNode.Count -eq 1) "staging instance is not registered as exactly one SSM managed node"
+$lastPingAge = [DateTimeOffset]::UtcNow - [DateTimeOffset]::Parse([string]$managedNode[0].LastPingDateTime)
+Assert-True ($managedNode[0].PingStatus -eq "Online" -and $lastPingAge.TotalMinutes -ge -5 -and $lastPingAge.TotalMinutes -le 15) "staging SSM agent is offline or stale"
+Assert-True ($managedNode[0].ResourceType -eq "EC2Instance" -and $managedNode[0].PlatformType -eq "Linux" -and $managedNode[0].PlatformName -eq "Amazon Linux") "staging SSM managed-node identity drifted"
+Assert-True ($managedNode[0].IPAddress -eq $instance.PrivateIpAddress -and $managedNode[0].AssociationStatus -eq "Success") "staging SSM address or association status drifted"
+
 $termination = Invoke-AwsJson @("ec2", "describe-instance-attribute", "--instance-id", $instanceId, "--attribute", "disableApiTermination")
 $shutdown = Invoke-AwsJson @("ec2", "describe-instance-attribute", "--instance-id", $instanceId, "--attribute", "instanceInitiatedShutdownBehavior")
 Assert-True ([bool]$termination.DisableApiTermination.Value) "API termination protection is disabled"
@@ -197,6 +205,14 @@ Assert-True ($backupObject.ServerSideEncryption -eq "AES256") "latest PostgreSQL
 $associations = Invoke-AwsJson @("ssm", "list-associations", "--association-filter-list", "key=AssociationName,value=logitrack-staging-postgres-backup")
 $association = @($associations.Associations)
 Assert-True ($association.Count -eq 1 -and $association[0].Overview.Status -eq "Success") "PostgreSQL backup association is not successful"
+$associationResult = Invoke-AwsJson @("ssm", "describe-association", "--association-id", $association[0].AssociationId)
+$backupAssociation = $associationResult.AssociationDescription
+$backupTargets = @($backupAssociation.Targets)
+Assert-True ($backupAssociation.Name -eq "AWS-RunShellScript" -and $backupAssociation.AssociationName -eq "logitrack-staging-postgres-backup") "PostgreSQL backup association identity drifted"
+Assert-True ($backupAssociation.ScheduleExpression -eq "cron(30 18 * * ? *)" -and $backupAssociation.ApplyOnlyAtCronInterval -and $backupAssociation.MaxConcurrency -eq "1" -and $backupAssociation.MaxErrors -eq "0" -and $backupAssociation.ComplianceSeverity -eq "HIGH") "PostgreSQL backup association schedule or failure boundary drifted"
+Assert-True ($backupTargets.Count -eq 1 -and $backupTargets[0].Key -eq "InstanceIds" -and @($backupTargets[0].Values).Count -eq 1 -and $backupTargets[0].Values[0] -eq $instanceId) "PostgreSQL backup association targets an unexpected managed node"
+$backupCommand = [string]$backupAssociation.Parameters.commands[0]
+Assert-True ($backupCommand.Contains("pg_restore --list") -and $backupCommand.Contains("--sse AES256") -and $backupCommand.Contains("s3://$bucket/")) "PostgreSQL backup association lost archive validation or encryption"
 
 $budget = & aws budgets describe-budget --profile $Profile --account-id $ExpectedAccountId --budget-name logitrack-staging-monthly --output json --no-cli-pager
 if ($LASTEXITCODE -ne 0) { throw "AWS CLI failed while reading the staging budget" }
