@@ -41,16 +41,21 @@ function Assert-RoleBoundary {
     [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$ExpectedAttachedPolicies,
     [Parameter(Mandatory)][string]$ExpectedInlinePolicy,
     [Parameter(Mandatory)][string[]]$ExpectedActions,
+    [Parameter(Mandatory)][hashtable]$ExpectedActionResources,
     [string]$ExpectedServicePrincipal,
     [string]$ExpectedOidcSubject
   )
   $role = Invoke-AwsJson @("iam", "get-role", "--role-name", $RoleName)
-  $trust = $role.Role.AssumeRolePolicyDocument.Statement[0]
+  $trustStatements = @($role.Role.AssumeRolePolicyDocument.Statement)
+  Assert-True ($trustStatements.Count -eq 1) "$RoleName must have exactly one trust statement"
+  $trust = $trustStatements[0]
+  Assert-True ($null -eq $trust.NotAction -and $null -eq $trust.NotPrincipal) "$RoleName trust policy contains a negative selector"
   if ($ExpectedServicePrincipal) {
-    Assert-True ($trust.Effect -eq "Allow" -and $trust.Action -eq "sts:AssumeRole" -and $trust.Principal.Service -eq $ExpectedServicePrincipal) "$RoleName trust policy drifted"
+    Assert-True ($trust.Effect -eq "Allow" -and $trust.Action -eq "sts:AssumeRole" -and $trust.Principal.Service -eq $ExpectedServicePrincipal -and $null -eq $trust.Condition) "$RoleName trust policy drifted"
   } else {
     $expectedProvider = "arn:aws:iam::${ExpectedAccountId}:oidc-provider/token.actions.githubusercontent.com"
     Assert-True ($trust.Effect -eq "Allow" -and $trust.Action -eq "sts:AssumeRoleWithWebIdentity" -and $trust.Principal.Federated -eq $expectedProvider) "$RoleName OIDC principal drifted"
+    Assert-True (@($trust.Condition.PSObject.Properties).Count -eq 1 -and @($trust.Condition.StringEquals.PSObject.Properties).Count -eq 2) "$RoleName OIDC condition set drifted"
     Assert-True ($trust.Condition.StringEquals.'token.actions.githubusercontent.com:aud' -eq "sts.amazonaws.com") "$RoleName OIDC audience drifted"
     Assert-True ($trust.Condition.StringEquals.'token.actions.githubusercontent.com:sub' -eq $ExpectedOidcSubject) "$RoleName OIDC subject drifted"
   }
@@ -60,27 +65,65 @@ function Assert-RoleBoundary {
   $inline = Invoke-AwsJson @("iam", "list-role-policies", "--role-name", $RoleName)
   Assert-True (@($inline.PolicyNames).Count -eq 1 -and $inline.PolicyNames[0] -eq $ExpectedInlinePolicy) "$RoleName inline policy set drifted"
   $policy = Invoke-AwsJson @("iam", "get-role-policy", "--role-name", $RoleName, "--policy-name", $ExpectedInlinePolicy)
-  $actions = @($policy.PolicyDocument.Statement | ForEach-Object { @($_.Action) } | Sort-Object -Unique)
+  $statements = @($policy.PolicyDocument.Statement)
+  Assert-True ($statements.Count -gt 0 -and @($statements | Where-Object { $_.Effect -ne "Allow" -or $null -ne $_.NotAction -or $null -ne $_.NotResource -or $null -ne $_.Principal }).Count -eq 0) "$RoleName inline policy contains an unexpected statement shape"
+  $actions = @($statements | ForEach-Object { @($_.Action) } | Sort-Object -Unique)
   Assert-True (($actions -join ",") -eq (($ExpectedActions | Sort-Object -Unique) -join ",")) "$RoleName allowed actions drifted"
+  Assert-True ((@($ExpectedActionResources.Keys | Sort-Object) -join ",") -eq (@($ExpectedActions | Sort-Object -Unique) -join ",")) "$RoleName audit resource expectations are incomplete"
+  foreach ($action in $ExpectedActions) {
+    $actualResources = @($statements | Where-Object { @($_.Action) -contains $action } | ForEach-Object { @($_.Resource) } | Sort-Object -Unique)
+    $expectedResources = @($ExpectedActionResources[$action] | Sort-Object -Unique)
+    Assert-True (($actualResources -join ",") -eq ($expectedResources -join ",")) "$RoleName resource scope drifted for $action"
+  }
+  return $policy.PolicyDocument
 }
 
 $identity = Invoke-AwsJson @("sts", "get-caller-identity")
 Assert-True ($identity.Account -eq $ExpectedAccountId) "unexpected AWS account $($identity.Account)"
 $oidcSubject = "repo:automaster5013@247691206/LogiTrack@1376500287:environment:staging"
-Assert-RoleBoundary -RoleName "logitrack-staging-runtime" `
+$expectedInstanceId = "i-07de6c372fc44e964"
+$expectedRepositories = @("api", "analytics", "simulator", "web", "otel-collector" | ForEach-Object { "arn:aws:ecr:${Region}:${ExpectedAccountId}:repository/logitrack/$_" })
+$expectedParameters = @("postgres-password", "cognito-issuer-uri", "cognito-client-id", "cognito-authorization-base-url" | ForEach-Object { "arn:aws:ssm:${Region}:${ExpectedAccountId}:parameter/logitrack/staging/$_" })
+$expectedBackupBucket = "arn:aws:s3:::logitrack-staging-backups-${ExpectedAccountId}-${Region}"
+
+$runtimeResources = @{}
+foreach ($action in @("ecr:BatchCheckLayerAvailability", "ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer")) { $runtimeResources[$action] = $expectedRepositories }
+foreach ($action in @("ssm:GetParameter", "ssm:GetParameters")) { $runtimeResources[$action] = $expectedParameters }
+foreach ($action in @("s3:PutObject", "s3:GetObject")) { $runtimeResources[$action] = "$expectedBackupBucket/postgres/*" }
+$runtimeResources["ecr:GetAuthorizationToken"] = "*"
+$runtimeResources["s3:ListBucket"] = $expectedBackupBucket
+$runtimePolicy = Assert-RoleBoundary -RoleName "logitrack-staging-runtime" `
   -ExpectedAttachedPolicies @("arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore") `
   -ExpectedInlinePolicy "pull-images-and-read-runtime-secrets" `
   -ExpectedActions @("ecr:GetAuthorizationToken", "ecr:BatchCheckLayerAvailability", "ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer", "ssm:GetParameter", "ssm:GetParameters", "s3:PutObject", "s3:GetObject", "s3:ListBucket") `
+  -ExpectedActionResources $runtimeResources `
   -ExpectedServicePrincipal "ec2.amazonaws.com"
-Assert-RoleBoundary -RoleName "logitrack-staging-runtime-deployer" `
+$listBucketStatement = @($runtimePolicy.Statement | Where-Object { @($_.Action) -contains "s3:ListBucket" })
+Assert-True ($listBucketStatement.Count -eq 1 -and @($listBucketStatement[0].Condition.PSObject.Properties).Count -eq 1 -and $listBucketStatement[0].Condition.StringLike.'s3:prefix' -eq "postgres/*") "runtime backup bucket prefix condition drifted"
+
+$deployerResources = @{
+  "ecr:DescribeImages"               = $expectedRepositories
+  "ssm:SendCommand"                  = @("arn:aws:ssm:${Region}::document/AWS-RunShellScript", "arn:aws:ec2:${Region}:${ExpectedAccountId}:instance/$expectedInstanceId")
+  "ssm:GetCommandInvocation"         = "*"
+  "ssm:ListCommandInvocations"       = "*"
+  "ec2:DescribeInstances"            = "*"
+  "ssm:DescribeInstanceInformation"  = "*"
+}
+$null = Assert-RoleBoundary -RoleName "logitrack-staging-runtime-deployer" `
   -ExpectedAttachedPolicies @() `
   -ExpectedInlinePolicy "deploy-only-to-logitrack-staging" `
   -ExpectedActions @("ecr:DescribeImages", "ssm:SendCommand", "ssm:GetCommandInvocation", "ssm:ListCommandInvocations", "ec2:DescribeInstances", "ssm:DescribeInstanceInformation") `
+  -ExpectedActionResources $deployerResources `
   -ExpectedOidcSubject $oidcSubject
-Assert-RoleBoundary -RoleName "logitrack-staging-image-publisher" `
+
+$publisherActions = @("ecr:DescribeRepositories", "ecr:GetAuthorizationToken", "ecr:BatchGetImage", "ecr:BatchCheckLayerAvailability", "ecr:CompleteLayerUpload", "ecr:DescribeImages", "ecr:GetDownloadUrlForLayer", "ecr:GetLifecyclePolicy", "ecr:InitiateLayerUpload", "ecr:PutImage", "ecr:UploadLayerPart")
+$publisherResources = @{}
+foreach ($action in $publisherActions) { $publisherResources[$action] = if ($action -in @("ecr:DescribeRepositories", "ecr:GetAuthorizationToken")) { "*" } else { $expectedRepositories } }
+$null = Assert-RoleBoundary -RoleName "logitrack-staging-image-publisher" `
   -ExpectedAttachedPolicies @() `
   -ExpectedInlinePolicy "publish-logitrack-staging-images" `
-  -ExpectedActions @("ecr:DescribeRepositories", "ecr:GetAuthorizationToken", "ecr:BatchGetImage", "ecr:BatchCheckLayerAvailability", "ecr:CompleteLayerUpload", "ecr:DescribeImages", "ecr:GetDownloadUrlForLayer", "ecr:GetLifecyclePolicy", "ecr:InitiateLayerUpload", "ecr:PutImage", "ecr:UploadLayerPart") `
+  -ExpectedActions $publisherActions `
+  -ExpectedActionResources $publisherResources `
   -ExpectedOidcSubject $oidcSubject
 
 $services = @("api", "analytics", "simulator", "web", "otel-collector")
