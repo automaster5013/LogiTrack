@@ -228,7 +228,6 @@ resource "aws_dlm_lifecycle_policy" "runtime" {
       }
       retain_rule { count = 7 }
       tags_to_add = {
-        Name       = "logitrack-staging-daily"
         BackupType = "crash-consistent"
       }
     }

@@ -210,11 +210,12 @@ Assert-True ($snapshotPolicy.Count -eq 1) "daily snapshot policy is missing"
 $policy = Invoke-AwsJson @("dlm", "get-lifecycle-policy", "--policy-id", $snapshotPolicy[0].PolicyId)
 $schedule = $policy.Policy.PolicyDetails.Schedules[0]
 Assert-True ($policy.Policy.State -eq "ENABLED" -and $schedule.CreateRule.Times[0] -eq "18:00" -and $schedule.RetainRule.Count -eq 7) "snapshot schedule or retention drifted"
+Assert-True ($schedule.CopyTags -and @($schedule.TagsToAdd).Count -eq 1 -and $schedule.TagsToAdd[0].Key -eq "BackupType" -and $schedule.TagsToAdd[0].Value -eq "crash-consistent") "snapshot tags contain a duplicate source-volume key or lost the backup marker"
 $now = [DateTimeOffset]::UtcNow
 $snapshotsResult = Invoke-AwsJson @("ec2", "describe-snapshots", "--owner-ids", "self", "--filters", "Name=volume-id,Values=$($rootVolume.VolumeId)", "Name=status,Values=completed")
 $managedSnapshots = @($snapshotsResult.Snapshots | Where-Object {
   $tags = @{}; foreach ($tag in @($_.Tags)) { $tags[$tag.Key] = $tag.Value }
-  $tags.Name -eq "logitrack-staging-daily" -and $tags.BackupType -eq "crash-consistent"
+  $tags.SnapshotSchedule -eq "logitrack-staging-daily" -and $tags.BackupType -eq "crash-consistent"
 } | Sort-Object { [DateTimeOffset]::Parse([string]$_.StartTime) } -Descending)
 if ($managedSnapshots.Count -eq 0) {
   $policyAge = $now - [DateTimeOffset]::Parse([string]$policy.Policy.DateCreated)

@@ -289,6 +289,7 @@
 - 최상위 실행 안내와 릴리스 전략을 실제 적용된 staging CD·백업·복구·외부 점검 상태에 맞춰 갱신해 미적용 안내 드리프트 제거
 - AWS staging의 compute·network·복구·snapshot·S3 DB backup·Budget 경계를 단일 읽기 전용 감사 스크립트로 재검증 가능하게 구성
 - 일일 EBS snapshot과 PostgreSQL dump의 최신 생성 시각·암호화를 감사해 정책만 존재하고 실제 backup이 오래된 상태를 정상으로 오인하지 않도록 보강
+- DLM이 source EBS의 `Name` tag를 복사하면서 같은 key를 다시 추가해 정책이 ERROR가 된 문제를 제거하고, 중복 tag·정책 상태를 live 감사
 - staging SSM agent의 최신 online heartbeat·managed-node 정체성과 PostgreSQL backup association의 단일 instance 대상·일정·실패·암호화 경계를 live 감사
 - staging 배포 직후와 6시간 주기 외부 점검에서 단순 HTTP 200을 넘어 LogiTrack 로그인 표식과 no-store runtime UUID 응답을 검증
 - 인증 web proxy의 선언·실제 request body를 1 MiB로 제한하고 내부 API 대기를 15초로 중단하며 redirect 금지·cache 불가 502 실패 경계 적용
