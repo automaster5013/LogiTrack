@@ -8,17 +8,22 @@
 - 수동 승인된 staging image publication을 구현했다. `.github/workflows/publish-staging-images.yml`은 `main`에 포함된 full commit SHA만 받아 GitHub `staging` environment 승인 뒤 OIDC 단기 자격 증명으로 검증 완료 이미지를 ECR에 게시한다.
 - 저비용 staging runtime과 실제 배포 단계도 구현했다. 서울 리전의 단일 EC2, 암호화 gp3, Elastic IP, Route 53, Caddy TLS, SSM 배포와 USD 70 Budget을 사용하며 NAT Gateway, ALB, RDS, ElastiCache, MSK와 SSH ingress는 만들지 않는다.
 - `.github/workflows/deploy-staging.yml`은 게시 실행의 release manifest와 ECR digest를 재검증하고 OIDC 단기 자격 증명으로 지정 instance에만 SSM 명령을 보낸다. Compose health와 외부 HTTPS/HSTS가 모두 통과해야 배포가 성공한다.
+- `.github/workflows/staging-health.yml`은 별도 cloud 자격 증명 없이 6시간마다 DNS, HTTP→HTTPS redirect, TLS 인증서의 14일 이상 잔여기간, 보안 header와 내부 서비스 포트 비노출을 검사한다.
 
-## CD를 시작할 시점
+## 현재 staging CD 경계
 
-현재 코드 품질과 컨테이너 재현성이 갖춰졌으므로 스테이징 CD 설계를 시작하기 좋은 상태다. 실제 자동 배포는 아래 조건을 먼저 확정한 뒤 시작한다.
+staging CD는 서울 리전의 `www.logitrack.kr`에 적용되어 있다. image 게시와 runtime 배포는 분리된 수동 workflow이며 둘 다 GitHub `staging` environment의 승인과 AWS OIDC 단기 자격 증명을 요구한다. 장기 AWS access key나 AWS 로그인 계정은 GitHub에 저장하지 않는다.
 
-1. 배포 대상과 소유 계정, 리전 또는 호스팅 위치 (`logitrack.kr`은 구매 완료된 운영 도메인)
-2. 월 비용 상한과 자동 중지·삭제 정책
-3. 비밀정보 저장소와 접근 권한 책임자
-4. PostgreSQL backup/restore 및 migration rollback 절차
-5. 지도 style/tile provider의 운영 quota, CORS, 장애 fallback 정책
-6. 스테이징 health/smoke 기준과 운영 승인을 담당할 사람
+현재 운영 경계는 다음과 같다.
+
+1. 월 비용 상한은 USD 70 Budget이며 80% 실제 비용과 100% forecast를 직접 email로 알린다. Budget은 리소스를 자동 중지하는 hard cap이 아니다.
+2. 비밀정보는 SSM SecureString에 저장하고 배포 시 대상 EC2에서만 읽는다.
+3. image는 commit SHA와 digest로 고정하고 검증된 release manifest 없이는 배포하지 않는다.
+4. 배포 실패 시 직전 release로 자동 rollback하며 database schema는 expand/contract 호환성을 유지한다.
+5. root EBS는 매일 snapshot하고 PostgreSQL custom dump는 별도 비공개 S3 bucket에 매일 저장한다.
+6. EC2 system status failure는 CloudWatch alarm이 자동 복구하고, 외부 health workflow는 6시간마다 공개 경계와 내부 포트 비노출을 검사한다.
+
+이 구성은 비용을 우선한 단일 호스트 staging이다. production 전환 전에는 다중 AZ 데이터 계층, point-in-time recovery, 무중단 migration, 알림 수신 책임자, 지도 공급자 SLA와 별도 비용 승인을 확정해야 한다.
 
 ## 권장 파이프라인
 
