@@ -26,7 +26,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
-    tmpfs: [/tmp:size=32m,mode=1777]
+    tmpfs: ["/tmp:size=32m,mode=1777"]
     depends_on:
       web: {condition: service_healthy}
 
@@ -36,7 +36,7 @@ services:
     mem_limit: 400m
     cpus: 0.75
     networks: [edge]
-    tmpfs: [/tmp:size=64m,mode=1777]
+    tmpfs: ["/tmp:size=64m,mode=1777"]
     environment:
       HOSTNAME: 0.0.0.0
       API_INTERNAL_URL: http://api:8080
@@ -60,7 +60,7 @@ services:
     mem_limit: 1100m
     cpus: 1.5
     networks: [edge, data, analytics]
-    tmpfs: [/tmp:size=128m,mode=1777]
+    tmpfs: ["/tmp:size=128m,mode=1777"]
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/logitrack
       DB_USER: logitrack
@@ -86,7 +86,7 @@ services:
     mem_limit: 300m
     cpus: 0.5
     networks: [analytics]
-    tmpfs: [/tmp:size=64m,mode=1777]
+    tmpfs: ["/tmp:size=64m,mode=1777"]
     environment:
       ROUTING_PROVIDER: osrm
       OSRM_BASE_URL: https://router.project-osrm.org
@@ -101,7 +101,7 @@ services:
     mem_limit: 200m
     cpus: 0.25
     networks: [data]
-    tmpfs: [/tmp:size=64m,mode=1777]
+    tmpfs: ["/tmp:size=64m,mode=1777"]
     environment:
       KAFKA_BOOTSTRAP: kafka:29092
       API_URL: http://api:8080

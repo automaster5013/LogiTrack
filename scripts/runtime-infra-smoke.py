@@ -28,6 +28,9 @@ for name, service in services.items():
     image = service.get("image", "")
     if image and "${" not in image and not re.search(r"@sha256:[0-9a-f]{64}$", image):
         errors.append(f"{name} image is not digest pinned")
+    for mount in service.get("tmpfs", []):
+        if not mount.startswith("/"):
+            errors.append(f"{name} has an invalid tmpfs mount: {mount}")
 for network in ("data",):
     if not compose["networks"][network].get("internal"):
         errors.append(f"{network} network must be internal")
