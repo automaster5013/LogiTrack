@@ -17,7 +17,7 @@ required = (
     'request.method !== "GET" && !isSameOriginMutation(request)',
     'jsonError("cross_origin_request_rejected", 403)',
     'request.headers.get("origin")',
-    "new URL(origin).origin === request.nextUrl.origin",
+    "new URL(origin).origin === applicationOrigin(request.nextUrl.origin)",
     'request.headers.get("sec-fetch-site")',
     'fetchSite === "same-origin"',
     'fetchSite === "none"',

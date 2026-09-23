@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authCookie } from "../../auth/config";
+import { applicationOrigin, authCookie } from "../../auth/config";
 
 const allowedRequestHeaders = ["accept", "content-type", "idempotency-key", "x-trace-id", "x-replay-approval", "x-discard-approval"];
 const maxRequestBodyBytes = 1024 * 1024;
@@ -66,7 +66,7 @@ function isSameOriginMutation(request: NextRequest) {
   const origin = request.headers.get("origin");
   if (origin) {
     try {
-      return new URL(origin).origin === request.nextUrl.origin;
+      return new URL(origin).origin === applicationOrigin(request.nextUrl.origin);
     } catch {
       return false;
     }

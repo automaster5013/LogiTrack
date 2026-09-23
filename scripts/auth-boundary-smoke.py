@@ -46,7 +46,7 @@ if missing:
 logout_boundaries = (
     "isSameOrigin(request)",
     'request.headers.get("origin")',
-    "new URL(origin).origin === request.nextUrl.origin",
+    "new URL(origin).origin === applicationOrigin(request.nextUrl.origin)",
     'request.headers.get("sec-fetch-site")',
     'fetchSite === "same-origin"',
     'fetchSite === "none"',
@@ -59,5 +59,7 @@ logout_boundaries = (
 missing = [boundary for boundary in logout_boundaries if boundary not in logout]
 if missing:
     raise SystemExit("ERROR: OIDC logout is missing boundaries: " + ", ".join(missing))
+if 'new URL(callback("OIDC_REDIRECT_URI")).origin' not in config:
+    raise SystemExit("ERROR: OIDC origin validation must use the configured public redirect origin")
 
 print("PASS: OIDC login, callback, logout, and configuration boundaries are enforced")
