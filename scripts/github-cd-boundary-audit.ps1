@@ -48,6 +48,14 @@ $highRiskAlerts = @($dependabotAlerts | Where-Object { $_.security_advisory.seve
 Assert-True ($highRiskAlerts.Count -eq 0) "open critical or high Dependabot alerts require remediation"
 $secretAlerts = @((Invoke-GitHubGet "/secret-scanning/alerts?state=open&per_page=100") | Where-Object { $null -ne $_ })
 Assert-True ($secretAlerts.Count -eq 0) "open secret scanning alerts require remediation"
+$codeScanning = Invoke-GitHubGet "/code-scanning/default-setup"
+$codeLanguages = @($codeScanning.languages | Sort-Object)
+$expectedCodeLanguages = @("actions", "java-kotlin", "javascript", "javascript-typescript", "python", "typescript") | Sort-Object
+Assert-True ($codeScanning.state -eq "configured" -and $codeScanning.query_suite -eq "extended" -and $codeScanning.threat_model -eq "remote") "CodeQL default setup drifted"
+Assert-True ($codeScanning.runner_type -eq "standard" -and $codeScanning.schedule -eq "weekly" -and ($codeLanguages -join ",") -eq ($expectedCodeLanguages -join ",")) "CodeQL language, runner, or schedule drifted"
+$codeAlerts = @((Invoke-GitHubGet "/code-scanning/alerts?state=open&per_page=100") | Where-Object { $null -ne $_ })
+$highRiskCodeAlerts = @($codeAlerts | Where-Object { $_.rule.security_severity_level -in @("critical", "high") })
+Assert-True ($highRiskCodeAlerts.Count -eq 0) "open critical or high CodeQL alerts require remediation"
 
 $actions = Invoke-GitHubGet "/actions/permissions"
 Assert-True ($actions.enabled -and $actions.sha_pinning_required) "Actions must be enabled and require full commit SHA pinning"
@@ -96,4 +104,4 @@ $environmentSecrets = Invoke-GitHubGet "/environments/$Environment/secrets?per_p
 $repositorySecrets = Invoke-GitHubGet "/actions/secrets?per_page=100"
 Assert-True ($environmentSecrets.total_count -eq 0 -and $repositorySecrets.total_count -eq 0) "long-lived GitHub Actions secrets are configured"
 
-Write-Output "PASS: GitHub main and staging CD approval, branch, CI, variable, secret, and action boundaries are intact"
+Write-Output "PASS: GitHub main, staging CD, dependency, secret, and CodeQL boundaries are intact"

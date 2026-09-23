@@ -34,12 +34,12 @@ export default function Home(){
  const [workspaceReady,setWorkspaceReady]=useState(false);
  const [loadedWorkspaces,setLoadedWorkspaces]=useState<Set<Workspace>>(()=>new Set(["overview"]));
  const [retryingWorkspace,setRetryingWorkspace]=useState<Workspace>();
- const [workspaceUpdatedAt,setWorkspaceUpdatedAt]=useState<Partial<Record<Workspace,Date>>>({});
+ const [workspaceUpdatedAt,setWorkspaceUpdatedAt]=useState<Map<Workspace,Date>>(()=>new Map());
  const workspaceRef=useRef<Workspace>("overview");
  const workspaceNavRef=useRef<HTMLElement>(null);
  const streamConnectedOnce=useRef(false);
  const streamResyncing=useRef(false);
- const [items,setItems]=useState<Delivery[]>([]); const [connected,setConnected]=useState(false); const [streamWarning,setStreamWarning]=useState(false); const [workspaceErrors,setWorkspaceErrors]=useState<Partial<Record<Workspace,string>>>({}); const [selected,setSelected]=useState<string>();
+ const [items,setItems]=useState<Delivery[]>([]); const [connected,setConnected]=useState(false); const [streamWarning,setStreamWarning]=useState(false); const [workspaceErrors,setWorkspaceErrors]=useState<Map<Workspace,string>>(()=>new Map()); const [selected,setSelected]=useState<string>();
  const knownDeliveryIds=useRef(new Set<string>());
  const requestedMapIds=useRef(new Set<string>());
  const [fleetScope,setFleetScope]=useState<FleetScope>("LIVE"); const [fleetQuery,setFleetQuery]=useState("");
@@ -63,9 +63,9 @@ export default function Home(){
    const idSet=new Set(ids);setRoutes(old=>[...nextRoutes,...old.filter(route=>!idSet.has(route.deliveryId))]);setTelemetry(old=>{const merged=new Map([...nextTelemetry,...old].map(point=>[point.eventId,point]));return [...merged.values()].slice(0,5000)})
   }catch(error){ids.forEach(id=>requestedMapIds.current.delete(id));throw error}
  };
- const setWorkspaceError=(key:Workspace,message:string)=>setWorkspaceErrors(current=>({...current,[key]:message}));
- const clearWorkspaceError=(key:Workspace,message?:string)=>setWorkspaceErrors(current=>{if(!current[key]||(message&&current[key]!==message))return current;const next={...current};delete next[key];return next});
- const markUpdated=(key:Workspace)=>setWorkspaceUpdatedAt(current=>({...current,[key]:new Date()}));
+ const setWorkspaceError=(key:Workspace,message:string)=>setWorkspaceErrors(current=>{const next=new Map(current);next.set(key,message);return next});
+ const clearWorkspaceError=(key:Workspace,message?:string)=>setWorkspaceErrors(current=>{const existing=current.get(key);if(!existing||(message&&existing!==message))return current;const next=new Map(current);next.delete(key);return next});
+ const markUpdated=(key:Workspace)=>setWorkspaceUpdatedAt(current=>{const next=new Map(current);next.set(key,new Date());return next});
  const loadDeliveries=async()=>{const rows:Delivery[]=[];for(let page=0;;page++){const result=await fetchJson<DeliveryPage>(`${API}/api/deliveries/page?page=${page}&size=100`);rows.push(...result.items);if(!result.hasMore)return [...new Map(rows.map(item=>[item.id,item])).values()]}};
  const loadAlerts=async()=>{const rows:DeliveryAlert[]=[];for(let page=0;;page++){const result=await fetchJson<AlertPage>(`${API}/api/alerts/page?page=${page}&size=100`);rows.push(...result.items);if(!result.hasMore)return [...new Map(rows.map(item=>[item.id,item])).values()]}};
  const load=()=>{const key=workspaceRef.current;return Promise.all([loadDeliveries(),loadAlerts()]).then(async([d,a])=>{knownDeliveryIds.current=new Set(d.map(item=>item.id));setItems(d);setAlerts(a);if(key==="overview"||key==="orders")await loadMapData(d.filter(item=>item.status!=="DELIVERED").slice(0,MAP_DELIVERY_LIMIT).map(item=>item.id));clearWorkspaceError(key,"API에 연결할 수 없습니다.");markUpdated(key)}).catch(()=>setWorkspaceError(key,"API에 연결할 수 없습니다."))};
@@ -132,8 +132,8 @@ export default function Home(){
  const focusRoute=routes.find(x=>x.deliveryId===selected);
  function openWorkspace(next:Workspace){setWorkspace(next);if(workspaceFromHash(window.location.hash)!==next)window.history.pushState(null,"",`${window.location.pathname}${window.location.search}#${next}`)}
  const copy=workspaceCopy[workspace];
- const error=workspaceErrors[workspace];
- const updatedAt=workspaceUpdatedAt[workspace];
+ const error=workspaceErrors.get(workspace);
+ const updatedAt=workspaceUpdatedAt.get(workspace);
  const focusEta=focus?.eta?new Date(focus.eta):focusRoute?new Date(focusRoute.plannedEta):undefined;
  const focusEtaOverdue=Boolean(focus&&focus.status!=="DELIVERED"&&focusEta&&focusEta.getTime()<Date.now());
  const focusEtaLabel=focus?.status==="DELIVERED"?"도착":focusEta?focusEta.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}):"—";
