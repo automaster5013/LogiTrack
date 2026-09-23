@@ -14,6 +14,8 @@
 
 staging CD는 서울 리전의 `www.logitrack.kr`에 적용되어 있다. image 게시와 runtime 배포는 분리된 수동 workflow이며 둘 다 GitHub `staging` environment의 승인과 AWS OIDC 단기 자격 증명을 요구한다. 장기 AWS access key나 AWS 로그인 계정은 GitHub에 저장하지 않는다.
 
+GitHub 저장소의 실제 승인자·`main` 전용 deployment branch·environment 변수·secret 부재·기본 token read 권한과 action SHA 고정 설정은 `./scripts/github-cd-boundary-audit.ps1`로 읽기 전용 감사한다.
+
 현재 운영 경계는 다음과 같다.
 
 1. 월 비용 상한은 USD 70 Budget이며 80% 실제 비용과 100% forecast를 직접 email로 알린다. Budget은 리소스를 자동 중지하는 hard cap이 아니다.

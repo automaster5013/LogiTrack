@@ -79,6 +79,8 @@ jobs:
         run: python scripts/runtime-infra-smoke.py
       - name: Validate read-only AWS runtime audit coverage
         run: python scripts/aws-runtime-audit-smoke.py
+      - name: Validate read-only GitHub CD audit coverage
+        run: python scripts/github-cd-boundary-audit-smoke.py
       - name: Validate scheduled staging external health boundary
         run: python scripts/staging-health-workflow-smoke.py
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
