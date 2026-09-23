@@ -42,6 +42,8 @@ Assert-True ($repositoryInfo.delete_branch_on_merge -and -not $repositoryInfo.al
 $security = $repositoryInfo.security_and_analysis
 Assert-True ($security.secret_scanning.status -eq "enabled" -and $security.secret_scanning_push_protection.status -eq "enabled") "secret scanning or push protection is disabled"
 Assert-True ($security.dependabot_security_updates.status -eq "enabled") "Dependabot security updates are disabled"
+$privateVulnerabilityReporting = Invoke-GitHubGet "/private-vulnerability-reporting"
+Assert-True ($privateVulnerabilityReporting.enabled) "private vulnerability reporting is disabled"
 Assert-True ((Get-GitHubStatus "/vulnerability-alerts") -eq 204 -and (Get-GitHubStatus "/automated-security-fixes") -eq 200) "Dependabot alerts or automated security fixes are disabled"
 $dependabotAlerts = @((Invoke-GitHubGet "/dependabot/alerts?state=open&per_page=100") | Where-Object { $null -ne $_ })
 $highRiskAlerts = @($dependabotAlerts | Where-Object { $_.security_advisory.severity -in @("critical", "high") })
@@ -104,4 +106,4 @@ $environmentSecrets = Invoke-GitHubGet "/environments/$Environment/secrets?per_p
 $repositorySecrets = Invoke-GitHubGet "/actions/secrets?per_page=100"
 Assert-True ($environmentSecrets.total_count -eq 0 -and $repositorySecrets.total_count -eq 0) "long-lived GitHub Actions secrets are configured"
 
-Write-Output "PASS: GitHub main, staging CD, dependency, secret, and CodeQL boundaries are intact"
+Write-Output "PASS: GitHub main, staging CD, private reporting, dependency, secret, and CodeQL boundaries are intact"

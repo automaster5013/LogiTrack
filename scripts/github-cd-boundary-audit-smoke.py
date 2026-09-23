@@ -15,6 +15,8 @@ required = (
     "dependabot_security_updates.status",
     'Get-GitHubStatus "/vulnerability-alerts"',
     'Get-GitHubStatus "/automated-security-fixes"',
+    'Invoke-GitHubGet "/private-vulnerability-reporting"',
+    "privateVulnerabilityReporting.enabled",
     "/dependabot/alerts?state=open",
     "/secret-scanning/alerts?state=open",
     "/code-scanning/default-setup",
@@ -44,4 +46,4 @@ if missing:
 for mutation in ("-Method Post", "-Method Put", "-Method Patch", "-Method Delete"):
     if mutation in source:
         raise SystemExit(f"ERROR: GitHub CD audit must remain read-only: {mutation}")
-print("PASS: GitHub audit covers PR protection, dependency, secret, CodeQL, merge, deployment, and action boundaries")
+print("PASS: GitHub audit covers PR protection, private reporting, dependency, secret, CodeQL, merge, deployment, and action boundaries")
