@@ -80,6 +80,22 @@ jobs:
             grep -Eqi "^set-cookie: $cookie=;.*max-age=0" /tmp/logitrack-same-origin-logout-headers.normalized
           done
 
+          for method in POST DELETE; do
+            cross_origin_bff_status="$(curl --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
+              --request "$method" --header 'Origin: https://attacker.invalid' \
+              --output /tmp/logitrack-cross-origin-bff --write-out '%{http_code}' \
+              "https://$TARGET_HOST/backend/api/deliveries")"
+            test "$cross_origin_bff_status" = 403
+            jq -e '.error == "cross_origin_request_rejected"' /tmp/logitrack-cross-origin-bff >/dev/null
+          done
+
+          same_origin_bff_status="$(curl --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
+            --request POST --header "Origin: https://$TARGET_HOST" \
+            --output /tmp/logitrack-same-origin-bff --write-out '%{http_code}' \
+            "https://$TARGET_HOST/backend/api/deliveries")"
+          test "$same_origin_bff_status" = 401
+          jq -e '.error == "authentication_required"' /tmp/logitrack-same-origin-bff >/dev/null
+
           openssl s_client -servername "$TARGET_HOST" -connect "$TARGET_HOST:443" </dev/null 2>/dev/null \
             | openssl x509 -checkend 1209600 -noout
 
