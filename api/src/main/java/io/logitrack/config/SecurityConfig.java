@@ -55,6 +55,7 @@ public class SecurityConfig {
     static OAuth2TokenValidatorResult validateAccessToken(Jwt jwt,String clientId,Instant now){
         boolean valid="access".equals(jwt.getClaimAsString("token_use"))
             &&clientId.equals(jwt.getClaimAsString("client_id"))
+            &&jwt.getSubject()!=null&&!jwt.getSubject().isBlank()&&jwt.getSubject().length()<=120
             &&jwt.getIssuedAt()!=null
             &&!jwt.getIssuedAt().isAfter(now.plusSeconds(ALLOWED_CLOCK_SKEW_SECONDS));
         return valid?OAuth2TokenValidatorResult.success():OAuth2TokenValidatorResult.failure(

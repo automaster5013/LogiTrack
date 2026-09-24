@@ -44,6 +44,10 @@ class SecurityConfigTest{
         assertThat(SecurityConfig.validateAccessToken(valid,"logitrack-client",now).hasErrors()).isFalse();
         assertThat(SecurityConfig.validateAccessToken(future,"logitrack-client",now).hasErrors()).isTrue();
         assertThat(SecurityConfig.validateAccessToken(valid,"another-client",now).hasErrors()).isTrue();
+        var oversizedSubject=Jwt.withTokenValue("oversized").header("alg","RS256").subject("x".repeat(121))
+            .issuedAt(now).expiresAt(now.plusSeconds(3600)).claim("token_use","access")
+            .claim("client_id","logitrack-client").build();
+        assertThat(SecurityConfig.validateAccessToken(oversizedSubject,"logitrack-client",now).hasErrors()).isTrue();
     }
 
     @Test void replacesSpoofedOperatorHeaderWithAuthenticatedSubject()throws Exception{
