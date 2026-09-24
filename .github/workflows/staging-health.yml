@@ -36,6 +36,27 @@ jobs:
           grep -Fq 'LIVE LOGISTICS INTELLIGENCE' /tmp/logitrack-home
           grep -Fq '물류의 모든 순간을' /tmp/logitrack-home
 
+          curl --fail --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
+            --dump-header /tmp/logitrack-showcase-headers --output /tmp/logitrack-showcase \
+            "https://$TARGET_HOST/showcase"
+          for content in 'LIVE LOGISTICS INTELLIGENCE' 'SEOUL CONTROL TOWER' \
+            '주문과 운송의 연결' '재고와 현장의 동기화' '문제를 놓치지 않는 운영'; do
+            grep -Fq "$content" /tmp/logitrack-showcase
+          done
+          tr -d '\r' </tmp/logitrack-showcase-headers >/tmp/logitrack-showcase-headers.normalized
+          grep -Eqi '^strict-transport-security: max-age=31536000; includeSubDomains$' /tmp/logitrack-showcase-headers.normalized
+          grep -Eqi "^content-security-policy: base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'$" /tmp/logitrack-showcase-headers.normalized
+          grep -oE 'href="/_next/static/(css|chunks)/[^"]+\.css"' /tmp/logitrack-showcase \
+            | cut -d'"' -f2 | sort -u >/tmp/logitrack-showcase-css-paths
+          test -s /tmp/logitrack-showcase-css-paths
+          : >/tmp/logitrack-showcase.css
+          while read -r showcase_css; do
+            curl --fail --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
+              "https://$TARGET_HOST$showcase_css" >>/tmp/logitrack-showcase.css
+          done </tmp/logitrack-showcase-css-paths
+          grep -Fq 'height:100dvh' /tmp/logitrack-showcase.css
+          grep -Fq 'grid-template-rows:64px minmax(0,1fr) auto 38px' /tmp/logitrack-showcase.css
+
           console_headers="$(curl --silent --show-error --head --proto '=https' --tlsv1.2 --max-time 20 \
             "https://$TARGET_HOST/console" | tr -d '\r')"
           grep -Eq '^HTTP/[0-9.]+ (302|303|307|308)' <<<"$console_headers"
