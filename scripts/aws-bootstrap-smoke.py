@@ -54,6 +54,13 @@ def main() -> None:
         'data "aws_caller_identity" "current"',
         "AWS_ACCOUNT_ID        = data.aws_caller_identity.current.account_id",
         "aws_iam_openid_connect_provider.github.arn",
+        'resource "aws_iam_role" "boundary_auditor"',
+        'name                 = "logitrack-staging-boundary-auditor"',
+        ":ref:refs/heads/main",
+        'resource "aws_iam_role_policy" "boundary_auditor"',
+        'actions   = ["s3:GetObject"]',
+        'actions   = ["route53:ListResourceRecordSets"]',
+        'boundary_auditor_role_arn',
     ):
         require(source, fragment)
 
@@ -85,7 +92,7 @@ def main() -> None:
     if not trust or trust.group(1) != "repo:${var.github_owner}@${var.github_owner_id}/${var.github_repository}@${var.github_repository_id}:environment:${var.github_environment}":
         raise AssertionError("OIDC subject is not restricted to one repository environment")
 
-    print("PASS: AWS bootstrap is immutable, lifecycle-bounded, least-privilege, environment-scoped, and runtime-free")
+    print("PASS: AWS bootstrap is immutable, lifecycle-bounded, least-privilege, environment/main-scoped, and runtime-free")
 
 
 if __name__ == "__main__":

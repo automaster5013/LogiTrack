@@ -102,6 +102,8 @@ jobs:
         run: python scripts/aws-runtime-audit-smoke.py
       - name: Validate read-only AWS authentication audit coverage
         run: python scripts/aws-auth-audit-smoke.py
+      - name: Validate scheduled AWS boundary audit
+        run: python scripts/aws-boundary-audit-workflow-smoke.py
       - name: Validate read-only GitHub CD audit coverage
         run: python scripts/github-cd-boundary-audit-smoke.py
       - name: Validate scheduled staging external health boundary

@@ -74,6 +74,16 @@ variable "repository_prefix" {
   }
 }
 
+variable "hosted_zone_id" {
+  description = "Route 53 hosted zone containing the reviewed LogiTrack public records."
+  type        = string
+  default     = "Z05031871LL3C3WCCPUJO"
+  validation {
+    condition     = can(regex("^Z[A-Z0-9]+$", var.hosted_zone_id))
+    error_message = "hosted_zone_id must be a valid Route 53 hosted zone identifier."
+  }
+}
+
 variable "retained_images" {
   description = "Number of newest images retained in each service repository for staging rollback."
   type        = number
