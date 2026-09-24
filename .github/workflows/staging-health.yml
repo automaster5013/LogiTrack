@@ -41,6 +41,35 @@ jobs:
           grep -Eq '^HTTP/[0-9.]+ (302|303|307|308)' <<<"$console_headers"
           grep -Eqi '^location: /login\?returnTo=%2Fconsole$' <<<"$console_headers"
 
+          curl --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
+            --dump-header /tmp/logitrack-auth-login-headers --output /dev/null \
+            "https://$TARGET_HOST/auth/login"
+          tr -d '\r' </tmp/logitrack-auth-login-headers >/tmp/logitrack-auth-login-headers.normalized
+          grep -Eq '^HTTP/[0-9.]+ (302|303|307|308)' /tmp/logitrack-auth-login-headers.normalized
+          grep -Eqi '^cache-control: .*no-store' /tmp/logitrack-auth-login-headers.normalized
+          for cookie in lt_oauth_state lt_oidc_nonce lt_pkce_verifier; do
+            grep -Eqi "^set-cookie: $cookie=[A-Za-z0-9_-]+; Path=/auth; .*Max-Age=300; Secure; HttpOnly; SameSite=lax$" \
+              /tmp/logitrack-auth-login-headers.normalized
+          done
+          authorization_location="$(sed -n 's/^location: //Ip' /tmp/logitrack-auth-login-headers.normalized)"
+          grep -Eq '^https://auth\.logitrack\.kr/oauth2/authorize\?' <<<"$authorization_location"
+          [[ "$authorization_location" == *'response_type=code'* ]]
+          [[ "$authorization_location" == *'client_id='* ]]
+          [[ "$authorization_location" == *'redirect_uri=https%3A%2F%2Fwww.logitrack.kr%2Fauth%2Fcallback'* ]]
+          [[ "$authorization_location" == *'scope=openid+profile'* ]]
+          [[ "$authorization_location" == *'prompt=login'* ]]
+          [[ "$authorization_location" == *'code_challenge_method=S256'* ]]
+          redirect_state="$(sed -nE 's/.*[?&]state=([^&]+).*/\1/p' <<<"$authorization_location")"
+          redirect_nonce="$(sed -nE 's/.*[?&]nonce=([^&]+).*/\1/p' <<<"$authorization_location")"
+          redirect_challenge="$(sed -nE 's/.*[?&]code_challenge=([^&]+).*/\1/p' <<<"$authorization_location")"
+          cookie_state="$(sed -nE 's/^set-cookie: lt_oauth_state=([^;]+).*/\1/Ip' /tmp/logitrack-auth-login-headers.normalized)"
+          cookie_nonce="$(sed -nE 's/^set-cookie: lt_oidc_nonce=([^;]+).*/\1/Ip' /tmp/logitrack-auth-login-headers.normalized)"
+          pkce_verifier="$(sed -nE 's/^set-cookie: lt_pkce_verifier=([^;]+).*/\1/Ip' /tmp/logitrack-auth-login-headers.normalized)"
+          expected_challenge="$(printf %s "$pkce_verifier" | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=')"
+          test -n "$redirect_state" && test "$redirect_state" = "$cookie_state"
+          test -n "$redirect_nonce" && test "$redirect_nonce" = "$cookie_nonce"
+          test -n "$redirect_challenge" && test "$redirect_challenge" = "$expected_challenge"
+
           curl --fail --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
             --dump-header /tmp/logitrack-headers --output /tmp/logitrack-login \
             "https://$TARGET_HOST/login"
