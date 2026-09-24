@@ -41,9 +41,16 @@ export async function GET(request: NextRequest) {
     if (!token) return finish("invalid_token_response");
 
     const [{ payload: idPayload }, accessPayload] = await Promise.all([
-      jwtVerify(token.id_token, cognitoJwks(issuer), { issuer, audience: clientId, requiredClaims: ["sub", "nonce"], maxTokenAge: "5 minutes" }),
+      jwtVerify(token.id_token, cognitoJwks(issuer), {
+        issuer,
+        audience: clientId,
+        algorithms: ["RS256"],
+        requiredClaims: ["exp", "iat", "sub", "nonce", "token_use"],
+        maxTokenAge: "5 minutes",
+      }),
       verifyAccessToken(token.access_token),
     ]);
+    if (idPayload.token_use !== "id") throw new Error("Invalid ID token purpose");
     if (idPayload.nonce !== expectedNonce) throw new Error("OIDC nonce mismatch");
     if (idPayload.sub !== accessPayload.sub) throw new Error("OIDC subject mismatch");
     const accessTokenSecondsRemaining = Math.floor(accessPayload.exp! - Date.now() / 1000);

@@ -18,6 +18,7 @@ export async function verifyAccessToken(token: string) {
   const { issuer, clientId } = accessTokenConfig();
   const { payload } = await jwtVerify(token, cognitoJwks(issuer), {
     issuer,
+    algorithms: ["RS256"],
     requiredClaims: ["exp", "iat", "sub", "token_use", "client_id"],
   });
   if (payload.token_use !== "access" || payload.client_id !== clientId) throw new Error("Invalid access token claims");
