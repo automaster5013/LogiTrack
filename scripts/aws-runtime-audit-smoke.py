@@ -33,6 +33,8 @@ required = (
     "rootVolume.Encrypted",
     '($ports -join ",") -eq "80,443"',
     "Resolve-Ipv4WithRetry",
+    "[System.Net.Dns]::GetHostAddresses",
+    "AddressFamily]::InterNetwork",
     "ec2:recover",
     "get-lifecycle-policy",
     "MaximumBackupAgeHours",
