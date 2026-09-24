@@ -61,3 +61,4 @@ API에는 `SECURITY_ENABLED=true`, 동일한 issuer를 `SPRING_SECURITY_OAUTH2_R
 - access token 쿠키가 JavaScript에서 보이지 않고 로그·오류 응답에 출력되지 않는다.
 - 패스키 분실·운영자 비활성화·그룹 제거가 1시간 이내 모든 세션에서 반영된다.
 - `/`와 `/showcase`, health check만 인증 없이 접근 가능하다.
+- 인증이 성공하면 콜백은 공개 showcase가 아닌 `/console` 운영 화면으로 이동한다.
