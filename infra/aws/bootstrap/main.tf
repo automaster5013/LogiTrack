@@ -213,7 +213,7 @@ data "aws_iam_policy_document" "boundary_auditor" {
   statement {
     sid       = "ReadStagingBackupBucket"
     effect    = "Allow"
-    actions   = ["s3:GetBucketEncryption", "s3:GetBucketLifecycleConfiguration", "s3:GetBucketPublicAccessBlock", "s3:ListBucket"]
+    actions   = ["s3:GetEncryptionConfiguration", "s3:GetLifecycleConfiguration", "s3:GetBucketPublicAccessBlock", "s3:ListBucket"]
     resources = ["arn:${data.aws_partition.current.partition}:s3:::logitrack-staging-backups-${data.aws_caller_identity.current.account_id}-${var.aws_region}"]
   }
   statement {

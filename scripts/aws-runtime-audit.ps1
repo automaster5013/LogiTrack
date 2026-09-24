@@ -137,14 +137,14 @@ $auditorActions = @(
   "ssm:DescribeAssociation", "ssm:DescribeInstanceInformation", "ssm:ListAssociations", "sts:GetCallerIdentity",
   "iam:GetRole", "iam:GetRolePolicy", "iam:ListAttachedRolePolicies", "iam:ListRolePolicies",
   "ecr:DescribeRepositories", "ecr:GetLifecyclePolicy",
-  "s3:GetBucketEncryption", "s3:GetBucketLifecycleConfiguration", "s3:GetBucketPublicAccessBlock", "s3:ListBucket", "s3:GetObject",
+  "s3:GetEncryptionConfiguration", "s3:GetLifecycleConfiguration", "s3:GetBucketPublicAccessBlock", "s3:ListBucket", "s3:GetObject",
   "route53:ListResourceRecordSets"
 )
 $auditorResources = @{}
 foreach ($action in $auditorActions) { $auditorResources[$action] = "*" }
 foreach ($action in @("iam:GetRole", "iam:GetRolePolicy", "iam:ListAttachedRolePolicies", "iam:ListRolePolicies")) { $auditorResources[$action] = "arn:aws:iam::${ExpectedAccountId}:role/logitrack-staging-*" }
 foreach ($action in @("ecr:DescribeRepositories", "ecr:GetLifecyclePolicy")) { $auditorResources[$action] = $expectedRepositories }
-foreach ($action in @("s3:GetBucketEncryption", "s3:GetBucketLifecycleConfiguration", "s3:GetBucketPublicAccessBlock", "s3:ListBucket")) { $auditorResources[$action] = $expectedBackupBucket }
+foreach ($action in @("s3:GetEncryptionConfiguration", "s3:GetLifecycleConfiguration", "s3:GetBucketPublicAccessBlock", "s3:ListBucket")) { $auditorResources[$action] = $expectedBackupBucket }
 $auditorResources["s3:GetObject"] = "$expectedBackupBucket/postgres/*"
 $auditorResources["route53:ListResourceRecordSets"] = "arn:aws:route53:::hostedzone/Z05031871LL3C3WCCPUJO"
 $null = Assert-RoleBoundary -RoleName "logitrack-staging-boundary-auditor" `
