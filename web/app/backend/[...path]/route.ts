@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { applicationOrigin, authCookie } from "../../auth/config";
+import { verifyAccessToken } from "../../auth/access-token";
+import { applicationOrigin, authCookie, secureCookie } from "../../auth/config";
 
 const allowedRequestHeaders = ["accept", "content-type", "idempotency-key", "x-trace-id", "x-replay-approval", "x-discard-approval"];
 const maxRequestBodyBytes = 1024 * 1024;
@@ -16,6 +17,13 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path:
 
   const token = request.cookies.get(authCookie.access)?.value;
   if (!token) return jsonError("authentication_required", 401);
+  try {
+    await verifyAccessToken(token);
+  } catch {
+    const response = jsonError("authentication_required", 401);
+    response.cookies.set(authCookie.access, "", { ...secureCookie(0, "/"), expires: new Date(0) });
+    return response;
+  }
 
   const path = (await params).path;
   if (!path.length || path[0] !== "api" || path.some(part => !part || part === "." || part === ".." || part.includes("/"))) {

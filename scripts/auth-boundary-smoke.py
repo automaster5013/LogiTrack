@@ -7,6 +7,7 @@ logout = Path("web/app/auth/logout/route.ts").read_text(encoding="utf-8")
 login_page = Path("web/app/login/page.tsx").read_text(encoding="utf-8")
 proxy = Path("web/proxy.ts").read_text(encoding="utf-8")
 access_token = Path("web/app/auth/access-token.ts").read_text(encoding="utf-8")
+bff = Path("web/app/backend/[...path]/route.ts").read_text(encoding="utf-8")
 
 callback_boundaries = (
     "const tokenExchangeTimeoutMs = 10_000",
@@ -100,6 +101,16 @@ access_token_boundaries = (
 missing = [boundary for boundary in access_token_boundaries if boundary not in access_token]
 if missing:
     raise SystemExit("ERROR: access token verification is missing boundaries: " + ", ".join(missing))
+
+bff_token_boundaries = (
+    'import { verifyAccessToken } from "../../auth/access-token"',
+    "await verifyAccessToken(token)",
+    'response.cookies.set(authCookie.access, ""',
+    '{ ...secureCookie(0, "/"), expires: new Date(0) }',
+)
+missing = [boundary for boundary in bff_token_boundaries if boundary not in bff]
+if missing:
+    raise SystemExit("ERROR: BFF access token verification is missing boundaries: " + ", ".join(missing))
 
 login_error_boundaries = (
     "authenticationErrors:Record<string,string>",
