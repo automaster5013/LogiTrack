@@ -33,6 +33,19 @@ class SecurityConfigTest{
         assertThat(new SecurityConfig.RoleClaimConverter().convert(jwt)).extracting("authority").containsExactly("ROLE_ADMIN");
     }
 
+    @Test void validatesAccessTokenPurposeClientAndIssuedAtBoundary(){
+        var now=Instant.parse("2026-09-25T00:00:00Z");
+        var valid=Jwt.withTokenValue("valid").header("alg","RS256").subject("operator")
+            .issuedAt(now.plusSeconds(60)).expiresAt(now.plusSeconds(3600))
+            .claim("token_use","access").claim("client_id","logitrack-client").build();
+        var future=Jwt.withTokenValue("future").header("alg","RS256").subject("operator")
+            .issuedAt(now.plusSeconds(61)).expiresAt(now.plusSeconds(3600))
+            .claim("token_use","access").claim("client_id","logitrack-client").build();
+        assertThat(SecurityConfig.validateAccessToken(valid,"logitrack-client",now).hasErrors()).isFalse();
+        assertThat(SecurityConfig.validateAccessToken(future,"logitrack-client",now).hasErrors()).isTrue();
+        assertThat(SecurityConfig.validateAccessToken(valid,"another-client",now).hasErrors()).isTrue();
+    }
+
     @Test void replacesSpoofedOperatorHeaderWithAuthenticatedSubject()throws Exception{
         var authentication=new TestingAuthenticationToken("oidc-subject-42","n/a");
         authentication.setAuthenticated(true);
