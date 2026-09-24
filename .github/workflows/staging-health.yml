@@ -167,18 +167,47 @@ jobs:
           for method in POST DELETE; do
             cross_origin_bff_status="$(curl --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
               --request "$method" --header 'Origin: https://attacker.invalid' \
-              --output /tmp/logitrack-cross-origin-bff --write-out '%{http_code}' \
+              --dump-header /tmp/logitrack-cross-origin-bff-headers --output /tmp/logitrack-cross-origin-bff \
+              --write-out '%{http_code}' \
               "https://$TARGET_HOST/backend/api/deliveries")"
             test "$cross_origin_bff_status" = 403
             jq -e '.error == "cross_origin_request_rejected"' /tmp/logitrack-cross-origin-bff >/dev/null
+            tr -d '\r' </tmp/logitrack-cross-origin-bff-headers >/tmp/logitrack-cross-origin-bff-headers.normalized
+            grep -Eqi '^content-type: application/json' /tmp/logitrack-cross-origin-bff-headers.normalized
+            grep -Eqi '^cache-control: .*no-store' /tmp/logitrack-cross-origin-bff-headers.normalized
+            if grep -Eqi '^set-cookie:' /tmp/logitrack-cross-origin-bff-headers.normalized; then
+              echo 'rejected cross-origin proxy requests must not mutate authentication cookies' >&2
+              exit 1
+            fi
           done
 
           same_origin_bff_status="$(curl --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
             --request POST --header "Origin: https://$TARGET_HOST" \
-            --output /tmp/logitrack-same-origin-bff --write-out '%{http_code}' \
+            --dump-header /tmp/logitrack-same-origin-bff-headers --output /tmp/logitrack-same-origin-bff \
+            --write-out '%{http_code}' \
             "https://$TARGET_HOST/backend/api/deliveries")"
           test "$same_origin_bff_status" = 401
           jq -e '.error == "authentication_required"' /tmp/logitrack-same-origin-bff >/dev/null
+          tr -d '\r' </tmp/logitrack-same-origin-bff-headers >/tmp/logitrack-same-origin-bff-headers.normalized
+          grep -Eqi '^content-type: application/json' /tmp/logitrack-same-origin-bff-headers.normalized
+          grep -Eqi '^cache-control: .*no-store' /tmp/logitrack-same-origin-bff-headers.normalized
+          if grep -Eqi '^set-cookie:' /tmp/logitrack-same-origin-bff-headers.normalized; then
+            echo 'anonymous proxy rejection must not mutate authentication cookies' >&2
+            exit 1
+          fi
+
+          anonymous_read_status="$(curl --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
+            --dump-header /tmp/logitrack-anonymous-read-headers --output /tmp/logitrack-anonymous-read \
+            --write-out '%{http_code}' "https://$TARGET_HOST/backend/api/deliveries")"
+          test "$anonymous_read_status" = 401
+          jq -e '.error == "authentication_required"' /tmp/logitrack-anonymous-read >/dev/null
+          tr -d '\r' </tmp/logitrack-anonymous-read-headers >/tmp/logitrack-anonymous-read-headers.normalized
+          grep -Eqi '^content-type: application/json' /tmp/logitrack-anonymous-read-headers.normalized
+          grep -Eqi '^cache-control: .*no-store' /tmp/logitrack-anonymous-read-headers.normalized
+          if grep -Eqi '^set-cookie:' /tmp/logitrack-anonymous-read-headers.normalized; then
+            echo 'anonymous proxy reads must not mutate authentication cookies' >&2
+            exit 1
+          fi
 
           auth_headers="$(curl --silent --show-error --head --proto '=https' --tlsv1.2 --max-time 20 \
             "https://$AUTH_HOST/oauth2/authorize" | tr -d '\r')"
