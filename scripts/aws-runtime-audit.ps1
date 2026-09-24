@@ -26,7 +26,7 @@ function Resolve-Ipv4WithRetry {
   param([Parameter(Mandatory)][string]$Name)
   for ($attempt = 1; $attempt -le 3; $attempt++) {
     try {
-      $addresses = @(Resolve-DnsName -Name $Name -Type A -ErrorAction Stop | Where-Object Type -eq "A" | Select-Object -ExpandProperty IPAddress)
+      $addresses = @([System.Net.Dns]::GetHostAddresses($Name) | Where-Object AddressFamily -eq ([System.Net.Sockets.AddressFamily]::InterNetwork) | ForEach-Object IPAddressToString)
       if ($addresses.Count -gt 0) { return $addresses }
     } catch {
       if ($attempt -eq 3) { throw "AUDIT FAILED: DNS lookup failed after 3 attempts: $($_.Exception.Message)" }
