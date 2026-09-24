@@ -8,8 +8,8 @@
 - 수동 승인된 staging image publication을 구현했다. `.github/workflows/publish-staging-images.yml`은 `main`에 포함된 full commit SHA만 받아 GitHub `staging` environment 승인 뒤 OIDC 단기 자격 증명으로 검증 완료 이미지를 ECR에 게시한다.
 - 저비용 staging runtime과 실제 배포 단계도 구현했다. 서울 리전의 단일 EC2, 암호화 gp3, Elastic IP, Route 53, Caddy TLS, SSM 배포와 USD 70 Budget을 사용하며 NAT Gateway, ALB, RDS, ElastiCache, MSK와 SSH ingress는 만들지 않는다.
 - `.github/workflows/deploy-staging.yml`은 게시 실행의 release manifest와 ECR digest를 재검증하고 OIDC 단기 자격 증명으로 지정 instance에만 SSM 명령을 보낸다. Compose health와 외부 HTTPS/HSTS가 모두 통과해야 배포가 성공한다.
-- `.github/workflows/staging-health.yml`은 별도 cloud 자격 증명 없이 6시간마다 DNS, HTTP→HTTPS redirect, LogiTrack 로그인 화면 식별자, 공개 origin으로만 복귀하는 잘못된 OIDC callback과 임시 쿠키 제거, 알려진 인증 실패의 안전한 안내와 알 수 없는 오류 비노출, cache 금지된 runtime UUID endpoint, TLS 인증서의 14일 이상 잔여기간, CSP를 포함한 보안 header, 서버·reverse proxy·프레임워크 식별 header와 내부 서비스 포트 비노출을 검사한다.
-- staging 배포도 완료 처리 전에 로그인 시작 응답의 Cognito authorize 대상·PKCE challenge·state·nonce·5분 Secure/HttpOnly 쿠키 결합, 잘못된 callback의 공개 로그인 URL 복귀·임시 쿠키 제거·access token 비변경, logout의 same-origin 강제·Cognito 공개 복귀 URL·전체 인증 쿠키 제거, 알려진 인증 실패 안내·재시도·접근성 경고, 오류 응답의 `no-store`와 쿠키 비변경, 알 수 없는 오류 비노출을 검사한다.
+- `.github/workflows/staging-health.yml`은 별도 cloud 자격 증명 없이 6시간마다 DNS, HTTP→HTTPS redirect, LogiTrack 로그인 화면 식별자, 공개 origin으로만 복귀하는 잘못된 OIDC callback과 임시 쿠키 제거, 인증 프록시의 cross-origin 변경 거부와 비로그인 읽기·쓰기 거부 응답의 JSON·`no-store`·쿠키 비변경, 알려진 인증 실패의 안전한 안내와 알 수 없는 오류 비노출, cache 금지된 runtime UUID endpoint, TLS 인증서의 14일 이상 잔여기간, CSP를 포함한 보안 header, 서버·reverse proxy·프레임워크 식별 header와 내부 서비스 포트 비노출을 검사한다.
+- staging 배포도 완료 처리 전에 로그인 시작 응답의 Cognito authorize 대상·PKCE challenge·state·nonce·5분 Secure/HttpOnly 쿠키 결합, 잘못된 callback의 공개 로그인 URL 복귀·임시 쿠키 제거·access token 비변경, logout의 same-origin 강제·Cognito 공개 복귀 URL·전체 인증 쿠키 제거, 인증 프록시의 cross-origin·비로그인 요청 거부와 cache·쿠키 경계, 알려진 인증 실패 안내·재시도·접근성 경고, 오류 응답의 `no-store`와 쿠키 비변경, 알 수 없는 오류 비노출을 검사한다.
 
 ## 현재 staging CD 경계
 
