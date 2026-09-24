@@ -42,6 +42,15 @@ for boundary in (
     '"https://$TARGET_HOST/"',
     "LIVE LOGISTICS INTELLIGENCE",
     "물류의 모든 순간을",
+    '"https://$TARGET_HOST/showcase"',
+    "SEOUL CONTROL TOWER",
+    "주문과 운송의 연결",
+    "재고와 현장의 동기화",
+    "문제를 놓치지 않는 운영",
+    "logitrack-showcase-css-paths",
+    "while read -r showcase_css",
+    "height:100dvh",
+    "grid-template-rows:64px minmax(0,1fr) auto 38px",
     '"https://$TARGET_HOST/console"',
     "returnTo=%2Fconsole",
     "forged_console_headers",
@@ -100,4 +109,4 @@ if errors:
 for header in ("-Server", "-Via", "-X-Powered-By", "-X-Nextjs-*"):
     if header not in caddy:
         raise SystemExit(f"ERROR: staging proxy does not suppress identity header: {header}")
-print("PASS: scheduled staging health verifies public TLS, auth mutation origins, and private port boundaries without credentials")
+print("PASS: scheduled staging health verifies showcase layout, public TLS, auth boundaries, and private ports without credentials")
