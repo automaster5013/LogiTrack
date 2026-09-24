@@ -4,7 +4,7 @@
 
 ## 완료
 
-- Cognito WebAuthn 교차 기기 QR 로그인용 Authorization Code + PKCE/nonce BFF, HttpOnly access-token 세션, 제한된 API 프록시, Cognito 그룹 RBAC와 access-token client 검증을 구현했다. `/showcase`는 정적 사전 렌더링되는 프로젝트 소개·가상 운송 관제 첫 화면으로 추가했다.
+- Cognito WebAuthn 교차 기기 QR 로그인용 Authorization Code + PKCE/nonce BFF, HttpOnly access-token 세션, 제한된 API 프록시, Cognito 그룹 RBAC와 access-token client 검증을 구현했다. `/`와 `/showcase`는 정적 사전 렌더링되는 프로젝트 소개·가상 운송 관제 첫 화면이며, 인증된 운영 콘솔은 `/console`에서 제공한다.
 - staging release manifest에 artifact 보존 기간을 숫자로 기록·검증해 독립 증적에서도 30일 만료 정책 확인 가능
 - staging release manifest와 실행 요약에 배포 대상 환경을 기록·검증해 게시 증적을 `staging` 승인 경계에 고정
 - staging release manifest와 실행 요약에 `workflow_dispatch` 실행 이벤트를 기록·검증해 수동 승인 게시 경로를 증적에 고정

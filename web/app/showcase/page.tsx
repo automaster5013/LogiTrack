@@ -12,15 +12,15 @@ const vehicles=[
 export default function Showcase(){
  return <main className="showcase">
   <nav className="showcaseNav" aria-label="쇼케이스 메뉴">
-   <Link className="showcaseBrand" href="/showcase" aria-label="LogiTrack 쇼케이스"><span>LT</span><b>LOGITRACK</b></Link>
-   <div><a href="#system">SYSTEM</a><a href="#flow">FLOW</a><Link className="consoleLink" href="/">운영 콘솔 열기 ↗</Link></div>
+   <Link className="showcaseBrand" href="/" aria-label="LogiTrack 쇼케이스"><span>LT</span><b>LOGITRACK</b></Link>
+   <div><a href="#system">SYSTEM</a><a href="#flow">FLOW</a><Link className="consoleLink" href="/console">운영 콘솔 열기 ↗</Link></div>
   </nav>
   <section className="showcaseHero" aria-labelledby="showcase-title">
    <div className="heroCopy">
     <p className="showcaseEyebrow"><i/> LIVE LOGISTICS INTELLIGENCE</p>
     <h1 id="showcase-title"><span>물류의 모든 순간을</span><br/><em>하나의 흐름</em>으로.</h1>
     <p className="heroLead">주문부터 창고, 배차, 실시간 운송, 이상 감지와 복구까지.<br/>LogiTrack은 흩어진 운영 신호를 실행 가능한 한 화면으로 연결합니다.</p>
-    <div className="heroActions"><Link href="/">실시간 관제 체험하기 <span>→</span></Link><a href="#system">시스템 살펴보기</a></div>
+    <div className="heroActions"><Link href="/console">실시간 관제 체험하기 <span>→</span></Link><a href="#system">시스템 살펴보기</a></div>
     <dl className="heroMetrics"><div><dt>99.9<small>%</small></dt><dd>목표 가용성</dd></div><div><dt>&lt; 3<small>s</small></dt><dd>이벤트 가시화</dd></div><div><dt>360<small>°</small></dt><dd>운영 추적성</dd></div></dl>
    </div>
    <div className="simulator" aria-label="가상 물류 관제 시뮬레이터">

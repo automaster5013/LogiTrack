@@ -32,6 +32,16 @@ jobs:
           grep -Eqi '^location: https://www\.logitrack\.kr/login$' <<<"$http_headers"
 
           curl --fail --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
+            --output /tmp/logitrack-home "https://$TARGET_HOST/"
+          grep -Fq 'LIVE LOGISTICS INTELLIGENCE' /tmp/logitrack-home
+          grep -Fq '물류의 모든 순간을' /tmp/logitrack-home
+
+          console_headers="$(curl --silent --show-error --head --proto '=https' --tlsv1.2 --max-time 20 \
+            "https://$TARGET_HOST/console" | tr -d '\r')"
+          grep -Eq '^HTTP/[0-9.]+ (302|303|307|308)' <<<"$console_headers"
+          grep -Eqi '^location: /login\?returnTo=%2Fconsole$' <<<"$console_headers"
+
+          curl --fail --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
             --dump-header /tmp/logitrack-headers --output /tmp/logitrack-login \
             "https://$TARGET_HOST/login"
           test -s /tmp/logitrack-login
