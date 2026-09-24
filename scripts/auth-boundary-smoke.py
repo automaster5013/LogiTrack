@@ -38,6 +38,9 @@ config_boundaries = (
     'process.env.NODE_ENV==="production"&&url.protocol!=="https:"',
     "url.username||url.password||url.search||url.hash",
     'url.protocol!=="https:"&&url.protocol!=="http:"',
+    "const configured=process.env.OIDC_REDIRECT_URI?.trim()",
+    "if(!configured)return fallback",
+    'return new URL(callback("OIDC_REDIRECT_URI")).origin',
 )
 missing = [boundary for boundary in config_boundaries if boundary not in config]
 if missing:
@@ -59,7 +62,7 @@ logout_boundaries = (
 missing = [boundary for boundary in logout_boundaries if boundary not in logout]
 if missing:
     raise SystemExit("ERROR: OIDC logout is missing boundaries: " + ", ".join(missing))
-if 'new URL(callback("OIDC_REDIRECT_URI")).origin' not in config:
-    raise SystemExit("ERROR: OIDC origin validation must use the configured public redirect origin")
+if 'try{return new URL(callback("OIDC_REDIRECT_URI")).origin}catch{return fallback}' in config:
+    raise SystemExit("ERROR: invalid configured redirect origins must fail closed instead of using the fallback origin")
 
 print("PASS: OIDC login, callback, logout, and configuration boundaries are enforced")
