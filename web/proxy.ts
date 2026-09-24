@@ -1,6 +1,7 @@
 import { NextRequest,NextResponse } from "next/server";
 
 export function proxy(request:NextRequest){
+ if(request.nextUrl.pathname==="/")return NextResponse.next();
  if(process.env.AUTH_REQUIRED!=="true")return NextResponse.next();
  const token=request.cookies.get("lt_access_token")?.value;
  if(token&&notExpired(token))return NextResponse.next();

@@ -6,7 +6,7 @@
 
 운영 도메인은 다음처럼 분리한다.
 
-- `www.logitrack.kr`: 공개 `/showcase`, 인증이 필요한 운영 콘솔, 서버측 BFF
+- `www.logitrack.kr`: 공개 `/` 및 `/showcase`, 인증이 필요한 `/console` 운영 콘솔, 서버측 BFF
 - `auth.logitrack.kr`: Cognito Managed Login 사용자 인터페이스
 - Cognito WebAuthn RP ID: `auth.logitrack.kr` (공개 전 확정하며 변경하지 않음)
 - OAuth callback: `https://www.logitrack.kr/auth/callback` 한 개만 등록
@@ -60,4 +60,4 @@ API에는 `SECURITY_ENABLED=true`, 동일한 issuer를 `SPRING_SECURITY_OAUTH2_R
 - VIEWER가 POST/DELETE/복구 API에 접근하면 403, 미인증 요청은 401이다.
 - access token 쿠키가 JavaScript에서 보이지 않고 로그·오류 응답에 출력되지 않는다.
 - 패스키 분실·운영자 비활성화·그룹 제거가 1시간 이내 모든 세션에서 반영된다.
-- `/showcase`와 health check만 인증 없이 접근 가능하다.
+- `/`와 `/showcase`, health check만 인증 없이 접근 가능하다.
