@@ -4,6 +4,7 @@ from pathlib import Path
 callback = Path("web/app/auth/callback/route.ts").read_text(encoding="utf-8")
 config = Path("web/app/auth/config.ts").read_text(encoding="utf-8")
 logout = Path("web/app/auth/logout/route.ts").read_text(encoding="utf-8")
+login_page = Path("web/app/login/page.tsx").read_text(encoding="utf-8")
 
 callback_boundaries = (
     "const tokenExchangeTimeoutMs = 10_000",
@@ -65,5 +66,18 @@ if missing:
     raise SystemExit("ERROR: OIDC logout is missing boundaries: " + ", ".join(missing))
 if 'try{return new URL(callback("OIDC_REDIRECT_URI")).origin}catch{return fallback}' in config:
     raise SystemExit("ERROR: invalid configured redirect origins must fail closed instead of using the fallback origin")
+
+login_error_boundaries = (
+    "authenticationErrors:Record<string,string>",
+    "invalid_oauth_response",
+    "token_exchange_failed",
+    "invalid_token_response",
+    "authentication_unavailable",
+    'className="loginError" role="alert"',
+    'errorMessage?"다시 로그인하기"',
+)
+missing = [boundary for boundary in login_error_boundaries if boundary not in login_page]
+if missing:
+    raise SystemExit("ERROR: operator login is missing safe error feedback: " + ", ".join(missing))
 
 print("PASS: OIDC login, callback, logout, and configuration boundaries are enforced")
