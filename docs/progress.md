@@ -305,6 +305,7 @@
 - OpenSSF Scorecard 주간·main 공급망 분석, 최소 job 권한, SHA 고정 action, 30일 SARIF 증적과 code scanning 게시 적용
 - PR dependency review로 새로 도입되는 moderate 이상 취약 의존성을 필수 차단하고 read-only 권한·bounded snapshot 재시도 적용
 - Python 3.12 runtime·CI 직접/전이 의존성을 universal requirements lock과 PyPI SHA-256으로 고정하고 모든 pip 설치에 `--require-hashes` 강제
+- OIDC callback 성공·실패 redirect를 reverse proxy 내부 주소가 아닌 검증된 공개 origin으로 고정하고, 잘못된 callback의 쿠키 정리와 access token 비변경을 배포 직후·6시간 주기 실환경 검사로 보호
 2026-09-21: 주문 목록에 상태 범위와 주문·차량·지역 즉시 검색을 추가해 누적 주문에서 배차 대기와 운송 중 작업을 빠르게 찾도록 개선했다.
 - 배송 경고 목록에 대응 우선순위·최근 감지·지속 시간 정렬을 제공해 운영자가 상황에 맞는 경고를 빠르게 판독
 - 재고·창고 작업·재고 원장을 안정 정렬 페이지로 전체 조회해 100~200건 초과 누적 데이터에서도 집계·검색 누락 방지

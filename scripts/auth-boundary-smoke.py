@@ -30,7 +30,8 @@ callback_boundaries = (
     'typeof token.id_token !== "string"',
     'token.token_type.toLowerCase() !== "bearer"',
     "Number.isInteger(token.expires_in)",
-    'NextResponse.redirect(new URL("/console", request.url))',
+    'new URL("/console", applicationOrigin(request.nextUrl.origin))',
+    'new URL(`/login?error=${encodeURIComponent(reason)}`, applicationOrigin(request.nextUrl.origin))',
 )
 missing = [boundary for boundary in callback_boundaries if boundary not in callback]
 if missing:
