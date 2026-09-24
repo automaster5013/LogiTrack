@@ -2,6 +2,7 @@ from pathlib import Path
 
 
 source = Path("web/app/backend/[...path]/route.ts").read_text(encoding="utf-8")
+page_proxy = Path("web/proxy.ts").read_text(encoding="utf-8")
 required = (
     "const maxRequestBodyBytes = 1024 * 1024",
     'request.headers.get("content-length")',
@@ -27,4 +28,6 @@ if missing:
     raise SystemExit("ERROR: web proxy is missing boundaries: " + ", ".join(missing))
 if 'request.headers.get("host")' in source:
     raise SystemExit("ERROR: web proxy must not forward the client Host header")
+if "backend/" not in page_proxy:
+    raise SystemExit("ERROR: page authentication must not intercept the BFF JSON security contract")
 print("PASS: authenticated web proxy enforces mutation origins and bounds bodies, upstream waits, redirects, and forwarded headers")

@@ -13,4 +13,4 @@ function notExpired(token:string){
  try{const part=token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/");const payload=JSON.parse(atob(part)) as {exp?:number};return typeof payload.exp==="number"&&payload.exp>Date.now()/1000+30}catch{return false}
 }
 
-export const config={matcher:["/((?!showcase|login|auth/|_next/|favicon.ico|api/runtime-version).*)"]};
+export const config={matcher:["/((?!showcase|login|auth/|backend/|_next/|favicon.ico|api/runtime-version).*)"]};
