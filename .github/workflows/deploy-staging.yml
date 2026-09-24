@@ -116,11 +116,18 @@ jobs:
           grep -Fq 'SECURE OPERATOR ACCESS' /tmp/logitrack-login
           grep -Fq '운영자 로그인' /tmp/logitrack-login
           curl --fail --silent --show-error --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 \
+            --dump-header /tmp/logitrack-known-auth-error-headers \
             'https://www.logitrack.kr/login?error=token_exchange_failed' \
             --output /tmp/logitrack-known-auth-error
           grep -Fq '인증 서버가 로그인을 완료하지 못했습니다' /tmp/logitrack-known-auth-error
           grep -Fq '다시 로그인하기' /tmp/logitrack-known-auth-error
           grep -Fq 'role="alert"' /tmp/logitrack-known-auth-error
+          tr -d '\r' </tmp/logitrack-known-auth-error-headers >/tmp/logitrack-known-auth-error-headers.normalized
+          grep -Eqi '^cache-control: .*no-store' /tmp/logitrack-known-auth-error-headers.normalized
+          if grep -Eqi '^set-cookie:' /tmp/logitrack-known-auth-error-headers.normalized; then
+            echo 'authentication error pages must not mutate authentication cookies' >&2
+            exit 1
+          fi
           curl --fail --silent --show-error --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 \
             'https://www.logitrack.kr/login?error=unknown' \
             --output /tmp/logitrack-unknown-auth-error

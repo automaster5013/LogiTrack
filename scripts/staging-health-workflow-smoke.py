@@ -37,6 +37,7 @@ for boundary in (
     "token_exchange_failed",
     "인증 서버가 로그인을 완료하지 못했습니다",
     "다시 로그인하기",
+    "authentication error pages must not mutate authentication cookies",
     "unknown authentication errors must not be rendered as trusted operator guidance",
     '"https://$TARGET_HOST/"',
     "LIVE LOGISTICS INTELLIGENCE",
