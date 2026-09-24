@@ -308,6 +308,7 @@
 - OIDC callback 성공·실패 redirect를 reverse proxy 내부 주소가 아닌 검증된 공개 origin으로 고정하고, 잘못된 callback의 쿠키 정리와 access token 비변경을 배포 직후·6시간 주기 실환경 검사로 보호
 - Cognito 설정 장애 시 logout fallback도 검증된 공개 origin으로 고정하고, cross-origin 거부·공개 logout 복귀 URL·인증 쿠키 제거 계약을 배포 게이트에서 검증
 - 인증 프록시의 cross-origin POST·DELETE와 비로그인 GET·POST 거부 응답을 JSON·`no-store`·쿠키 비변경까지 배포 직후와 6시간 주기 실환경 검사로 보호
+- 운영 콘솔 진입 시 access token의 Cognito JWKS 서명·issuer·token type·client ID·만료를 검증하고 위조 쿠키 제거와 `no-store` 응답을 실환경 회귀 검사로 보호
 2026-09-21: 주문 목록에 상태 범위와 주문·차량·지역 즉시 검색을 추가해 누적 주문에서 배차 대기와 운송 중 작업을 빠르게 찾도록 개선했다.
 - 배송 경고 목록에 대응 우선순위·최근 감지·지속 시간 정렬을 제공해 운영자가 상황에 맞는 경고를 빠르게 판독
 - 재고·창고 작업·재고 원장을 안정 정렬 페이지로 전체 조회해 100~200건 초과 누적 데이터에서도 집계·검색 누락 방지

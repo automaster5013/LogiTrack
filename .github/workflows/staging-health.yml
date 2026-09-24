@@ -39,7 +39,16 @@ jobs:
           console_headers="$(curl --silent --show-error --head --proto '=https' --tlsv1.2 --max-time 20 \
             "https://$TARGET_HOST/console" | tr -d '\r')"
           grep -Eq '^HTTP/[0-9.]+ (302|303|307|308)' <<<"$console_headers"
-          grep -Eqi '^location: /login\?returnTo=%2Fconsole$' <<<"$console_headers"
+          grep -Eqi '^location: https://www\.logitrack\.kr/login\?returnTo=%2Fconsole$' <<<"$console_headers"
+          grep -Eqi '^cache-control: .*no-store' <<<"$console_headers"
+
+          forged_console_headers="$(curl --silent --show-error --head --proto '=https' --tlsv1.2 --max-time 20 \
+            --cookie 'lt_access_token=eyJhbGciOiJub25lIn0.eyJleHAiOjQxMDI0NDQ4MDB9.' \
+            "https://$TARGET_HOST/console" | tr -d '\r')"
+          grep -Eq '^HTTP/[0-9.]+ (302|303|307|308)' <<<"$forged_console_headers"
+          grep -Eqi '^location: https://www\.logitrack\.kr/login\?returnTo=%2Fconsole$' <<<"$forged_console_headers"
+          grep -Eqi '^cache-control: .*no-store' <<<"$forged_console_headers"
+          grep -Eqi '^set-cookie: lt_access_token=;.*max-age=0' <<<"$forged_console_headers"
 
           curl --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
             --dump-header /tmp/logitrack-auth-login-headers --output /dev/null \

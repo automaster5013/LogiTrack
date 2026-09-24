@@ -5,6 +5,7 @@ callback = Path("web/app/auth/callback/route.ts").read_text(encoding="utf-8")
 config = Path("web/app/auth/config.ts").read_text(encoding="utf-8")
 logout = Path("web/app/auth/logout/route.ts").read_text(encoding="utf-8")
 login_page = Path("web/app/login/page.tsx").read_text(encoding="utf-8")
+proxy = Path("web/proxy.ts").read_text(encoding="utf-8")
 
 callback_boundaries = (
     "const tokenExchangeTimeoutMs = 10_000",
@@ -68,6 +69,24 @@ if missing:
     raise SystemExit("ERROR: OIDC logout is missing boundaries: " + ", ".join(missing))
 if 'try{return new URL(callback("OIDC_REDIRECT_URI")).origin}catch{return fallback}' in config:
     raise SystemExit("ERROR: invalid configured redirect origins must fail closed instead of using the fallback origin")
+
+proxy_boundaries = (
+    "createRemoteJWKSet",
+    "jwtVerify",
+    "const jwksTimeoutMs=5_000",
+    'accessTokenConfig()',
+    'requiredClaims:["exp","iat","token_use","client_id"]',
+    'payload.token_use==="access"',
+    "payload.client_id===clientId",
+    'response.headers.set("Cache-Control","no-store")',
+    'response.cookies.set(authCookie.access,""',
+    'new URL("/login",applicationOrigin(request.nextUrl.origin))',
+)
+missing = [boundary for boundary in proxy_boundaries if boundary not in proxy]
+if missing:
+    raise SystemExit("ERROR: console session verification is missing boundaries: " + ", ".join(missing))
+if "atob(" in proxy:
+    raise SystemExit("ERROR: console access must not trust an unverified JWT payload")
 
 login_error_boundaries = (
     "authenticationErrors:Record<string,string>",

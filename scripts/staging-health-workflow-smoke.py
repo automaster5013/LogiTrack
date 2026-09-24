@@ -44,6 +44,8 @@ for boundary in (
     "물류의 모든 순간을",
     '"https://$TARGET_HOST/console"',
     "returnTo=%2Fconsole",
+    "forged_console_headers",
+    "eyJhbGciOiJub25lIn0.eyJleHAiOjQxMDI0NDQ4MDB9.",
     '"https://$TARGET_HOST/auth/login"',
     "lt_oauth_state lt_oidc_nonce lt_pkce_verifier",
     "code_challenge_method=S256",
