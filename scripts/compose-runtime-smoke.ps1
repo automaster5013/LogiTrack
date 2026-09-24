@@ -97,9 +97,18 @@ foreach ($target in @("/etc/kafka/secrets", "/mnt/shared/config", "/var/lib/kafk
   }
 }
 
-$web = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:3000
+$showcase = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:3000/
+$console = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:3000/console
 $api = Invoke-RestMethod http://127.0.0.1:8080/actuator/health/readiness
-if ($web.StatusCode -ne 200 -or $web.Content -notmatch "LogiTrack" -or $api.status -ne "UP") {
+if ($showcase.StatusCode -ne 200 -or
+    $showcase.Content -notmatch "LIVE LOGISTICS INTELLIGENCE" -or
+    $showcase.Content -notmatch "물류의 모든 순간을") {
+  throw "LogiTrack showcase is not served from the local domain root"
+}
+if ($console.StatusCode -ne 200 -or $console.Content -notmatch "오늘의 운송 상황") {
+  throw "LogiTrack operations console is not served from /console"
+}
+if ($api.status -ne "UP") {
   throw "LogiTrack web or API readiness verification failed"
 }
 
@@ -109,4 +118,4 @@ if ($metrics -notmatch '(?m)^tomcat_threads_config_max_threads\{[^}]*\} 128\.0$'
   throw "API Tomcat runtime capacity limits are not applied"
 }
 
-Write-Host "PASS: running LogiTrack stack is healthy and matches hardened Compose policy"
+Write-Host "PASS: running LogiTrack stack serves the root showcase and /console and matches hardened Compose policy"
