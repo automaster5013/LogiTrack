@@ -25,7 +25,6 @@ docker compose up --build
 `init-env.ps1`는 Git에서 제외된 `.env`에 PostgreSQL과 Grafana용 독립 난수 비밀번호를 생성하며 기존 파일은 덮어쓰지 않습니다. 영속 데이터를 유지한 자격 증명 회전은 실행 중인 스택에서 `./scripts/rotate-local-secrets.ps1`를 사용합니다. 두 비밀번호가 비어 있으면 Compose는 시작 전에 실패합니다. PostgreSQL 데이터베이스명과 사용자는 `.env`의 `POSTGRES_DB`, `POSTGRES_USER`로 변경할 수 있으며 API와 복제 인스턴스, 데이터베이스 healthcheck에 동일하게 적용됩니다.
 웹과 관측성 서비스는 HTTP 응답으로, simulator는 Kafka 소비 루프 heartbeat로 준비 상태를 판정하므로 `docker compose up --wait`가 모든 장기 실행 서비스의 실제 동작 가능 상태까지 기다립니다.
 
-- 운영 콘솔: http://localhost:3000 또는 http://127.0.0.1:3000
 - 프로젝트 쇼케이스: http://localhost:3000/
 - 운영 콘솔: http://localhost:3000/console
 - API health: http://localhost:8080/actuator/health
@@ -99,7 +98,7 @@ python -m unittest discover analytics/tests
 
 통합 smoke test는 전체 스택 실행 후 `./scripts/smoke.ps1`로 수행합니다.
 
-`./scripts/compose-runtime-smoke.ps1`는 실행 중인 기본 스택과 선택적으로 활성화된 `scale-test` API replica의 health, loopback 포트, 로그 회전, 종료 유예, 자원 상한, 권한 경계, read-only filesystem, Kafka volume topology가 현재 Compose 정책과 일치하는지 확인합니다.
+`./scripts/compose-runtime-smoke.ps1`는 실행 중인 기본 스택과 선택적으로 활성화된 `scale-test` API replica의 health, 루트 showcase와 `/console` 라우팅, loopback 포트, 로그 회전, 종료 유예, 자원 상한, 권한 경계, read-only filesystem, Kafka volume topology가 현재 Compose 정책과 일치하는지 확인합니다.
 
 핵심 도메인의 line/branch coverage 80% gate는 `./scripts/domain-coverage.ps1`로 실행합니다. 현재 기준선은 line 92.37%, branch 88.71%이며 기준 미달 시 빌드가 실패합니다.
 
