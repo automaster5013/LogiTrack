@@ -6,10 +6,10 @@ config = Path("web/app/auth/config.ts").read_text(encoding="utf-8")
 logout = Path("web/app/auth/logout/route.ts").read_text(encoding="utf-8")
 login_page = Path("web/app/login/page.tsx").read_text(encoding="utf-8")
 proxy = Path("web/proxy.ts").read_text(encoding="utf-8")
+access_token = Path("web/app/auth/access-token.ts").read_text(encoding="utf-8")
 
 callback_boundaries = (
     "const tokenExchangeTimeoutMs = 10_000",
-    "const jwksTimeoutMs = 5_000",
     "const maxTokenResponseBytes = 64 * 1024",
     "const maxAccessTokenCharacters = 32 * 1024",
     "const maxIdTokenCharacters = 16 * 1024",
@@ -18,7 +18,6 @@ callback_boundaries = (
     "timingSafeEqual(supplied, expected)",
     "AbortSignal.timeout(tokenExchangeTimeoutMs)",
     'redirect: "error"',
-    "timeoutDuration: jwksTimeoutMs",
     'response.headers.get("content-length")',
     'response.headers.get("content-type")',
     'mediaType !== "application/json"',
@@ -33,6 +32,11 @@ callback_boundaries = (
     "Number.isInteger(token.expires_in)",
     'new URL("/console", applicationOrigin(request.nextUrl.origin))',
     'new URL(`/login?error=${encodeURIComponent(reason)}`, applicationOrigin(request.nextUrl.origin))',
+    "verifyAccessToken(token.access_token)",
+    'requiredClaims: ["sub", "nonce"]',
+    "idPayload.sub !== accessPayload.sub",
+    "accessTokenSecondsRemaining",
+    "sessionMaxAge",
 )
 missing = [boundary for boundary in callback_boundaries if boundary not in callback]
 if missing:
@@ -71,13 +75,7 @@ if 'try{return new URL(callback("OIDC_REDIRECT_URI")).origin}catch{return fallba
     raise SystemExit("ERROR: invalid configured redirect origins must fail closed instead of using the fallback origin")
 
 proxy_boundaries = (
-    "createRemoteJWKSet",
-    "jwtVerify",
-    "const jwksTimeoutMs=5_000",
-    'accessTokenConfig()',
-    'requiredClaims:["exp","iat","token_use","client_id"]',
-    'payload.token_use==="access"',
-    "payload.client_id===clientId",
+    "verifyAccessToken(token)",
     'response.headers.set("Cache-Control","no-store")',
     'response.cookies.set(authCookie.access,""',
     'new URL("/login",applicationOrigin(request.nextUrl.origin))',
@@ -87,6 +85,21 @@ if missing:
     raise SystemExit("ERROR: console session verification is missing boundaries: " + ", ".join(missing))
 if "atob(" in proxy:
     raise SystemExit("ERROR: console access must not trust an unverified JWT payload")
+
+access_token_boundaries = (
+    "createRemoteJWKSet",
+    "jwtVerify",
+    "const jwksTimeoutMs = 5_000",
+    "timeoutDuration: jwksTimeoutMs",
+    "accessTokenConfig()",
+    'requiredClaims: ["exp", "iat", "sub", "token_use", "client_id"]',
+    'payload.token_use !== "access"',
+    "payload.client_id !== clientId",
+    "payload.exp <= Date.now() / 1000 + 30",
+)
+missing = [boundary for boundary in access_token_boundaries if boundary not in access_token]
+if missing:
+    raise SystemExit("ERROR: access token verification is missing boundaries: " + ", ".join(missing))
 
 login_error_boundaries = (
     "authenticationErrors:Record<string,string>",

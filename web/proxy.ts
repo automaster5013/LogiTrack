@@ -1,9 +1,6 @@
-import { createRemoteJWKSet, jwtVerify } from "jose";
 import { NextRequest,NextResponse } from "next/server";
-import { accessTokenConfig, applicationOrigin, authCookie, secureCookie } from "./app/auth/config";
-
-const jwksTimeoutMs=5_000;
-const jwksByIssuer=new Map<string,ReturnType<typeof createRemoteJWKSet>>();
+import { verifyAccessToken } from "./app/auth/access-token";
+import { applicationOrigin, authCookie, secureCookie } from "./app/auth/config";
 
 export async function proxy(request:NextRequest){
  if(request.nextUrl.pathname==="/")return NextResponse.next();
@@ -19,13 +16,7 @@ export async function proxy(request:NextRequest){
 }
 
 async function validAccessToken(token:string){
- try{
-  const {issuer,clientId}=accessTokenConfig();
-  let jwks=jwksByIssuer.get(issuer);
-  if(!jwks){jwks=createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`),{timeoutDuration:jwksTimeoutMs});jwksByIssuer.set(issuer,jwks)}
-  const {payload}=await jwtVerify(token,jwks,{issuer,requiredClaims:["exp","iat","token_use","client_id"]});
-  return payload.token_use==="access"&&payload.client_id===clientId&&typeof payload.exp==="number"&&payload.exp>Date.now()/1000+30;
- }catch{return false}
+ try{await verifyAccessToken(token);return true}catch{return false}
 }
 
 export const config={matcher:["/((?!showcase|login|auth/|backend/|_next/|favicon.ico|api/runtime-version).*)"]};
