@@ -129,7 +129,7 @@ $null = Assert-RoleBoundary -RoleName "logitrack-staging-image-publisher" `
 
 $auditOidcSubject = "repo:automaster5013@247691206/LogiTrack@1376500287:ref:refs/heads/main"
 $auditorActions = @(
-  "acm:DescribeCertificate", "cloudwatch:DescribeAlarms",
+  "acm:DescribeCertificate", "budgets:ViewBudget", "cloudwatch:DescribeAlarms",
   "cognito-idp:DescribeManagedLoginBrandingByClient", "cognito-idp:DescribeUserPool", "cognito-idp:DescribeUserPoolClient", "cognito-idp:DescribeUserPoolDomain",
   "cognito-idp:GetUserPoolMfaConfig", "cognito-idp:ListGroups", "cognito-idp:ListUserPoolClients", "cognito-idp:ListUserPools", "cognito-idp:ListUsers", "cognito-idp:ListUsersInGroup",
   "dlm:GetLifecyclePolicies", "dlm:GetLifecyclePolicy",
