@@ -9,7 +9,9 @@ export function authConfig(){
 export function randomUrlSafe(bytes=32){return randomBytes(bytes).toString("base64url")}
 export function sha256UrlSafe(value:string){return createHash("sha256").update(value).digest("base64url")}
 export function applicationOrigin(fallback:string){
- try{return new URL(callback("OIDC_REDIRECT_URI")).origin}catch{return fallback}
+ const configured=process.env.OIDC_REDIRECT_URI?.trim();
+ if(!configured)return fallback;
+ return new URL(callback("OIDC_REDIRECT_URI")).origin;
 }
 export function secureCookie(maxAge:number,path="/auth"){
  return {httpOnly:true,secure:process.env.NODE_ENV==="production",sameSite:"lax" as const,path,maxAge};
