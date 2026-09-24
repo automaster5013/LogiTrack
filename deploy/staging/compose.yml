@@ -39,6 +39,7 @@ services:
     tmpfs: ["/tmp:size=64m,mode=1777"]
     environment:
       HOSTNAME: 0.0.0.0
+      AUTH_REQUIRED: "true"
       API_INTERNAL_URL: http://api:8080
       INTERNAL_API_URL: http://api:8080
       COGNITO_AUTHORIZATION_BASE_URL: ${COGNITO_AUTHORIZATION_BASE_URL:?required}

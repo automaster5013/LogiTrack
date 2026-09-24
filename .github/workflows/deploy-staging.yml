@@ -117,6 +117,9 @@ jobs:
           grep -Fq '운영자 로그인' /tmp/logitrack-login
           headers="$(curl --fail --silent --show-error --head --proto '=https' --tlsv1.2 https://www.logitrack.kr/login | tr -d '\r')"
           grep -qi '^strict-transport-security: max-age=' <<<"$headers"
+          console_headers="$(curl --silent --show-error --head --proto '=https' --tlsv1.2 https://www.logitrack.kr/console | tr -d '\r')"
+          grep -Eq '^HTTP/[0-9.]+ (302|303|307|308)' <<<"$console_headers"
+          grep -Eqi '^location: /login\?returnTo=%2Fconsole$' <<<"$console_headers"
           curl --fail --silent --show-error --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 \
             --dump-header /tmp/logitrack-runtime-headers --output /tmp/logitrack-runtime \
             https://www.logitrack.kr/api/runtime-version
