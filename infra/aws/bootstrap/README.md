@@ -1,6 +1,6 @@
 # AWS image publication bootstrap
 
-This Terraform root creates the account-wide GitHub Actions OIDC provider, five private ECR repositories, their bounded lifecycle policies, and the least-privilege IAM role required by `Publish staging images`. It does not create or update ECS, databases, networking, DNS, certificates, or other runtime infrastructure.
+This Terraform root creates the account-wide GitHub Actions OIDC provider, five private ECR repositories, their bounded lifecycle policies, the least-privilege image publisher role, and a read-only main-branch role for scheduled staging boundary audits. It does not create or update ECS, databases, networking, DNS, certificates, or other runtime infrastructure.
 
 ## Prerequisites
 
@@ -25,7 +25,7 @@ terraform -chdir=infra/aws/bootstrap plan -out=bootstrap.tfplan
 terraform -chdir=infra/aws/bootstrap show bootstrap.tfplan
 ```
 
-The plan should contain exactly one GitHub OIDC provider, five immutable scan-on-push ECR repositories, five lifecycle policies, one IAM role, and one inline role policy. Every repository has Terraform `prevent_destroy` protection, so intentional retirement requires a reviewed code change before a destroy plan can proceed. By default each repository retains its newest 30 images for rollback and expires untagged images after 7 days. The validated inputs allow 10–200 retained images and a 1–30 day untagged grace period. Review the plan before apply. Applying is intentionally a separate operator action because it creates account trust and billable external resources and later expires images outside the configured rollback window.
+The plan should contain exactly one GitHub OIDC provider, five immutable scan-on-push ECR repositories, five lifecycle policies, two IAM roles, and two inline role policies. Every repository has Terraform `prevent_destroy` protection, so intentional retirement requires a reviewed code change before a destroy plan can proceed. By default each repository retains its newest 30 images for rollback and expires untagged images after 7 days. The validated inputs allow 10–200 retained images and a 1–30 day untagged grace period. Review the plan before apply. Applying is intentionally a separate operator action because it creates account trust and billable external resources and later expires images outside the configured rollback window.
 
 After an approved apply, copy the `github_environment_variables` output (`AWS_ROLE_ARN`, `AWS_REGION`, `AWS_ACCOUNT_ID`, and `ECR_REPOSITORY_PREFIX`) into variables on the protected GitHub `staging` environment. The publication workflow independently compares the OIDC caller account to `AWS_ACCOUNT_ID` before it accesses ECR. The AWS login email and long-lived access keys must never be stored in Terraform, GitHub variables, or this repository.
 

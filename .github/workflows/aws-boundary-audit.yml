@@ -1,0 +1,35 @@
+name: AWS staging boundary audit
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 20 * * *"
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: aws-staging-boundary-audit
+  cancel-in-progress: true
+jobs:
+  audit:
+    name: Verify AWS runtime and authentication boundaries
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::816954358294:role/logitrack-staging-boundary-auditor
+          aws-region: ap-northeast-2
+          role-session-name: logitrack-audit-${{ github.run_id }}
+          allowed-account-ids: "816954358294"
+          mask-aws-account-id: true
+          unset-current-credentials: true
+          translate-env-variables: false
+      - name: Audit staging runtime boundaries
+        shell: pwsh
+        run: ./scripts/aws-runtime-audit.ps1 -Profile ""
+      - name: Audit Cognito authentication boundaries
+        shell: pwsh
+        run: ./scripts/aws-auth-audit.ps1 -Profile ""

@@ -11,7 +11,8 @@ $env:AWS_PAGER = ""
 
 function Invoke-AwsJson {
   param([Parameter(Mandatory)][string[]]$Arguments)
-  $raw = & aws @Arguments --profile $Profile --region $Region --output json --no-cli-pager
+  $profileArguments = if ([string]::IsNullOrWhiteSpace($Profile)) { @() } else { @("--profile", $Profile) }
+  $raw = & aws @Arguments @profileArguments --region $Region --output json --no-cli-pager
   if ($LASTEXITCODE -ne 0) { throw "AWS CLI failed: aws $($Arguments -join ' ')" }
   return ($raw | ConvertFrom-Json)
 }
@@ -125,6 +126,33 @@ $null = Assert-RoleBoundary -RoleName "logitrack-staging-image-publisher" `
   -ExpectedActions $publisherActions `
   -ExpectedActionResources $publisherResources `
   -ExpectedOidcSubject $oidcSubject
+
+$auditOidcSubject = "repo:automaster5013@247691206/LogiTrack@1376500287:ref:refs/heads/main"
+$auditorActions = @(
+  "acm:DescribeCertificate", "cloudwatch:DescribeAlarms",
+  "cognito-idp:DescribeManagedLoginBrandingByClient", "cognito-idp:DescribeUserPool", "cognito-idp:DescribeUserPoolClient", "cognito-idp:DescribeUserPoolDomain",
+  "cognito-idp:GetUserPoolMfaConfig", "cognito-idp:ListGroups", "cognito-idp:ListUserPoolClients", "cognito-idp:ListUserPools", "cognito-idp:ListUsers", "cognito-idp:ListUsersInGroup",
+  "dlm:GetLifecyclePolicies", "dlm:GetLifecyclePolicy",
+  "ec2:DescribeAddresses", "ec2:DescribeInstanceAttribute", "ec2:DescribeInstances", "ec2:DescribeSecurityGroups", "ec2:DescribeSnapshots", "ec2:DescribeVolumes",
+  "ssm:DescribeAssociation", "ssm:DescribeInstanceInformation", "ssm:ListAssociations", "sts:GetCallerIdentity",
+  "iam:GetRole", "iam:GetRolePolicy", "iam:ListAttachedRolePolicies", "iam:ListRolePolicies",
+  "ecr:DescribeRepositories", "ecr:GetLifecyclePolicy",
+  "s3:GetBucketEncryption", "s3:GetBucketLifecycleConfiguration", "s3:GetBucketPublicAccessBlock", "s3:ListBucket", "s3:GetObject",
+  "route53:ListResourceRecordSets"
+)
+$auditorResources = @{}
+foreach ($action in $auditorActions) { $auditorResources[$action] = "*" }
+foreach ($action in @("iam:GetRole", "iam:GetRolePolicy", "iam:ListAttachedRolePolicies", "iam:ListRolePolicies")) { $auditorResources[$action] = "arn:aws:iam::${ExpectedAccountId}:role/logitrack-staging-*" }
+foreach ($action in @("ecr:DescribeRepositories", "ecr:GetLifecyclePolicy")) { $auditorResources[$action] = $expectedRepositories }
+foreach ($action in @("s3:GetBucketEncryption", "s3:GetBucketLifecycleConfiguration", "s3:GetBucketPublicAccessBlock", "s3:ListBucket")) { $auditorResources[$action] = $expectedBackupBucket }
+$auditorResources["s3:GetObject"] = "$expectedBackupBucket/postgres/*"
+$auditorResources["route53:ListResourceRecordSets"] = "arn:aws:route53:::hostedzone/Z05031871LL3C3WCCPUJO"
+$null = Assert-RoleBoundary -RoleName "logitrack-staging-boundary-auditor" `
+  -ExpectedAttachedPolicies @() `
+  -ExpectedInlinePolicy "audit-logitrack-staging-boundaries" `
+  -ExpectedActions $auditorActions `
+  -ExpectedActionResources $auditorResources `
+  -ExpectedOidcSubject $auditOidcSubject
 
 $services = @("api", "analytics", "simulator", "web", "otel-collector")
 $repositoryNames = @($services | ForEach-Object { "logitrack/$_" })

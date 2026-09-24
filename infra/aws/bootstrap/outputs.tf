@@ -13,6 +13,11 @@ output "github_oidc_provider_arn" {
   value       = aws_iam_openid_connect_provider.github.arn
 }
 
+output "boundary_auditor_role_arn" {
+  description = "Read-only main-branch GitHub OIDC role used by scheduled staging boundary audits."
+  value       = aws_iam_role.boundary_auditor.arn
+}
+
 output "ecr_repository_urls" {
   description = "Immutable repositories used by the staging image publication workflow."
   value       = { for service, repository in aws_ecr_repository.service : service => repository.repository_url }

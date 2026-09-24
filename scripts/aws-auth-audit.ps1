@@ -13,7 +13,8 @@ $env:AWS_PAGER = ""
 
 function Invoke-AwsJson {
   param([Parameter(Mandatory)][string[]]$Arguments, [string]$AwsRegion = $Region)
-  $raw = & aws @Arguments --profile $Profile --region $AwsRegion --output json --no-cli-pager
+  $profileArguments = if ([string]::IsNullOrWhiteSpace($Profile)) { @() } else { @("--profile", $Profile) }
+  $raw = & aws @Arguments @profileArguments --region $AwsRegion --output json --no-cli-pager
   if ($LASTEXITCODE -ne 0) { throw "AWS CLI failed: aws $($Arguments -join ' ')" }
   return ($raw | ConvertFrom-Json)
 }
