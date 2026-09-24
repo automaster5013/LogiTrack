@@ -262,6 +262,16 @@ jobs:
             echo 'anonymous proxy reads must not mutate authentication cookies' >&2
             exit 1
           fi
+          forged_bff_status="$(curl --silent --show-error --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 \
+            --cookie "lt_access_token=$forged_token" \
+            --dump-header /tmp/logitrack-forged-bff-headers --output /tmp/logitrack-forged-bff \
+            --write-out '%{http_code}' https://www.logitrack.kr/backend/api/deliveries)"
+          test "$forged_bff_status" = 401
+          jq -e '.error == "invalid_authentication"' /tmp/logitrack-forged-bff >/dev/null
+          tr -d '\r' </tmp/logitrack-forged-bff-headers >/tmp/logitrack-forged-bff-headers.normalized
+          grep -Eqi '^content-type: application/json' /tmp/logitrack-forged-bff-headers.normalized
+          grep -Eqi '^cache-control: .*no-store' /tmp/logitrack-forged-bff-headers.normalized
+          grep -Eqi '^set-cookie: lt_access_token=;.*max-age=0' /tmp/logitrack-forged-bff-headers.normalized
           curl --fail --silent --show-error --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 \
             --dump-header /tmp/logitrack-runtime-headers --output /tmp/logitrack-runtime \
             https://www.logitrack.kr/api/runtime-version

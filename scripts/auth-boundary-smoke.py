@@ -7,6 +7,7 @@ logout = Path("web/app/auth/logout/route.ts").read_text(encoding="utf-8")
 login_page = Path("web/app/login/page.tsx").read_text(encoding="utf-8")
 proxy = Path("web/proxy.ts").read_text(encoding="utf-8")
 access_token = Path("web/app/auth/access-token.ts").read_text(encoding="utf-8")
+backend = Path("web/app/backend/[...path]/route.ts").read_text(encoding="utf-8")
 
 callback_boundaries = (
     "const tokenExchangeTimeoutMs = 10_000",
@@ -85,6 +86,16 @@ if missing:
     raise SystemExit("ERROR: console session verification is missing boundaries: " + ", ".join(missing))
 if "atob(" in proxy:
     raise SystemExit("ERROR: console access must not trust an unverified JWT payload")
+
+backend_session_boundaries = (
+    'import { verifyAccessToken } from "../../auth/access-token";',
+    "await verifyAccessToken(token)",
+    'jsonError("invalid_authentication", 401)',
+    'response.cookies.set(authCookie.access, "", { ...secureCookie(0, "/"), expires: new Date(0) })',
+)
+missing = [boundary for boundary in backend_session_boundaries if boundary not in backend]
+if missing:
+    raise SystemExit("ERROR: BFF session verification is missing boundaries: " + ", ".join(missing))
 
 access_token_boundaries = (
     "createRemoteJWKSet",
