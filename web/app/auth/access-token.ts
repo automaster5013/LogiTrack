@@ -2,6 +2,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import { accessTokenConfig } from "./config";
 
 const jwksTimeoutMs = 5_000;
+const allowedClockSkewSeconds = 60;
 const jwksByIssuer = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
 export function cognitoJwks(issuer: string) {
@@ -20,6 +21,10 @@ export async function verifyAccessToken(token: string) {
     requiredClaims: ["exp", "iat", "sub", "token_use", "client_id"],
   });
   if (payload.token_use !== "access" || payload.client_id !== clientId) throw new Error("Invalid access token claims");
-  if (typeof payload.exp !== "number" || payload.exp <= Date.now() / 1000 + 30) throw new Error("Access token is expired or near expiry");
+  const now = Math.floor(Date.now() / 1000);
+  if (typeof payload.iat !== "number" || !Number.isInteger(payload.iat) || payload.iat > now + allowedClockSkewSeconds) {
+    throw new Error("Access token issued-at time is invalid");
+  }
+  if (typeof payload.exp !== "number" || payload.exp <= now + 30) throw new Error("Access token is expired or near expiry");
   return payload;
 }

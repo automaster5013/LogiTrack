@@ -106,7 +106,10 @@ access_token_boundaries = (
     'requiredClaims: ["exp", "iat", "sub", "token_use", "client_id"]',
     'payload.token_use !== "access"',
     "payload.client_id !== clientId",
-    "payload.exp <= Date.now() / 1000 + 30",
+    "const allowedClockSkewSeconds = 60",
+    "Number.isInteger(payload.iat)",
+    "payload.iat > now + allowedClockSkewSeconds",
+    "payload.exp <= now + 30",
 )
 missing = [boundary for boundary in access_token_boundaries if boundary not in access_token]
 if missing:
