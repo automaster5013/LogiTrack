@@ -1,10 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { jwtVerify } from "jose";
+import { cognitoJwks, verifyAccessToken } from "../access-token";
 import { applicationOrigin, authConfig, authCookie, secureCookie } from "../config";
 
 const tokenExchangeTimeoutMs = 10_000;
-const jwksTimeoutMs = 5_000;
 const maxTokenResponseBytes = 64 * 1024;
 const maxAccessTokenCharacters = 32 * 1024;
 const maxIdTokenCharacters = 16 * 1024;
@@ -40,12 +40,17 @@ export async function GET(request: NextRequest) {
     const token = await readBoundedTokenResponse(tokenResponse);
     if (!token) return finish("invalid_token_response");
 
-    const jwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`), { timeoutDuration: jwksTimeoutMs });
-    const { payload } = await jwtVerify(token.id_token, jwks, { issuer, audience: clientId, requiredClaims: ["nonce"], maxTokenAge: "5 minutes" });
-    if (payload.nonce !== expectedNonce) throw new Error("OIDC nonce mismatch");
+    const [{ payload: idPayload }, accessPayload] = await Promise.all([
+      jwtVerify(token.id_token, cognitoJwks(issuer), { issuer, audience: clientId, requiredClaims: ["sub", "nonce"], maxTokenAge: "5 minutes" }),
+      verifyAccessToken(token.access_token),
+    ]);
+    if (idPayload.nonce !== expectedNonce) throw new Error("OIDC nonce mismatch");
+    if (idPayload.sub !== accessPayload.sub) throw new Error("OIDC subject mismatch");
+    const accessTokenSecondsRemaining = Math.floor(accessPayload.exp! - Date.now() / 1000);
+    const sessionMaxAge = Math.min(token.expires_in ?? accessTokenSecondsRemaining, accessTokenSecondsRemaining, 3600);
 
     const response = NextResponse.redirect(new URL("/console", applicationOrigin(request.nextUrl.origin)));
-    response.cookies.set(authCookie.access, token.access_token, secureCookie(Math.min(Math.max(token.expires_in ?? 900, 60), 3600), "/"));
+    response.cookies.set(authCookie.access, token.access_token, secureCookie(sessionMaxAge, "/"));
     clearTransient(response);
     response.headers.set("Cache-Control", "no-store");
     return response;
