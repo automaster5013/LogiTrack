@@ -189,7 +189,7 @@ data "aws_iam_policy_document" "boundary_auditor" {
     sid    = "ReadStagingControlPlane"
     effect = "Allow"
     actions = [
-      "acm:DescribeCertificate", "cloudwatch:DescribeAlarms",
+      "acm:DescribeCertificate", "budgets:ViewBudget", "cloudwatch:DescribeAlarms",
       "cognito-idp:DescribeManagedLoginBrandingByClient", "cognito-idp:DescribeUserPool", "cognito-idp:DescribeUserPoolClient", "cognito-idp:DescribeUserPoolDomain",
       "cognito-idp:GetUserPoolMfaConfig", "cognito-idp:ListGroups", "cognito-idp:ListUserPoolClients", "cognito-idp:ListUserPools", "cognito-idp:ListUsers", "cognito-idp:ListUsersInGroup",
       "dlm:GetLifecyclePolicies", "dlm:GetLifecyclePolicy",
