@@ -184,6 +184,33 @@ jobs:
             echo 'invalid callback must not create or mutate the access token cookie' >&2
             exit 1
           fi
+          cross_origin_logout_status="$(curl --silent --show-error --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 \
+            --request POST --header 'Origin: https://attacker.invalid' \
+            --dump-header /tmp/logitrack-cross-origin-logout-headers --output /tmp/logitrack-cross-origin-logout \
+            --write-out '%{http_code}' https://www.logitrack.kr/auth/logout)"
+          test "$cross_origin_logout_status" = 403
+          jq -e '.error == "cross_origin_logout_rejected"' /tmp/logitrack-cross-origin-logout >/dev/null
+          tr -d '\r' </tmp/logitrack-cross-origin-logout-headers >/tmp/logitrack-cross-origin-logout-headers.normalized
+          grep -Eqi '^cache-control: .*no-store' /tmp/logitrack-cross-origin-logout-headers.normalized
+          if grep -Eqi '^set-cookie:' /tmp/logitrack-cross-origin-logout-headers.normalized; then
+            echo 'rejected cross-origin logout must not mutate authentication cookies' >&2
+            exit 1
+          fi
+          same_origin_logout_status="$(curl --silent --show-error --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 \
+            --request POST --header 'Origin: https://www.logitrack.kr' \
+            --dump-header /tmp/logitrack-same-origin-logout-headers --output /dev/null \
+            --write-out '%{http_code}' https://www.logitrack.kr/auth/logout)"
+          test "$same_origin_logout_status" = 303
+          tr -d '\r' </tmp/logitrack-same-origin-logout-headers >/tmp/logitrack-same-origin-logout-headers.normalized
+          grep -Eqi '^cache-control: .*no-store' /tmp/logitrack-same-origin-logout-headers.normalized
+          grep -Eqi '^clear-site-data: "cache", "storage"$' /tmp/logitrack-same-origin-logout-headers.normalized
+          logout_location="$(sed -n 's/^location: //Ip' /tmp/logitrack-same-origin-logout-headers.normalized)"
+          grep -Eq '^https://auth\.logitrack\.kr/logout\?' <<<"$logout_location"
+          [[ "$logout_location" == *'client_id='* ]]
+          [[ "$logout_location" == *'logout_uri=https%3A%2F%2Fwww.logitrack.kr%2Flogin'* ]]
+          for cookie in lt_access_token lt_oauth_state lt_oidc_nonce lt_pkce_verifier; do
+            grep -Eqi "^set-cookie: $cookie=;.*max-age=0" /tmp/logitrack-same-origin-logout-headers.normalized
+          done
           curl --fail --silent --show-error --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 \
             --dump-header /tmp/logitrack-runtime-headers --output /tmp/logitrack-runtime \
             https://www.logitrack.kr/api/runtime-version

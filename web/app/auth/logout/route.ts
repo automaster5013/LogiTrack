@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let destination = new URL("/login", request.url);
+  let destination = new URL("/login", applicationOrigin(request.nextUrl.origin));
   try {
     const { authBase, clientId, postLogoutRedirectUri } = authConfig();
     destination = new URL(`${authBase}/logout`);
