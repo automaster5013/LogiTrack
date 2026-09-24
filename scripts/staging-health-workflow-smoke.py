@@ -66,6 +66,8 @@ for boundary in (
     'cross_origin_logout_rejected',
     "rejected cross-origin logout must not mutate authentication cookies",
     "same_origin_logout_status",
+    "logout_location",
+    "logout_uri=https%3A%2F%2Fwww.logitrack.kr%2Flogin",
     'Origin: https://$TARGET_HOST',
     "clear-site-data",
     "https://auth\\.logitrack\\.kr/logout\\?",

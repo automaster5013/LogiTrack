@@ -61,6 +61,7 @@ logout_boundaries = (
     "[authCookie.state, authCookie.nonce, authCookie.verifier]",
     'response.headers.set("Cache-Control", "no-store")',
     'response.headers.set("Clear-Site-Data", \'"cache", "storage"\')',
+    'new URL("/login", applicationOrigin(request.nextUrl.origin))',
 )
 missing = [boundary for boundary in logout_boundaries if boundary not in logout]
 if missing:
