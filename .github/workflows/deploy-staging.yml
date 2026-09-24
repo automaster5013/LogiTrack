@@ -115,6 +115,19 @@ jobs:
           curl --fail --silent --show-error --proto '=https' --tlsv1.2 --retry 6 --retry-delay 5 https://www.logitrack.kr/login --output /tmp/logitrack-login
           grep -Fq 'SECURE OPERATOR ACCESS' /tmp/logitrack-login
           grep -Fq '운영자 로그인' /tmp/logitrack-login
+          curl --fail --silent --show-error --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 \
+            'https://www.logitrack.kr/login?error=token_exchange_failed' \
+            --output /tmp/logitrack-known-auth-error
+          grep -Fq '인증 서버가 로그인을 완료하지 못했습니다' /tmp/logitrack-known-auth-error
+          grep -Fq '다시 로그인하기' /tmp/logitrack-known-auth-error
+          grep -Fq 'role="alert"' /tmp/logitrack-known-auth-error
+          curl --fail --silent --show-error --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 \
+            'https://www.logitrack.kr/login?error=unknown' \
+            --output /tmp/logitrack-unknown-auth-error
+          if grep -Fq 'role="alert"' /tmp/logitrack-unknown-auth-error; then
+            echo 'unknown authentication errors must not be rendered as trusted operator guidance' >&2
+            exit 1
+          fi
           headers="$(curl --fail --silent --show-error --head --proto '=https' --tlsv1.2 https://www.logitrack.kr/login | tr -d '\r')"
           grep -qi '^strict-transport-security: max-age=' <<<"$headers"
           console_headers="$(curl --silent --show-error --head --proto '=https' --tlsv1.2 https://www.logitrack.kr/console | tr -d '\r')"
