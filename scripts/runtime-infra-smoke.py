@@ -89,6 +89,8 @@ if storage_init.get("user") != "0:0" or storage_init.get("cap_add") != ["CHOWN"]
     errors.append("Kafka storage initialization must be limited to the CHOWN capability")
 if services["kafka"].get("depends_on", {}).get("kafka-storage-init", {}).get("condition") != "service_completed_successfully":
     errors.append("Kafka must wait for its storage ownership initialization")
+if services["web"].get("environment", {}).get("AUTH_REQUIRED") != "true":
+    errors.append("staging web console must require operator authentication")
 if "id-token: write" not in workflow or "AWS-RunShellScript" not in workflow:
     errors.append("deployment workflow must use OIDC and SSM Run Command")
 if "fetch-depth: 0" not in workflow:
@@ -99,7 +101,7 @@ if 'actions = ["ecr:DescribeImages"]' not in tf:
     errors.append("deployment role must be able to verify the five manifest digests")
 if "secrets." in workflow:
     errors.append("deployment workflow must not consume long-lived GitHub secrets")
-for boundary in ("SECURE OPERATOR ACCESS", "운영자 로그인", "/api/runtime-version", "jq -e", "cache-control: .*no-store"):
+for boundary in ("SECURE OPERATOR ACCESS", "운영자 로그인", "/console", "returnTo=%2Fconsole", "/api/runtime-version", "jq -e", "cache-control: .*no-store"):
     if boundary not in workflow:
         errors.append(f"post-deployment public verification is missing application boundary: {boundary}")
 if deploy_script.count("docker compose --progress quiet") < 3:
