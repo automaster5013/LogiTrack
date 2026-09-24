@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import { authConfig, authCookie, secureCookie } from "../config";
+import { applicationOrigin, authConfig, authCookie, secureCookie } from "../config";
 
 const tokenExchangeTimeoutMs = 10_000;
 const jwksTimeoutMs = 5_000;
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     const { payload } = await jwtVerify(token.id_token, jwks, { issuer, audience: clientId, requiredClaims: ["nonce"], maxTokenAge: "5 minutes" });
     if (payload.nonce !== expectedNonce) throw new Error("OIDC nonce mismatch");
 
-    const response = NextResponse.redirect(new URL("/console", request.url));
+    const response = NextResponse.redirect(new URL("/console", applicationOrigin(request.nextUrl.origin)));
     response.cookies.set(authCookie.access, token.access_token, secureCookie(Math.min(Math.max(token.expires_in ?? 900, 60), 3600), "/"));
     clearTransient(response);
     response.headers.set("Cache-Control", "no-store");
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
   }
 
   function finish(reason: string) {
-    const response = NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(reason)}`, request.url));
+    const response = NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(reason)}`, applicationOrigin(request.nextUrl.origin)));
     clearTransient(response);
     response.headers.set("Cache-Control", "no-store");
     return response;

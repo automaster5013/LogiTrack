@@ -70,6 +70,23 @@ jobs:
           test -n "$redirect_nonce" && test "$redirect_nonce" = "$cookie_nonce"
           test -n "$redirect_challenge" && test "$redirect_challenge" = "$expected_challenge"
 
+          invalid_callback_status="$(curl --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
+            --dump-header /tmp/logitrack-invalid-callback-headers --output /dev/null \
+            --write-out '%{http_code}' "https://$TARGET_HOST/auth/callback")"
+          test "$invalid_callback_status" = 307
+          tr -d '\r' </tmp/logitrack-invalid-callback-headers >/tmp/logitrack-invalid-callback-headers.normalized
+          grep -Eqi '^cache-control: .*no-store' /tmp/logitrack-invalid-callback-headers.normalized
+          grep -Eqi '^location: https://www\.logitrack\.kr/login\?error=invalid_oauth_response$' \
+            /tmp/logitrack-invalid-callback-headers.normalized
+          for cookie in lt_oauth_state lt_oidc_nonce lt_pkce_verifier; do
+            grep -Eqi "^set-cookie: $cookie=; Path=/auth; .*Max-Age=0; Secure; HttpOnly; SameSite=lax$" \
+              /tmp/logitrack-invalid-callback-headers.normalized
+          done
+          if grep -Eqi '^set-cookie: lt_access_token=' /tmp/logitrack-invalid-callback-headers.normalized; then
+            echo 'invalid callback must not create or mutate the access token cookie' >&2
+            exit 1
+          fi
+
           curl --fail --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
             --dump-header /tmp/logitrack-headers --output /tmp/logitrack-login \
             "https://$TARGET_HOST/login"
