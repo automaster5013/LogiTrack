@@ -88,6 +88,8 @@ jobs:
         run: python scripts/security-policy-smoke.py
       - name: Validate authenticated web proxy boundaries
         run: python scripts/web-proxy-smoke.py
+      - name: Validate showcase single-viewport layout
+        run: python scripts/showcase-layout-smoke.py
       - name: Validate OIDC callback boundaries
         run: python scripts/auth-boundary-smoke.py
       - name: Validate staging publication trust boundaries
