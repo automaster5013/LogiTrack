@@ -47,6 +47,22 @@ jobs:
           test -s /tmp/logitrack-login
           grep -Fq 'SECURE OPERATOR ACCESS' /tmp/logitrack-login
           grep -Fq '운영자 로그인' /tmp/logitrack-login
+
+          curl --fail --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
+            --output /tmp/logitrack-known-auth-error \
+            "https://$TARGET_HOST/login?error=token_exchange_failed"
+          grep -Fq '인증 서버가 로그인을 완료하지 못했습니다' /tmp/logitrack-known-auth-error
+          grep -Fq '다시 로그인하기' /tmp/logitrack-known-auth-error
+          grep -Fq 'role="alert"' /tmp/logitrack-known-auth-error
+
+          curl --fail --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
+            --output /tmp/logitrack-unknown-auth-error \
+            "https://$TARGET_HOST/login?error=unknown"
+          if grep -Fq 'role="alert"' /tmp/logitrack-unknown-auth-error; then
+            echo 'unknown authentication errors must not be rendered as trusted operator guidance' >&2
+            exit 1
+          fi
+
           tr -d '\r' </tmp/logitrack-headers >/tmp/logitrack-headers.normalized
           grep -Eqi '^strict-transport-security: max-age=31536000; includeSubDomains$' /tmp/logitrack-headers.normalized
           grep -Eqi "^content-security-policy: base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'$" /tmp/logitrack-headers.normalized
