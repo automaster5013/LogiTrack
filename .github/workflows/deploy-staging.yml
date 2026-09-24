@@ -141,8 +141,11 @@ jobs:
           grep -Eq '^HTTP/[0-9.]+ (302|303|307|308)' <<<"$console_headers"
           grep -Eqi '^location: https://www\.logitrack\.kr/login\?returnTo=%2Fconsole$' <<<"$console_headers"
           grep -Eqi '^cache-control: .*no-store' <<<"$console_headers"
+          forged_header="$(printf '%s' '{"alg":"none"}' | openssl base64 -A | tr '+/' '-_' | tr -d '=')"
+          forged_payload="$(printf '%s' '{"exp":4102444800}' | openssl base64 -A | tr '+/' '-_' | tr -d '=')"
+          forged_token="$forged_header.$forged_payload."
           forged_console_headers="$(curl --silent --show-error --head --proto '=https' --tlsv1.2 \
-            --cookie 'lt_access_token=eyJhbGciOiJub25lIn0.eyJleHAiOjQxMDI0NDQ4MDB9.' \
+            --cookie "lt_access_token=$forged_token" \
             https://www.logitrack.kr/console | tr -d '\r')"
           grep -Eq '^HTTP/[0-9.]+ (302|303|307|308)' <<<"$forged_console_headers"
           grep -Eqi '^location: https://www\.logitrack\.kr/login\?returnTo=%2Fconsole$' <<<"$forged_console_headers"
