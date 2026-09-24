@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.time.Instant;
 import java.util.stream.Collectors;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -16,9 +17,9 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtDecoders;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
@@ -28,6 +29,7 @@ import org.springframework.security.oauth2.server.resource.web.authentication.Be
 @Configuration
 public class SecurityConfig {
     static final Set<String> ROLES=Set.of("VIEWER","OPERATOR","RECOVERY_OPERATOR","ADMIN");
+    static final long ALLOWED_CLOCK_SKEW_SECONDS=60;
 
     @Bean
     @ConditionalOnProperty(name="logitrack.security.enabled",havingValue="false",matchIfMissing=true)
@@ -41,14 +43,22 @@ public class SecurityConfig {
     JwtDecoder jwtDecoder(
         @org.springframework.beans.factory.annotation.Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuer,
         @org.springframework.beans.factory.annotation.Value("${logitrack.security.client-id}") String clientId){
-        NimbusJwtDecoder decoder=(NimbusJwtDecoder)JwtDecoders.fromIssuerLocation(issuer);
+        NimbusJwtDecoder decoder=NimbusJwtDecoder.withIssuerLocation(issuer).jwsAlgorithm(SignatureAlgorithm.RS256).build();
         var issuerValidator=JwtValidators.createDefaultWithIssuer(issuer);
         decoder.setJwtValidator(jwt->{
             var standard=issuerValidator.validate(jwt);if(standard.hasErrors())return standard;
-            boolean valid="access".equals(jwt.getClaimAsString("token_use"))&&clientId.equals(jwt.getClaimAsString("client_id"));
-            return valid?OAuth2TokenValidatorResult.success():OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token","Token is not a LogiTrack access token",null));
+            return validateAccessToken(jwt,clientId,Instant.now());
         });
         return decoder;
+    }
+
+    static OAuth2TokenValidatorResult validateAccessToken(Jwt jwt,String clientId,Instant now){
+        boolean valid="access".equals(jwt.getClaimAsString("token_use"))
+            &&clientId.equals(jwt.getClaimAsString("client_id"))
+            &&jwt.getIssuedAt()!=null
+            &&!jwt.getIssuedAt().isAfter(now.plusSeconds(ALLOWED_CLOCK_SKEW_SECONDS));
+        return valid?OAuth2TokenValidatorResult.success():OAuth2TokenValidatorResult.failure(
+            new OAuth2Error("invalid_token","Token is not a current LogiTrack access token",null));
     }
 
     @Bean

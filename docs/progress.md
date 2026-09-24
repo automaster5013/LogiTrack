@@ -276,6 +276,7 @@
 
 ## 현재 상태
 
+- API resource server도 Cognito access token을 RS256으로 제한하고 `token_use`·client ID·60초 미래 발급 허용 오차를 독립 검증해 BFF와 내부 인증 경계 일치
 - Cognito ID·access token 검증 알고리즘을 RS256으로 고정하고 callback ID token의 필수 `token_use=id`를 확인해 서명된 토큰의 용도 혼동 차단
 - 6시간 주기 staging 외부 health가 showcase의 메시지·시뮬레이터·핵심 기능과 배포 CSS의 단일 뷰포트 계약까지 검증해 공개 첫 화면 회귀를 자동 탐지
 - showcase의 메시지·관제 시뮬레이터·핵심 기능을 데스크톱과 모바일의 단일 뷰포트 그리드에 재배치해 페이지 스크롤 없이 첫 화면에서 전체 가치 제안을 확인

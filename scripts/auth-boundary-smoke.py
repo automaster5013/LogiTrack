@@ -8,6 +8,7 @@ login_page = Path("web/app/login/page.tsx").read_text(encoding="utf-8")
 proxy = Path("web/proxy.ts").read_text(encoding="utf-8")
 access_token = Path("web/app/auth/access-token.ts").read_text(encoding="utf-8")
 backend = Path("web/app/backend/[...path]/route.ts").read_text(encoding="utf-8")
+api_security = Path("api/src/main/java/io/logitrack/config/SecurityConfig.java").read_text(encoding="utf-8")
 
 callback_boundaries = (
     "const tokenExchangeTimeoutMs = 10_000",
@@ -117,6 +118,18 @@ access_token_boundaries = (
 missing = [boundary for boundary in access_token_boundaries if boundary not in access_token]
 if missing:
     raise SystemExit("ERROR: access token verification is missing boundaries: " + ", ".join(missing))
+
+api_token_boundaries = (
+    "jwsAlgorithm(SignatureAlgorithm.RS256)",
+    "static final long ALLOWED_CLOCK_SKEW_SECONDS=60",
+    '"access".equals(jwt.getClaimAsString("token_use"))',
+    'clientId.equals(jwt.getClaimAsString("client_id"))',
+    "jwt.getIssuedAt()!=null",
+    "now.plusSeconds(ALLOWED_CLOCK_SKEW_SECONDS)",
+)
+missing = [boundary for boundary in api_token_boundaries if boundary not in api_security]
+if missing:
+    raise SystemExit("ERROR: API access token verification is missing boundaries: " + ", ".join(missing))
 
 login_error_boundaries = (
     "authenticationErrors:Record<string,string>",
