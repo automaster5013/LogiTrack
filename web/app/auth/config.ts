@@ -1,10 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
 
 export const authCookie={state:"lt_oauth_state",verifier:"lt_pkce_verifier",nonce:"lt_oidc_nonce",access:"lt_access_token"} as const;
+export function accessTokenConfig(){return {issuer:endpoint("COGNITO_ISSUER_URI"),clientId:required("COGNITO_CLIENT_ID")}}
 export function authConfig(){
  const authBase=endpoint("COGNITO_AUTHORIZATION_BASE_URL");
- const issuer=endpoint("COGNITO_ISSUER_URI");
- return {authBase,issuer,clientId:required("COGNITO_CLIENT_ID"),redirectUri:callback("OIDC_REDIRECT_URI"),postLogoutRedirectUri:callback("OIDC_POST_LOGOUT_REDIRECT_URI")};
+ const {issuer,clientId}=accessTokenConfig();
+ return {authBase,issuer,clientId,redirectUri:callback("OIDC_REDIRECT_URI"),postLogoutRedirectUri:callback("OIDC_POST_LOGOUT_REDIRECT_URI")};
 }
 export function randomUrlSafe(bytes=32){return randomBytes(bytes).toString("base64url")}
 export function sha256UrlSafe(value:string){return createHash("sha256").update(value).digest("base64url")}

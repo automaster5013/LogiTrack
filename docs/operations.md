@@ -53,7 +53,7 @@ Kafka 텔레메트리는 `eventType=vehicle.telemetry.v1`, 정수 `schemaVersion
 
 telemetry `traceId`도 HTTP와 같은 1~128자 안전 문자만 허용한다. 없으면 이벤트당 UUID를 한 번 생성해 배송, 경고, 주문 후속 처리 전체에 동일하게 전파한다.
 
-운영자 OIDC 콜백은 authorization code와 state 길이를 제한하고 state를 상수 시간으로 비교한다. Cognito token 교환은 10초, JWKS 조회는 5초 안에 끝나야 하며 token 응답은 `application/json`만 허용하고 선언 길이와 실제 streaming body 모두 64 KiB를 넘으면 거부한다. access token과 ID token은 문자열·개별 길이, token type과 만료 시간 타입을 검증한 뒤에만 사용한다. redirect 응답은 따라가지 않고, 운영 환경의 issuer·authorization·callback URL은 자격 증명·query·fragment가 없는 HTTPS URL만 허용한다.
+운영자 OIDC 콜백은 authorization code와 state 길이를 제한하고 state를 상수 시간으로 비교한다. Cognito token 교환은 10초, JWKS 조회는 5초 안에 끝나야 하며 token 응답은 `application/json`만 허용하고 선언 길이와 실제 streaming body 모두 64 KiB를 넘으면 거부한다. access token과 ID token은 문자열·개별 길이, token type과 만료 시간 타입을 검증한 뒤에만 사용한다. 운영 콘솔 진입 시에도 access token의 Cognito JWKS 서명, issuer, `token_use=access`, app client ID와 만료 여유를 다시 검증하며 위조·만료 쿠키는 즉시 제거한다. redirect 응답은 따라가지 않고, 운영 환경의 issuer·authorization·callback URL은 자격 증명·query·fragment가 없는 HTTPS URL만 허용한다.
 
 텔레메트리가 적용할 수 있는 상태는 `IN_TRANSIT`, `DELAYED`, `DELIVERED`이며 `CREATED`로의 회귀는 거부한다. `DELIVERED`는 terminal 상태라 이후 이벤트는 위치 이력만 보존한다.
 
