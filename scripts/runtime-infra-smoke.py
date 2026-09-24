@@ -101,7 +101,7 @@ if 'actions = ["ecr:DescribeImages"]' not in tf:
     errors.append("deployment role must be able to verify the five manifest digests")
 if "secrets." in workflow:
     errors.append("deployment workflow must not consume long-lived GitHub secrets")
-for boundary in ("SECURE OPERATOR ACCESS", "운영자 로그인", "token_exchange_failed", "인증 서버가 로그인을 완료하지 못했습니다", "다시 로그인하기", "authentication error pages must not mutate authentication cookies", "unknown authentication errors must not be rendered as trusted operator guidance", "/console", "returnTo=%2Fconsole", "/api/runtime-version", "jq -e", "cache-control: .*no-store"):
+for boundary in ("SECURE OPERATOR ACCESS", "운영자 로그인", "token_exchange_failed", "인증 서버가 로그인을 완료하지 못했습니다", "다시 로그인하기", "authentication error pages must not mutate authentication cookies", "unknown authentication errors must not be rendered as trusted operator guidance", "/console", "returnTo=%2Fconsole", "/auth/login", "lt_oauth_state lt_oidc_nonce lt_pkce_verifier", "code_challenge_method=S256", "authorization_location", "redirect_state", "cookie_state", "redirect_nonce", "cookie_nonce", "pkce_verifier", "expected_challenge", "/api/runtime-version", "jq -e", "cache-control: .*no-store"):
     if boundary not in workflow:
         errors.append(f"post-deployment public verification is missing application boundary: {boundary}")
 if deploy_script.count("docker compose --progress quiet") < 3:
