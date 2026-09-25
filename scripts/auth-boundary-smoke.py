@@ -47,6 +47,8 @@ if missing:
     raise SystemExit("ERROR: OIDC callback is missing boundaries: " + ", ".join(missing))
 
 config_boundaries = (
+    'access:"__Host-lt_access_token"',
+    'legacyAccess:"lt_access_token"',
     'process.env.NODE_ENV==="production"&&url.protocol!=="https:"',
     "url.username||url.password||url.search||url.hash",
     'url.protocol!=="https:"&&url.protocol!=="http:"',
@@ -66,7 +68,7 @@ logout_boundaries = (
     'fetchSite === "same-origin"',
     'fetchSite === "none"',
     'status: 403, headers: { "Cache-Control": "no-store" }',
-    'response.cookies.set(authCookie.access, "", { ...secureCookie(0, "/")',
+    "[authCookie.access, authCookie.legacyAccess]",
     "[authCookie.state, authCookie.nonce, authCookie.verifier]",
     'response.headers.set("Cache-Control", "no-store")',
     'response.headers.set("Clear-Site-Data", \'"cache", "storage"\')',
@@ -81,7 +83,7 @@ if 'try{return new URL(callback("OIDC_REDIRECT_URI")).origin}catch{return fallba
 proxy_boundaries = (
     "verifyAccessToken(token)",
     'response.headers.set("Cache-Control","no-store")',
-    'response.cookies.set(authCookie.access,""',
+    "[authCookie.access,authCookie.legacyAccess]",
     'new URL("/login",applicationOrigin(request.nextUrl.origin))',
 )
 missing = [boundary for boundary in proxy_boundaries if boundary not in proxy]
@@ -94,7 +96,8 @@ backend_session_boundaries = (
     'import { verifyAccessToken } from "../../auth/access-token";',
     "await verifyAccessToken(token)",
     'jsonError("invalid_authentication", 401)',
-    'response.cookies.set(authCookie.access, "", { ...secureCookie(0, "/"), expires: new Date(0) })',
+    "[authCookie.access, authCookie.legacyAccess]",
+    "!currentToken && legacyToken",
 )
 missing = [boundary for boundary in backend_session_boundaries if boundary not in backend]
 if missing:

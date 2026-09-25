@@ -276,6 +276,7 @@
 
 ## 현재 상태
 
+- access token cookie를 `__Host-` prefix로 전환하고 기존 cookie를 검증 후 무중단 이동해 하위 도메인 cookie 주입 경계 강화
 - 웹 응답에 same-origin opener/resource 정책과 origin agent cluster를 적용하고 웹·API의 legacy cross-domain policy를 차단해 browsing context 격리 강화
 - 웹 CSP의 API·지도 출처를 build-time 환경에서 산출해 staging에서는 불필요한 localhost 허용 없이 same-origin BFF와 실제 지도 origin만 허용
 - 웹과 API가 인증 subject의 경계 공백·제어 문자를 동일하게 거부하고 API 감사 actor filter가 같은 단일 validator를 재사용하도록 정렬

@@ -92,7 +92,7 @@ for boundary in (
     'Origin: https://$TARGET_HOST',
     "clear-site-data",
     "https://auth\\.logitrack\\.kr/logout\\?",
-    "lt_access_token lt_oauth_state lt_oidc_nonce lt_pkce_verifier",
+    "__Host-lt_access_token lt_access_token lt_oauth_state lt_oidc_nonce lt_pkce_verifier",
     "cross_origin_bff_status",
     "for method in POST DELETE",
     "cross_origin_request_rejected",
