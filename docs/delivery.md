@@ -16,7 +16,7 @@
 
 Docker Hub CD는 GitHub repository secret `DOCKERHUB_TOKEN` 하나만 사용한다. 이 값에는 Docker Hub의 repository Read/Write 권한만 부여하고 Delete 권한은 부여하지 않는다. 계정명과 대상 namespace는 `automaster5013`으로 workflow에 고정되어 있어 다른 namespace로의 우발적 게시를 막는다. Docker Hub에는 mutable `latest`를 만들지 않으며, 재실행 시 기존 commit tag의 실제 image ID가 새 빌드와 다르면 overwrite 대신 실패한다.
 
-Docker Hub 게시 artifact는 UTC 게시 시각, source repository, CI workflow run ID·attempt·URL, workflow ref·정의 SHA, image platform, digest 고정 URI 5개, Trivy image·version·차단 severity와 서비스별 SBOM·CRITICAL 보고서 SHA-256을 하나의 release manifest에 결합한다. 독립 validator가 manifest 값과 실제 증적 파일을 게시 전에 다시 대조하고, 전체 JSON 묶음은 30일 보관한다.
+Docker Hub 게시 artifact는 UTC 게시 시각, source repository, CI workflow run ID·attempt·URL, workflow ref·정의 SHA, image platform, digest 고정 URI 5개, Trivy image·version·차단 severity와 서비스별 SBOM·CRITICAL 보고서 SHA-256을 하나의 release manifest에 결합한다. SBOM·보고서 묶음은 먼저 별도 artifact로 업로드하며, GitHub가 계산한 archive SHA-256과 같은 workflow run에 속한 다운로드 URL을 manifest에 고정한다. 독립 validator가 manifest 값과 실제 증적 파일을 게시 전에 다시 대조하고, 공급망 증적과 release manifest를 각각 30일 보관한다.
 
 staging CD는 서울 리전의 `www.logitrack.kr`에 적용되어 있다. image 게시와 runtime 배포는 분리된 수동 workflow이며 둘 다 GitHub `staging` environment의 승인과 AWS OIDC 단기 자격 증명을 요구한다. 장기 AWS access key나 AWS 로그인 계정은 GitHub에 저장하지 않는다.
 

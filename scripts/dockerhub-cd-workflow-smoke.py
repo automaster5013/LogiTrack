@@ -53,6 +53,10 @@ def main() -> None:
         "workflowSha",
         "sbomSha256",
         "vulnerabilityReportSha256",
+        "evidenceArtifactDigest",
+        "evidenceArtifactUrl",
+        "dockerhub-supply-chain-${{ github.sha }}",
+        "Upload immutable Docker Hub release manifest",
         "published-at=$published_at",
         "dockerhub-release-${{ github.sha }}",
         "TRIGGER_REF: ${{ github.ref }}",
@@ -69,9 +73,12 @@ def main() -> None:
 
     scan_index = source.index("Generate and validate supply-chain evidence")
     push_index = source.index("Push immutable images and verify registry digests")
-    upload_index = source.index("Upload Docker Hub publication evidence")
-    if not scan_index < push_index < upload_index:
-        raise AssertionError("images must be scanned before push and evidenced after registry verification")
+    evidence_upload_index = source.index("Upload immutable Docker Hub supply-chain evidence")
+    upload_index = source.index("Upload immutable Docker Hub release manifest")
+    if not scan_index < evidence_upload_index < push_index < upload_index:
+        raise AssertionError("evidence must be uploaded before digest-bound publication manifest")
+    if source.count("retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}") != 2:
+        raise AssertionError("both Docker Hub evidence artifacts must share the retention policy")
 
     ci_source = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
     for value in (

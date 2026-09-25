@@ -28,6 +28,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--workflow-sha", required=True)
     parser.add_argument("--scanner-image", required=True)
     parser.add_argument("--scanner-version", required=True)
+    parser.add_argument("--evidence-artifact-digest", required=True)
+    parser.add_argument("--evidence-artifact-url", required=True)
     return parser.parse_args()
 
 
@@ -53,9 +55,10 @@ def main() -> None:
         "sourceRepository", "imagePlatform", "scannerImage", "scannerVersion",
         "blockedVulnerabilitySeverities", "workflowRunId", "workflowRunAttempt",
         "workflowRunUrl", "workflowEvent", "workflowRef", "workflowSha",
-        "artifactRetentionDays", "images",
+        "artifactRetentionDays", "evidenceArtifact", "evidenceArtifactDigest",
+        "evidenceArtifactUrl", "images",
     }
-    if set(manifest) != expected_fields or manifest["schemaVersion"] != 2:
+    if set(manifest) != expected_fields or manifest["schemaVersion"] != 3:
         raise AssertionError("Docker Hub release manifest schema is invalid")
     expected_url = f"https://github.com/{args.repository}/actions/runs/{args.run_id}"
     expected_ref = f"{args.repository}/.github/workflows/ci.yml@refs/heads/main"
@@ -76,12 +79,23 @@ def main() -> None:
         "workflowRef": expected_ref,
         "workflowSha": args.workflow_sha,
         "artifactRetentionDays": 30,
+        "evidenceArtifact": f"dockerhub-supply-chain-{args.revision}",
+        "evidenceArtifactDigest": args.evidence_artifact_digest,
+        "evidenceArtifactUrl": args.evidence_artifact_url,
     }
     for field, expected in expected_values.items():
         if manifest[field] != expected:
             raise AssertionError(f"Docker Hub release manifest {field} does not match")
     if args.workflow_ref != expected_ref:
         raise AssertionError("workflow ref must identify main CI")
+    if not DIGEST.fullmatch(args.evidence_artifact_digest):
+        raise AssertionError("evidence artifact digest must be SHA-256")
+    artifact_url = re.compile(
+        rf"^https://github\.com/{re.escape(args.repository)}/actions/runs/"
+        rf"{args.run_id}/artifacts/[1-9][0-9]*$"
+    )
+    if not artifact_url.fullmatch(args.evidence_artifact_url):
+        raise AssertionError("evidence artifact URL is outside the workflow run")
 
     images = manifest["images"]
     if not isinstance(images, list) or [image.get("service") for image in images] != list(SERVICES):
