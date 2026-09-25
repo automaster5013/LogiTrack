@@ -156,6 +156,10 @@ jobs:
           ! grep -Eqi '^content-security-policy: .*localhost|^content-security-policy: .*127\.0\.0\.1' /tmp/logitrack-headers.normalized
           grep -Eqi '^x-content-type-options: nosniff$' /tmp/logitrack-headers.normalized
           grep -Eqi '^x-frame-options: DENY$' /tmp/logitrack-headers.normalized
+          grep -Eqi '^cross-origin-opener-policy: same-origin$' /tmp/logitrack-headers.normalized
+          grep -Eqi '^cross-origin-resource-policy: same-origin$' /tmp/logitrack-headers.normalized
+          grep -Eqi '^origin-agent-cluster: \?1$' /tmp/logitrack-headers.normalized
+          grep -Eqi '^x-permitted-cross-domain-policies: none$' /tmp/logitrack-headers.normalized
           if grep -Eqi '^(server|via|x-powered-by|x-nextjs-[^:]*):' /tmp/logitrack-headers.normalized; then
             echo 'server, proxy, and application framework identity headers must remain suppressed' >&2
             exit 1

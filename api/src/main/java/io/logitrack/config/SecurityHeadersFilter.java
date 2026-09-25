@@ -13,6 +13,7 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
     static final String CONTENT_SECURITY_POLICY="base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'";
     @Override protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain chain) throws ServletException,IOException {
         response.setHeader("Content-Security-Policy",CONTENT_SECURITY_POLICY);
+        response.setHeader("X-Permitted-Cross-Domain-Policies","none");
         response.setHeader("X-Content-Type-Options","nosniff");
         response.setHeader("X-Frame-Options","DENY");
         response.setHeader("Referrer-Policy","no-referrer");

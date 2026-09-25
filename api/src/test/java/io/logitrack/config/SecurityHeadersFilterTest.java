@@ -11,6 +11,7 @@ class SecurityHeadersFilterTest {
         var filter=new SecurityHeadersFilter();var request=new MockHttpServletRequest();var response=new MockHttpServletResponse();var chain=mock(FilterChain.class);
         filter.doFilter(request,response,chain);
         assertEquals(SecurityHeadersFilter.CONTENT_SECURITY_POLICY,response.getHeader("Content-Security-Policy"));
+        assertEquals("none",response.getHeader("X-Permitted-Cross-Domain-Policies"));
         assertEquals("nosniff",response.getHeader("X-Content-Type-Options"));
         assertEquals("DENY",response.getHeader("X-Frame-Options"));
         assertEquals("no-referrer",response.getHeader("Referrer-Policy"));

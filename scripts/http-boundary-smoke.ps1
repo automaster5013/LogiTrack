@@ -15,9 +15,12 @@ $api=Headers "http://localhost:8080/api/deliveries" "http://localhost:3000"
 $loopbackApi=Headers "http://localhost:8080/api/deliveries" "http://127.0.0.1:3000"
 $untrusted=Headers "http://localhost:8080/api/deliveries" "https://untrusted.example"
 $web=Headers "http://localhost:3000"
-foreach($header in @("X-Content-Type-Options: nosniff","X-Frame-Options: DENY","Referrer-Policy: no-referrer","Permissions-Policy: camera=(), microphone=(), geolocation=()")) {
+foreach($header in @("X-Permitted-Cross-Domain-Policies: none","X-Content-Type-Options: nosniff","X-Frame-Options: DENY","Referrer-Policy: no-referrer","Permissions-Policy: camera=(), microphone=(), geolocation=()")) {
   if($api -notmatch "(?im)^$([regex]::Escape($header))\s*$") { throw "API security header is missing: $header" }
   if($web -notmatch "(?im)^$([regex]::Escape($header))\s*$") { throw "Web security header is missing: $header" }
+}
+foreach($header in @("Cross-Origin-Opener-Policy: same-origin","Cross-Origin-Resource-Policy: same-origin","Origin-Agent-Cluster: ?1")) {
+  if($web -notmatch "(?im)^$([regex]::Escape($header))\s*$") { throw "Web browsing-context isolation header is missing: $header" }
 }
 $apiCsp="Content-Security-Policy: base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
 if($api -notmatch "(?im)^$([regex]::Escape($apiCsp))\s*$") { throw "API content security policy is missing" }
