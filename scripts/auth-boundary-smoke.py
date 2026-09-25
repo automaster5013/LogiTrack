@@ -47,6 +47,9 @@ if missing:
     raise SystemExit("ERROR: OIDC callback is missing boundaries: " + ", ".join(missing))
 
 config_boundaries = (
+    'state:"__Host-lt_oauth_state"',
+    'verifier:"__Host-lt_pkce_verifier"',
+    'nonce:"__Host-lt_oidc_nonce"',
     'access:"__Host-lt_access_token"',
     'legacyAccess:"lt_access_token"',
     'process.env.NODE_ENV==="production"&&url.protocol!=="https:"',
@@ -59,6 +62,10 @@ config_boundaries = (
 missing = [boundary for boundary in config_boundaries if boundary not in config]
 if missing:
     raise SystemExit("ERROR: OIDC configuration is missing boundaries: " + ", ".join(missing))
+
+for route_name, route in (("login", Path("web/app/auth/login/route.ts").read_text(encoding="utf-8")), ("callback", callback), ("logout", logout)):
+    if 'secureCookie(' not in route or '"/"' not in route:
+        raise SystemExit(f"ERROR: {route_name} must issue or clear __Host- authentication cookies at the root path")
 
 logout_boundaries = (
     "isSameOrigin(request)",
