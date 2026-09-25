@@ -37,6 +37,7 @@ public class SecurityConfig {
     @ConditionalOnProperty(name="logitrack.security.enabled",havingValue="false",matchIfMissing=true)
     SecurityFilterChain localSecurity(HttpSecurity http)throws Exception{
         return http.csrf(csrf->csrf.ignoringRequestMatchers("/api/**")).cors(Customizer.withDefaults())
+            .headers(headers->headers.contentSecurityPolicy(csp->csp.policyDirectives(SecurityHeadersFilter.CONTENT_SECURITY_POLICY)))
             .authorizeHttpRequests(auth->auth.anyRequest().permitAll()).build();
     }
 
@@ -71,6 +72,7 @@ public class SecurityConfig {
     @ConditionalOnProperty(name="logitrack.security.enabled",havingValue="true")
     SecurityFilterChain oidcSecurity(HttpSecurity http,AuthenticatedOperatorFilter operatorFilter)throws Exception{
         return http.csrf(csrf->csrf.ignoringRequestMatchers("/api/**")).cors(Customizer.withDefaults())
+            .headers(headers->headers.contentSecurityPolicy(csp->csp.policyDirectives(SecurityHeadersFilter.CONTENT_SECURITY_POLICY)))
             .sessionManagement(session->session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth->auth
                 .requestMatchers("/actuator/health/**").permitAll()
