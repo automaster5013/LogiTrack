@@ -276,6 +276,7 @@
 
 ## 현재 상태
 
+- 웹 CSP의 API·지도 출처를 build-time 환경에서 산출해 staging에서는 불필요한 localhost 허용 없이 same-origin BFF와 실제 지도 origin만 허용
 - 웹과 API가 인증 subject의 경계 공백·제어 문자를 동일하게 거부하고 API 감사 actor filter가 같은 단일 validator를 재사용하도록 정렬
 - 웹 Content Security Policy를 default-deny 기반으로 강화하고 same-origin 자산·local API·OpenFreeMap tile·MapLibre worker만 명시 허용해 임의 외부 script/frame/media 로드를 차단
 - API CSP를 Spring Security 체인에도 명시해 filter가 선언한 base·form·frame·object 제한이 실제 응답에서 덮어써지지 않도록 수정
