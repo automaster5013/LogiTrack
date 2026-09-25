@@ -16,6 +16,16 @@ def main() -> None:
         raise AssertionError("CI workflow has no jobs")
 
     for job_name, job in jobs.items():
+        if job_name == "dockerhub":
+            if job.get("uses") != "./.github/workflows/publish-dockerhub-images.yml":
+                raise AssertionError("Docker Hub job must call the repository reusable workflow")
+            if job.get("needs") != "containers":
+                raise AssertionError("Docker Hub publication must wait for container CI")
+            if str(job.get("if", "")) != "github.event_name == 'push' && github.ref == 'refs/heads/main'":
+                raise AssertionError("Docker Hub publication must only run for main pushes")
+            if job.get("secrets") != {"DOCKERHUB_TOKEN": "${{ secrets.DOCKERHUB_TOKEN }}"}:
+                raise AssertionError("Docker Hub publication must receive only its dedicated secret")
+            continue
         if job.get("runs-on") != "ubuntu-24.04":
             raise AssertionError(f"{job_name} runner OS is not pinned to ubuntu-24.04")
         timeout = job.get("timeout-minutes")

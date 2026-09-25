@@ -276,6 +276,7 @@
 
 ## 현재 상태
 
+- Docker Hub CD 도입 후 GitHub live 감사가 repository secret 0개를 요구하던 기존 OIDC-only 전제를 수정하고, staging secret 0개·repository `DOCKERHUB_TOKEN` 단일 허용·게시 workflow 활성 상태·최신 main 성공 실행·공개 image 5종의 SHA tag와 `linux/amd64` digest를 읽기 전용으로 검증
 - DB 무결성 smoke의 V24 DLQ 제약 기대값을 V30 replay·discard terminal 상태와 replay 감사 제약 집합으로 갱신해 실제 schema 회귀 감지 복구
 - access token cookie를 `__Host-` prefix로 전환하고 기존 cookie를 검증 후 무중단 이동해 하위 도메인 cookie 주입 경계 강화
 - 웹 응답에 same-origin opener/resource 정책과 origin agent cluster를 적용하고 웹·API의 legacy cross-domain policy를 차단해 browsing context 격리 강화
