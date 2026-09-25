@@ -13,28 +13,37 @@ import org.springframework.context.event.EventListener;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 @Component
 public class DeliveryStream implements MessageListener {
     private static final Logger log=LoggerFactory.getLogger(DeliveryStream.class);
-    private final CopyOnWriteArrayList<SseEmitter> clients=new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<Subscription> clients=new CopyOnWriteArrayList<>();
+    private final Map<String,Integer> subjectConnections=new HashMap<>();
     private final StringRedisTemplate redis; private final ObjectMapper mapper; private final MeterRegistry metrics;
-    private final String channel; private final String instanceId; private final int maxConnections;
+    private final String channel; private final String instanceId; private final int maxConnections; private final int maxConnectionsPerSubject;
     public DeliveryStream(StringRedisTemplate redis,ObjectMapper mapper,MeterRegistry metrics,
         @Value("${logitrack.stream.channel}") String channel,@Value("${logitrack.instance-id}") String instanceId,
-        @Value("${logitrack.stream.max-connections:1000}") int maxConnections,@Value("${logitrack.stream.heartbeat-ms:15000}") long heartbeatMs){
+        @Value("${logitrack.stream.max-connections:1000}") int maxConnections,
+        @Value("${logitrack.stream.max-connections-per-subject:5}") int maxConnectionsPerSubject,
+        @Value("${logitrack.stream.heartbeat-ms:15000}") long heartbeatMs){
         if(maxConnections<1||maxConnections>10_000)throw new IllegalArgumentException("SSE maximum connections must be between 1 and 10000");
+        if(maxConnectionsPerSubject<1||maxConnectionsPerSubject>maxConnections)throw new IllegalArgumentException("SSE per-subject connections must be between 1 and the global maximum");
         if(heartbeatMs<1_000||heartbeatMs>60_000)throw new IllegalArgumentException("SSE heartbeat must be between 1000 and 60000 milliseconds");
-        this.redis=redis;this.mapper=mapper;this.metrics=metrics;this.channel=channel;this.instanceId=instanceId;this.maxConnections=maxConnections;
+        this.redis=redis;this.mapper=mapper;this.metrics=metrics;this.channel=channel;this.instanceId=instanceId;this.maxConnections=maxConnections;this.maxConnectionsPerSubject=maxConnectionsPerSubject;
         metrics.gauge("logitrack.sse.connections",clients,CopyOnWriteArrayList::size);
         metrics.counter("logitrack.sse.rejected","reason","capacity");
+        metrics.counter("logitrack.sse.rejected","reason","subject_capacity");
     }
-    public synchronized SseEmitter subscribe(){
+    public synchronized SseEmitter subscribe(String subjectKey){
+        if(subjectKey==null||subjectKey.isBlank()||subjectKey.length()>256)throw new IllegalArgumentException("SSE subject key is invalid");
         if(clients.size()>=maxConnections){metrics.counter("logitrack.sse.rejected","reason","capacity").increment();throw new StreamCapacityExceededException();}
-        var emitter=new SseEmitter(0L);clients.add(emitter);emitter.onCompletion(()->clients.remove(emitter));emitter.onTimeout(()->clients.remove(emitter));emitter.onError(error->clients.remove(emitter));
+        if(subjectConnections.getOrDefault(subjectKey,0)>=maxConnectionsPerSubject){metrics.counter("logitrack.sse.rejected","reason","subject_capacity").increment();throw StreamCapacityExceededException.forSubject();}
+        var emitter=new SseEmitter(0L);var subscription=new Subscription(emitter,subjectKey);clients.add(subscription);subjectConnections.merge(subjectKey,1,Integer::sum);
+        emitter.onCompletion(()->remove(subscription));emitter.onTimeout(()->remove(subscription));emitter.onError(error->remove(subscription));
         try{emitter.send(SseEmitter.event().name("connected").data(Map.of("status","ok","instanceId",instanceId)));}
-        catch(Exception error){clients.remove(emitter);}
+        catch(Exception error){remove(subscription);}
         return emitter;
     }
     public void publish(Object value){publish("delivery-update",value);}
@@ -42,12 +51,12 @@ public class DeliveryStream implements MessageListener {
     public void publishTelemetry(Object value){publish("telemetry-point",value);}
     @Scheduled(fixedDelayString="${logitrack.stream.heartbeat-ms:15000}")
     public void heartbeat(){
-        for(var emitter:clients){try{emitter.send(SseEmitter.event().comment("keepalive"));}catch(Exception error){clients.remove(emitter);}}
+        for(var subscription:clients){try{subscription.emitter.send(SseEmitter.event().comment("keepalive"));}catch(Exception error){remove(subscription);}}
     }
     @EventListener(ContextClosedEvent.class)
-    void closeAll(){
-        for(var emitter:clients){try{emitter.complete();}catch(Exception ignored){}}
-        clients.clear();
+    synchronized void closeAll(){
+        for(var subscription:clients){try{subscription.emitter.complete();}catch(Exception ignored){}}
+        clients.clear();subjectConnections.clear();
     }
     private void publish(String name,Object value){
         try{
@@ -68,8 +77,14 @@ public class DeliveryStream implements MessageListener {
         }catch(Exception error){log.warn("Ignored invalid Redis stream event",error);metrics.counter("logitrack.sse.redis.invalid").increment();}
     }
     private void broadcast(String name,Object value){
-        for(var emitter:clients){try{emitter.send(SseEmitter.event().name(name).data(value));}
-            catch(Exception error){clients.remove(emitter);}}
+        for(var subscription:clients){try{subscription.emitter.send(SseEmitter.event().name(name).data(value));}
+            catch(Exception error){remove(subscription);}}
+    }
+    private synchronized void remove(Subscription subscription){
+        if(!clients.remove(subscription))return;
+        subjectConnections.computeIfPresent(subscription.subjectKey,(ignored,count)->count==1?null:count-1);
     }
     int clientCount(){return clients.size();}
+    synchronized int subjectCount(String subjectKey){return subjectConnections.getOrDefault(subjectKey,0);}
+    private record Subscription(SseEmitter emitter,String subjectKey){}
 }
