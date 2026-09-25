@@ -40,6 +40,7 @@ logging.pattern.correlation: "[traceId=%X{traceId:-} spanId=%X{spanId:-} request
 server:
   shutdown: graceful
   connection-timeout: ${SERVER_CONNECTION_TIMEOUT:5s}
+  max-http-request-header-size: ${SERVER_MAX_HTTP_REQUEST_HEADER_SIZE:8KB}
   compression:
     enabled: true
     min-response-size: 1024
@@ -47,8 +48,11 @@ server:
   tomcat:
     accept-count: ${SERVER_ACCEPT_COUNT:100}
     max-connections: ${SERVER_MAX_CONNECTIONS:512}
+    max-http-form-post-size: ${SERVER_MAX_HTTP_FORM_POST_SIZE:1MB}
+    max-http-response-header-size: ${SERVER_MAX_HTTP_RESPONSE_HEADER_SIZE:8KB}
     keep-alive-timeout: ${SERVER_KEEP_ALIVE_TIMEOUT:20s}
     max-keep-alive-requests: ${SERVER_MAX_KEEP_ALIVE_REQUESTS:100}
+    max-swallow-size: ${SERVER_MAX_SWALLOW_SIZE:1MB}
     mbeanregistry.enabled: true
     threads:
       max: ${SERVER_MAX_THREADS:128}

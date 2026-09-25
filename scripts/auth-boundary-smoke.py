@@ -10,6 +10,7 @@ access_token = Path("web/app/auth/access-token.ts").read_text(encoding="utf-8")
 backend = Path("web/app/backend/[...path]/route.ts").read_text(encoding="utf-8")
 api_security = Path("api/src/main/java/io/logitrack/config/SecurityConfig.java").read_text(encoding="utf-8")
 api_config = Path("api/src/main/resources/application.yml").read_text(encoding="utf-8")
+http_container_validator = Path("api/src/main/java/io/logitrack/config/HttpContainerBoundaryValidator.java").read_text(encoding="utf-8")
 
 callback_boundaries = (
     "const tokenExchangeTimeoutMs = 10_000",
@@ -170,6 +171,19 @@ if ".anyRequest().authenticated()" in api_security:
     raise SystemExit("ERROR: valid tokens without an application role must not reach management or undefined endpoints")
 if "security.client-id: ${SECURITY_CLIENT_ID}" not in api_config or "SECURITY_CLIENT_ID:" in api_config:
     raise SystemExit("ERROR: API security client ID must be required without a public default")
+
+http_container_config = (
+    "max-http-request-header-size: ${SERVER_MAX_HTTP_REQUEST_HEADER_SIZE:8KB}",
+    "max-http-response-header-size: ${SERVER_MAX_HTTP_RESPONSE_HEADER_SIZE:8KB}",
+    "max-http-form-post-size: ${SERVER_MAX_HTTP_FORM_POST_SIZE:1MB}",
+    "max-swallow-size: ${SERVER_MAX_SWALLOW_SIZE:1MB}",
+)
+missing = [boundary for boundary in http_container_config if boundary not in api_config]
+if missing:
+    raise SystemExit("ERROR: API container is missing HTTP resource boundaries: " + ", ".join(missing))
+for boundary in ("MAX_REQUEST_HEADER_BYTES=16*1024", "MAX_RESPONSE_HEADER_BYTES=32*1024", "MAX_BODY_BYTES=10*1024*1024", 'if(value.toBytes()<1||value.toBytes()>maximum)'):
+    if boundary not in http_container_validator:
+        raise SystemExit("ERROR: API container limits must fail closed when configured outside safe bounds")
 
 login_error_boundaries = (
     "authenticationErrors:Record<string,string>",
