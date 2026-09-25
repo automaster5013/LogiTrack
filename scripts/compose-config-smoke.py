@@ -54,6 +54,8 @@ def main() -> None:
         raise AssertionError("Typed JSON contracts must reject trailing values")
     if "jackson.deserialization.fail-on-null-for-primitives: true" not in application_config:
         raise AssertionError("Primitive JSON fields must reject null values")
+    if "jackson.deserialization.accept-float-as-int: false" not in application_config:
+        raise AssertionError("Integer JSON fields must reject floating-point coercion")
     if "jackson.mapper.allow-coercion-of-scalars: false" not in application_config:
         raise AssertionError("Typed JSON contracts must reject scalar type coercion")
     if "json.max-nesting-depth: ${JSON_MAX_NESTING_DEPTH:100}" not in application_config:
