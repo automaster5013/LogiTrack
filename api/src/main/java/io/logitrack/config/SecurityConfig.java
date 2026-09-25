@@ -91,6 +91,7 @@ public class SecurityConfig {
             .sessionManagement(session->session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth->auth
                 .requestMatchers("/actuator/health/**").permitAll()
+                .requestMatchers("/actuator/**").denyAll()
                 .requestMatchers("/api/operations/**").hasAnyRole("RECOVERY_OPERATOR","ADMIN")
                 .requestMatchers("/api/alert-policies/**").hasRole("ADMIN")
                 .requestMatchers(org.springframework.http.HttpMethod.POST,"/api/alerts/*/acknowledgement").hasAnyRole("OPERATOR","ADMIN")
@@ -98,7 +99,7 @@ public class SecurityConfig {
                 .requestMatchers(org.springframework.http.HttpMethod.DELETE,"/api/**").hasRole("ADMIN")
                 .requestMatchers(org.springframework.http.HttpMethod.GET,"/api/**").hasAnyRole("VIEWER","OPERATOR","RECOVERY_OPERATOR","ADMIN")
                 .requestMatchers("/api/**").denyAll()
-                .anyRequest().authenticated())
+                .anyRequest().denyAll())
             .oauth2ResourceServer(oauth->oauth.jwt(jwt->jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
             .addFilterAfter(operatorFilter,BearerTokenAuthenticationFilter.class)
             .addFilterAfter(rateLimitFilter,AuthenticatedOperatorFilter.class).build();
