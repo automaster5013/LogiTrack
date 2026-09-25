@@ -3,6 +3,7 @@ package io.logitrack.config;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.logitrack.order.DispatchOrderRequest;
+import io.logitrack.warehouse.WarehouseCommand;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.json.JsonTest;
@@ -36,5 +37,20 @@ class JsonParsingBoundaryTest {
         assertThrows(JsonProcessingException.class, () -> mapper.readValue(
                 "{\"vehicleId\":\"TRUCK-01\"} {\"vehicleId\":\"TRUCK-02\"}",
                 DispatchOrderRequest.class));
+    }
+
+    @Test void rejectsStringCoercionForNumericFields() {
+        assertThrows(JsonProcessingException.class, () -> mapper.readValue(
+                "{\"referenceNumber\":\"REF-01\",\"warehouseId\":\"WH-01\","
+                        + "\"sku\":\"SKU-01\",\"quantity\":\"10\"}",
+                WarehouseCommand.class));
+    }
+
+    @Test void acceptsNumericFieldsWithTheirDeclaredType() {
+        WarehouseCommand command = assertDoesNotThrow(() -> mapper.readValue(
+                "{\"referenceNumber\":\"REF-01\",\"warehouseId\":\"WH-01\","
+                        + "\"sku\":\"SKU-01\",\"quantity\":10}",
+                WarehouseCommand.class));
+        assertEquals(10, command.quantity());
     }
 }

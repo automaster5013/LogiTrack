@@ -46,7 +46,7 @@ API 오류 body는 `error`, `traceId`, `timestamp`를 공통으로 반환한다.
 
 POST·PUT·PATCH body는 스트리밍 읽기 단계에서 기본 1MB로 제한하며 초과 시 413을 반환한다. `HTTP_MAX_REQUEST_BODY_SIZE`로 조정할 수 있고 1 byte 미만 설정은 시작 시 거부한다.
 
-API 요청과 Kafka 이벤트가 공유하는 Jackson parser는 중복 object key를 허용하지 않는다. 동일한 필드를 여러 값으로 반복한 모호한 JSON은 마지막 값으로 덮어쓰지 않고 HTTP 400 또는 consumer 재시도·DLQ 경로로 거부한다. 또한 DTO로 역직렬화하는 HTTP 요청과 내부 응답은 계약에 선언되지 않은 필드나 첫 JSON 값 뒤에 이어지는 추가 값을 HTTP 400 또는 호출 실패로 거부한다. tree 방식으로 읽는 Kafka 이벤트는 기존 schema·version 검증 경계를 따른다.
+API 요청과 Kafka 이벤트가 공유하는 Jackson parser는 중복 object key를 허용하지 않는다. 동일한 필드를 여러 값으로 반복한 모호한 JSON은 마지막 값으로 덮어쓰지 않고 HTTP 400 또는 consumer 재시도·DLQ 경로로 거부한다. 또한 DTO로 역직렬화하는 HTTP 요청과 내부 응답은 계약에 선언되지 않은 필드, 첫 JSON 값 뒤에 이어지는 추가 값, 문자열을 숫자·불리언으로 바꾸는 스칼라 강제 변환을 HTTP 400 또는 호출 실패로 거부한다. tree 방식으로 읽는 Kafka 이벤트는 기존 schema·version 검증 경계를 따른다.
 
 Tomcat은 애플리케이션 필터보다 먼저 처리하는 요청 line·header를 기본 8 KiB로 제한한다. form post와 거부 후 삼키는 body도 각각 1 MiB, 응답 header도 8 KiB로 제한한다. 환경 변수로 조정할 수 있지만 요청 header 16 KiB, 응답 header 32 KiB, body 처리 10 MiB를 넘거나 1 byte 미만이면 API가 시작되지 않아 HTTP 파서 단계의 자원 고갈 설정 drift를 차단한다.
 
