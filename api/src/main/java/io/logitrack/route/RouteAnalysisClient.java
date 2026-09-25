@@ -78,6 +78,6 @@ public class RouteAnalysisClient {
     }
     private String hash(List<List<Double>> points) {
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(points.toString().getBytes(StandardCharsets.UTF_8))); }
-        catch(Exception e) { throw new IllegalStateException(e); }
+        catch(Exception e) { throw new IllegalStateException("Could not calculate fallback route hash",e); }
     }
 }
