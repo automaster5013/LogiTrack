@@ -57,6 +57,10 @@ logitrack:
   security.enabled: ${SECURITY_ENABLED:true}
   security.client-id: ${SECURITY_CLIENT_ID:local-development-only}
   http.max-request-body-size: ${HTTP_MAX_REQUEST_BODY_SIZE:1MB}
+  http.rate-limit:
+    requests: ${HTTP_RATE_LIMIT_REQUESTS:300}
+    window-seconds: ${HTTP_RATE_LIMIT_WINDOW_SECONDS:60}
+    max-subjects: ${HTTP_RATE_LIMIT_MAX_SUBJECTS:10000}
   analytics:
     url: ${ANALYTICS_URL:http://localhost:8090}
     route-connect-timeout: ${ANALYTICS_ROUTE_CONNECT_TIMEOUT:1s}
