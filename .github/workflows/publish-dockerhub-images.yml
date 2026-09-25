@@ -1,0 +1,167 @@
+name: Publish Docker Hub images
+
+run-name: Publish Docker Hub images for ${{ github.event.workflow_run.head_sha }}
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dockerhub-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish verified images
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      DOCKERHUB_NAMESPACE: automaster5013
+      IMAGE_PLATFORM: linux/amd64
+      TRIVY_IMAGE: ghcr.io/aquasecurity/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969
+      ARTIFACT_RETENTION_DAYS: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate trusted CI revision
+        env:
+          REVISION: ${{ github.event.workflow_run.head_sha }}
+          TRIGGER_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          TRIGGER_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          TRIGGER_EVENT: ${{ github.event.workflow_run.event }}
+          TRIGGER_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          set -euo pipefail
+          [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]]
+          test "$TRIGGER_REPOSITORY" = "$GITHUB_REPOSITORY"
+          test "$TRIGGER_BRANCH" = main
+          test "$TRIGGER_EVENT" = push
+          test "$TRIGGER_CONCLUSION" = success
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$REVISION" origin/main
+          test "$(git rev-parse HEAD)" = "$REVISION"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ env.DOCKERHUB_NAMESPACE }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build deployable service images
+        env:
+          REVISION: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          docker build --platform "$IMAGE_PLATFORM" --label org.opencontainers.image.source="$SOURCE_URL" --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-api:$REVISION" ./api
+          docker build --platform "$IMAGE_PLATFORM" --label org.opencontainers.image.source="$SOURCE_URL" --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-analytics:$REVISION" ./analytics
+          docker build --platform "$IMAGE_PLATFORM" --label org.opencontainers.image.source="$SOURCE_URL" --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-simulator:$REVISION" ./simulator
+          docker build --platform "$IMAGE_PLATFORM" --build-arg NEXT_PUBLIC_API_URL=/backend --label org.opencontainers.image.source="$SOURCE_URL" --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-web:$REVISION" ./web
+          docker build --platform "$IMAGE_PLATFORM" --label org.opencontainers.image.source="$SOURCE_URL" --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-otel-collector:$REVISION" ./infra/otel
+
+      - name: Enforce runtime and provenance metadata
+        env:
+          REVISION: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          for service in api analytics simulator web otel-collector; do
+            image="logitrack-$service:$REVISION"
+            user="$(docker image inspect --format '{{.Config.User}}' "$image")"
+            test -n "$user" && test "$user" != 0 && test "$user" != root
+            test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$image")" = "$SOURCE_URL"
+            test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")" = "$REVISION"
+            test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$image")" = "$IMAGE_PLATFORM"
+            healthcheck="$(docker image inspect --format '{{json .Config.Healthcheck.Test}}' "$image")"
+            test "$healthcheck" != null && test "$healthcheck" != '[]'
+          done
+
+      - name: Generate and validate supply-chain evidence
+        env:
+          REVISION: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p work/dockerhub-sbom
+          for service in api analytics simulator web otel-collector; do
+            image="logitrack-$service:$REVISION"
+            docker run --rm --volume /var/run/docker.sock:/var/run/docker.sock --volume trivy-cache:/root/.cache/ --volume "$GITHUB_WORKSPACE/work/dockerhub-sbom:/output" "$TRIVY_IMAGE" image --scanners vuln --format cyclonedx --output "/output/logitrack-$service.cdx.json" --no-progress "$image"
+            docker run --rm --volume /var/run/docker.sock:/var/run/docker.sock --volume trivy-cache:/root/.cache/ --volume "$GITHUB_WORKSPACE/work/dockerhub-sbom:/output" "$TRIVY_IMAGE" image --scanners vuln --severity CRITICAL --format json --output "/output/logitrack-$service.critical.json" --exit-code 1 --no-progress "$image"
+          done
+          python scripts/sbom-smoke.py work/dockerhub-sbom --tag "$REVISION" --revision "$REVISION"
+
+      - name: Push immutable images and verify registry digests
+        id: publish
+        env:
+          REVISION: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p work/dockerhub
+          printf '{"schemaVersion":1,"revision":"%s","source":"%s","registry":"docker.io","images":[' "$REVISION" "$SOURCE_URL" > work/dockerhub/release-manifest.json
+          separator=''
+          for service in api analytics simulator web otel-collector; do
+            source_image="logitrack-$service:$REVISION"
+            destination="docker.io/$DOCKERHUB_NAMESPACE/logitrack-$service:$REVISION"
+            local_image_id="$(docker image inspect --format '{{.Id}}' "$source_image")"
+            docker tag "$source_image" "$destination"
+            if existing_manifest="$(docker buildx imagetools inspect "$destination" --format '{{json .Manifest}}' 2>/dev/null)"; then
+              digest="$(jq -r .digest <<<"$existing_manifest")"
+              [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+              pinned="docker.io/$DOCKERHUB_NAMESPACE/logitrack-$service@$digest"
+              docker pull --platform "$IMAGE_PLATFORM" "$pinned"
+              remote_image_id="$(docker image inspect --format '{{.Id}}' "$pinned")"
+              if [ "$remote_image_id" != "$local_image_id" ]; then
+                echo "::error::$destination already exists with different immutable content"
+                exit 1
+              fi
+            else
+              docker push "$destination"
+              digest="$(docker buildx imagetools inspect "$destination" --format '{{json .Manifest}}' | jq -r .digest)"
+            fi
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            pinned="docker.io/$DOCKERHUB_NAMESPACE/logitrack-$service@$digest"
+            docker image rm "$destination" >/dev/null
+            docker pull --platform "$IMAGE_PLATFORM" "$pinned"
+            test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$pinned")" = "$SOURCE_URL"
+            test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$pinned")" = "$REVISION"
+            test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$pinned")" = "$IMAGE_PLATFORM"
+            printf '%s{"service":"%s","tag":"%s","digest":"%s","image":"%s"}' "$separator" "$service" "$REVISION" "$digest" "$pinned" >> work/dockerhub/release-manifest.json
+            separator=,
+          done
+          printf ']}' >> work/dockerhub/release-manifest.json
+          jq -e '.images | length == 5' work/dockerhub/release-manifest.json >/dev/null
+
+      - name: Upload Docker Hub publication evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: dockerhub-release-${{ github.event.workflow_run.head_sha }}
+          path: |
+            work/dockerhub/release-manifest.json
+            work/dockerhub-sbom/*.json
+          if-no-files-found: error
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+      - name: Record publication summary
+        env:
+          REVISION: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          {
+            echo "## Docker Hub publication"
+            echo ""
+            echo "Published five verified images for \`$REVISION\` to \`$DOCKERHUB_NAMESPACE\`."
+            echo ""
+            jq -r '.images[] | "- `" + .image + "`"' work/dockerhub/release-manifest.json
+          } >> "$GITHUB_STEP_SUMMARY"
