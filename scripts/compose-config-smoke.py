@@ -50,6 +50,8 @@ def main() -> None:
         raise AssertionError("API and event JSON parsing must reject duplicate object keys")
     if "jackson.deserialization.fail-on-unknown-properties: true" not in application_config:
         raise AssertionError("Typed JSON contracts must reject unknown properties")
+    if "jackson.deserialization.fail-on-trailing-tokens: true" not in application_config:
+        raise AssertionError("Typed JSON contracts must reject trailing values")
     security_config = Path("api/src/main/java/io/logitrack/config/SecurityConfig.java").read_text(encoding="utf-8")
     if 'havingValue="false",matchIfMissing=true' in security_config:
         raise AssertionError("Unauthenticated API security must not activate when the property is missing")

@@ -31,4 +31,10 @@ class JsonParsingBoundaryTest {
                 "{\"vehicleId\":\"TRUCK-01\"}", DispatchOrderRequest.class));
         assertEquals("TRUCK-01", request.vehicleId());
     }
+
+    @Test void rejectsTrailingJsonValues() {
+        assertThrows(JsonProcessingException.class, () -> mapper.readValue(
+                "{\"vehicleId\":\"TRUCK-01\"} {\"vehicleId\":\"TRUCK-02\"}",
+                DispatchOrderRequest.class));
+    }
 }
