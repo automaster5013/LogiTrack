@@ -3,6 +3,7 @@ spring:
   jackson.parser.strict-duplicate-detection: true
   jackson.deserialization.fail-on-unknown-properties: true
   jackson.deserialization.fail-on-trailing-tokens: true
+  jackson.deserialization.fail-on-null-for-primitives: true
   jackson.mapper.allow-coercion-of-scalars: false
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/logitrack}
