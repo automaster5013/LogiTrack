@@ -11,7 +11,10 @@ export function randomUrlSafe(bytes=32){return randomBytes(bytes).toString("base
 export function sha256UrlSafe(value:string){return createHash("sha256").update(value).digest("base64url")}
 export function applicationOrigin(fallback:string){
  const configured=process.env.OIDC_REDIRECT_URI?.trim();
- if(!configured)return fallback;
+ if(!configured){
+  if(process.env.AUTH_REQUIRED==="true")throw new Error("OIDC_REDIRECT_URI is required when operator authentication is enabled");
+  return fallback;
+ }
  return new URL(callback("OIDC_REDIRECT_URI")).origin;
 }
 export function secureCookie(maxAge:number,path:string){
