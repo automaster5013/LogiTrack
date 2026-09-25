@@ -4,6 +4,7 @@ from pathlib import Path
 source = Path("web/app/backend/[...path]/route.ts").read_text(encoding="utf-8")
 page_proxy = Path("web/proxy.ts").read_text(encoding="utf-8")
 next_config = Path("web/next.config.ts").read_text(encoding="utf-8")
+csp = Path("web/csp.ts").read_text(encoding="utf-8")
 required = (
     "const maxRequestBodyBytes = 1024 * 1024",
     'request.headers.get("content-length")',
@@ -39,8 +40,15 @@ csp_boundaries = (
     "url.username||url.password",
     "`connect-src ${connectSources}`",
     "`img-src 'self' data: blob: ${mapOrigin}`",
+    "`script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`",
+    'if(!/^[A-Za-z0-9+/=]+$/.test(nonce))',
 )
-missing = [boundary for boundary in csp_boundaries if boundary not in next_config]
+missing = [boundary for boundary in csp_boundaries if boundary not in csp]
 if missing:
     raise SystemExit("ERROR: web CSP does not scope API and map origins at build time: " + ", ".join(missing))
+for boundary in ('headers.set("x-nonce",nonce)', 'headers.set("Content-Security-Policy",csp)', 'response.headers.set("Content-Security-Policy",csp)'):
+    if boundary not in page_proxy:
+        raise SystemExit("ERROR: page proxy does not bind the CSP nonce to request and response: " + boundary)
+if "unsafe-inline" in csp.split("style-src")[0]:
+    raise SystemExit("ERROR: script CSP must not allow unsafe-inline")
 print("PASS: authenticated web proxy enforces mutation origins and bounds bodies, upstream waits, redirects, and forwarded headers")

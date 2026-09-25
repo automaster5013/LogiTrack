@@ -4,7 +4,7 @@
 
 ## 완료
 
-- Cognito WebAuthn 교차 기기 QR 로그인용 Authorization Code + PKCE/nonce BFF, HttpOnly access-token 세션, 제한된 API 프록시, Cognito 그룹 RBAC와 access-token client 검증을 구현했다. `/`와 `/showcase`는 정적 사전 렌더링되는 프로젝트 소개·가상 운송 관제 첫 화면이며, 인증된 운영 콘솔은 `/console`에서 제공한다.
+- Cognito WebAuthn 교차 기기 QR 로그인용 Authorization Code + PKCE/nonce BFF, HttpOnly access-token 세션, 제한된 API 프록시, Cognito 그룹 RBAC와 access-token client 검증을 구현했다. `/`와 `/showcase`는 요청별 CSP nonce를 포함해 서버 렌더링되는 프로젝트 소개·가상 운송 관제 첫 화면이며, 인증된 운영 콘솔은 `/console`에서 제공한다.
 - staging release manifest에 artifact 보존 기간을 숫자로 기록·검증해 독립 증적에서도 30일 만료 정책 확인 가능
 - staging release manifest와 실행 요약에 배포 대상 환경을 기록·검증해 게시 증적을 `staging` 승인 경계에 고정
 - staging release manifest와 실행 요약에 `workflow_dispatch` 실행 이벤트를 기록·검증해 수동 승인 게시 경로를 증적에 고정
@@ -331,6 +331,7 @@
 - API 인증과 데이터베이스 비밀번호를 fail-closed 기본값으로 전환하고 로컬 Compose만 인증 비활성화를 명시적으로 선택하도록 배포 실수 경계 강화
 - 인증 주체별 API 요청 속도 제한, 429 재시도 헤더와 bounded subject 저장소로 OWASP API4 자원 고갈 경계 추가
 - SSE 연결을 인증 주체별 기본 5개로 제한하고 모든 종료 경로에서 점유량을 회수해 단일 사용자의 전역 연결 고갈 차단
+- Next.js HTML 응답마다 nonce 기반 strict CSP를 발급해 production script의 `unsafe-inline` 실행 권한 제거
 2026-09-21: 주문 목록에 상태 범위와 주문·차량·지역 즉시 검색을 추가해 누적 주문에서 배차 대기와 운송 중 작업을 빠르게 찾도록 개선했다.
 - 배송 경고 목록에 대응 우선순위·최근 감지·지속 시간 정렬을 제공해 운영자가 상황에 맞는 경고를 빠르게 판독
 - 재고·창고 작업·재고 원장을 안정 정렬 페이지로 전체 조회해 100~200건 초과 누적 데이터에서도 집계·검색 누락 방지
