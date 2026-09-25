@@ -276,6 +276,7 @@
 
 ## 현재 상태
 
+- 웹과 API가 인증 subject의 경계 공백·제어 문자를 동일하게 거부하고 API 감사 actor filter가 같은 단일 validator를 재사용하도록 정렬
 - 웹 Content Security Policy를 default-deny 기반으로 강화하고 same-origin 자산·local API·OpenFreeMap tile·MapLibre worker만 명시 허용해 임의 외부 script/frame/media 로드를 차단
 - API CSP를 Spring Security 체인에도 명시해 filter가 선언한 base·form·frame·object 제한이 실제 응답에서 덮어써지지 않도록 수정
 - 웹 세션과 API resource server가 access token의 발급·만료 순서와 최대 61분 수명을 동일하게 제한해 비정상적으로 장기 유효한 서명 토큰을 차단

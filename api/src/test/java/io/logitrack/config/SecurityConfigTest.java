@@ -50,6 +50,12 @@ class SecurityConfigTest{
             .issuedAt(now).expiresAt(now.plusSeconds(3600)).claim("token_use","access")
             .claim("client_id","logitrack-client").build();
         assertThat(SecurityConfig.validateAccessToken(oversizedSubject,"logitrack-client",now).hasErrors()).isTrue();
+        for(var invalidSubject:List.of(" operator","operator ","operator\nname","\ufeffoperator")){
+            var malformedSubject=Jwt.withTokenValue("malformed").header("alg","RS256").subject(invalidSubject)
+                .issuedAt(now).expiresAt(now.plusSeconds(3600)).claim("token_use","access")
+                .claim("client_id","logitrack-client").build();
+            assertThat(SecurityConfig.validateAccessToken(malformedSubject,"logitrack-client",now).hasErrors()).isTrue();
+        }
         var reversedLifetime=mock(Jwt.class);
         when(reversedLifetime.getClaimAsString("token_use")).thenReturn("access");
         when(reversedLifetime.getClaimAsString("client_id")).thenReturn("logitrack-client");
@@ -80,6 +86,17 @@ class SecurityConfigTest{
         new AuthenticatedOperatorFilter().doFilter(new MockHttpServletRequest(),response,chain);
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(chain.getRequest()).isNull();
+    }
+
+    @Test void rejectsPaddedOrControlCharacterAuditSubjects()throws Exception{
+        for(var actor:List.of(" operator","operator ","operator\nname","\u00a0operator","operator\ufeff")){
+            var authentication=new TestingAuthenticationToken(actor,"n/a");authentication.setAuthenticated(true);
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            var response=new MockHttpServletResponse();var chain=new MockFilterChain();
+            new AuthenticatedOperatorFilter().doFilter(new MockHttpServletRequest(),response,chain);
+            assertThat(response.getStatus()).isEqualTo(401);
+            assertThat(chain.getRequest()).isNull();
+        }
     }
 
     @Test void requiresAuthenticationForAnyPublicBrowserOrigin(){
