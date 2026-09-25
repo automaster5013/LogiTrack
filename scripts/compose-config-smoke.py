@@ -52,6 +52,8 @@ def main() -> None:
         raise AssertionError("Typed JSON contracts must reject unknown properties")
     if "jackson.deserialization.fail-on-trailing-tokens: true" not in application_config:
         raise AssertionError("Typed JSON contracts must reject trailing values")
+    if "jackson.deserialization.fail-on-null-for-primitives: true" not in application_config:
+        raise AssertionError("Primitive JSON fields must reject null values")
     if "jackson.mapper.allow-coercion-of-scalars: false" not in application_config:
         raise AssertionError("Typed JSON contracts must reject scalar type coercion")
     security_config = Path("api/src/main/java/io/logitrack/config/SecurityConfig.java").read_text(encoding="utf-8")

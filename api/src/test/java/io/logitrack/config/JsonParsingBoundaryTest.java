@@ -53,4 +53,11 @@ class JsonParsingBoundaryTest {
                 WarehouseCommand.class));
         assertEquals(10, command.quantity());
     }
+
+    @Test void rejectsNullForPrimitiveFields() {
+        assertThrows(JsonProcessingException.class, () -> mapper.readValue(
+                "{\"referenceNumber\":\"REF-01\",\"warehouseId\":\"WH-01\","
+                        + "\"sku\":\"SKU-01\",\"quantity\":null}",
+                WarehouseCommand.class));
+    }
 }
