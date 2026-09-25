@@ -37,7 +37,13 @@ public class ApiExceptionHandler {
     @ExceptionHandler(StreamCapacityExceededException.class) ResponseEntity<ApiError> streamCapacity(StreamCapacityExceededException error,HttpServletRequest request){return response(HttpStatus.TOO_MANY_REQUESTS,error.getMessage(),request);}
     @ExceptionHandler(Exception.class) ResponseEntity<ApiError> unexpected(Exception error,HttpServletRequest request){log.error("Unexpected API failure traceId={}",MDC.get("requestId"),error);return response(HttpStatus.INTERNAL_SERVER_ERROR,"Internal server error",request);}
     private ResponseEntity<ApiError> response(HttpStatus status,String message,HttpServletRequest request){return ResponseEntity.status(status).body(new ApiError(message,request.getHeader(RequestTraceFilter.HEADER),Instant.now()));}
-    private String message(RuntimeException error,String fallback){return error.getMessage()==null||error.getMessage().isBlank()?fallback:error.getMessage();}
+    private String message(RuntimeException error,String fallback){
+        if(error.getCause()!=null){
+            log.error("API request failed with a hidden internal cause traceId={}",MDC.get("requestId"),error);
+            return fallback;
+        }
+        return error.getMessage()==null||error.getMessage().isBlank()?fallback:error.getMessage();
+    }
     private boolean causedBy(Throwable error,Class<? extends Throwable> type){for(var current=error;current!=null;current=current.getCause())if(type.isInstance(current))return true;return false;}
     public record ApiError(String error,String traceId,Instant timestamp) {}
 }
