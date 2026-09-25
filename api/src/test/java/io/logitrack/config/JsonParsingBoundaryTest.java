@@ -56,6 +56,13 @@ class JsonParsingBoundaryTest {
         assertEquals(10, command.quantity());
     }
 
+    @Test void rejectsFloatingPointCoercionForIntegerFields() {
+        assertThrows(JsonProcessingException.class, () -> mapper.readValue(
+                "{\"referenceNumber\":\"REF-01\",\"warehouseId\":\"WH-01\","
+                        + "\"sku\":\"SKU-01\",\"quantity\":1.9}",
+                WarehouseCommand.class));
+    }
+
     @Test void rejectsNullForPrimitiveFields() {
         assertThrows(JsonProcessingException.class, () -> mapper.readValue(
                 "{\"referenceNumber\":\"REF-01\",\"warehouseId\":\"WH-01\","
