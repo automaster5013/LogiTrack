@@ -47,9 +47,12 @@ jobs:
           grep -Eqi '^strict-transport-security: max-age=31536000; includeSubDomains$' /tmp/logitrack-showcase-headers.normalized
           grep -Eqi "^content-security-policy: .*default-src 'self'.*connect-src 'self' https://tiles.openfreemap.org.*frame-ancestors 'none'.*frame-src 'none'.*img-src 'self' data: blob: https://tiles.openfreemap.org.*media-src 'none'.*script-src 'self' 'nonce-[A-Za-z0-9+/=]+' 'strict-dynamic'.*worker-src 'self' blob:" /tmp/logitrack-showcase-headers.normalized
           ! grep -Eqi "^content-security-policy: .*script-src[^;]*'unsafe-inline'" /tmp/logitrack-showcase-headers.normalized
+          grep -Eqi "^content-security-policy: .*style-src 'self';.*style-src-elem 'self' 'nonce-[A-Za-z0-9+/=]+';.*style-src-attr 'unsafe-inline'" /tmp/logitrack-showcase-headers.normalized
+          ! grep -Eqi "^content-security-policy: .*style-src 'self' 'unsafe-inline'|^content-security-policy: .*style-src-elem[^;]*'unsafe-inline'" /tmp/logitrack-showcase-headers.normalized
           showcase_nonce="$(sed -nE "s/^content-security-policy: .*script-src 'self' 'nonce-([^']+)'.*/\1/Ip" /tmp/logitrack-showcase-headers.normalized)"
           test -n "$showcase_nonce"
           ! grep -oE '<script[^>]*>' /tmp/logitrack-showcase | grep -Fv "nonce=\"$showcase_nonce\""
+          ! grep -oE '<style[^>]*>' /tmp/logitrack-showcase | grep -Fv "nonce=\"$showcase_nonce\""
           ! grep -Eqi '^content-security-policy: .*localhost|^content-security-policy: .*127\.0\.0\.1' /tmp/logitrack-showcase-headers.normalized
           grep -oE 'href="/_next/static/(css|chunks)/[^"]+\.css"' /tmp/logitrack-showcase \
             | cut -d'"' -f2 | sort -u >/tmp/logitrack-showcase-css-paths
@@ -158,9 +161,12 @@ jobs:
           grep -Eqi '^strict-transport-security: max-age=31536000; includeSubDomains$' /tmp/logitrack-headers.normalized
           grep -Eqi "^content-security-policy: .*default-src 'self'.*connect-src 'self' https://tiles.openfreemap.org.*frame-ancestors 'none'.*frame-src 'none'.*img-src 'self' data: blob: https://tiles.openfreemap.org.*media-src 'none'.*script-src 'self' 'nonce-[A-Za-z0-9+/=]+' 'strict-dynamic'.*worker-src 'self' blob:" /tmp/logitrack-headers.normalized
           ! grep -Eqi "^content-security-policy: .*script-src[^;]*'unsafe-inline'" /tmp/logitrack-headers.normalized
+          grep -Eqi "^content-security-policy: .*style-src 'self';.*style-src-elem 'self' 'nonce-[A-Za-z0-9+/=]+';.*style-src-attr 'unsafe-inline'" /tmp/logitrack-headers.normalized
+          ! grep -Eqi "^content-security-policy: .*style-src 'self' 'unsafe-inline'|^content-security-policy: .*style-src-elem[^;]*'unsafe-inline'" /tmp/logitrack-headers.normalized
           login_nonce="$(sed -nE "s/^content-security-policy: .*script-src 'self' 'nonce-([^']+)'.*/\1/Ip" /tmp/logitrack-headers.normalized)"
           test -n "$login_nonce"
           ! grep -oE '<script[^>]*>' /tmp/logitrack-login | grep -Fv "nonce=\"$login_nonce\""
+          ! grep -oE '<style[^>]*>' /tmp/logitrack-login | grep -Fv "nonce=\"$login_nonce\""
           ! grep -Eqi '^content-security-policy: .*localhost|^content-security-policy: .*127\.0\.0\.1' /tmp/logitrack-headers.normalized
           grep -Eqi '^x-content-type-options: nosniff$' /tmp/logitrack-headers.normalized
           grep -Eqi '^x-frame-options: DENY$' /tmp/logitrack-headers.normalized
