@@ -73,6 +73,7 @@ services:
       LOGITRACK_REPORTS_WRITER_ENABLED: "true"
       CORS_ALLOWED_ORIGINS: https://www.logitrack.kr
       SECURITY_ENABLED: "true"
+      SECURITY_CLIENT_ID: ${COGNITO_CLIENT_ID:?required}
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${COGNITO_ISSUER_URI:?required}
     depends_on:
       postgres: {condition: service_healthy}

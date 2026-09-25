@@ -91,6 +91,8 @@ if services["kafka"].get("depends_on", {}).get("kafka-storage-init", {}).get("co
     errors.append("Kafka must wait for its storage ownership initialization")
 if services["web"].get("environment", {}).get("AUTH_REQUIRED") != "true":
     errors.append("staging web console must require operator authentication")
+if services["api"].get("environment", {}).get("SECURITY_CLIENT_ID") != "${COGNITO_CLIENT_ID:?required}":
+    errors.append("staging API must validate tokens against the same required Cognito client ID as the web")
 if "id-token: write" not in workflow or "AWS-RunShellScript" not in workflow:
     errors.append("deployment workflow must use OIDC and SSM Run Command")
 if "fetch-depth: 0" not in workflow:

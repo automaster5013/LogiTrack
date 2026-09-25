@@ -9,6 +9,7 @@ proxy = Path("web/proxy.ts").read_text(encoding="utf-8")
 access_token = Path("web/app/auth/access-token.ts").read_text(encoding="utf-8")
 backend = Path("web/app/backend/[...path]/route.ts").read_text(encoding="utf-8")
 api_security = Path("api/src/main/java/io/logitrack/config/SecurityConfig.java").read_text(encoding="utf-8")
+api_config = Path("api/src/main/resources/application.yml").read_text(encoding="utf-8")
 
 callback_boundaries = (
     "const tokenExchangeTimeoutMs = 10_000",
@@ -167,6 +168,8 @@ if missing:
     raise SystemExit("ERROR: API access token verification is missing boundaries: " + ", ".join(missing))
 if ".anyRequest().authenticated()" in api_security:
     raise SystemExit("ERROR: valid tokens without an application role must not reach management or undefined endpoints")
+if "security.client-id: ${SECURITY_CLIENT_ID}" not in api_config or "SECURITY_CLIENT_ID:" in api_config:
+    raise SystemExit("ERROR: API security client ID must be required without a public default")
 
 login_error_boundaries = (
     "authenticationErrors:Record<string,string>",

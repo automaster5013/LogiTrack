@@ -160,6 +160,7 @@ services:
       INSTANCE_ID: api-primary
       LOGITRACK_REPORTS_WRITER_ENABLED: "true"
       SECURITY_ENABLED: "false"
+      SECURITY_CLIENT_ID: local-development-only
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports: ["127.0.0.1:8080:8080"]
@@ -200,6 +201,7 @@ services:
       INSTANCE_ID: api-replica
       LOGITRACK_REPORTS_WRITER_ENABLED: "false"
       SECURITY_ENABLED: "false"
+      SECURITY_CLIENT_ID: local-development-only
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports: ["127.0.0.1:8081:8080"]
