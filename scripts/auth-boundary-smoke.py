@@ -111,6 +111,8 @@ access_token_boundaries = (
     'payload.token_use !== "access"',
     "payload.client_id !== clientId",
     "const allowedClockSkewSeconds = 60",
+    "const maxSubjectCharacters = 120",
+    'payload.sub.trim() !== payload.sub',
     "Number.isInteger(payload.iat)",
     "payload.iat > now + allowedClockSkewSeconds",
     "payload.exp <= now + 30",
@@ -124,6 +126,7 @@ api_token_boundaries = (
     "static final long ALLOWED_CLOCK_SKEW_SECONDS=60",
     '"access".equals(jwt.getClaimAsString("token_use"))',
     'clientId.equals(jwt.getClaimAsString("client_id"))',
+    "jwt.getSubject()!=null&&!jwt.getSubject().isBlank()&&jwt.getSubject().length()<=120",
     "jwt.getIssuedAt()!=null",
     "now.plusSeconds(ALLOWED_CLOCK_SKEW_SECONDS)",
 )
