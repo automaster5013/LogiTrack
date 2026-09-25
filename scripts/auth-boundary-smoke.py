@@ -157,10 +157,16 @@ api_token_boundaries = (
     "now.plusSeconds(ALLOWED_CLOCK_SKEW_SECONDS)",
     "jwt.getExpiresAt().isAfter(jwt.getIssuedAt())",
     "Duration.between(jwt.getIssuedAt(),jwt.getExpiresAt()).getSeconds()<=MAX_ACCESS_TOKEN_LIFETIME_SECONDS",
+    '.requestMatchers("/actuator/health/**").permitAll()',
+    '.requestMatchers("/actuator/**").denyAll()',
+    '.requestMatchers("/api/**").denyAll()',
+    '.anyRequest().denyAll()',
 )
 missing = [boundary for boundary in api_token_boundaries if boundary not in api_security]
 if missing:
     raise SystemExit("ERROR: API access token verification is missing boundaries: " + ", ".join(missing))
+if ".anyRequest().authenticated()" in api_security:
+    raise SystemExit("ERROR: valid tokens without an application role must not reach management or undefined endpoints")
 
 login_error_boundaries = (
     "authenticationErrors:Record<string,string>",
