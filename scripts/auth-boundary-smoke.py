@@ -63,8 +63,15 @@ missing = [boundary for boundary in config_boundaries if boundary not in config]
 if missing:
     raise SystemExit("ERROR: OIDC configuration is missing boundaries: " + ", ".join(missing))
 
-for route_name, route in (("login", Path("web/app/auth/login/route.ts").read_text(encoding="utf-8")), ("callback", callback), ("logout", logout)):
-    if 'secureCookie(' not in route or '"/"' not in route:
+if 'secureCookie(maxAge:number,path:string)' not in config:
+    raise SystemExit("ERROR: cookie callers must choose an explicit path")
+login = Path("web/app/auth/login/route.ts").read_text(encoding="utf-8")
+for route_name, route, boundary in (
+    ("login", login, 'secureCookie(300,"/")'),
+    ("callback", callback, 'secureCookie(0, "/")'),
+    ("logout", logout, 'secureCookie(0, "/")'),
+):
+    if boundary not in route:
         raise SystemExit(f"ERROR: {route_name} must issue or clear __Host- authentication cookies at the root path")
 
 logout_boundaries = (

@@ -14,7 +14,7 @@ export function applicationOrigin(fallback:string){
  if(!configured)return fallback;
  return new URL(callback("OIDC_REDIRECT_URI")).origin;
 }
-export function secureCookie(maxAge:number,path="/auth"){
+export function secureCookie(maxAge:number,path:string){
  return {httpOnly:true,secure:process.env.NODE_ENV==="production",sameSite:"lax" as const,path,maxAge};
 }
 function required(name:string){const value=process.env[name]?.trim();if(!value)throw new Error(`${name} is required for operator authentication`);return value}
