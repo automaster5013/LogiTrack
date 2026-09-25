@@ -102,6 +102,15 @@ jobs:
           done
           python scripts/sbom-smoke.py work/dockerhub-sbom --tag "$REVISION" --revision "$REVISION"
 
+      - name: Upload immutable Docker Hub supply-chain evidence
+        id: evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: dockerhub-supply-chain-${{ github.sha }}
+          path: work/dockerhub-sbom/*.json
+          if-no-files-found: error
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
       - name: Push immutable images and verify registry digests
         id: publish
         env:
@@ -111,6 +120,8 @@ jobs:
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           WORKFLOW_REF: ${{ github.workflow_ref }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
+          EVIDENCE_ARTIFACT_DIGEST_RAW: ${{ steps.evidence.outputs.artifact-digest }}
+          EVIDENCE_ARTIFACT_URL: ${{ steps.evidence.outputs.artifact-url }}
         run: |
           set -euo pipefail
           mkdir -p work/dockerhub
@@ -151,22 +162,26 @@ jobs:
             mv work/dockerhub/images.next.json work/dockerhub/images.json
           done
           published_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-          jq -n --arg revision "$REVISION" --arg publishedAt "$published_at" --arg namespace "$DOCKERHUB_NAMESPACE" --arg sourceRepository "$GITHUB_REPOSITORY" --arg imagePlatform "$IMAGE_PLATFORM" --arg scannerImage "$TRIVY_IMAGE" --arg scannerVersion "$SCANNER_VERSION" --argjson workflowRunId "$GITHUB_RUN_ID" --argjson workflowRunAttempt "$GITHUB_RUN_ATTEMPT" --arg workflowRunUrl "$WORKFLOW_RUN_URL" --arg workflowEvent "$GITHUB_EVENT_NAME" --arg workflowRef "$WORKFLOW_REF" --arg workflowSha "$WORKFLOW_SHA" --argjson artifactRetentionDays "$ARTIFACT_RETENTION_DAYS" --slurpfile images work/dockerhub/images.json \
-            '{schemaVersion: 2, revision: $revision, publishedAt: $publishedAt, registry: "docker.io", namespace: $namespace, sourceRepository: $sourceRepository, imagePlatform: $imagePlatform, scannerImage: $scannerImage, scannerVersion: $scannerVersion, blockedVulnerabilitySeverities: ["CRITICAL"], workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, images: $images[0]}' > work/dockerhub/release-manifest.json
+          [[ "$EVIDENCE_ARTIFACT_DIGEST_RAW" =~ ^[0-9a-f]{64}$ ]]
+          evidence_artifact_digest="sha256:$EVIDENCE_ARTIFACT_DIGEST_RAW"
+          artifact_url_pattern="^https://github\.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts/[1-9][0-9]*$"
+          [[ "$EVIDENCE_ARTIFACT_URL" =~ $artifact_url_pattern ]]
+          jq -n --arg revision "$REVISION" --arg publishedAt "$published_at" --arg namespace "$DOCKERHUB_NAMESPACE" --arg sourceRepository "$GITHUB_REPOSITORY" --arg imagePlatform "$IMAGE_PLATFORM" --arg scannerImage "$TRIVY_IMAGE" --arg scannerVersion "$SCANNER_VERSION" --argjson workflowRunId "$GITHUB_RUN_ID" --argjson workflowRunAttempt "$GITHUB_RUN_ATTEMPT" --arg workflowRunUrl "$WORKFLOW_RUN_URL" --arg workflowEvent "$GITHUB_EVENT_NAME" --arg workflowRef "$WORKFLOW_REF" --arg workflowSha "$WORKFLOW_SHA" --argjson artifactRetentionDays "$ARTIFACT_RETENTION_DAYS" --arg evidenceArtifact "dockerhub-supply-chain-$REVISION" --arg evidenceArtifactDigest "$evidence_artifact_digest" --arg evidenceArtifactUrl "$EVIDENCE_ARTIFACT_URL" --slurpfile images work/dockerhub/images.json \
+            '{schemaVersion: 3, revision: $revision, publishedAt: $publishedAt, registry: "docker.io", namespace: $namespace, sourceRepository: $sourceRepository, imagePlatform: $imagePlatform, scannerImage: $scannerImage, scannerVersion: $scannerVersion, blockedVulnerabilitySeverities: ["CRITICAL"], workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, evidenceArtifact: $evidenceArtifact, evidenceArtifactDigest: $evidenceArtifactDigest, evidenceArtifactUrl: $evidenceArtifactUrl, images: $images[0]}' > work/dockerhub/release-manifest.json
           python scripts/dockerhub-release-manifest-smoke.py work/dockerhub/release-manifest.json \
             --evidence-dir work/dockerhub-sbom --revision "$REVISION" --published-at "$published_at" \
             --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" \
             --workflow-ref "$WORKFLOW_REF" --workflow-sha "$WORKFLOW_SHA" \
-            --scanner-image "$TRIVY_IMAGE" --scanner-version "$SCANNER_VERSION"
+            --scanner-image "$TRIVY_IMAGE" --scanner-version "$SCANNER_VERSION" \
+            --evidence-artifact-digest "$evidence_artifact_digest" --evidence-artifact-url "$EVIDENCE_ARTIFACT_URL"
           echo "published-at=$published_at" >> "$GITHUB_OUTPUT"
 
-      - name: Upload Docker Hub publication evidence
+      - name: Upload immutable Docker Hub release manifest
+        id: release-manifest
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: dockerhub-release-${{ github.sha }}
-          path: |
-            work/dockerhub/release-manifest.json
-            work/dockerhub-sbom/*.json
+          path: work/dockerhub/release-manifest.json
           if-no-files-found: error
           retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
@@ -175,6 +190,10 @@ jobs:
           REVISION: ${{ github.sha }}
           PUBLISHED_AT: ${{ steps.publish.outputs.published-at }}
           SCANNER_VERSION: ${{ steps.scanner.outputs.version }}
+          EVIDENCE_ARTIFACT_DIGEST: sha256:${{ steps.evidence.outputs.artifact-digest }}
+          EVIDENCE_ARTIFACT_URL: ${{ steps.evidence.outputs.artifact-url }}
+          RELEASE_MANIFEST_DIGEST: sha256:${{ steps.release-manifest.outputs.artifact-digest }}
+          RELEASE_MANIFEST_URL: ${{ steps.release-manifest.outputs.artifact-url }}
         run: |
           {
             echo "## Docker Hub publication"
@@ -185,6 +204,8 @@ jobs:
             echo "- Scanner: \`$TRIVY_IMAGE\` (version \`$SCANNER_VERSION\`)"
             echo "- Blocked vulnerability severities: \`CRITICAL\`"
             echo "- Evidence retention: \`$ARTIFACT_RETENTION_DAYS days\`"
+            echo "- Supply-chain evidence: [$EVIDENCE_ARTIFACT_DIGEST]($EVIDENCE_ARTIFACT_URL)"
+            echo "- Release manifest: [$RELEASE_MANIFEST_DIGEST]($RELEASE_MANIFEST_URL)"
             echo ""
             jq -r '.images[] | "- `" + .uri + "`"' work/dockerhub/release-manifest.json
           } >> "$GITHUB_STEP_SUMMARY"
