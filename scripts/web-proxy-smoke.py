@@ -8,6 +8,7 @@ csp = Path("web/csp.ts").read_text(encoding="utf-8")
 request_origin = Path("web/app/auth/request-origin.ts").read_text(encoding="utf-8")
 required = (
     "const maxRequestBodyBytes = 1024 * 1024",
+    "const maxResponseBodyBytes = 16 * 1024 * 1024",
     'request.headers.get("content-length")',
     "request.body.getReader()",
     "total > maxRequestBodyBytes",
@@ -17,6 +18,14 @@ required = (
     'redirect: "manual"',
     'cache: "no-store"',
     'jsonError("upstream_unavailable", 502)',
+    'mediaType === "text/event-stream"',
+    'upstream.headers.get("content-length")',
+    'Number(declaredResponseLength) > maxResponseBodyBytes',
+    'await upstream.body?.cancel()',
+    'jsonError("upstream_response_too_large", 502)',
+    'total > maxResponseBodyBytes',
+    'await reader.cancel()',
+    'boundedResponseBody(upstream.body)',
     'new Headers({ Authorization: `Bearer ${token}` })',
     'request.method !== "GET" && !isSameOriginMutation(request)',
     'jsonError("cross_origin_request_rejected", 403)',
