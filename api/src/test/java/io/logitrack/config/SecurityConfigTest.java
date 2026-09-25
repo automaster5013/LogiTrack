@@ -2,6 +2,8 @@ package io.logitrack.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.List;
@@ -48,6 +50,17 @@ class SecurityConfigTest{
             .issuedAt(now).expiresAt(now.plusSeconds(3600)).claim("token_use","access")
             .claim("client_id","logitrack-client").build();
         assertThat(SecurityConfig.validateAccessToken(oversizedSubject,"logitrack-client",now).hasErrors()).isTrue();
+        var reversedLifetime=mock(Jwt.class);
+        when(reversedLifetime.getClaimAsString("token_use")).thenReturn("access");
+        when(reversedLifetime.getClaimAsString("client_id")).thenReturn("logitrack-client");
+        when(reversedLifetime.getSubject()).thenReturn("operator");
+        when(reversedLifetime.getIssuedAt()).thenReturn(now.plusSeconds(30));
+        when(reversedLifetime.getExpiresAt()).thenReturn(now.plusSeconds(29));
+        var excessiveLifetime=Jwt.withTokenValue("excessive").header("alg","RS256").subject("operator")
+            .issuedAt(now).expiresAt(now.plusSeconds(3661)).claim("token_use","access")
+            .claim("client_id","logitrack-client").build();
+        assertThat(SecurityConfig.validateAccessToken(reversedLifetime,"logitrack-client",now).hasErrors()).isTrue();
+        assertThat(SecurityConfig.validateAccessToken(excessiveLifetime,"logitrack-client",now).hasErrors()).isTrue();
     }
 
     @Test void replacesSpoofedOperatorHeaderWithAuthenticatedSubject()throws Exception{

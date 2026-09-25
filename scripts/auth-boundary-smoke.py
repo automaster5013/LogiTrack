@@ -111,11 +111,14 @@ access_token_boundaries = (
     'payload.token_use !== "access"',
     "payload.client_id !== clientId",
     "const allowedClockSkewSeconds = 60",
+    "const maxAccessTokenLifetimeSeconds = 3_660",
     "const maxSubjectCharacters = 120",
     'payload.sub.trim() !== payload.sub',
     "Number.isInteger(payload.iat)",
     "payload.iat > now + allowedClockSkewSeconds",
     "payload.exp <= now + 30",
+    "payload.exp <= payload.iat",
+    "payload.exp - payload.iat > maxAccessTokenLifetimeSeconds",
 )
 missing = [boundary for boundary in access_token_boundaries if boundary not in access_token]
 if missing:
@@ -124,11 +127,14 @@ if missing:
 api_token_boundaries = (
     "jwsAlgorithm(SignatureAlgorithm.RS256)",
     "static final long ALLOWED_CLOCK_SKEW_SECONDS=60",
+    "static final long MAX_ACCESS_TOKEN_LIFETIME_SECONDS=3660",
     '"access".equals(jwt.getClaimAsString("token_use"))',
     'clientId.equals(jwt.getClaimAsString("client_id"))',
     "jwt.getSubject()!=null&&!jwt.getSubject().isBlank()&&jwt.getSubject().length()<=120",
     "jwt.getIssuedAt()!=null",
     "now.plusSeconds(ALLOWED_CLOCK_SKEW_SECONDS)",
+    "jwt.getExpiresAt().isAfter(jwt.getIssuedAt())",
+    "Duration.between(jwt.getIssuedAt(),jwt.getExpiresAt()).getSeconds()<=MAX_ACCESS_TOKEN_LIFETIME_SECONDS",
 )
 missing = [boundary for boundary in api_token_boundaries if boundary not in api_security]
 if missing:
