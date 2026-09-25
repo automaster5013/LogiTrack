@@ -52,6 +52,14 @@ jobs:
           username: ${{ env.DOCKERHUB_NAMESPACE }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Record supply-chain scanner version
+        id: scanner
+        run: |
+          set -euo pipefail
+          scanner_version="$(docker run --rm "$TRIVY_IMAGE" --version | awk '/^Version:/ { print $2; exit }')"
+          [[ "$scanner_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          echo "version=$scanner_version" >> "$GITHUB_OUTPUT"
+
       - name: Build deployable service images
         env:
           REVISION: ${{ github.sha }}
@@ -99,11 +107,14 @@ jobs:
         env:
           REVISION: ${{ github.sha }}
           SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
+          SCANNER_VERSION: ${{ steps.scanner.outputs.version }}
+          WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
         run: |
           set -euo pipefail
           mkdir -p work/dockerhub
-          printf '{"schemaVersion":1,"revision":"%s","source":"%s","registry":"docker.io","images":[' "$REVISION" "$SOURCE_URL" > work/dockerhub/release-manifest.json
-          separator=''
+          printf '[]' > work/dockerhub/images.json
           for service in api analytics simulator web otel-collector; do
             source_image="logitrack-$service:$REVISION"
             destination="docker.io/$DOCKERHUB_NAMESPACE/logitrack-$service:$REVISION"
@@ -130,11 +141,24 @@ jobs:
             test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$pinned")" = "$SOURCE_URL"
             test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$pinned")" = "$REVISION"
             test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$pinned")" = "$IMAGE_PLATFORM"
-            printf '%s{"service":"%s","tag":"%s","digest":"%s","image":"%s"}' "$separator" "$service" "$REVISION" "$digest" "$pinned" >> work/dockerhub/release-manifest.json
-            separator=,
+            sbom_file="logitrack-$service.cdx.json"
+            report_file="logitrack-$service.critical.json"
+            sbom_sha256="$(sha256sum "work/dockerhub-sbom/$sbom_file" | awk '{print $1}')"
+            report_sha256="$(sha256sum "work/dockerhub-sbom/$report_file" | awk '{print $1}')"
+            jq --arg service "$service" --arg repository "$DOCKERHUB_NAMESPACE/logitrack-$service" --arg tag "$REVISION" --arg digest "$digest" --arg uri "$pinned" --arg sbomFile "$sbom_file" --arg sbomSha256 "$sbom_sha256" --arg vulnerabilityReportFile "$report_file" --arg vulnerabilityReportSha256 "$report_sha256" \
+              '. + [{service: $service, repository: $repository, tag: $tag, digest: $digest, uri: $uri, sbomFile: $sbomFile, sbomSha256: $sbomSha256, vulnerabilityReportFile: $vulnerabilityReportFile, vulnerabilityReportSha256: $vulnerabilityReportSha256}]' \
+              work/dockerhub/images.json > work/dockerhub/images.next.json
+            mv work/dockerhub/images.next.json work/dockerhub/images.json
           done
-          printf ']}' >> work/dockerhub/release-manifest.json
-          jq -e '.images | length == 5' work/dockerhub/release-manifest.json >/dev/null
+          published_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          jq -n --arg revision "$REVISION" --arg publishedAt "$published_at" --arg namespace "$DOCKERHUB_NAMESPACE" --arg sourceRepository "$GITHUB_REPOSITORY" --arg imagePlatform "$IMAGE_PLATFORM" --arg scannerImage "$TRIVY_IMAGE" --arg scannerVersion "$SCANNER_VERSION" --argjson workflowRunId "$GITHUB_RUN_ID" --argjson workflowRunAttempt "$GITHUB_RUN_ATTEMPT" --arg workflowRunUrl "$WORKFLOW_RUN_URL" --arg workflowEvent "$GITHUB_EVENT_NAME" --arg workflowRef "$WORKFLOW_REF" --arg workflowSha "$WORKFLOW_SHA" --argjson artifactRetentionDays "$ARTIFACT_RETENTION_DAYS" --slurpfile images work/dockerhub/images.json \
+            '{schemaVersion: 2, revision: $revision, publishedAt: $publishedAt, registry: "docker.io", namespace: $namespace, sourceRepository: $sourceRepository, imagePlatform: $imagePlatform, scannerImage: $scannerImage, scannerVersion: $scannerVersion, blockedVulnerabilitySeverities: ["CRITICAL"], workflowRunId: $workflowRunId, workflowRunAttempt: $workflowRunAttempt, workflowRunUrl: $workflowRunUrl, workflowEvent: $workflowEvent, workflowRef: $workflowRef, workflowSha: $workflowSha, artifactRetentionDays: $artifactRetentionDays, images: $images[0]}' > work/dockerhub/release-manifest.json
+          python scripts/dockerhub-release-manifest-smoke.py work/dockerhub/release-manifest.json \
+            --evidence-dir work/dockerhub-sbom --revision "$REVISION" --published-at "$published_at" \
+            --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --workflow-ref "$WORKFLOW_REF" --workflow-sha "$WORKFLOW_SHA" \
+            --scanner-image "$TRIVY_IMAGE" --scanner-version "$SCANNER_VERSION"
+          echo "published-at=$published_at" >> "$GITHUB_OUTPUT"
 
       - name: Upload Docker Hub publication evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -149,11 +173,18 @@ jobs:
       - name: Record publication summary
         env:
           REVISION: ${{ github.sha }}
+          PUBLISHED_AT: ${{ steps.publish.outputs.published-at }}
+          SCANNER_VERSION: ${{ steps.scanner.outputs.version }}
         run: |
           {
             echo "## Docker Hub publication"
             echo ""
             echo "Published five verified images for \`$REVISION\` to \`$DOCKERHUB_NAMESPACE\`."
             echo ""
-            jq -r '.images[] | "- `" + .image + "`"' work/dockerhub/release-manifest.json
+            echo "- Published at: \`$PUBLISHED_AT\`"
+            echo "- Scanner: \`$TRIVY_IMAGE\` (version \`$SCANNER_VERSION\`)"
+            echo "- Blocked vulnerability severities: \`CRITICAL\`"
+            echo "- Evidence retention: \`$ARTIFACT_RETENTION_DAYS days\`"
+            echo ""
+            jq -r '.images[] | "- `" + .uri + "`"' work/dockerhub/release-manifest.json
           } >> "$GITHUB_STEP_SUMMARY"

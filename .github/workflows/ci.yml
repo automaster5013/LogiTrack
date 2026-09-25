@@ -98,6 +98,8 @@ jobs:
         run: python scripts/cd-workflow-smoke.py
       - name: Validate Docker Hub publication trust boundaries
         run: python scripts/dockerhub-cd-workflow-smoke.py
+      - name: Validate Docker Hub release manifest contract
+        run: python scripts/dockerhub-release-manifest-validator-smoke.py
       - name: Validate staging release manifest contract
         run: python scripts/release-manifest-validator-smoke.py
       - name: Validate AWS bootstrap trust boundaries
