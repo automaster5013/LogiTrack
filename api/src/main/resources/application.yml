@@ -55,7 +55,7 @@ server:
       min-spare: ${SERVER_MIN_SPARE_THREADS:10}
 logitrack:
   security.enabled: ${SECURITY_ENABLED:true}
-  security.client-id: ${SECURITY_CLIENT_ID:local-development-only}
+  security.client-id: ${SECURITY_CLIENT_ID}
   http.max-request-body-size: ${HTTP_MAX_REQUEST_BODY_SIZE:1MB}
   http.rate-limit:
     requests: ${HTTP_RATE_LIMIT_REQUESTS:300}
