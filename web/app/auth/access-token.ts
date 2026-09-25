@@ -3,6 +3,7 @@ import { accessTokenConfig } from "./config";
 
 const jwksTimeoutMs = 5_000;
 const allowedClockSkewSeconds = 60;
+const maxAccessTokenLifetimeSeconds = 3_660;
 const maxSubjectCharacters = 120;
 const jwksByIssuer = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
@@ -30,6 +31,11 @@ export async function verifyAccessToken(token: string) {
   if (typeof payload.iat !== "number" || !Number.isInteger(payload.iat) || payload.iat > now + allowedClockSkewSeconds) {
     throw new Error("Access token issued-at time is invalid");
   }
-  if (typeof payload.exp !== "number" || payload.exp <= now + 30) throw new Error("Access token is expired or near expiry");
+  if (typeof payload.exp !== "number" || !Number.isInteger(payload.exp) || payload.exp <= now + 30) {
+    throw new Error("Access token is expired or near expiry");
+  }
+  if (payload.exp <= payload.iat || payload.exp - payload.iat > maxAccessTokenLifetimeSeconds) {
+    throw new Error("Access token lifetime is invalid");
+  }
   return payload;
 }
