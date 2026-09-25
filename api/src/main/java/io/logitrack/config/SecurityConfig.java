@@ -25,7 +25,10 @@ import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.beans.factory.annotation.Value;
 
 @Configuration
 public class SecurityConfig {
@@ -33,12 +36,24 @@ public class SecurityConfig {
     static final long ALLOWED_CLOCK_SKEW_SECONDS=60;
     static final long MAX_ACCESS_TOKEN_LIFETIME_SECONDS=3660;
 
+    @Bean ApiRateLimitFilter apiRateLimitFilter(
+        @Value("${logitrack.http.rate-limit.requests:300}") int requests,
+        @Value("${logitrack.http.rate-limit.window-seconds:60}") long windowSeconds,
+        @Value("${logitrack.http.rate-limit.max-subjects:10000}") int maxSubjects){
+        return new ApiRateLimitFilter(requests,windowSeconds,maxSubjects);
+    }
+
+    @Bean FilterRegistrationBean<ApiRateLimitFilter> apiRateLimitFilterRegistration(ApiRateLimitFilter filter){
+        var registration=new FilterRegistrationBean<>(filter);registration.setEnabled(false);return registration;
+    }
+
     @Bean
     @ConditionalOnProperty(name="logitrack.security.enabled",havingValue="false")
-    SecurityFilterChain localSecurity(HttpSecurity http)throws Exception{
+    SecurityFilterChain localSecurity(HttpSecurity http,ApiRateLimitFilter rateLimitFilter)throws Exception{
         return http.csrf(csrf->csrf.ignoringRequestMatchers("/api/**")).cors(Customizer.withDefaults())
             .headers(headers->headers.contentSecurityPolicy(csp->csp.policyDirectives(SecurityHeadersFilter.CONTENT_SECURITY_POLICY)))
-            .authorizeHttpRequests(auth->auth.anyRequest().permitAll()).build();
+            .authorizeHttpRequests(auth->auth.anyRequest().permitAll())
+            .addFilterAfter(rateLimitFilter,SecurityContextHolderFilter.class).build();
     }
 
     @Bean
@@ -70,7 +85,7 @@ public class SecurityConfig {
 
     @Bean
     @ConditionalOnProperty(name="logitrack.security.enabled",havingValue="true")
-    SecurityFilterChain oidcSecurity(HttpSecurity http,AuthenticatedOperatorFilter operatorFilter)throws Exception{
+    SecurityFilterChain oidcSecurity(HttpSecurity http,AuthenticatedOperatorFilter operatorFilter,ApiRateLimitFilter rateLimitFilter)throws Exception{
         return http.csrf(csrf->csrf.ignoringRequestMatchers("/api/**")).cors(Customizer.withDefaults())
             .headers(headers->headers.contentSecurityPolicy(csp->csp.policyDirectives(SecurityHeadersFilter.CONTENT_SECURITY_POLICY)))
             .sessionManagement(session->session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -85,7 +100,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/**").denyAll()
                 .anyRequest().authenticated())
             .oauth2ResourceServer(oauth->oauth.jwt(jwt->jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
-            .addFilterAfter(operatorFilter,BearerTokenAuthenticationFilter.class).build();
+            .addFilterAfter(operatorFilter,BearerTokenAuthenticationFilter.class)
+            .addFilterAfter(rateLimitFilter,AuthenticatedOperatorFilter.class).build();
     }
 
     static JwtAuthenticationConverter jwtAuthenticationConverter(){
