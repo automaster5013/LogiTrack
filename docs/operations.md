@@ -114,7 +114,7 @@ analytics 응답은 저장 전에 경로 ID, DB 길이에 맞는 provider·algor
 - 창고 출고 확정: warehouse task 행을 먼저 비관적으로 잠가 동시 요청을 멱등 `DISPATCHED` 응답으로 직렬화하며 재고·ledger·outbox는 한 번만 변경한다. `./scripts/warehouse-dispatch-concurrency-smoke.ps1`로 검증한다.
 - 최초 창고·SKU 재고 행 생성은 해당 문자열 키의 PostgreSQL transaction advisory lock으로 직렬화한다. 서로 다른 idempotency key의 동시 입고도 unique 충돌 없이 각각 한 번 합산되며 `./scripts/warehouse-receipt-concurrency-smoke.ps1`로 검증한다.
 - 입고·피킹 요청 수량은 1~1,000,000으로 제한하며 DB 제약도 같은 범위를 강제한다. 누적 재고가 32비트 저장 범위를 넘으려 하면 변경 없이 409로 거부한다.
-- SSE 연결은 인스턴스당 기본 1,000개(`SSE_MAX_CONNECTIONS`, 허용 범위 1~10,000)로 제한한다. 초과 연결은 429로 거부하고 `logitrack_sse_rejected_total{reason="capacity"}`에 기록한다. heartbeat는 1~60초 범위만 허용한다.
+- SSE 연결은 인스턴스당 기본 1,000개(`SSE_MAX_CONNECTIONS`, 허용 범위 1~10,000), 인증 주체 또는 로컬 직접 연결 주소당 기본 5개(`SSE_MAX_CONNECTIONS_PER_SUBJECT`)로 제한한다. 초과 연결은 429로 거부하고 `logitrack_sse_rejected_total{reason="capacity|subject_capacity"}`에 기록한다. 주체 식별에는 클라이언트 전달 주소 헤더를 사용하지 않으며 연결 완료·타임아웃·오류·종료 시 점유량을 회수한다. heartbeat는 1~60초 범위만 허용한다.
 - Analytics PDF 렌더러는 요청당 1~90개 UTC 일별 행만 허용하고 건수·비율·기간 값을 유효 범위로 제한해 직접 호출에서도 CPU·메모리 사용을 경계 짓는다.
 - Analytics ASGI 수신 스트림은 기본 2MB(`ANALYTICS_MAX_REQUEST_BODY_BYTES`, 허용 범위 1KB~10MB)로 제한한다. Content-Length와 chunked body 모두 파싱 전에 누적 크기를 검사해 413으로 거부한다.
 - 배송·텔레메트리·경고 SSE payload는 트랜잭션 안에서 스냅샷하고 DB 커밋 성공 후에만 Redis fan-out으로 발행한다. 롤백된 변경이 UI에 먼저 보이는 phantom update를 방지한다.
