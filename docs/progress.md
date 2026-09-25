@@ -378,4 +378,5 @@
 - digest 고정 Trivy image를 직접 실행해 semantic version을 검증하고 release manifest와 실행 요약에 사람이 읽을 수 있는 scanner 버전 기록
 - `CRITICAL` 취약점 차단 정책을 단일 설정으로 통합해 실제 Trivy 검사·release manifest·실행 요약의 정책 drift 방지
 - 서비스별 Trivy CRITICAL JSON 보고서를 SBOM artifact에 보존하고 파일명·SHA-256을 release manifest에 결합
+- Tomcat 요청·응답 header와 form/swallow body 크기를 명시적으로 제한하고 과도하거나 비활성화된 운영 설정을 시작 시 거부해 인증 필터 이전 HTTP 파서 자원 고갈 차단
 - OIDC JWT resource server와 VIEWER·OPERATOR·RECOVERY_OPERATOR·ADMIN RBAC, 인증 subject 기반 감사 actor, public-origin 인증 fail-fast 경계 구현
