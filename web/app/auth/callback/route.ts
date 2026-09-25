@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
 
     const response = NextResponse.redirect(new URL("/console", applicationOrigin(request.nextUrl.origin)));
     response.cookies.set(authCookie.access, token.access_token, secureCookie(sessionMaxAge, "/"));
+    response.cookies.set(authCookie.legacyAccess, "", { ...secureCookie(0, "/"), expires: new Date(0) });
     clearTransient(response);
     response.headers.set("Cache-Control", "no-store");
     return response;

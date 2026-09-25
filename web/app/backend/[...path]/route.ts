@@ -15,13 +15,16 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path:
     return jsonError("cross_origin_request_rejected", 403);
   }
 
-  const token = request.cookies.get(authCookie.access)?.value;
+  const currentToken = request.cookies.get(authCookie.access)?.value;
+  const legacyToken = request.cookies.get(authCookie.legacyAccess)?.value;
+  const token = currentToken || legacyToken;
   if (!token) return jsonError("authentication_required", 401);
+  let payload: Awaited<ReturnType<typeof verifyAccessToken>>;
   try {
-    await verifyAccessToken(token);
+    payload = await verifyAccessToken(token);
   } catch {
     const response = jsonError("invalid_authentication", 401);
-    response.cookies.set(authCookie.access, "", { ...secureCookie(0, "/"), expires: new Date(0) });
+    for (const name of [authCookie.access, authCookie.legacyAccess]) response.cookies.set(name, "", { ...secureCookie(0, "/"), expires: new Date(0) });
     return response;
   }
 
@@ -64,7 +67,12 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path:
       const value = upstream.headers.get(name);
       if (value) responseHeaders.set(name, value);
     }
-    return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
+    const response = new NextResponse(upstream.body, { status: upstream.status, headers: responseHeaders });
+    if (!currentToken && legacyToken) {
+      response.cookies.set(authCookie.access, legacyToken, secureCookie(Math.min(payload.exp! - Math.floor(Date.now() / 1000), 3600), "/"));
+      response.cookies.set(authCookie.legacyAccess, "", { ...secureCookie(0, "/"), expires: new Date(0) });
+    }
+    return response;
   } catch {
     return jsonError("upstream_unavailable", 502);
   }

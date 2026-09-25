@@ -17,7 +17,9 @@ export async function POST(request: NextRequest) {
   } catch {}
 
   const response = NextResponse.redirect(destination, 303);
-  response.cookies.set(authCookie.access, "", { ...secureCookie(0, "/"), expires: new Date(0) });
+  for (const name of [authCookie.access, authCookie.legacyAccess]) {
+    response.cookies.set(name, "", { ...secureCookie(0, "/"), expires: new Date(0) });
+  }
   for (const name of [authCookie.state, authCookie.nonce, authCookie.verifier]) {
     response.cookies.set(name, "", { ...secureCookie(0), expires: new Date(0) });
   }

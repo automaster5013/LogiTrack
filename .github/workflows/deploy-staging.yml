@@ -145,12 +145,12 @@ jobs:
           forged_payload="$(printf '%s' '{"exp":4102444800}' | openssl base64 -A | tr '+/' '-_' | tr -d '=')"
           forged_token="$forged_header.$forged_payload."
           forged_console_headers="$(curl --silent --show-error --head --proto '=https' --tlsv1.2 \
-            --cookie "lt_access_token=$forged_token" \
+            --cookie "__Host-lt_access_token=$forged_token" \
             https://www.logitrack.kr/console | tr -d '\r')"
           grep -Eq '^HTTP/[0-9.]+ (302|303|307|308)' <<<"$forged_console_headers"
           grep -Eqi '^location: https://www\.logitrack\.kr/login\?returnTo=%2Fconsole$' <<<"$forged_console_headers"
           grep -Eqi '^cache-control: .*no-store' <<<"$forged_console_headers"
-          grep -Eqi '^set-cookie: lt_access_token=;.*max-age=0' <<<"$forged_console_headers"
+          grep -Eqi '^set-cookie: __Host-lt_access_token=;.*max-age=0' <<<"$forged_console_headers"
           curl --silent --show-error --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 \
             --dump-header /tmp/logitrack-auth-login-headers --output /dev/null \
             https://www.logitrack.kr/auth/login
@@ -191,7 +191,7 @@ jobs:
             grep -Eqi "^set-cookie: $cookie=; Path=/auth; .*Max-Age=0; Secure; HttpOnly; SameSite=lax$" \
               /tmp/logitrack-invalid-callback-headers.normalized
           done
-          if grep -Eqi '^set-cookie: lt_access_token=' /tmp/logitrack-invalid-callback-headers.normalized; then
+          if grep -Eqi '^set-cookie: (__Host-)?lt_access_token=[^;]+' /tmp/logitrack-invalid-callback-headers.normalized; then
             echo 'invalid callback must not create or mutate the access token cookie' >&2
             exit 1
           fi
@@ -219,7 +219,7 @@ jobs:
           grep -Eq '^https://auth\.logitrack\.kr/logout\?' <<<"$logout_location"
           [[ "$logout_location" == *'client_id='* ]]
           [[ "$logout_location" == *'logout_uri=https%3A%2F%2Fwww.logitrack.kr%2Flogin'* ]]
-          for cookie in lt_access_token lt_oauth_state lt_oidc_nonce lt_pkce_verifier; do
+          for cookie in __Host-lt_access_token lt_access_token lt_oauth_state lt_oidc_nonce lt_pkce_verifier; do
             grep -Eqi "^set-cookie: $cookie=;.*max-age=0" /tmp/logitrack-same-origin-logout-headers.normalized
           done
           for method in POST DELETE; do
@@ -263,7 +263,7 @@ jobs:
             exit 1
           fi
           forged_bff_status="$(curl --silent --show-error --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 \
-            --cookie "lt_access_token=$forged_token" \
+            --cookie "__Host-lt_access_token=$forged_token" \
             --dump-header /tmp/logitrack-forged-bff-headers --output /tmp/logitrack-forged-bff \
             --write-out '%{http_code}' https://www.logitrack.kr/backend/api/deliveries)"
           test "$forged_bff_status" = 401
@@ -271,7 +271,7 @@ jobs:
           tr -d '\r' </tmp/logitrack-forged-bff-headers >/tmp/logitrack-forged-bff-headers.normalized
           grep -Eqi '^content-type: application/json' /tmp/logitrack-forged-bff-headers.normalized
           grep -Eqi '^cache-control: .*no-store' /tmp/logitrack-forged-bff-headers.normalized
-          grep -Eqi '^set-cookie: lt_access_token=;.*max-age=0' /tmp/logitrack-forged-bff-headers.normalized
+          grep -Eqi '^set-cookie: __Host-lt_access_token=;.*max-age=0' /tmp/logitrack-forged-bff-headers.normalized
           curl --fail --silent --show-error --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 \
             --dump-header /tmp/logitrack-runtime-headers --output /tmp/logitrack-runtime \
             https://www.logitrack.kr/api/runtime-version
