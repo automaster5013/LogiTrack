@@ -5,6 +5,7 @@ source = Path("web/app/backend/[...path]/route.ts").read_text(encoding="utf-8")
 page_proxy = Path("web/proxy.ts").read_text(encoding="utf-8")
 next_config = Path("web/next.config.ts").read_text(encoding="utf-8")
 csp = Path("web/csp.ts").read_text(encoding="utf-8")
+request_origin = Path("web/app/auth/request-origin.ts").read_text(encoding="utf-8")
 required = (
     "const maxRequestBodyBytes = 1024 * 1024",
     'request.headers.get("content-length")',
@@ -19,11 +20,7 @@ required = (
     'new Headers({ Authorization: `Bearer ${token}` })',
     'request.method !== "GET" && !isSameOriginMutation(request)',
     'jsonError("cross_origin_request_rejected", 403)',
-    'request.headers.get("origin")',
-    "new URL(origin).origin === applicationOrigin(request.nextUrl.origin)",
-    'request.headers.get("sec-fetch-site")',
-    'fetchSite === "same-origin"',
-    'fetchSite === "none"',
+    'import { isSameOriginMutation } from "../../auth/request-origin";',
 )
 missing = [boundary for boundary in required if boundary not in source]
 if missing:
@@ -32,6 +29,17 @@ if 'request.headers.get("host")' in source:
     raise SystemExit("ERROR: web proxy must not forward the client Host header")
 if "backend/" not in page_proxy:
     raise SystemExit("ERROR: page authentication must not intercept the BFF JSON security contract")
+
+origin_boundaries = (
+    'request.headers.get("origin")',
+    "new URL(origin).origin === applicationOrigin(request.nextUrl.origin)",
+    'request.headers.get("sec-fetch-site")',
+    'fetchSite === "same-origin"',
+    'fetchSite === "none"',
+)
+missing = [boundary for boundary in origin_boundaries if boundary not in request_origin]
+if missing or 'fetchSite === null' in request_origin:
+    raise SystemExit("ERROR: browser mutations must reject missing or untrusted origin provenance")
 
 csp_boundaries = (
     'sourceOrigin(process.env.NEXT_PUBLIC_API_URL||"http://localhost:8080","NEXT_PUBLIC_API_URL",true)',

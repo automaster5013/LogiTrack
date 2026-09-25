@@ -188,6 +188,22 @@ jobs:
           grep -Eqi '^content-type: application/json' /tmp/logitrack-runtime-headers.normalized
           grep -Eqi '^cache-control: .*no-store' /tmp/logitrack-runtime-headers.normalized
 
+          originless_logout_status="$(curl --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
+            --request POST --dump-header /tmp/logitrack-originless-logout-headers \
+            --output /tmp/logitrack-originless-logout --write-out '%{http_code}' \
+            "https://$TARGET_HOST/auth/logout")"
+          test "$originless_logout_status" = 403
+          jq -e '.error == "cross_origin_logout_rejected"' /tmp/logitrack-originless-logout >/dev/null
+          ! grep -Eqi '^set-cookie:' /tmp/logitrack-originless-logout-headers
+
+          originless_bff_status="$(curl --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
+            --request POST --dump-header /tmp/logitrack-originless-bff-headers \
+            --output /tmp/logitrack-originless-bff --write-out '%{http_code}' \
+            "https://$TARGET_HOST/backend/api/deliveries")"
+          test "$originless_bff_status" = 403
+          jq -e '.error == "cross_origin_request_rejected"' /tmp/logitrack-originless-bff >/dev/null
+          ! grep -Eqi '^set-cookie:' /tmp/logitrack-originless-bff-headers
+
           cross_origin_logout_status="$(curl --silent --show-error --proto '=https' --tlsv1.2 --max-time 20 \
             --request POST --header 'Origin: https://attacker.invalid' \
             --dump-header /tmp/logitrack-cross-origin-logout-headers --output /tmp/logitrack-cross-origin-logout \
