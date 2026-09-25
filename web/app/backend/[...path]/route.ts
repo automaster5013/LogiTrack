@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAccessToken } from "../../auth/access-token";
-import { applicationOrigin, authCookie, secureCookie } from "../../auth/config";
+import { authCookie, secureCookie } from "../../auth/config";
+import { isSameOriginMutation } from "../../auth/request-origin";
 
 const allowedRequestHeaders = ["accept", "content-type", "idempotency-key", "x-trace-id", "x-replay-approval", "x-discard-approval"];
 const maxRequestBodyBytes = 1024 * 1024;
@@ -76,19 +77,6 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path:
   } catch {
     return jsonError("upstream_unavailable", 502);
   }
-}
-
-function isSameOriginMutation(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  if (origin) {
-    try {
-      return new URL(origin).origin === applicationOrigin(request.nextUrl.origin);
-    } catch {
-      return false;
-    }
-  }
-  const fetchSite = request.headers.get("sec-fetch-site");
-  return fetchSite === null || fetchSite === "same-origin" || fetchSite === "none";
 }
 
 function jsonError(error: string, status: number) {

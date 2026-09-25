@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { applicationOrigin, authConfig, authCookie, secureCookie } from "../config";
+import { isSameOriginMutation } from "../request-origin";
 
 export async function POST(request: NextRequest) {
-  if (!isSameOrigin(request)) {
+  if (!isSameOriginMutation(request)) {
     return NextResponse.json(
       { error: "cross_origin_logout_rejected" },
       { status: 403, headers: { "Cache-Control": "no-store" } },
@@ -26,17 +27,4 @@ export async function POST(request: NextRequest) {
   response.headers.set("Cache-Control", "no-store");
   response.headers.set("Clear-Site-Data", '"cache", "storage"');
   return response;
-}
-
-function isSameOrigin(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  if (origin) {
-    try {
-      return new URL(origin).origin === applicationOrigin(request.nextUrl.origin);
-    } catch {
-      return false;
-    }
-  }
-  const fetchSite = request.headers.get("sec-fetch-site");
-  return fetchSite === null || fetchSite === "same-origin" || fetchSite === "none";
 }

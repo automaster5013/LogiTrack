@@ -94,6 +94,8 @@ for boundary in (
     "cache-control: .*no-store",
     "cross_origin_logout_status",
     "Origin: https://attacker.invalid",
+    "originless_logout_status",
+    "originless_bff_status",
     'cross_origin_logout_rejected',
     "rejected cross-origin logout must not mutate authentication cookies",
     "same_origin_logout_status",

@@ -379,4 +379,5 @@
 - `CRITICAL` 취약점 차단 정책을 단일 설정으로 통합해 실제 Trivy 검사·release manifest·실행 요약의 정책 drift 방지
 - 서비스별 Trivy CRITICAL JSON 보고서를 SBOM artifact에 보존하고 파일명·SHA-256을 release manifest에 결합
 - Tomcat 요청·응답 header와 form/swallow body 크기를 명시적으로 제한하고 과도하거나 비활성화된 운영 설정을 시작 시 거부해 인증 필터 이전 HTTP 파서 자원 고갈 차단
+- 브라우저 BFF 변경 요청과 로그아웃에서 `Origin`·`Sec-Fetch-Site`가 모두 누락된 요청을 fail-closed 403으로 거부해 출처 증명 없는 cookie 기반 상태 변경 차단
 - OIDC JWT resource server와 VIEWER·OPERATOR·RECOVERY_OPERATOR·ADMIN RBAC, 인증 subject 기반 감사 actor, public-origin 인증 fail-fast 경계 구현

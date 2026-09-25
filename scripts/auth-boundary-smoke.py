@@ -4,6 +4,7 @@ from pathlib import Path
 callback = Path("web/app/auth/callback/route.ts").read_text(encoding="utf-8")
 config = Path("web/app/auth/config.ts").read_text(encoding="utf-8")
 logout = Path("web/app/auth/logout/route.ts").read_text(encoding="utf-8")
+request_origin = Path("web/app/auth/request-origin.ts").read_text(encoding="utf-8")
 login_page = Path("web/app/login/page.tsx").read_text(encoding="utf-8")
 proxy = Path("web/proxy.ts").read_text(encoding="utf-8")
 access_token = Path("web/app/auth/access-token.ts").read_text(encoding="utf-8")
@@ -78,12 +79,8 @@ for route_name, route, boundary in (
         raise SystemExit(f"ERROR: {route_name} must issue or clear __Host- authentication cookies at the root path")
 
 logout_boundaries = (
-    "isSameOrigin(request)",
-    'request.headers.get("origin")',
-    "new URL(origin).origin === applicationOrigin(request.nextUrl.origin)",
-    'request.headers.get("sec-fetch-site")',
-    'fetchSite === "same-origin"',
-    'fetchSite === "none"',
+    "isSameOriginMutation(request)",
+    'import { isSameOriginMutation } from "../request-origin";',
     'status: 403, headers: { "Cache-Control": "no-store" }',
     "[authCookie.access, authCookie.legacyAccess]",
     "[authCookie.state, authCookie.nonce, authCookie.verifier]",
@@ -94,6 +91,8 @@ logout_boundaries = (
 missing = [boundary for boundary in logout_boundaries if boundary not in logout]
 if missing:
     raise SystemExit("ERROR: OIDC logout is missing boundaries: " + ", ".join(missing))
+if 'fetchSite === null' in request_origin or 'return fetchSite === "same-origin" || fetchSite === "none";' not in request_origin:
+    raise SystemExit("ERROR: OIDC logout must reject requests without trusted browser origin provenance")
 if 'try{return new URL(callback("OIDC_REDIRECT_URI")).origin}catch{return fallback}' in config:
     raise SystemExit("ERROR: invalid configured redirect origins must fail closed instead of using the fallback origin")
 if "if(!configured)return fallback" in config:
