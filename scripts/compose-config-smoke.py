@@ -56,6 +56,11 @@ def main() -> None:
         raise AssertionError("Primitive JSON fields must reject null values")
     if "jackson.mapper.allow-coercion-of-scalars: false" not in application_config:
         raise AssertionError("Typed JSON contracts must reject scalar type coercion")
+    if "json.max-nesting-depth: ${JSON_MAX_NESTING_DEPTH:100}" not in application_config:
+        raise AssertionError("API and event JSON parsing must bound nesting depth")
+    json_config = Path("api/src/main/java/io/logitrack/config/JsonParsingConfig.java").read_text(encoding="utf-8")
+    if "maxNestingDepth(maxNestingDepth)" not in json_config or "maxNestingDepth > 200" not in json_config:
+        raise AssertionError("JSON nesting depth must be enforced and capped against unsafe configuration")
     security_config = Path("api/src/main/java/io/logitrack/config/SecurityConfig.java").read_text(encoding="utf-8")
     if 'havingValue="false",matchIfMissing=true' in security_config:
         raise AssertionError("Unauthenticated API security must not activate when the property is missing")

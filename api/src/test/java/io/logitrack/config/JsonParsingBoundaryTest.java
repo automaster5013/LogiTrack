@@ -7,10 +7,12 @@ import io.logitrack.warehouse.WarehouseCommand;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.json.JsonTest;
+import org.springframework.context.annotation.Import;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @JsonTest
+@Import(JsonParsingConfig.class)
 class JsonParsingBoundaryTest {
     @Autowired ObjectMapper mapper;
 
@@ -59,5 +61,23 @@ class JsonParsingBoundaryTest {
                 "{\"referenceNumber\":\"REF-01\",\"warehouseId\":\"WH-01\","
                         + "\"sku\":\"SKU-01\",\"quantity\":null}",
                 WarehouseCommand.class));
+    }
+
+    @Test void rejectsExcessivelyNestedJson() {
+        String nested = "[".repeat(101) + "0" + "]".repeat(101);
+        assertThrows(JsonProcessingException.class, () -> mapper.readTree(nested));
+    }
+
+    @Test void acceptsJsonAtConfiguredNestingDepth() {
+        String nested = "[".repeat(100) + "0" + "]".repeat(100);
+        assertDoesNotThrow(() -> mapper.readTree(nested));
+        assertEquals(100, mapper.getFactory().streamReadConstraints().getMaxNestingDepth());
+    }
+
+    @Test void rejectsUnsafeNestingConfiguration() {
+        assertThrows(IllegalArgumentException.class, () -> new JsonParsingConfig(0));
+        assertThrows(IllegalArgumentException.class, () -> new JsonParsingConfig(201));
+        assertDoesNotThrow(() -> new JsonParsingConfig(1));
+        assertDoesNotThrow(() -> new JsonParsingConfig(200));
     }
 }
