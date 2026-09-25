@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     response.cookies.set(name, "", { ...secureCookie(0, "/"), expires: new Date(0) });
   }
   for (const name of [authCookie.state, authCookie.nonce, authCookie.verifier]) {
-    response.cookies.set(name, "", { ...secureCookie(0), expires: new Date(0) });
+    response.cookies.set(name, "", { ...secureCookie(0, "/"), expires: new Date(0) });
   }
   response.headers.set("Cache-Control", "no-store");
   response.headers.set("Clear-Site-Data", '"cache", "storage"');

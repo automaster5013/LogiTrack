@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 
-export const authCookie={state:"lt_oauth_state",verifier:"lt_pkce_verifier",nonce:"lt_oidc_nonce",access:"__Host-lt_access_token",legacyAccess:"lt_access_token"} as const;
+export const authCookie={state:"__Host-lt_oauth_state",verifier:"__Host-lt_pkce_verifier",nonce:"__Host-lt_oidc_nonce",access:"__Host-lt_access_token",legacyAccess:"lt_access_token"} as const;
 export function accessTokenConfig(){return {issuer:endpoint("COGNITO_ISSUER_URI"),clientId:required("COGNITO_CLIENT_ID")}}
 export function authConfig(){
  const authBase=endpoint("COGNITO_AUTHORIZATION_BASE_URL");

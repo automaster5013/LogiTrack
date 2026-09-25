@@ -14,7 +14,7 @@
 ## 로그인 흐름
 
 1. 브라우저가 `/auth/login`을 요청한다.
-2. BFF는 암호학적 난수 `state`, `nonce`, PKCE verifier를 만들고 5분 수명의 `HttpOnly`, `Secure`, `SameSite=Lax` 쿠키에 저장한다.
+2. BFF는 암호학적 난수 `state`, `nonce`, PKCE verifier를 만들고 5분 수명의 `__Host-`, `HttpOnly`, `Secure`, `SameSite=Lax` 쿠키에 저장한다.
 3. Cognito `/oauth2/authorize`로 Authorization Code + PKCE 요청을 보낸다.
 4. Cognito Managed Login에서 패스키를 선택한다. 교차 기기 인증 시 브라우저/OS가 QR을 만들고 휴대폰은 사용자 확인 후 origin/RP-bound 서명을 생성한다.
 5. callback은 `state`를 대조하고 code를 PKCE verifier와 교환한다.

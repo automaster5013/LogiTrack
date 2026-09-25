@@ -157,8 +157,8 @@ jobs:
           tr -d '\r' </tmp/logitrack-auth-login-headers >/tmp/logitrack-auth-login-headers.normalized
           grep -Eq '^HTTP/[0-9.]+ (302|303|307|308)' /tmp/logitrack-auth-login-headers.normalized
           grep -Eqi '^cache-control: .*no-store' /tmp/logitrack-auth-login-headers.normalized
-          for cookie in lt_oauth_state lt_oidc_nonce lt_pkce_verifier; do
-            grep -Eqi "^set-cookie: $cookie=[A-Za-z0-9_-]+; Path=/auth; .*Max-Age=300; Secure; HttpOnly; SameSite=lax$" \
+          for cookie in __Host-lt_oauth_state __Host-lt_oidc_nonce __Host-lt_pkce_verifier; do
+            grep -Eqi "^set-cookie: $cookie=[A-Za-z0-9_-]+; Path=/; .*Max-Age=300; Secure; HttpOnly; SameSite=lax$" \
               /tmp/logitrack-auth-login-headers.normalized
           done
           authorization_location="$(sed -n 's/^location: //Ip' /tmp/logitrack-auth-login-headers.normalized)"
@@ -172,9 +172,9 @@ jobs:
           redirect_state="$(sed -nE 's/.*[?&]state=([^&]+).*/\1/p' <<<"$authorization_location")"
           redirect_nonce="$(sed -nE 's/.*[?&]nonce=([^&]+).*/\1/p' <<<"$authorization_location")"
           redirect_challenge="$(sed -nE 's/.*[?&]code_challenge=([^&]+).*/\1/p' <<<"$authorization_location")"
-          cookie_state="$(sed -nE 's/^set-cookie: lt_oauth_state=([^;]+).*/\1/Ip' /tmp/logitrack-auth-login-headers.normalized)"
-          cookie_nonce="$(sed -nE 's/^set-cookie: lt_oidc_nonce=([^;]+).*/\1/Ip' /tmp/logitrack-auth-login-headers.normalized)"
-          pkce_verifier="$(sed -nE 's/^set-cookie: lt_pkce_verifier=([^;]+).*/\1/Ip' /tmp/logitrack-auth-login-headers.normalized)"
+          cookie_state="$(sed -nE 's/^set-cookie: __Host-lt_oauth_state=([^;]+).*/\1/Ip' /tmp/logitrack-auth-login-headers.normalized)"
+          cookie_nonce="$(sed -nE 's/^set-cookie: __Host-lt_oidc_nonce=([^;]+).*/\1/Ip' /tmp/logitrack-auth-login-headers.normalized)"
+          pkce_verifier="$(sed -nE 's/^set-cookie: __Host-lt_pkce_verifier=([^;]+).*/\1/Ip' /tmp/logitrack-auth-login-headers.normalized)"
           expected_challenge="$(printf %s "$pkce_verifier" | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=')"
           test -n "$redirect_state" && test "$redirect_state" = "$cookie_state"
           test -n "$redirect_nonce" && test "$redirect_nonce" = "$cookie_nonce"
@@ -187,8 +187,8 @@ jobs:
           grep -Eqi '^cache-control: .*no-store' /tmp/logitrack-invalid-callback-headers.normalized
           grep -Eqi '^location: https://www\.logitrack\.kr/login\?error=invalid_oauth_response$' \
             /tmp/logitrack-invalid-callback-headers.normalized
-          for cookie in lt_oauth_state lt_oidc_nonce lt_pkce_verifier; do
-            grep -Eqi "^set-cookie: $cookie=; Path=/auth; .*Max-Age=0; Secure; HttpOnly; SameSite=lax$" \
+          for cookie in __Host-lt_oauth_state __Host-lt_oidc_nonce __Host-lt_pkce_verifier; do
+            grep -Eqi "^set-cookie: $cookie=; Path=/; .*Max-Age=0; Secure; HttpOnly; SameSite=lax$" \
               /tmp/logitrack-invalid-callback-headers.normalized
           done
           if grep -Eqi '^set-cookie: (__Host-)?lt_access_token=[^;]+' /tmp/logitrack-invalid-callback-headers.normalized; then
@@ -219,7 +219,7 @@ jobs:
           grep -Eq '^https://auth\.logitrack\.kr/logout\?' <<<"$logout_location"
           [[ "$logout_location" == *'client_id='* ]]
           [[ "$logout_location" == *'logout_uri=https%3A%2F%2Fwww.logitrack.kr%2Flogin'* ]]
-          for cookie in __Host-lt_access_token lt_access_token lt_oauth_state lt_oidc_nonce lt_pkce_verifier; do
+          for cookie in __Host-lt_access_token lt_access_token __Host-lt_oauth_state __Host-lt_oidc_nonce __Host-lt_pkce_verifier; do
             grep -Eqi "^set-cookie: $cookie=;.*max-age=0" /tmp/logitrack-same-origin-logout-headers.normalized
           done
           for method in POST DELETE; do

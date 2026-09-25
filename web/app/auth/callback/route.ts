@@ -125,5 +125,5 @@ function isTokenResponse(value: unknown): value is TokenResponse {
 }
 
 function clearTransient(response: NextResponse) {
-  for (const name of [authCookie.state, authCookie.nonce, authCookie.verifier]) response.cookies.set(name, "", { ...secureCookie(0), expires: new Date(0) });
+  for (const name of [authCookie.state, authCookie.nonce, authCookie.verifier]) response.cookies.set(name, "", { ...secureCookie(0, "/"), expires: new Date(0) });
 }
