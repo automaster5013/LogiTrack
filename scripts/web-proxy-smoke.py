@@ -41,6 +41,9 @@ csp_boundaries = (
     "`connect-src ${connectSources}`",
     "`img-src 'self' data: blob: ${mapOrigin}`",
     "`script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`",
+    '"style-src \'self\'"',
+    "`style-src-elem 'self' 'nonce-${nonce}'`",
+    '"style-src-attr \'unsafe-inline\'"',
     'if(!/^[A-Za-z0-9+/=]+$/.test(nonce))',
 )
 missing = [boundary for boundary in csp_boundaries if boundary not in csp]
@@ -51,4 +54,6 @@ for boundary in ('headers.set("x-nonce",nonce)', 'headers.set("Content-Security-
         raise SystemExit("ERROR: page proxy does not bind the CSP nonce to request and response: " + boundary)
 if "unsafe-inline" in csp.split("style-src")[0]:
     raise SystemExit("ERROR: script CSP must not allow unsafe-inline")
+if '"style-src \'self\' \'unsafe-inline\'"' in csp or "style-src-elem 'self' 'unsafe-inline'" in csp:
+    raise SystemExit("ERROR: stylesheet CSP must not broadly allow unsafe-inline")
 print("PASS: authenticated web proxy enforces mutation origins and bounds bodies, upstream waits, redirects, and forwarded headers")

@@ -25,15 +25,19 @@ foreach($header in @("Cross-Origin-Opener-Policy: same-origin","Cross-Origin-Res
 }
 $apiCsp="Content-Security-Policy: base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
 if($api -notmatch "(?im)^$([regex]::Escape($apiCsp))\s*$") { throw "API content security policy is missing" }
-foreach($directive in @("default-src 'self'","connect-src 'self' http://localhost:8080 https://tiles.openfreemap.org","frame-src 'none'","img-src 'self' data: blob: https://tiles.openfreemap.org","media-src 'none'","style-src 'self' 'unsafe-inline'","worker-src 'self' blob:")) {
+foreach($directive in @("default-src 'self'","connect-src 'self' http://localhost:8080 https://tiles.openfreemap.org","frame-src 'none'","img-src 'self' data: blob: https://tiles.openfreemap.org","media-src 'none'","style-src 'self'","style-src-attr 'unsafe-inline'","worker-src 'self' blob:")) {
   if($web -notmatch "(?im)^Content-Security-Policy:.*$([regex]::Escape($directive))") { throw "Web content security policy directive is missing: $directive" }
 }
 if($web -notmatch "(?im)^Content-Security-Policy:.*script-src 'self' 'nonce-[A-Za-z0-9+/=]+' 'strict-dynamic'") { throw "Web script policy does not require a per-response nonce" }
 if($web -match "(?im)^Content-Security-Policy:.*script-src[^;]*'unsafe-inline'") { throw "Web script policy still allows unsafe-inline" }
+if($web -notmatch "(?im)^Content-Security-Policy:.*style-src-elem 'self' 'nonce-[A-Za-z0-9+/=]+'"){throw "Web stylesheet elements do not require a per-response nonce"}
+if($web -match "(?im)^Content-Security-Policy:.*style-src 'self' 'unsafe-inline'" -or $web -match "(?im)^Content-Security-Policy:.*style-src-elem[^;]*'unsafe-inline'"){throw "Web stylesheet policy still broadly allows unsafe-inline"}
 $documentCsp=$webResponse.Headers["Content-Security-Policy"]
 $documentNonce=[regex]::Match($documentCsp,"'nonce-([^']+)'").Groups[1].Value
 $scriptTags=[regex]::Matches($webResponse.Content,'<script[^>]*>')
 if(-not $documentNonce -or $scriptTags.Count -eq 0 -or @($scriptTags|Where-Object{$_.Value -notmatch ('nonce="'+[regex]::Escape($documentNonce)+'"')}).Count -ne 0) { throw "Every rendered script must carry the response CSP nonce" }
+$styleTags=[regex]::Matches($webResponse.Content,'<style[^>]*>')
+if(@($styleTags|Where-Object{$_.Value -notmatch ('nonce="'+[regex]::Escape($documentNonce)+'"')}).Count -ne 0){throw "Every rendered style element must carry the response CSP nonce"}
 if($api -notmatch "(?im)^Access-Control-Allow-Origin:\s*http://localhost:3000\s*$") { throw "Trusted web origin was not allowed" }
 if($loopbackApi -notmatch "(?im)^Access-Control-Allow-Origin:\s*http://127\.0\.0\.1:3000\s*$") { throw "Published loopback web origin was not allowed" }
 if($api -notmatch "(?im)^Cache-Control:\s*no-store\s*$") { throw "API responses were not protected from intermediary caching" }

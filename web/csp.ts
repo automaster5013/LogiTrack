@@ -24,7 +24,9 @@ export function contentSecurityPolicy(nonce:string){
     "media-src 'none'",
     "object-src 'none'",
     scriptSources,
-    "style-src 'self' 'unsafe-inline'",
+    "style-src 'self'",
+    `style-src-elem 'self' 'nonce-${nonce}'`,
+    "style-src-attr 'unsafe-inline'",
     "worker-src 'self' blob:",
   ].join("; ");
 }
