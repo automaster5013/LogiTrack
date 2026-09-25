@@ -5,6 +5,7 @@ import { isSameOriginMutation } from "../../auth/request-origin";
 
 const allowedRequestHeaders = ["accept", "content-type", "idempotency-key", "x-trace-id", "x-replay-approval", "x-discard-approval"];
 const maxRequestBodyBytes = 1024 * 1024;
+const maxResponseBodyBytes = 16 * 1024 * 1024;
 const upstreamTimeoutMs = 15_000;
 
 export async function GET(request: NextRequest, context: { params: Promise<{ path: string[] }> }) { return proxy(request, context); }
@@ -63,12 +64,20 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path:
       cache: "no-store",
       signal: AbortSignal.timeout(upstreamTimeoutMs),
     });
+    const mediaType = upstream.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase();
+    const streaming = mediaType === "text/event-stream";
+    const declaredResponseLength = upstream.headers.get("content-length");
+    if (!streaming && declaredResponseLength && (!/^\d+$/.test(declaredResponseLength) || Number(declaredResponseLength) > maxResponseBodyBytes)) {
+      await upstream.body?.cancel();
+      return jsonError("upstream_response_too_large", 502);
+    }
     const responseHeaders = new Headers({ "Cache-Control": "no-store" });
     for (const name of ["content-type", "content-disposition", "x-trace-id"]) {
       const value = upstream.headers.get(name);
       if (value) responseHeaders.set(name, value);
     }
-    const response = new NextResponse(upstream.body, { status: upstream.status, headers: responseHeaders });
+    const responseBody = streaming ? upstream.body : boundedResponseBody(upstream.body);
+    const response = new NextResponse(responseBody, { status: upstream.status, headers: responseHeaders });
     if (!currentToken && legacyToken) {
       response.cookies.set(authCookie.access, legacyToken, secureCookie(Math.min(payload.exp! - Math.floor(Date.now() / 1000), 3600), "/"));
       response.cookies.set(authCookie.legacyAccess, "", { ...secureCookie(0, "/"), expires: new Date(0) });
@@ -84,6 +93,35 @@ function jsonError(error: string, status: number) {
 }
 
 class RequestBodyTooLarge extends Error {}
+
+function boundedResponseBody(body: ReadableStream<Uint8Array> | null) {
+  if (!body) return null;
+  const reader = body.getReader();
+  let total = 0;
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) {
+          controller.close();
+          return;
+        }
+        total += value.byteLength;
+        if (total > maxResponseBodyBytes) {
+          await reader.cancel();
+          controller.error(new Error("Upstream response exceeded the configured limit"));
+          return;
+        }
+        controller.enqueue(value);
+      } catch (error) {
+        controller.error(error);
+      }
+    },
+    async cancel(reason) {
+      await reader.cancel(reason);
+    },
+  });
+}
 
 async function readBoundedBody(request: NextRequest) {
   if (request.method === "GET" || !request.body) return undefined;
