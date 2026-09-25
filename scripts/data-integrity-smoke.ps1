@@ -1,6 +1,16 @@
 $ErrorActionPreference = "Stop"
-$names = docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT conname FROM pg_constraint WHERE conname IN ('outbox_status_values','outbox_attempts_nonnegative','outbox_publication_state','warehouse_task_type_status','inventory_delta_shape','delivery_alert_resolution_state','dead_letter_replay_state','replay_plan_execution_state','deliveries_status_values','deliveries_completion_state','orders_origin_lat_range','orders_origin_lon_range','orders_destination_lat_range','orders_destination_lon_range','orders_required_text_nonblank','orders_timestamp_order') ORDER BY conname"
-if (($names | Where-Object { $_.Trim() }).Count -ne 16) { throw "Expected 16 operational state constraints, got: $names" }
+$expectedConstraints = @(
+  "outbox_status_values", "outbox_attempts_nonnegative", "outbox_publication_state",
+  "warehouse_task_type_status", "inventory_delta_shape", "delivery_alert_resolution_state",
+  "dead_letter_status_values", "dead_letter_terminal_state", "replay_audit_action_values", "replay_audit_reason_state",
+  "replay_plan_execution_state", "deliveries_status_values", "deliveries_completion_state",
+  "orders_origin_lat_range", "orders_origin_lon_range", "orders_destination_lat_range", "orders_destination_lon_range",
+  "orders_required_text_nonblank", "orders_timestamp_order"
+)
+$quotedConstraints = ($expectedConstraints | ForEach-Object { "'$_'" }) -join ","
+$names = @(docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT conname FROM pg_constraint WHERE conname IN ($quotedConstraints) ORDER BY conname" | Where-Object { $_.Trim() } | ForEach-Object { $_.Trim() })
+$missingConstraints = @($expectedConstraints | Where-Object { $_ -notin $names })
+if ($missingConstraints.Count -gt 0 -or $names.Count -ne $expectedConstraints.Count) { throw "Missing operational state constraints: $($missingConstraints -join ', '); found: $($names -join ', ')" }
 $immutableTriggers = docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT tgname FROM pg_trigger WHERE NOT tgisinternal AND tgname IN ('inventory_ledger_immutable','alert_policy_audits_immutable') ORDER BY tgname"
 if (($immutableTriggers | Where-Object { $_.Trim() }).Count -ne 2) { throw "Expected immutable ledger/audit triggers, got: $immutableTriggers" }
 $cascade = (docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT confdeltype FROM pg_constraint WHERE conname='outbox_retry_audits_outbox_event_id_fkey'").Trim()

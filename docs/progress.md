@@ -276,6 +276,7 @@
 
 ## 현재 상태
 
+- DB 무결성 smoke의 V24 DLQ 제약 기대값을 V30 replay·discard terminal 상태와 replay 감사 제약 집합으로 갱신해 실제 schema 회귀 감지 복구
 - access token cookie를 `__Host-` prefix로 전환하고 기존 cookie를 검증 후 무중단 이동해 하위 도메인 cookie 주입 경계 강화
 - 웹 응답에 same-origin opener/resource 정책과 origin agent cluster를 적용하고 웹·API의 legacy cross-domain policy를 차단해 browsing context 격리 강화
 - 웹 CSP의 API·지도 출처를 build-time 환경에서 산출해 staging에서는 불필요한 localhost 허용 없이 same-origin BFF와 실제 지도 origin만 허용

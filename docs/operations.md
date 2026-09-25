@@ -120,7 +120,7 @@ analytics 응답은 저장 전에 경로 ID, DB 길이에 맞는 provider·algor
 - Outbox, 복구 지표, KPI projection, retention 스케줄 간격은 시작 시 안전 범위를 검증한다. 1ms busy loop나 하루를 넘는 실수 설정은 애플리케이션 시작을 실패시켜 조용한 자원 고갈·정리 중단을 방지한다.
 - CI의 공식 GitHub Actions는 immutable commit SHA로 고정하고 Dependabot이 매주 공식 action 업데이트를 묶어서 제안한다. 컨테이너 취약점 스캐너도 digest 고정을 유지한다.
 - DLQ 재발행 실패 응답은 Kafka broker 주소·내부 예외를 노출하지 않는 고정 메시지를 사용하며 상세 원인은 서버 로그에 event ID와 함께 남긴다. Kafka 대기 중 interrupt는 복원해 정상적인 종료 신호를 보존한다.
-- DB는 outbox, 창고 task/ledger, 배송 경고, DLQ, replay plan의 enum 값과 상태별 timestamp·수량 불변식을 CHECK 제약으로 방어한다. `./scripts/data-integrity-smoke.ps1`은 제약 로드와 잘못된 outbox 상태 거부를 검증한다.
+- DB는 outbox, 창고 task/ledger, 배송 경고, DLQ replay·discard, replay 감사·plan의 enum 값과 상태별 timestamp·수량 불변식을 CHECK 제약으로 방어한다. `./scripts/data-integrity-smoke.ps1`은 현재 migration의 제약 집합과 잘못된 상태 거부, immutable ledger·감사 기록을 검증한다.
 
 ## 복구 큐 경보
 
