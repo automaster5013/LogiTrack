@@ -34,7 +34,7 @@ public class SecurityConfig {
     static final long MAX_ACCESS_TOKEN_LIFETIME_SECONDS=3660;
 
     @Bean
-    @ConditionalOnProperty(name="logitrack.security.enabled",havingValue="false",matchIfMissing=true)
+    @ConditionalOnProperty(name="logitrack.security.enabled",havingValue="false")
     SecurityFilterChain localSecurity(HttpSecurity http)throws Exception{
         return http.csrf(csrf->csrf.ignoringRequestMatchers("/api/**")).cors(Customizer.withDefaults())
             .headers(headers->headers.contentSecurityPolicy(csp->csp.policyDirectives(SecurityHeadersFilter.CONTENT_SECURITY_POLICY)))

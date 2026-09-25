@@ -39,6 +39,16 @@ def main() -> None:
         for key, value in expected_database.items():
             if environment.get(key) != value:
                 raise AssertionError(f"{service_name} does not inherit {key}")
+        if environment.get("SECURITY_ENABLED") != "false":
+            raise AssertionError(f"{service_name} must explicitly opt into local unauthenticated mode")
+    application_config = Path("api/src/main/resources/application.yml").read_text(encoding="utf-8")
+    if "security.enabled: ${SECURITY_ENABLED:true}" not in application_config:
+        raise AssertionError("API security must fail closed when SECURITY_ENABLED is omitted")
+    if "password: ${DB_PASSWORD}" not in application_config or "${DB_PASSWORD:logitrack}" in application_config:
+        raise AssertionError("API must not provide a default database password")
+    security_config = Path("api/src/main/java/io/logitrack/config/SecurityConfig.java").read_text(encoding="utf-8")
+    if 'havingValue="false",matchIfMissing=true' in security_config:
+        raise AssertionError("Unauthenticated API security must not activate when the property is missing")
     if services["api"]["environment"].get("LOGITRACK_REPORTS_WRITER_ENABLED") != "true":
         raise AssertionError("Primary API is not the KPI projection writer")
     if services["api-replica"]["environment"].get("LOGITRACK_REPORTS_WRITER_ENABLED") != "false":

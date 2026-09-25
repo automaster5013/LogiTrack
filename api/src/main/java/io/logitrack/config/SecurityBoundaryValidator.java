@@ -11,7 +11,7 @@ public class SecurityBoundaryValidator{
     private static final Set<String> LOOPBACK=Set.of("localhost","127.0.0.1","[::1]","::1");
     private final boolean enabled;
     private final String[] origins;
-    SecurityBoundaryValidator(@Value("${logitrack.security.enabled:false}") boolean enabled,@Value("${logitrack.cors.allowed-origins}") String origins){
+    SecurityBoundaryValidator(@Value("${logitrack.security.enabled:true}") boolean enabled,@Value("${logitrack.cors.allowed-origins}") String origins){
         this.enabled=enabled;this.origins=origins.split(",");
     }
     @PostConstruct void validate(){

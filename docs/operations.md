@@ -12,7 +12,7 @@
 - 웹 응답의 Content Security Policy는 default-deny를 적용해 same-origin 자산·빌드 시 확정된 API 및 지도 origin·MapLibre blob worker만 명시 허용한다. staging의 same-origin BFF 빌드는 loopback origin을 포함하지 않으며, frame·object·media를 차단하고 production script에는 `unsafe-eval`을 허용하지 않는다.
 - 웹은 opener와 resource policy를 same-origin으로 격리하고 별도 origin agent cluster를 요청해 다른 origin의 browsing context와 메모리·opener 관계를 분리한다. 웹과 API 모두 legacy cross-domain policy discovery를 차단한다.
 - API 보안 헤더는 애플리케이션 filter와 Spring Security header writer가 같은 정책을 사용해 실제 응답에서도 base·form·frame·object 제한이 축소되지 않도록 한다.
-- 로컬 loopback 데모만 `SECURITY_ENABLED=false`를 허용한다. non-loopback CORS origin에서는 `SECURITY_ENABLED=true`와 `SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI`가 필수다. API는 JWT `roles` claim의 `VIEWER`, `OPERATOR`, `RECOVERY_OPERATOR`, `ADMIN`만 권한으로 인정하며 감사 actor는 검증된 token subject로 덮어써 클라이언트 `X-Operator` 위조를 차단한다.
+- API 보안은 환경변수가 없어도 기본 활성화되어 issuer·client ID가 없으면 시작에 실패한다. 로컬 loopback Compose만 `SECURITY_ENABLED=false`를 명시적으로 선언하며, non-loopback CORS origin에서는 비활성 모드가 시작되지 않는다. 데이터베이스 비밀번호도 기본값 없이 `DB_PASSWORD`가 필수다. API는 JWT `roles` claim의 `VIEWER`, `OPERATOR`, `RECOVERY_OPERATOR`, `ADMIN`만 권한으로 인정하며 감사 actor는 검증된 token subject로 덮어써 클라이언트 `X-Operator` 위조를 차단한다.
 - 주문·배송·위치·감사·복구·보고서를 포함한 모든 `/api/**` 응답은 `Cache-Control: no-store`로 브라우저와 중간 프록시 저장을 금지한다. 웹 정적 자산과 actuator의 별도 cache 정책은 변경하지 않는다.
 - PostgreSQL 연결 획득은 기본 3초(`DB_CONNECTION_TIMEOUT_MS`), 연결 검증은 2초(`DB_VALIDATION_TIMEOUT_MS`) 안에 실패한다. DB 장애 중 요청·consumer·예약 작업이 JDBC 기본 30초 대기로 누적되는 것을 막고, 연결 풀이 복구되면 별도 재시작 없이 다시 처리한다.
 - analytics health: `http://localhost:8090/health`

@@ -3,7 +3,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/logitrack}
     username: ${DB_USER:logitrack}
-    password: ${DB_PASSWORD:logitrack}
+    password: ${DB_PASSWORD}
     hikari:
       connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:3000}
       validation-timeout: ${DB_VALIDATION_TIMEOUT_MS:2000}
@@ -54,7 +54,7 @@ server:
       max: ${SERVER_MAX_THREADS:128}
       min-spare: ${SERVER_MIN_SPARE_THREADS:10}
 logitrack:
-  security.enabled: ${SECURITY_ENABLED:false}
+  security.enabled: ${SECURITY_ENABLED:true}
   security.client-id: ${SECURITY_CLIENT_ID:local-development-only}
   http.max-request-body-size: ${HTTP_MAX_REQUEST_BODY_SIZE:1MB}
   analytics:
