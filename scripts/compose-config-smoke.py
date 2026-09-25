@@ -46,6 +46,8 @@ def main() -> None:
         raise AssertionError("API security must fail closed when SECURITY_ENABLED is omitted")
     if "password: ${DB_PASSWORD}" not in application_config or "${DB_PASSWORD:logitrack}" in application_config:
         raise AssertionError("API must not provide a default database password")
+    if "jackson.parser.strict-duplicate-detection: true" not in application_config:
+        raise AssertionError("API and event JSON parsing must reject duplicate object keys")
     security_config = Path("api/src/main/java/io/logitrack/config/SecurityConfig.java").read_text(encoding="utf-8")
     if 'havingValue="false",matchIfMissing=true' in security_config:
         raise AssertionError("Unauthenticated API security must not activate when the property is missing")
