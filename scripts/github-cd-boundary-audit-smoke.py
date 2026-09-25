@@ -40,6 +40,15 @@ required = (
     "ECR_REPOSITORY_PREFIX",
     "/environments/$Environment/secrets",
     "/actions/secrets",
+    'expectedRepositorySecretNames = @("DOCKERHUB_TOKEN")',
+    '"/actions/workflows/publish-dockerhub-images.yml"',
+    '"/actions/workflows/ci.yml/runs?branch=main&event=push&status=success&per_page=1"',
+    'latestCiRun[0].head_sha -eq $mainCommit.sha',
+    'https://hub.docker.com/v2/repositories/$Owner/logitrack-$service/',
+    'https://hub.docker.com/v2/repositories/$Owner/logitrack-$service/tags/$($mainCommit.sha)',
+    "'^sha256:[0-9a-f]{64}$'",
+    '$_ .os -eq "linux"'.replace("$_ ", "$_"),
+    '$_.architecture -eq "amd64"',
 )
 missing = [control for control in required if control not in source]
 if missing:
@@ -47,4 +56,4 @@ if missing:
 for mutation in ("-Method Post", "-Method Put", "-Method Patch", "-Method Delete"):
     if mutation in source:
         raise SystemExit(f"ERROR: GitHub CD audit must remain read-only: {mutation}")
-print("PASS: GitHub audit covers PR protection, private reporting, dependency, secret, CodeQL, merge, deployment, and action boundaries")
+print("PASS: GitHub audit covers PR protection, private reporting, dependency, secret, CodeQL, merge, deployment, action, and Docker Hub boundaries")

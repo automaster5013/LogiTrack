@@ -104,6 +104,27 @@ foreach ($variable in $variables) {
 
 $environmentSecrets = Invoke-GitHubGet "/environments/$Environment/secrets?per_page=100"
 $repositorySecrets = Invoke-GitHubGet "/actions/secrets?per_page=100"
-Assert-True ($environmentSecrets.total_count -eq 0 -and $repositorySecrets.total_count -eq 0) "long-lived GitHub Actions secrets are configured"
+Assert-True ($environmentSecrets.total_count -eq 0) "staging environment must remain OIDC-only"
+$repositorySecretNames = @($repositorySecrets.secrets | ForEach-Object { $_.name } | Sort-Object)
+$expectedRepositorySecretNames = @("DOCKERHUB_TOKEN")
+Assert-True ($repositorySecrets.total_count -eq 1 -and ($repositorySecretNames -join ",") -eq ($expectedRepositorySecretNames -join ",")) "repository Actions secret set drifted"
 
-Write-Output "PASS: GitHub main, staging CD, private reporting, dependency, secret, and CodeQL boundaries are intact"
+$dockerHubWorkflow = Invoke-GitHubGet "/actions/workflows/publish-dockerhub-images.yml"
+Assert-True ($dockerHubWorkflow.state -eq "active" -and $dockerHubWorkflow.path -eq ".github/workflows/publish-dockerhub-images.yml") "Docker Hub publication workflow is not active"
+$mainCommit = Invoke-GitHubGet "/commits/main"
+$ciRuns = Invoke-GitHubGet "/actions/workflows/ci.yml/runs?branch=main&event=push&status=success&per_page=1"
+$latestCiRun = @($ciRuns.workflow_runs | Where-Object { $null -ne $_ })
+Assert-True ($latestCiRun.Count -eq 1 -and $latestCiRun[0].event -eq "push") "CI has no successful main push run"
+Assert-True ($latestCiRun[0].head_sha -eq $mainCommit.sha) "latest main commit has not completed CI and Docker Hub publication"
+
+$dockerHubServices = @("api", "analytics", "simulator", "web", "otel-collector")
+foreach ($service in $dockerHubServices) {
+  $dockerHubRepository = Invoke-RestMethod -Method Get -Uri "https://hub.docker.com/v2/repositories/$Owner/logitrack-$service/"
+  Assert-True (-not $dockerHubRepository.is_private -and $dockerHubRepository.namespace -eq $Owner -and $dockerHubRepository.name -eq "logitrack-$service") "Docker Hub repository identity or visibility drifted: $service"
+  $dockerHubTag = Invoke-RestMethod -Method Get -Uri "https://hub.docker.com/v2/repositories/$Owner/logitrack-$service/tags/$($mainCommit.sha)"
+  Assert-True ($dockerHubTag.name -eq $mainCommit.sha -and $dockerHubTag.digest -match '^sha256:[0-9a-f]{64}$') "Docker Hub immutable tag or digest drifted: $service"
+  $linuxAmd64Images = @($dockerHubTag.images | Where-Object { $_.os -eq "linux" -and $_.architecture -eq "amd64" })
+  Assert-True ($linuxAmd64Images.Count -eq 1) "Docker Hub image platform drifted: $service"
+}
+
+Write-Output "PASS: GitHub main, staging CD, Docker Hub CD, private reporting, dependency, secret, and CodeQL boundaries are intact"

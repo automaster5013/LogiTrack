@@ -248,3 +248,11 @@ jobs:
             fi
             echo "$image critical vulnerabilities: 0"
           done
+
+  dockerhub:
+    name: Docker Hub continuous delivery
+    needs: containers
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/publish-dockerhub-images.yml
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}

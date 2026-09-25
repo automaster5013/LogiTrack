@@ -1,27 +1,21 @@
 name: Publish Docker Hub images
 
-run-name: Publish Docker Hub images for ${{ github.event.workflow_run.head_sha }}
-
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
+  workflow_call:
+    secrets:
+      DOCKERHUB_TOKEN:
+        required: true
 
 permissions:
   contents: read
 
 concurrency:
-  group: dockerhub-${{ github.event.workflow_run.head_sha }}
+  group: dockerhub-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
   publish:
     name: Publish verified images
-    if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'main' &&
-      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -32,24 +26,22 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
       - name: Validate trusted CI revision
         env:
-          REVISION: ${{ github.event.workflow_run.head_sha }}
-          TRIGGER_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
-          TRIGGER_BRANCH: ${{ github.event.workflow_run.head_branch }}
-          TRIGGER_EVENT: ${{ github.event.workflow_run.event }}
-          TRIGGER_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          REVISION: ${{ github.sha }}
+          TRIGGER_REPOSITORY: ${{ github.repository }}
+          TRIGGER_REF: ${{ github.ref }}
+          TRIGGER_EVENT: ${{ github.event_name }}
         run: |
           set -euo pipefail
           [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]]
           test "$TRIGGER_REPOSITORY" = "$GITHUB_REPOSITORY"
-          test "$TRIGGER_BRANCH" = main
+          test "$TRIGGER_REF" = refs/heads/main
           test "$TRIGGER_EVENT" = push
-          test "$TRIGGER_CONCLUSION" = success
           git fetch --no-tags origin main
           git merge-base --is-ancestor "$REVISION" origin/main
           test "$(git rev-parse HEAD)" = "$REVISION"
@@ -62,7 +54,7 @@ jobs:
 
       - name: Build deployable service images
         env:
-          REVISION: ${{ github.event.workflow_run.head_sha }}
+          REVISION: ${{ github.sha }}
           SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
         run: |
           set -euo pipefail
@@ -74,7 +66,7 @@ jobs:
 
       - name: Enforce runtime and provenance metadata
         env:
-          REVISION: ${{ github.event.workflow_run.head_sha }}
+          REVISION: ${{ github.sha }}
           SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
         run: |
           set -euo pipefail
@@ -91,7 +83,7 @@ jobs:
 
       - name: Generate and validate supply-chain evidence
         env:
-          REVISION: ${{ github.event.workflow_run.head_sha }}
+          REVISION: ${{ github.sha }}
         run: |
           set -euo pipefail
           mkdir -p work/dockerhub-sbom
@@ -105,7 +97,7 @@ jobs:
       - name: Push immutable images and verify registry digests
         id: publish
         env:
-          REVISION: ${{ github.event.workflow_run.head_sha }}
+          REVISION: ${{ github.sha }}
           SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
         run: |
           set -euo pipefail
@@ -147,7 +139,7 @@ jobs:
       - name: Upload Docker Hub publication evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: dockerhub-release-${{ github.event.workflow_run.head_sha }}
+          name: dockerhub-release-${{ github.sha }}
           path: |
             work/dockerhub/release-manifest.json
             work/dockerhub-sbom/*.json
@@ -156,7 +148,7 @@ jobs:
 
       - name: Record publication summary
         env:
-          REVISION: ${{ github.event.workflow_run.head_sha }}
+          REVISION: ${{ github.sha }}
         run: |
           {
             echo "## Docker Hub publication"

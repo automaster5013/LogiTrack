@@ -14,8 +14,8 @@ def main() -> None:
     workflow = yaml.safe_load(source)
     job = workflow.get("jobs", {}).get("publish", {})
 
-    if not re.search(r"(?m)^on:\s*\n\s+workflow_run:\s*$", source):
-        raise AssertionError("Docker Hub publication must be triggered by a completed workflow")
+    if not re.search(r"(?m)^on:\s*\n\s+workflow_call:\s*$", source):
+        raise AssertionError("Docker Hub publication must only be a reusable workflow")
     if workflow.get("permissions") != {"contents": "read"}:
         raise AssertionError("Docker Hub publication permissions must be read-only")
     if workflow.get("concurrency", {}).get("cancel-in-progress") is not False:
@@ -23,19 +23,14 @@ def main() -> None:
     if job.get("runs-on") != "ubuntu-24.04" or job.get("timeout-minutes") != 45:
         raise AssertionError("Docker Hub publication runner and timeout are not bounded")
 
-    condition = str(job.get("if", ""))
-    for gate in ("conclusion == 'success'", "event == 'push'", "head_branch == 'main'", "head_repository.full_name == github.repository"):
-        if gate not in condition:
-            raise AssertionError(f"Docker Hub publication lacks workflow-run gate: {gate}")
-
     for step in job.get("steps", []):
         action = step.get("uses")
         if action and not PINNED_ACTION.fullmatch(action):
             raise AssertionError(f"Docker Hub publication uses a mutable action reference: {action}")
 
     required = (
-        "workflows: [CI]",
-        "types: [completed]",
+        "workflow_call:",
+        "DOCKERHUB_TOKEN:\n        required: true",
         "DOCKERHUB_NAMESPACE: automaster5013",
         "secrets.DOCKERHUB_TOKEN",
         "git merge-base --is-ancestor",
@@ -51,7 +46,9 @@ def main() -> None:
         "local_image_id",
         "docker pull --platform",
         "release-manifest.json",
-        "dockerhub-release-${{ github.event.workflow_run.head_sha }}",
+        "dockerhub-release-${{ github.sha }}",
+        "TRIGGER_REF: ${{ github.ref }}",
+        "test \"$TRIGGER_REF\" = refs/heads/main",
     )
     for value in required:
         if value not in source:
@@ -67,6 +64,16 @@ def main() -> None:
     upload_index = source.index("Upload Docker Hub publication evidence")
     if not scan_index < push_index < upload_index:
         raise AssertionError("images must be scanned before push and evidenced after registry verification")
+
+    ci_source = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
+    for value in (
+        "needs: containers",
+        "if: github.event_name == 'push' && github.ref == 'refs/heads/main'",
+        "uses: ./.github/workflows/publish-dockerhub-images.yml",
+        "DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}",
+    ):
+        if value not in ci_source:
+            raise AssertionError(f"CI does not safely gate the reusable Docker Hub workflow: {value}")
 
     print("PASS: Docker Hub CD is CI-gated, least-privileged, scanned, immutable, and digest-verified")
 
