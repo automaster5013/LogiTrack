@@ -2,6 +2,7 @@ spring:
   application.name: logitrack-control-api
   jackson.parser.strict-duplicate-detection: true
   jackson.deserialization.fail-on-unknown-properties: true
+  jackson.deserialization.fail-on-trailing-tokens: true
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/logitrack}
     username: ${DB_USER:logitrack}

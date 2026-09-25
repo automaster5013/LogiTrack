@@ -383,4 +383,5 @@
 - 브라우저 BFF의 비-SSE upstream 응답에 선언 길이·실제 stream 16 MiB 상한을 적용하고 초과 source를 취소해 인증된 대용량 응답 자원 고갈 차단
 - HTTP 요청과 Kafka 이벤트의 공통 Jackson parser에서 중복 JSON object key를 거부해 마지막 값 덮어쓰기를 이용한 검증·감사 의미 불일치 차단
 - DTO 기반 HTTP 요청과 내부 응답에서 계약에 없는 JSON 필드를 거부해 미정의 입력의 묵시적 무시와 향후 mass-assignment 위험 차단
+- DTO 기반 JSON 역직렬화에서 첫 값 뒤의 추가 토큰을 거부해 프록시·감사 로그·애플리케이션 간 요청 해석 불일치 차단
 - OIDC JWT resource server와 VIEWER·OPERATOR·RECOVERY_OPERATOR·ADMIN RBAC, 인증 subject 기반 감사 actor, public-origin 인증 fail-fast 경계 구현
