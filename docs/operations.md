@@ -13,6 +13,7 @@
 - 웹은 opener와 resource policy를 same-origin으로 격리하고 별도 origin agent cluster를 요청해 다른 origin의 browsing context와 메모리·opener 관계를 분리한다. 웹과 API 모두 legacy cross-domain policy discovery를 차단한다.
 - API 보안 헤더는 애플리케이션 filter와 Spring Security header writer가 같은 정책을 사용해 실제 응답에서도 base·form·frame·object 제한이 축소되지 않도록 한다.
 - API의 요청 검증·상태 충돌 예외에 내부 원인이 연결된 경우 원인과 wrapper 메시지는 서버 로그에만 남기고 외부 응답에는 상태별 일반 메시지와 trace ID만 반환한다.
+- 운영자 인증을 활성화한 웹은 `OIDC_REDIRECT_URI`가 없으면 요청의 Host 기반 origin으로 대체하지 않고 인증 요청·redirect·CSRF origin 검사를 즉시 실패시킨다. 요청 origin fallback은 `AUTH_REQUIRED`가 꺼진 로컬 개발 모드에서만 허용한다.
 - API 보안은 환경변수가 없어도 기본 활성화되어 issuer·client ID가 없으면 시작에 실패한다. 로컬 loopback Compose만 `SECURITY_ENABLED=false`를 명시적으로 선언하며, non-loopback CORS origin에서는 비활성 모드가 시작되지 않는다. 데이터베이스 비밀번호도 기본값 없이 `DB_PASSWORD`가 필수다. API는 JWT `roles` claim의 `VIEWER`, `OPERATOR`, `RECOVERY_OPERATOR`, `ADMIN`만 권한으로 인정하며 감사 actor는 검증된 token subject로 덮어써 클라이언트 `X-Operator` 위조를 차단한다.
 - 주문·배송·위치·감사·복구·보고서를 포함한 모든 `/api/**` 응답은 `Cache-Control: no-store`로 브라우저와 중간 프록시 저장을 금지한다. 웹 정적 자산과 actuator의 별도 cache 정책은 변경하지 않는다.
 - 모든 `/api/**` 요청은 API 인스턴스별 고정 구간 속도 제한을 적용한다. 기본값은 인증 주체 또는 로컬 비인증 모드의 직접 연결 주소별 분당 300건이며 `HTTP_RATE_LIMIT_REQUESTS`, `HTTP_RATE_LIMIT_WINDOW_SECONDS`, `HTTP_RATE_LIMIT_MAX_SUBJECTS`로 조정한다. 제한 응답은 `429`, `Retry-After`, `RateLimit-*` 헤더를 반환하고 클라이언트가 제공한 전달 주소 헤더는 신뢰하지 않는다.

@@ -56,7 +56,8 @@ config_boundaries = (
     "url.username||url.password||url.search||url.hash",
     'url.protocol!=="https:"&&url.protocol!=="http:"',
     "const configured=process.env.OIDC_REDIRECT_URI?.trim()",
-    "if(!configured)return fallback",
+    'if(process.env.AUTH_REQUIRED==="true")throw new Error("OIDC_REDIRECT_URI is required when operator authentication is enabled")',
+    "return fallback",
     'return new URL(callback("OIDC_REDIRECT_URI")).origin',
 )
 missing = [boundary for boundary in config_boundaries if boundary not in config]
@@ -93,6 +94,8 @@ if missing:
     raise SystemExit("ERROR: OIDC logout is missing boundaries: " + ", ".join(missing))
 if 'try{return new URL(callback("OIDC_REDIRECT_URI")).origin}catch{return fallback}' in config:
     raise SystemExit("ERROR: invalid configured redirect origins must fail closed instead of using the fallback origin")
+if "if(!configured)return fallback" in config:
+    raise SystemExit("ERROR: authenticated deployments must not trust the request Host when the public application origin is missing")
 
 proxy_boundaries = (
     "verifyAccessToken(token)",
