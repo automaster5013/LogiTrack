@@ -10,8 +10,9 @@ import java.io.IOException;
 
 @Component @Order(Ordered.HIGHEST_PRECEDENCE)
 public class SecurityHeadersFilter extends OncePerRequestFilter {
+    static final String CONTENT_SECURITY_POLICY="base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'";
     @Override protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain chain) throws ServletException,IOException {
-        response.setHeader("Content-Security-Policy","base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'");
+        response.setHeader("Content-Security-Policy",CONTENT_SECURITY_POLICY);
         response.setHeader("X-Content-Type-Options","nosniff");
         response.setHeader("X-Frame-Options","DENY");
         response.setHeader("Referrer-Policy","no-referrer");

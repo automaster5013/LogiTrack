@@ -45,7 +45,7 @@ jobs:
           done
           tr -d '\r' </tmp/logitrack-showcase-headers >/tmp/logitrack-showcase-headers.normalized
           grep -Eqi '^strict-transport-security: max-age=31536000; includeSubDomains$' /tmp/logitrack-showcase-headers.normalized
-          grep -Eqi "^content-security-policy: base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'$" /tmp/logitrack-showcase-headers.normalized
+          grep -Eqi "^content-security-policy: .*default-src 'self'.*connect-src 'self' http://localhost:8080 http://127.0.0.1:8080 https://tiles.openfreemap.org.*frame-ancestors 'none'.*frame-src 'none'.*img-src 'self' data: blob: https://tiles.openfreemap.org.*media-src 'none'.*script-src 'self' 'unsafe-inline'.*worker-src 'self' blob:" /tmp/logitrack-showcase-headers.normalized
           grep -oE 'href="/_next/static/(css|chunks)/[^"]+\.css"' /tmp/logitrack-showcase \
             | cut -d'"' -f2 | sort -u >/tmp/logitrack-showcase-css-paths
           test -s /tmp/logitrack-showcase-css-paths
@@ -151,7 +151,7 @@ jobs:
 
           tr -d '\r' </tmp/logitrack-headers >/tmp/logitrack-headers.normalized
           grep -Eqi '^strict-transport-security: max-age=31536000; includeSubDomains$' /tmp/logitrack-headers.normalized
-          grep -Eqi "^content-security-policy: base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'$" /tmp/logitrack-headers.normalized
+          grep -Eqi "^content-security-policy: .*default-src 'self'.*connect-src 'self' http://localhost:8080 http://127.0.0.1:8080 https://tiles.openfreemap.org.*frame-ancestors 'none'.*frame-src 'none'.*img-src 'self' data: blob: https://tiles.openfreemap.org.*media-src 'none'.*script-src 'self' 'unsafe-inline'.*worker-src 'self' blob:" /tmp/logitrack-headers.normalized
           grep -Eqi '^x-content-type-options: nosniff$' /tmp/logitrack-headers.normalized
           grep -Eqi '^x-frame-options: DENY$' /tmp/logitrack-headers.normalized
           if grep -Eqi '^(server|via|x-powered-by|x-nextjs-[^:]*):' /tmp/logitrack-headers.normalized; then

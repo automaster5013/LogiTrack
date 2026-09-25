@@ -15,9 +15,14 @@ $api=Headers "http://localhost:8080/api/deliveries" "http://localhost:3000"
 $loopbackApi=Headers "http://localhost:8080/api/deliveries" "http://127.0.0.1:3000"
 $untrusted=Headers "http://localhost:8080/api/deliveries" "https://untrusted.example"
 $web=Headers "http://localhost:3000"
-foreach($header in @("Content-Security-Policy: base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'","X-Content-Type-Options: nosniff","X-Frame-Options: DENY","Referrer-Policy: no-referrer","Permissions-Policy: camera=(), microphone=(), geolocation=()")) {
+foreach($header in @("X-Content-Type-Options: nosniff","X-Frame-Options: DENY","Referrer-Policy: no-referrer","Permissions-Policy: camera=(), microphone=(), geolocation=()")) {
   if($api -notmatch "(?im)^$([regex]::Escape($header))\s*$") { throw "API security header is missing: $header" }
   if($web -notmatch "(?im)^$([regex]::Escape($header))\s*$") { throw "Web security header is missing: $header" }
+}
+$apiCsp="Content-Security-Policy: base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
+if($api -notmatch "(?im)^$([regex]::Escape($apiCsp))\s*$") { throw "API content security policy is missing" }
+foreach($directive in @("default-src 'self'","connect-src 'self' http://localhost:8080 http://127.0.0.1:8080 https://tiles.openfreemap.org","frame-src 'none'","img-src 'self' data: blob: https://tiles.openfreemap.org","media-src 'none'","script-src 'self' 'unsafe-inline'","style-src 'self' 'unsafe-inline'","worker-src 'self' blob:")) {
+  if($web -notmatch "(?im)^Content-Security-Policy:.*$([regex]::Escape($directive))") { throw "Web content security policy directive is missing: $directive" }
 }
 if($api -notmatch "(?im)^Access-Control-Allow-Origin:\s*http://localhost:3000\s*$") { throw "Trusted web origin was not allowed" }
 if($loopbackApi -notmatch "(?im)^Access-Control-Allow-Origin:\s*http://127\.0\.0\.1:3000\s*$") { throw "Published loopback web origin was not allowed" }
