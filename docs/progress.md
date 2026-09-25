@@ -386,4 +386,5 @@
 - DTO 기반 JSON 역직렬화에서 첫 값 뒤의 추가 토큰을 거부해 프록시·감사 로그·애플리케이션 간 요청 해석 불일치 차단
 - DTO 기반 JSON 역직렬화에서 문자열의 숫자·불리언 강제 변환을 거부해 검증 계층과 도메인 모델 간 타입 해석 불일치 차단
 - DTO의 원시 숫자·불리언 필드에서 `null`을 0·false 기본값으로 바꾸지 않고 거부해 필수 값 누락과 명시적 값의 의미 혼동 차단
+- API 요청과 Kafka 이벤트 JSON의 중첩 깊이를 기본 100단계로 제한하고 최대 설정값도 200으로 고정해 parser 자원 고갈 방지
 - OIDC JWT resource server와 VIEWER·OPERATOR·RECOVERY_OPERATOR·ADMIN RBAC, 인증 subject 기반 감사 actor, public-origin 인증 fail-fast 경계 구현
