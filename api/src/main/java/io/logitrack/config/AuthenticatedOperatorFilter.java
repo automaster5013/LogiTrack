@@ -22,10 +22,16 @@ public class AuthenticatedOperatorFilter extends OncePerRequestFilter{
         Authentication authentication=SecurityContextHolder.getContext().getAuthentication();
         if(authentication==null||!authentication.isAuthenticated()){chain.doFilter(request,response);return;}
         String actor=authentication.getName();
-        if(actor==null||actor.isBlank()||actor.length()>120){response.sendError(HttpServletResponse.SC_UNAUTHORIZED,"Authenticated subject is invalid");return;}
+        if(!isValidSubject(actor)){response.sendError(HttpServletResponse.SC_UNAUTHORIZED,"Authenticated subject is invalid");return;}
         chain.doFilter(new HttpServletRequestWrapper(request){
             @Override public String getHeader(String name){return HEADER.equalsIgnoreCase(name)?actor:super.getHeader(name);}
             @Override public Enumeration<String> getHeaders(String name){return HEADER.equalsIgnoreCase(name)?Collections.enumeration(java.util.List.of(actor)):super.getHeaders(name);}
         },response);
     }
+    static boolean isValidSubject(String subject){
+        if(subject==null||subject.isBlank()||subject.length()>120||subject.codePoints().anyMatch(Character::isISOControl))return false;
+        int first=subject.codePointAt(0),last=subject.codePointBefore(subject.length());
+        return !isBoundaryWhitespace(first)&&!isBoundaryWhitespace(last);
+    }
+    private static boolean isBoundaryWhitespace(int value){return Character.isWhitespace(value)||Character.isSpaceChar(value)||value==0xfeff;}
 }

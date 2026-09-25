@@ -5,6 +5,7 @@ const jwksTimeoutMs = 5_000;
 const allowedClockSkewSeconds = 60;
 const maxAccessTokenLifetimeSeconds = 3_660;
 const maxSubjectCharacters = 120;
+const subjectControlCharacters = /[\u0000-\u001f\u007f-\u009f]/u;
 const jwksByIssuer = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
 export function cognitoJwks(issuer: string) {
@@ -24,7 +25,7 @@ export async function verifyAccessToken(token: string) {
     requiredClaims: ["exp", "iat", "sub", "token_use", "client_id"],
   });
   if (payload.token_use !== "access" || payload.client_id !== clientId) throw new Error("Invalid access token claims");
-  if (typeof payload.sub !== "string" || payload.sub.length < 1 || payload.sub.length > maxSubjectCharacters || payload.sub.trim() !== payload.sub) {
+  if (typeof payload.sub !== "string" || payload.sub.length < 1 || payload.sub.length > maxSubjectCharacters || payload.sub.trim() !== payload.sub || subjectControlCharacters.test(payload.sub)) {
     throw new Error("Access token subject is invalid");
   }
   const now = Math.floor(Date.now() / 1000);
