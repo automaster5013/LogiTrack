@@ -68,6 +68,8 @@ jobs:
         run: python scripts/compose-config-smoke.py
       - name: Validate local secret generation
         run: python scripts/local-secrets-smoke.py
+      - name: Validate runtime DB integrity contract
+        run: python scripts/data-integrity-contract-smoke.py
       - name: Validate isolated performance topology
         run: python scripts/perf-compose-config-smoke.py
       - name: Validate Dependabot coverage
