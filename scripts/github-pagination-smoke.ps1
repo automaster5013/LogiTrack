@@ -49,6 +49,59 @@ Assert-PaginationFailure "escaped the repository" {
   Invoke-GitHubGetAll -Path "/dependabot/alerts?state=open" -BaseUri $baseUri -Headers $headers -RequestInvoker $offRepositoryRequest
 }
 
+$changedEndpointRequest = {
+  [pscustomobject]@{
+    Content = '[]'
+    Headers = @{ Link = '<https://api.github.com/repos/automaster5013/LogiTrack/issues?state=open&per_page=100&page=2>; rel="next"' }
+  }
+}
+Assert-PaginationFailure "changed the endpoint" {
+  Invoke-GitHubGetAll -Path "/dependabot/alerts?state=open" -BaseUri $baseUri -Headers $headers -RequestInvoker $changedEndpointRequest
+}
+
+$changedFilterRequest = {
+  [pscustomobject]@{
+    Content = '[]'
+    Headers = @{ Link = '<https://api.github.com/repos/automaster5013/LogiTrack/dependabot/alerts?state=dismissed&per_page=100&page=2>; rel="next"' }
+  }
+}
+Assert-PaginationFailure "changed a required query parameter" {
+  Invoke-GitHubGetAll -Path "/dependabot/alerts?state=open" -BaseUri $baseUri -Headers $headers -RequestInvoker $changedFilterRequest
+}
+
+$changedQueryCaseRequest = {
+  [pscustomobject]@{
+    Content = '[]'
+    Headers = @{ Link = '<https://api.github.com/repos/automaster5013/LogiTrack/dependabot/alerts?STATE=open&per_page=100&page=2>; rel="next"' }
+  }
+}
+Assert-PaginationFailure "changed a required query parameter" {
+  Invoke-GitHubGetAll -Path "/dependabot/alerts?state=open" -BaseUri $baseUri -Headers $headers -RequestInvoker $changedQueryCaseRequest
+}
+
+$ambiguousNextRequest = {
+  [pscustomobject]@{
+    Content = '[]'
+    Headers = @{ Link = @(
+      '<https://api.github.com/repos/automaster5013/LogiTrack/dependabot/alerts?state=open&per_page=100&page=2>; rel="next"',
+      '<https://api.github.com/repos/automaster5013/LogiTrack/dependabot/alerts?state=open&per_page=100&page=3>; rel="next"'
+    ) }
+  }
+}
+Assert-PaginationFailure "contains ambiguous next links" {
+  Invoke-GitHubGetAll -Path "/dependabot/alerts?state=open" -BaseUri $baseUri -Headers $headers -RequestInvoker $ambiguousNextRequest
+}
+
+$ambiguousQueryRequest = {
+  [pscustomobject]@{
+    Content = '[]'
+    Headers = @{ Link = '<https://api.github.com/repos/automaster5013/LogiTrack/dependabot/alerts?state=open&state=dismissed&per_page=100&page=2>; rel="next"' }
+  }
+}
+Assert-PaginationFailure "query is ambiguous" {
+  Invoke-GitHubGetAll -Path "/dependabot/alerts?state=open" -BaseUri $baseUri -Headers $headers -RequestInvoker $ambiguousQueryRequest
+}
+
 $repeatedUri = "$($baseUri.AbsoluteUri)/dependabot/alerts?state=open&per_page=100"
 $cycleRequestCount = 0
 $cycleRequest = {
@@ -87,7 +140,7 @@ $boundedRequest = {
   $script:boundedPage++
   [pscustomobject]@{
     Content = '[]'
-    Headers = @{ Link = "<$($baseUri.AbsoluteUri)/dependabot/alerts?per_page=100&after=$boundedPage>; rel=`"next`"" }
+    Headers = @{ Link = "<$($baseUri.AbsoluteUri)/dependabot/alerts?state=open&per_page=100&after=$boundedPage>; rel=`"next`"" }
   }
 }
 Assert-PaginationFailure "exceeded 2 pages" {
@@ -95,4 +148,4 @@ Assert-PaginationFailure "exceeded 2 pages" {
 }
 if ($boundedPage -ne 2) { throw "Pagination page limit was not enforced" }
 
-Write-Host "PASS: GitHub pagination aggregates bounded array pages and rejects malformed, oversized, escaped, repeated, and excessive traversal"
+Write-Host "PASS: GitHub pagination preserves one trusted endpoint and query across bounded array pages"
