@@ -69,6 +69,15 @@ def main() -> None:
         "attestationId",
         "attestationUrl",
         "Bind signed provenance to release manifest",
+        "Verify published provenance policy",
+        "gh attestation verify",
+        "--signer-workflow \"$GITHUB_REPOSITORY/.github/workflows/publish-dockerhub-images.yml\"",
+        "--source-ref refs/heads/main",
+        "--source-digest \"$REVISION\"",
+        "--deny-self-hosted-runners",
+        "--bundle-from-oci",
+        "provenanceVerificationFile",
+        "provenanceVerificationSha256",
         "published-at=$published_at",
         "dockerhub-release-${{ github.sha }}",
         "TRIGGER_REF: ${{ github.ref }}",
@@ -87,7 +96,9 @@ def main() -> None:
     push_index = source.index("Push immutable images and verify registry digests")
     evidence_upload_index = source.index("Upload immutable Docker Hub supply-chain evidence")
     upload_index = source.index("Upload immutable Docker Hub release manifest")
-    if not scan_index < evidence_upload_index < push_index < upload_index:
+    verify_index = source.index("Verify published provenance policy")
+    bind_index = source.index("Bind signed provenance to release manifest")
+    if not scan_index < evidence_upload_index < push_index < verify_index < bind_index < upload_index:
         raise AssertionError("evidence must be uploaded before digest-bound publication manifest")
     if source.count("retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}") != 2:
         raise AssertionError("both Docker Hub evidence artifacts must share the retention policy")

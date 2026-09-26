@@ -19,6 +19,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("manifest", type=Path)
     parser.add_argument("--evidence-dir", required=True, type=Path)
+    parser.add_argument("--verification-dir", required=True, type=Path)
     parser.add_argument("--revision", required=True)
     parser.add_argument("--published-at", required=True)
     parser.add_argument("--repository", required=True)
@@ -58,7 +59,7 @@ def main() -> None:
         "artifactRetentionDays", "evidenceArtifact", "evidenceArtifactDigest",
         "evidenceArtifactUrl", "images",
     }
-    if set(manifest) != expected_fields or manifest["schemaVersion"] != 4:
+    if set(manifest) != expected_fields or manifest["schemaVersion"] != 5:
         raise AssertionError("Docker Hub release manifest schema is invalid")
     expected_url = f"https://github.com/{args.repository}/actions/runs/{args.run_id}"
     expected_ref = f"{args.repository}/.github/workflows/ci.yml@refs/heads/main"
@@ -106,6 +107,7 @@ def main() -> None:
             "service", "repository", "tag", "digest", "uri", "sbomFile",
             "sbomSha256", "vulnerabilityReportFile", "vulnerabilityReportSha256",
             "attestationId", "attestationUrl",
+            "provenanceVerificationFile", "provenanceVerificationSha256",
         }
         if set(image) != expected_image_fields:
             raise AssertionError(f"image evidence schema is invalid: {service}")
@@ -123,6 +125,32 @@ def main() -> None:
         )
         if image["attestationUrl"] != expected_attestation_url:
             raise AssertionError(f"attestation URL is outside the source repository: {service}")
+        verification_file = f"logitrack-{service}.provenance.json"
+        verification_hash = image["provenanceVerificationSha256"]
+        verification_path = args.verification_dir / verification_file
+        if (
+            image["provenanceVerificationFile"] != verification_file
+            or not SHA256.fullmatch(verification_hash)
+            or not verification_path.is_file()
+            or file_hash(verification_path) != verification_hash
+        ):
+            raise AssertionError(f"provenance verification evidence is invalid: {service}")
+        verification = json.loads(verification_path.read_text(encoding="utf-8"))
+        expected_subject = f"docker.io/{repository}"
+        digest_value = digest.removeprefix("sha256:")
+        if not isinstance(verification, list) or not verification:
+            raise AssertionError(f"provenance verification result is empty: {service}")
+        if not any(
+            result.get("verificationResult", {}).get("statement", {}).get("predicateType")
+            == "https://slsa.dev/provenance/v1"
+            and any(
+                subject.get("name") == expected_subject
+                and subject.get("digest", {}).get("sha256") == digest_value
+                for subject in result.get("verificationResult", {}).get("statement", {}).get("subject", [])
+            )
+            for result in verification
+        ):
+            raise AssertionError(f"verified provenance subject does not match: {service}")
         for field, suffix in (("sbom", "cdx.json"), ("vulnerabilityReport", "critical.json")):
             filename = f"logitrack-{service}.{suffix}"
             hash_field = f"{field}Sha256"
@@ -136,7 +164,7 @@ def main() -> None:
         if report.get("SchemaVersion") != 2 or not isinstance(report.get("Results"), list):
             raise AssertionError(f"vulnerability report schema is invalid: {service}")
 
-    print("PASS: Docker Hub release manifest binds registry digests to workflow and supply-chain evidence")
+    print("PASS: Docker Hub release manifest binds registry digests to verified provenance and supply-chain evidence")
 
 
 if __name__ == "__main__":

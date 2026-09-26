@@ -219,6 +219,32 @@ jobs:
           push-to-registry: true
           create-storage-record: false
 
+      - name: Verify published provenance policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p work/dockerhub/attestation-verification
+          for service in api analytics simulator web otel-collector; do
+            uri="$(jq -er --arg service "$service" '.images[] | select(.service == $service) | .uri' work/dockerhub/release-manifest.json)"
+            report="work/dockerhub/attestation-verification/logitrack-$service.provenance.json"
+            gh attestation verify "oci://$uri" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/publish-dockerhub-images.yml" \
+              --source-ref refs/heads/main \
+              --source-digest "$REVISION" \
+              --deny-self-hosted-runners \
+              --bundle-from-oci \
+              --format json > "$report"
+            jq -e --arg name "docker.io/$DOCKERHUB_NAMESPACE/logitrack-$service" --arg digest "$(cut -d@ -f2 <<<"$uri" | cut -d: -f2)" '
+              type == "array" and length >= 1 and
+              any(.[].verificationResult.statement;
+                .predicateType == "https://slsa.dev/provenance/v1" and
+                any(.subject[]; .name == $name and .digest.sha256 == $digest))
+            ' "$report" >/dev/null
+          done
+
       - name: Bind signed provenance to release manifest
         env:
           REVISION: ${{ github.sha }}
@@ -244,8 +270,17 @@ jobs:
             '.schemaVersion = 4 | (.images[] | select(.service == "api")) += {attestationId: $apiId, attestationUrl: $apiUrl} | (.images[] | select(.service == "analytics")) += {attestationId: $analyticsId, attestationUrl: $analyticsUrl} | (.images[] | select(.service == "simulator")) += {attestationId: $simulatorId, attestationUrl: $simulatorUrl} | (.images[] | select(.service == "web")) += {attestationId: $webId, attestationUrl: $webUrl} | (.images[] | select(.service == "otel-collector")) += {attestationId: $otelId, attestationUrl: $otelUrl}' \
             work/dockerhub/release-manifest.json > work/dockerhub/release-manifest.next.json
           mv work/dockerhub/release-manifest.next.json work/dockerhub/release-manifest.json
+          for service in api analytics simulator web otel-collector; do
+            verification_file="logitrack-$service.provenance.json"
+            verification_sha256="$(sha256sum "work/dockerhub/attestation-verification/$verification_file" | awk '{print $1}')"
+            jq --arg service "$service" --arg verificationFile "$verification_file" --arg verificationSha256 "$verification_sha256" \
+              '.schemaVersion = 5 | (.images[] | select(.service == $service)) += {provenanceVerificationFile: $verificationFile, provenanceVerificationSha256: $verificationSha256}' \
+              work/dockerhub/release-manifest.json > work/dockerhub/release-manifest.next.json
+            mv work/dockerhub/release-manifest.next.json work/dockerhub/release-manifest.json
+          done
           python scripts/dockerhub-release-manifest-smoke.py work/dockerhub/release-manifest.json \
-            --evidence-dir work/dockerhub-sbom --revision "$REVISION" --published-at "$PUBLISHED_AT" \
+            --evidence-dir work/dockerhub-sbom --verification-dir work/dockerhub/attestation-verification \
+            --revision "$REVISION" --published-at "$PUBLISHED_AT" \
             --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" \
             --workflow-ref "$WORKFLOW_REF" --workflow-sha "$WORKFLOW_SHA" \
             --scanner-image "$TRIVY_IMAGE" --scanner-version "$SCANNER_VERSION" \
@@ -256,7 +291,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: dockerhub-release-${{ github.sha }}
-          path: work/dockerhub/release-manifest.json
+          path: |
+            work/dockerhub/release-manifest.json
+            work/dockerhub/attestation-verification/*.json
           if-no-files-found: error
           retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
