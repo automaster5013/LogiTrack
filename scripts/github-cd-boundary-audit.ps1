@@ -114,6 +114,7 @@ Assert-True ($dockerHubWorkflow.state -eq "active" -and $dockerHubWorkflow.path 
 $provenanceAuditWorkflow = Invoke-GitHubGet "/actions/workflows/dockerhub-provenance-audit.yml"
 Assert-True ($provenanceAuditWorkflow.state -eq "active" -and $provenanceAuditWorkflow.path -eq ".github/workflows/dockerhub-provenance-audit.yml") "Docker Hub provenance audit workflow is not active"
 $mainCommit = Invoke-GitHubGet "/commits/main"
+$mainCommittedAt = [DateTimeOffset]::Parse([string]$mainCommit.commit.committer.date)
 $ciRuns = Invoke-GitHubGet "/actions/workflows/ci.yml/runs?branch=main&event=push&status=success&per_page=1"
 $latestCiRun = @($ciRuns.workflow_runs | Where-Object { $null -ne $_ })
 Assert-True ($latestCiRun.Count -eq 1 -and $latestCiRun[0].event -eq "push") "CI has no successful main push run"
@@ -204,6 +205,10 @@ try {
     Assert-True (@($tagEvidence.images).Count -eq 1 -and $evidencePlatforms.Count -eq 1) "Docker Hub provenance tag evidence platform set drifted: $service"
     $verificationEvidence = @(Get-Content -Raw -LiteralPath (Join-Path $auditEvidenceRoot "logitrack-$service.provenance.json") | ConvertFrom-Json)
     Assert-True ($verificationEvidence.Count -eq 1) "Docker Hub provenance verification evidence must contain exactly one attestation: $service"
+    $verifiedTimestamps = @($verificationEvidence[0].verificationResult.verifiedTimestamps)
+    Assert-True ($verifiedTimestamps.Count -eq 1 -and $verifiedTimestamps[0].type -eq "Tlog" -and $verifiedTimestamps[0].uri -eq "https://rekor.sigstore.dev") "Docker Hub provenance transparency log evidence drifted: $service"
+    $transparencyTimestamp = [DateTimeOffset]::Parse([string]$verifiedTimestamps[0].timestamp)
+    Assert-True ($transparencyTimestamp -ge $mainCommittedAt.AddMinutes(-5) -and $transparencyTimestamp -le $auditCreatedAt.AddMinutes(5)) "Docker Hub provenance transparency timestamp is outside the trusted release window: $service"
     $expectedSubject = "docker.io/$Owner/logitrack-$service"
     $expectedSubjectDigest = ([string]$tagEvidence.digest).Substring(7)
     $expectedRepositoryUrl = "https://github.com/$Owner/$Repository"
@@ -222,6 +227,8 @@ try {
       $certificate.certificateIssuer -eq "CN=sigstore-intermediate,O=sigstore.dev" -and
       $certificate.issuer -eq "https://token.actions.githubusercontent.com" -and
       $certificate.subjectAlternativeName -eq $expectedSigner -and
+      $certificate.githubWorkflowName -eq "CI" -and
+      $certificate.githubWorkflowTrigger -eq "push" -and
       $certificate.githubWorkflowRepository -eq "$Owner/$Repository" -and
       $certificate.githubWorkflowRef -eq "refs/heads/main" -and
       $certificate.githubWorkflowSHA -eq $mainCommit.sha -and
