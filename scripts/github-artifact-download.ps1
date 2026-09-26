@@ -11,6 +11,9 @@ function Assert-GitHubArtifactZipEntryType {
   if ($unixFileType -ne 0x8000 -or $unsafeDosAttributes -ne 0) {
     throw "AUDIT FAILED: GitHub artifact ZIP entry is not a regular file: $DisplayName"
   }
+  if ($unixMode -ne 0x81A4 -or $dosAttributes -ne 0x20) {
+    throw "AUDIT FAILED: GitHub artifact ZIP entry metadata is not canonical: $DisplayName"
+  }
 }
 
 function Save-GitHubArtifactArchive {
