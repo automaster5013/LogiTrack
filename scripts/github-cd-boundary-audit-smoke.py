@@ -68,10 +68,12 @@ required = (
     'expectedRepositorySecretNames = @("DOCKERHUB_TOKEN")',
     '"/actions/workflows/publish-dockerhub-images.yml"',
     '"/actions/workflows/dockerhub-provenance-audit.yml"',
-    '"/actions/workflows/ci.yml/runs?branch=main&event=push&status=success&per_page=1"',
-    'latestCiRun[0].head_sha -eq $mainCommit.sha',
-    '"/actions/workflows/dockerhub-provenance-audit.yml/runs?branch=main&status=success&per_page=1"',
-    'auditRun.head_sha -eq $mainCommit.sha',
+    '"/actions/workflows/ci.yml/runs?branch=main&event=push&per_page=1"',
+    'latestCiRun[0].status -eq "completed"',
+    'latestCiRun[0].conclusion -eq "success"',
+    '"/actions/workflows/dockerhub-provenance-audit.yml/runs?branch=main&per_page=1"',
+    'auditRun.status -eq "completed"',
+    'auditRun.conclusion -eq "success"',
     'auditAge.TotalHours -le 26',
     'mainCommittedAt = [DateTimeOffset]::Parse',
     '"/actions/runs/$($auditRun.id)/artifacts?per_page=10"',
@@ -141,6 +143,12 @@ confirmed_main_index = audit_source.index('$confirmedMainCommit = Invoke-GitHubG
 success_index = audit_source.index('Write-Output "PASS: GitHub main')
 if not initial_main_index < docker_hub_index < confirmed_main_index < success_index:
     raise SystemExit("ERROR: GitHub CD audit must reconfirm main after Docker Hub verification and before reporting success")
+for hidden_result_filter in (
+    "ci.yml/runs?branch=main&event=push&status=success",
+    "dockerhub-provenance-audit.yml/runs?branch=main&status=success",
+):
+    if hidden_result_filter in audit_source:
+        raise SystemExit("ERROR: GitHub CD audit must inspect the latest workflow result without hiding failures")
 for mutation in ("-Method Post", "-Method Put", "-Method Patch", "-Method Delete"):
     if mutation in source:
         raise SystemExit(f"ERROR: GitHub CD audit must remain read-only: {mutation}")
