@@ -91,6 +91,26 @@ jobs:
           docker build --platform "$IMAGE_PLATFORM" --build-arg NEXT_PUBLIC_API_URL=/backend --label org.opencontainers.image.source="$SOURCE_URL" --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-web:$REVISION" ./web
           docker build --platform "$IMAGE_PLATFORM" --label org.opencontainers.image.source="$SOURCE_URL" --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-otel-collector:$REVISION" ./infra/otel
 
+      - name: Reuse immutable registry images after a partial publication
+        env:
+          REVISION: ${{ github.sha }}
+          SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          for service in api analytics simulator web otel-collector; do
+            destination="docker.io/$DOCKERHUB_NAMESPACE/logitrack-$service:$REVISION"
+            if manifest="$(timeout 30s docker buildx imagetools inspect "$destination" --format '{{json .Manifest}}' 2>/dev/null)"; then
+              digest="$(jq -r .digest <<<"$manifest")"
+              [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+              pinned="docker.io/$DOCKERHUB_NAMESPACE/logitrack-$service@$digest"
+              docker pull --platform "$IMAGE_PLATFORM" "$pinned"
+              test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$pinned")" = "$SOURCE_URL"
+              test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$pinned")" = "$REVISION"
+              test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$pinned")" = "$IMAGE_PLATFORM"
+              docker tag "$pinned" "logitrack-$service:$REVISION"
+            fi
+          done
+
       - name: Enforce runtime and provenance metadata
         env:
           REVISION: ${{ github.sha }}
