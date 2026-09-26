@@ -134,7 +134,7 @@ $auditArtifacts = @($provenanceArtifacts.artifacts)
 Assert-True ($provenanceArtifacts.total_count -eq 1 -and $auditArtifacts.Count -eq 1) "Docker Hub provenance audit evidence artifact count drifted"
 $auditArtifact = $auditArtifacts[0]
 $expectedAuditArtifactName = "dockerhub-provenance-audit-$($mainCommit.sha)-$($auditRun.run_attempt)"
-Assert-True ($auditArtifact.name -eq $expectedAuditArtifactName -and -not $auditArtifact.expired -and $auditArtifact.size_in_bytes -gt 0) "Docker Hub provenance audit evidence identity or availability drifted"
+Assert-True ($auditArtifact.name -eq $expectedAuditArtifactName -and -not $auditArtifact.expired -and $auditArtifact.size_in_bytes -gt 0 -and $auditArtifact.size_in_bytes -le 1MB) "Docker Hub provenance audit evidence identity, availability, or archive size drifted"
 Assert-True ($auditArtifact.digest -match '^sha256:[0-9a-f]{64}$') "Docker Hub provenance audit evidence digest is invalid"
 Assert-True ($auditArtifact.workflow_run.id -eq $auditRun.id -and $auditArtifact.workflow_run.repository_id -eq $repositoryInfo.id -and $auditArtifact.workflow_run.head_sha -eq $mainCommit.sha -and $auditArtifact.workflow_run.head_branch -eq "main") "Docker Hub provenance audit evidence run binding drifted"
 $artifactCreatedAt = [DateTimeOffset]::Parse([string]$auditArtifact.created_at)
@@ -146,14 +146,33 @@ Assert-True ($auditArtifact.url -eq $expectedArtifactUrl -and $auditArtifact.arc
 
 $dockerHubServices = @("api", "analytics", "simulator", "web", "otel-collector")
 $expectedEvidenceFiles = @($dockerHubServices | ForEach-Object { "logitrack-$_.provenance.json"; "logitrack-$_.tag.json" } | Sort-Object)
+$expectedArchiveEntries = @($expectedEvidenceFiles + "SHA256SUMS" | Sort-Object)
 $auditTempRoot = Join-Path ([System.IO.Path]::GetTempPath()) "logitrack-provenance-audit-$([guid]::NewGuid().ToString('N'))"
 try {
   New-Item -ItemType Directory -Path $auditTempRoot | Out-Null
   $auditArchive = Join-Path $auditTempRoot "evidence.zip"
   $auditEvidenceRoot = Join-Path $auditTempRoot "evidence"
   Invoke-WebRequest -Method Get -Uri $auditArtifact.archive_download_url -Headers $headers -OutFile $auditArchive
+  $downloadedArchiveSize = (Get-Item -LiteralPath $auditArchive).Length
+  Assert-True ($downloadedArchiveSize -eq $auditArtifact.size_in_bytes -and $downloadedArchiveSize -le 1MB) "downloaded Docker Hub provenance audit archive size does not match GitHub"
   $downloadedArchiveDigest = "sha256:$((Get-FileHash -LiteralPath $auditArchive -Algorithm SHA256).Hash.ToLowerInvariant())"
   Assert-True ($downloadedArchiveDigest -eq $auditArtifact.digest) "downloaded Docker Hub provenance audit archive digest does not match GitHub"
+  $archive = [System.IO.Compression.ZipFile]::OpenRead($auditArchive)
+  try {
+    $archiveEntries = @($archive.Entries)
+    $archiveEntryNames = @($archiveEntries.FullName | Sort-Object)
+    Assert-True ($archiveEntries.Count -eq 11 -and ($archiveEntryNames -join ",") -eq ($expectedArchiveEntries -join ",")) "Docker Hub provenance audit ZIP entry set drifted"
+    Assert-True (@($archiveEntryNames | Select-Object -Unique).Count -eq 11) "Docker Hub provenance audit ZIP contains duplicate entries"
+    $totalExpandedBytes = 0L
+    foreach ($entry in $archiveEntries) {
+      Assert-True ($entry.FullName -eq $entry.Name -and -not [string]::IsNullOrWhiteSpace($entry.Name)) "Docker Hub provenance audit ZIP contains a nested or unsafe path"
+      Assert-True ($entry.Length -gt 0 -and $entry.Length -le 2MB -and $entry.CompressedLength -gt 0 -and $entry.CompressedLength -le 1MB) "Docker Hub provenance audit ZIP entry size is invalid: $($entry.FullName)"
+      $totalExpandedBytes += $entry.Length
+    }
+    Assert-True ($totalExpandedBytes -le 10MB) "Docker Hub provenance audit ZIP expanded size exceeds the limit"
+  } finally {
+    $archive.Dispose()
+  }
   Expand-Archive -LiteralPath $auditArchive -DestinationPath $auditEvidenceRoot
 
   $jsonFiles = @(Get-ChildItem -LiteralPath $auditEvidenceRoot -File -Filter "*.json")
