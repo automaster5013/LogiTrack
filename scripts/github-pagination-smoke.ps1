@@ -60,6 +60,28 @@ Assert-PaginationFailure "repeated a page" {
 }
 if ($cycleRequestCount -ne 1) { throw "Repeated page was requested more than once" }
 
+$invalidJsonRequest = {
+  [pscustomobject]@{ Content = 'not-json'; Headers = @{} }
+}
+Assert-PaginationFailure "returned invalid JSON" {
+  Invoke-GitHubGetAll -Path "/dependabot/alerts?state=open" -BaseUri $baseUri -Headers $headers -RequestInvoker $invalidJsonRequest
+}
+
+$objectResponseRequest = {
+  [pscustomobject]@{ Content = '{"number":1}'; Headers = @{} }
+}
+Assert-PaginationFailure "response is not an array" {
+  Invoke-GitHubGetAll -Path "/dependabot/alerts?state=open" -BaseUri $baseUri -Headers $headers -RequestInvoker $objectResponseRequest
+}
+
+$oversizedContent = "[" + ((1..101) -join ",") + "]"
+$oversizedResponseRequest = {
+  [pscustomobject]@{ Content = $oversizedContent; Headers = @{} }
+}
+Assert-PaginationFailure "response exceeded 100 items" {
+  Invoke-GitHubGetAll -Path "/dependabot/alerts?state=open" -BaseUri $baseUri -Headers $headers -RequestInvoker $oversizedResponseRequest
+}
+
 $boundedPage = 0
 $boundedRequest = {
   $script:boundedPage++
@@ -73,4 +95,4 @@ Assert-PaginationFailure "exceeded 2 pages" {
 }
 if ($boundedPage -ne 2) { throw "Pagination page limit was not enforced" }
 
-Write-Host "PASS: GitHub pagination aggregates every page and rejects escaped, repeated, and excessive traversal"
+Write-Host "PASS: GitHub pagination aggregates bounded array pages and rejects malformed, oversized, escaped, repeated, and excessive traversal"
