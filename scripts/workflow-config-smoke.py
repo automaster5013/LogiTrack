@@ -25,6 +25,14 @@ def main() -> None:
                 raise AssertionError("Docker Hub publication must only run for main pushes")
             if job.get("secrets") != {"DOCKERHUB_TOKEN": "${{ secrets.DOCKERHUB_TOKEN }}"}:
                 raise AssertionError("Docker Hub publication must receive only its dedicated secret")
+            expected_permissions = {
+                "contents": "read",
+                "id-token": "write",
+                "attestations": "write",
+                "artifact-metadata": "write",
+            }
+            if job.get("permissions") != expected_permissions:
+                raise AssertionError("Docker Hub caller permissions must only enable signed attestations")
             continue
         if job.get("runs-on") != "ubuntu-24.04":
             raise AssertionError(f"{job_name} runner OS is not pinned to ubuntu-24.04")

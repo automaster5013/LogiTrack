@@ -40,7 +40,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         images = []
-        for service in SERVICES:
+        for index, service in enumerate(SERVICES, start=1):
             sbom_file = f"logitrack-{service}.cdx.json"
             report_file = f"logitrack-{service}.critical.json"
             (root / sbom_file).write_bytes(SBOM)
@@ -52,9 +52,11 @@ def main() -> None:
                 "sbomFile": sbom_file, "sbomSha256": hashlib.sha256(SBOM).hexdigest(),
                 "vulnerabilityReportFile": report_file,
                 "vulnerabilityReportSha256": hashlib.sha256(REPORT).hexdigest(),
+                "attestationId": str(700000 + index),
+                "attestationUrl": f"https://github.com/{REPOSITORY}/attestations/{700000 + index}",
             })
         manifest = {
-            "schemaVersion": 3, "revision": REVISION, "publishedAt": PUBLISHED_AT,
+            "schemaVersion": 4, "revision": REVISION, "publishedAt": PUBLISHED_AT,
             "registry": "docker.io", "namespace": "automaster5013",
             "sourceRepository": REPOSITORY, "imagePlatform": "linux/amd64",
             "scannerImage": SCANNER_IMAGE, "scannerVersion": SCANNER_VERSION,
@@ -87,6 +89,13 @@ def main() -> None:
         path.write_text(json.dumps(manifest), encoding="utf-8")
         if run(path, root).returncode == 0:
             raise AssertionError("validator accepted evidence from a different workflow run")
+        manifest["evidenceArtifactUrl"] = EVIDENCE_ARTIFACT_URL
+        manifest["images"][0]["attestationUrl"] = (
+            f"https://github.com/another/repository/attestations/700001"
+        )
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        if run(path, root).returncode == 0:
+            raise AssertionError("validator accepted an attestation from another repository")
     print("PASS: Docker Hub release manifest validator rejects altered evidence and provenance")
 
 

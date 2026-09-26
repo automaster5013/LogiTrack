@@ -256,5 +256,10 @@ jobs:
     needs: containers
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/publish-dockerhub-images.yml
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
     secrets:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}

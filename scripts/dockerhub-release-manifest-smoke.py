@@ -58,7 +58,7 @@ def main() -> None:
         "artifactRetentionDays", "evidenceArtifact", "evidenceArtifactDigest",
         "evidenceArtifactUrl", "images",
     }
-    if set(manifest) != expected_fields or manifest["schemaVersion"] != 3:
+    if set(manifest) != expected_fields or manifest["schemaVersion"] != 4:
         raise AssertionError("Docker Hub release manifest schema is invalid")
     expected_url = f"https://github.com/{args.repository}/actions/runs/{args.run_id}"
     expected_ref = f"{args.repository}/.github/workflows/ci.yml@refs/heads/main"
@@ -105,6 +105,7 @@ def main() -> None:
         expected_image_fields = {
             "service", "repository", "tag", "digest", "uri", "sbomFile",
             "sbomSha256", "vulnerabilityReportFile", "vulnerabilityReportSha256",
+            "attestationId", "attestationUrl",
         }
         if set(image) != expected_image_fields:
             raise AssertionError(f"image evidence schema is invalid: {service}")
@@ -114,6 +115,14 @@ def main() -> None:
             raise AssertionError(f"image identity is invalid: {service}")
         if image["uri"] != f"docker.io/{repository}@{digest}":
             raise AssertionError(f"image URI is not digest-pinned: {service}")
+        attestation_id = image["attestationId"]
+        if not isinstance(attestation_id, str) or not re.fullmatch(r"[1-9][0-9]*", attestation_id):
+            raise AssertionError(f"attestation ID is invalid: {service}")
+        expected_attestation_url = (
+            f"https://github.com/{args.repository}/attestations/{attestation_id}"
+        )
+        if image["attestationUrl"] != expected_attestation_url:
+            raise AssertionError(f"attestation URL is outside the source repository: {service}")
         for field, suffix in (("sbom", "cdx.json"), ("vulnerabilityReport", "critical.json")):
             filename = f"logitrack-{service}.{suffix}"
             hash_field = f"{field}Sha256"
