@@ -1,0 +1,95 @@
+name: Publish signed GitHub release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semantic version tag to publish (for example, v1.0.0)
+        required: true
+        type: string
+
+permissions: read-all
+
+concurrency:
+  group: github-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and sign source release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate immutable release target
+        id: release
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null 2>&1; then
+            echo "::error::release tag already exists: $VERSION"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Install pinned Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.3
+      - name: Build deterministic source archive
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          archive="dist/logitrack-$VERSION.tar.gz"
+          git archive --format=tar.gz --prefix="logitrack-$VERSION/" --output="$archive" HEAD
+          sha256sum "$archive" > "$archive.sha256"
+          test -s "$archive"
+          test "$(wc -l < "$archive.sha256")" -eq 1
+      - name: Sign and verify source archive
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          archive="dist/logitrack-$VERSION.tar.gz"
+          bundle="$archive.sigstore.json"
+          cosign sign-blob --yes --bundle "$bundle" "$archive"
+          cosign verify-blob \
+            --bundle "$bundle" \
+            --certificate-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/release.yml@refs/heads/main" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$archive"
+          test -s "$bundle"
+      - name: Publish immutable GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          archive="dist/logitrack-$VERSION.tar.gz"
+          gh api --method POST \
+            "/repos/$GITHUB_REPOSITORY/git/refs" \
+            --field ref="refs/tags/$VERSION" \
+            --field sha="$GITHUB_SHA"
+          gh release create "$VERSION" \
+            "$archive" \
+            "$archive.sha256" \
+            "$archive.sigstore.json" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "LogiTrack $VERSION" \
+            --generate-notes \
+            --verify-tag
+

@@ -14,6 +14,8 @@
 
 ## 현재 staging CD 경계
 
+GitHub source release는 `.github/workflows/release.yml`을 `main`에서 수동 실행할 때만 생성한다. 입력은 `vMAJOR.MINOR.PATCH` 형식으로 제한하고, 실행 시점의 checkout이 원격 `main` HEAD와 정확히 일치하며 같은 tag가 아직 없을 때만 계속한다. workflow는 `git archive`로 버전 접두사가 포함된 source tarball과 SHA-256 sidecar를 만들고 GitHub OIDC 단기 신원으로 Cosign keyless bundle(`.sigstore.json`)을 생성한다. 게시 전에 bundle의 issuer와 signer workflow identity를 로컬에서 다시 검증하며, 장기 서명 키는 저장하지 않는다. GitHub Release에는 source tarball, checksum, Sigstore bundle을 함께 첨부하고 기존 tag는 덮어쓰지 않는다.
+
 Docker Hub CD는 GitHub repository secret `DOCKERHUB_TOKEN` 하나만 사용한다. 이 값에는 Docker Hub의 repository Read/Write 권한만 부여하고 Delete 권한은 부여하지 않는다. 계정명과 대상 namespace는 `automaster5013`으로 workflow에 고정되어 있어 다른 namespace로의 우발적 게시를 막는다. Docker Hub에는 mutable `latest`를 만들지 않으며, 재실행 시 기존 commit tag의 실제 image ID가 새 빌드와 다르면 overwrite 대신 실패한다.
 
 Docker Hub 게시 artifact는 UTC 게시 시각, source repository, CI workflow run ID·attempt·URL, workflow ref·정의 SHA, image platform, digest 고정 URI 5개, Trivy image·version·차단 severity와 서비스별 SBOM·CRITICAL 보고서 SHA-256을 하나의 release manifest에 결합한다. SBOM·보고서 묶음은 먼저 별도 artifact로 업로드하며, GitHub가 계산한 archive SHA-256과 같은 workflow run에 속한 다운로드 URL을 manifest에 고정한다. 독립 validator가 manifest 값과 실제 증적 파일을 게시 전에 다시 대조하고, 공급망 증적과 release manifest를 각각 30일 보관한다.
