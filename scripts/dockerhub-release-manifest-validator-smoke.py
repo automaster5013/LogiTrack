@@ -17,6 +17,8 @@ WORKFLOW_SHA = "c" * 40
 WORKFLOW_REF = f"{REPOSITORY}/.github/workflows/ci.yml@refs/heads/main"
 SCANNER_IMAGE = "ghcr.io/aquasecurity/trivy@sha256:" + "d" * 64
 SCANNER_VERSION = "0.74.0"
+VERIFIER_VERSION = "2.101.0"
+VERIFIER_ARCHIVE_SHA256 = "f" * 64
 EVIDENCE_ARTIFACT_DIGEST = "sha256:" + "e" * 64
 EVIDENCE_ARTIFACT_URL = f"https://github.com/{REPOSITORY}/actions/runs/{RUN_ID}/artifacts/987654"
 SBOM = b'{"bomFormat":"CycloneDX"}\n'
@@ -32,6 +34,8 @@ def run(path: Path, evidence: Path, verification: Path) -> subprocess.CompletedP
         "--run-id", str(RUN_ID), "--run-attempt", str(RUN_ATTEMPT),
         "--workflow-ref", WORKFLOW_REF, "--workflow-sha", WORKFLOW_SHA,
         "--scanner-image", SCANNER_IMAGE, "--scanner-version", SCANNER_VERSION,
+        "--verifier-version", VERIFIER_VERSION,
+        "--verifier-archive-sha256", VERIFIER_ARCHIVE_SHA256,
         "--evidence-artifact-digest", EVIDENCE_ARTIFACT_DIGEST,
         "--evidence-artifact-url", EVIDENCE_ARTIFACT_URL,
     ], capture_output=True, text=True, check=False)
@@ -68,10 +72,15 @@ def main() -> None:
                 "provenanceVerificationSha256": hashlib.sha256(verification).hexdigest(),
             })
         manifest = {
-            "schemaVersion": 5, "revision": REVISION, "publishedAt": PUBLISHED_AT,
+            "schemaVersion": 6, "revision": REVISION, "publishedAt": PUBLISHED_AT,
             "registry": "docker.io", "namespace": "automaster5013",
             "sourceRepository": REPOSITORY, "imagePlatform": "linux/amd64",
             "scannerImage": SCANNER_IMAGE, "scannerVersion": SCANNER_VERSION,
+            "provenanceVerifier": {
+                "name": "GitHub CLI", "version": VERIFIER_VERSION,
+                "source": f"https://github.com/cli/cli/releases/download/v{VERIFIER_VERSION}/gh_{VERIFIER_VERSION}_linux_amd64.tar.gz",
+                "archiveSha256": VERIFIER_ARCHIVE_SHA256,
+            },
             "blockedVulnerabilitySeverities": ["CRITICAL"], "workflowRunId": RUN_ID,
             "workflowRunAttempt": RUN_ATTEMPT,
             "workflowRunUrl": f"https://github.com/{REPOSITORY}/actions/runs/{RUN_ID}",
@@ -128,6 +137,14 @@ def main() -> None:
         path.write_text(json.dumps(manifest), encoding="utf-8")
         if run(path, root, verification_root).returncode == 0:
             raise AssertionError("validator accepted provenance for a different image")
+        first_verification.write_bytes(verification)
+        manifest["images"][0]["provenanceVerificationSha256"] = hashlib.sha256(
+            verification
+        ).hexdigest()
+        manifest["provenanceVerifier"]["archiveSha256"] = "0" * 64
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        if run(path, root, verification_root).returncode == 0:
+            raise AssertionError("validator accepted a different verifier archive digest")
     print("PASS: Docker Hub release manifest validator rejects altered evidence and provenance")
 
 
