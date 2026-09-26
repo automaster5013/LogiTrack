@@ -5,11 +5,14 @@ import yaml
 
 
 WORKFLOW_PATH = Path(".github/workflows/scorecard.yml")
+README_PATH = Path("README.md")
 PINNED_ACTION = re.compile(r"^[^@\s]+@[0-9a-f]{40}$")
+BEST_PRACTICES_PROJECT_ID = "14964"
 
 
 def main() -> None:
     source = WORKFLOW_PATH.read_text(encoding="utf-8")
+    readme = README_PATH.read_text(encoding="utf-8")
     workflow = yaml.safe_load(source)
     analysis = workflow["jobs"]["analysis"]
 
@@ -43,7 +46,17 @@ def main() -> None:
     if artifact.get("with", {}).get("retention-days") != 30:
         raise AssertionError("Scorecard SARIF evidence retention drifted")
 
-    print("PASS: OpenSSF Scorecard triggers, permissions, action pins, SARIF, and evidence retention are bounded")
+    badge_target = f"https://www.bestpractices.dev/projects/{BEST_PRACTICES_PROJECT_ID}"
+    badge_markdown = f"[![OpenSSF Best Practices]({badge_target}/badge)]({badge_target})"
+    if badge_markdown not in readme:
+        raise AssertionError(
+            "README must identify the canonical OpenSSF Best Practices project"
+        )
+
+    print(
+        "PASS: OpenSSF Scorecard triggers, permissions, action pins, SARIF, "
+        "evidence retention, and Best Practices project identity are bounded"
+    )
 
 
 if __name__ == "__main__":
