@@ -42,15 +42,24 @@ def main() -> None:
         raise AssertionError("release provenance must pin the trusted builder release commit")
     if provenance.get("permissions") != {
         "actions": "read",
-        "contents": "write",
+        "contents": "read",
         "id-token": "write",
     }:
-        raise AssertionError("release provenance permissions exceed generation and upload")
+        raise AssertionError("release provenance permissions exceed generation")
     provenance_inputs = provenance.get("with", {})
-    if provenance_inputs.get("upload-assets") is not True or not str(
+    if provenance_inputs.get("upload-assets") is not False or not str(
         provenance_inputs.get("provenance-name", "")
     ).endswith(".intoto.jsonl"):
-        raise AssertionError("release provenance is not attached as an in-toto release asset")
+        raise AssertionError("release provenance generation is not isolated from release mutation")
+    upload = workflow["jobs"].get("upload-provenance", {})
+    if upload.get("needs") != ["release", "provenance"] or upload.get("permissions") != {
+        "actions": "read",
+        "contents": "write",
+    }:
+        raise AssertionError("release provenance upload has incorrect dependencies or permissions")
+    upload_actions = [step["uses"] for step in upload.get("steps", []) if "uses" in step]
+    if len(upload_actions) != 1 or not PINNED_ACTION.fullmatch(upload_actions[0]):
+        raise AssertionError("release provenance download action must use an immutable SHA")
 
     for boundary in (
         'test "$GITHUB_REF" = refs/heads/main',
@@ -87,10 +96,24 @@ def main() -> None:
         raise AssertionError("provenance backfill must use the trusted SLSA generator")
     if backfill_provenance.get("permissions") != {
         "actions": "read",
-        "contents": "write",
+        "contents": "read",
         "id-token": "write",
     }:
-        raise AssertionError("provenance backfill permissions exceed generation and upload")
+        raise AssertionError("provenance backfill permissions exceed generation")
+    if backfill_provenance.get("with", {}).get("upload-assets") is not False:
+        raise AssertionError("backfill generation must not mutate release metadata")
+    backfill_upload = backfill["jobs"].get("upload-provenance", {})
+    if backfill_upload.get("needs") != ["prepare", "provenance"] or backfill_upload.get(
+        "permissions"
+    ) != {"actions": "read", "contents": "write"}:
+        raise AssertionError("backfill upload has incorrect dependencies or permissions")
+    backfill_upload_actions = [
+        step["uses"] for step in backfill_upload.get("steps", []) if "uses" in step
+    ]
+    if len(backfill_upload_actions) != 1 or not PINNED_ACTION.fullmatch(
+        backfill_upload_actions[0]
+    ):
+        raise AssertionError("backfill provenance download action must use an immutable SHA")
     for boundary in (
         'test "$GITHUB_REF" = refs/heads/main',
         'test "$GITHUB_EVENT_NAME" = workflow_dispatch',
@@ -101,6 +124,7 @@ def main() -> None:
         'test "$expected_sha256" = "$(sha256sum "$archive" | awk',
         'cmp --silent expected.tar.gz "$archive"',
         '.tar.gz.intoto.jsonl',
+        'gh release upload "$VERSION" "$provenance" --repo "$GITHUB_REPOSITORY"',
     ):
         if boundary not in backfill_source:
             raise AssertionError(f"provenance backfill boundary is missing: {boundary}")
