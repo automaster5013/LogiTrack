@@ -116,6 +116,9 @@ jobs:
         run: python scripts/aws-boundary-audit-workflow-smoke.py
       - name: Validate read-only GitHub CD audit coverage
         run: python scripts/github-cd-boundary-audit-smoke.py
+      - name: Exercise bounded GitHub pagination
+        shell: pwsh
+        run: ./scripts/github-pagination-smoke.ps1
       - name: Validate scheduled staging external health boundary
         run: python scripts/staging-health-workflow-smoke.py
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1

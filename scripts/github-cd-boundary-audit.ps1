@@ -18,30 +18,11 @@ $headers = @{
   "X-GitHub-Api-Version" = "2022-11-28"
 }
 $baseUri = "https://api.github.com/repos/$Owner/$Repository"
+. (Join-Path $PSScriptRoot "github-pagination.ps1")
 
 function Invoke-GitHubGet {
   param([Parameter(Mandatory)][AllowEmptyString()][string]$Path)
   return Invoke-RestMethod -Method Get -Uri "$baseUri$Path" -Headers $headers
-}
-
-function Invoke-GitHubGetAll {
-  param(
-    [Parameter(Mandatory)][string]$Path,
-    [ValidateRange(1, 100)][int]$MaximumPages = 100
-  )
-  $items = @()
-  $separator = if ($Path.Contains("?")) { "&" } else { "?" }
-  $uri = "$baseUri$Path${separator}per_page=100"
-  for ($page = 1; $page -le $MaximumPages; $page++) {
-    $response = Invoke-WebRequest -Method Get -Uri $uri -Headers $headers
-    $pageItems = @(($response.Content | ConvertFrom-Json) | Where-Object { $null -ne $_ })
-    $items += $pageItems
-    $link = [string]$response.Headers.Link
-    if ($link -notmatch '<([^>]+)>;\s*rel="next"') { return $items }
-    $uri = $matches[1]
-    Assert-True ($uri -match "^https://api\.github\.com/repos/$Owner/$Repository/") "GitHub pagination escaped the repository: $Path"
-  }
-  throw "AUDIT FAILED: GitHub pagination exceeded $MaximumPages pages: $Path"
 }
 
 function Get-GitHubStatus {
@@ -65,17 +46,17 @@ Assert-True ($security.dependabot_security_updates.status -eq "enabled") "Depend
 $privateVulnerabilityReporting = Invoke-GitHubGet "/private-vulnerability-reporting"
 Assert-True ($privateVulnerabilityReporting.enabled) "private vulnerability reporting is disabled"
 Assert-True ((Get-GitHubStatus "/vulnerability-alerts") -eq 204 -and (Get-GitHubStatus "/automated-security-fixes") -eq 200) "Dependabot alerts or automated security fixes are disabled"
-$dependabotAlerts = @(Invoke-GitHubGetAll "/dependabot/alerts?state=open")
+$dependabotAlerts = @(Invoke-GitHubGetAll -Path "/dependabot/alerts?state=open" -BaseUri $baseUri -Headers $headers)
 $highRiskAlerts = @($dependabotAlerts | Where-Object { $_.security_advisory.severity -in @("critical", "high") })
 Assert-True ($highRiskAlerts.Count -eq 0) "open critical or high Dependabot alerts require remediation"
-$secretAlerts = @(Invoke-GitHubGetAll "/secret-scanning/alerts?state=open")
+$secretAlerts = @(Invoke-GitHubGetAll -Path "/secret-scanning/alerts?state=open" -BaseUri $baseUri -Headers $headers)
 Assert-True ($secretAlerts.Count -eq 0) "open secret scanning alerts require remediation"
 $codeScanning = Invoke-GitHubGet "/code-scanning/default-setup"
 $codeLanguages = @($codeScanning.languages | Sort-Object)
 $expectedCodeLanguages = @("actions", "java-kotlin", "javascript", "javascript-typescript", "python", "typescript") | Sort-Object
 Assert-True ($codeScanning.state -eq "configured" -and $codeScanning.query_suite -eq "extended" -and $codeScanning.threat_model -eq "remote") "CodeQL default setup drifted"
 Assert-True ($codeScanning.runner_type -eq "standard" -and $codeScanning.schedule -eq "weekly" -and ($codeLanguages -join ",") -eq ($expectedCodeLanguages -join ",")) "CodeQL language, runner, or schedule drifted"
-$codeAlerts = @(Invoke-GitHubGetAll "/code-scanning/alerts?state=open")
+$codeAlerts = @(Invoke-GitHubGetAll -Path "/code-scanning/alerts?state=open" -BaseUri $baseUri -Headers $headers)
 $highRiskCodeAlerts = @($codeAlerts | Where-Object { $_.rule.security_severity_level -in @("critical", "high") })
 Assert-True ($highRiskCodeAlerts.Count -eq 0) "open critical or high CodeQL alerts require remediation"
 

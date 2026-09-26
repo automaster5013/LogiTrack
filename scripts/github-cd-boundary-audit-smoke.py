@@ -1,13 +1,17 @@
 from pathlib import Path
 
 
-source = Path("scripts/github-cd-boundary-audit.ps1").read_text(encoding="utf-8")
+audit_source = Path("scripts/github-cd-boundary-audit.ps1").read_text(encoding="utf-8")
+pagination_source = Path("scripts/github-pagination.ps1").read_text(encoding="utf-8")
+source = audit_source + pagination_source
 required = (
     "Invoke-RestMethod -Method Get",
     "function Invoke-GitHubGetAll",
+    '. (Join-Path $PSScriptRoot "github-pagination.ps1")',
     '[ValidateRange(1, 100)][int]$MaximumPages = 100',
-    '$uri = "$baseUri$Path${separator}per_page=100"',
-    '$response = Invoke-WebRequest -Method Get -Uri $uri -Headers $headers',
+    '[System.Collections.Generic.HashSet[string]]',
+    'GitHub pagination repeated a page',
+    '$response = & $RequestInvoker $uri $Headers',
     'rel="next"',
     'GitHub pagination escaped the repository',
     'GitHub pagination exceeded $MaximumPages pages',
@@ -25,14 +29,14 @@ required = (
     'Invoke-GitHubGet "/private-vulnerability-reporting"',
     "privateVulnerabilityReporting.enabled",
     "/dependabot/alerts?state=open",
-    'Invoke-GitHubGetAll "/dependabot/alerts?state=open"',
+    'Invoke-GitHubGetAll -Path "/dependabot/alerts?state=open"',
     "/secret-scanning/alerts?state=open",
-    'Invoke-GitHubGetAll "/secret-scanning/alerts?state=open"',
+    'Invoke-GitHubGetAll -Path "/secret-scanning/alerts?state=open"',
     "/code-scanning/default-setup",
     'query_suite -eq "extended"',
     'schedule -eq "weekly"',
     "/code-scanning/alerts?state=open",
-    'Invoke-GitHubGetAll "/code-scanning/alerts?state=open"',
+    'Invoke-GitHubGetAll -Path "/code-scanning/alerts?state=open"',
     "security_severity_level",
     "required_status_checks.strict",
     "Dependency vulnerability review",
