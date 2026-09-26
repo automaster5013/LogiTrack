@@ -3,12 +3,14 @@ from pathlib import Path
 
 audit_source = Path("scripts/github-cd-boundary-audit.ps1").read_text(encoding="utf-8")
 pagination_source = Path("scripts/github-pagination.ps1").read_text(encoding="utf-8")
-source = audit_source + pagination_source
+artifact_download_source = Path("scripts/github-artifact-download.ps1").read_text(encoding="utf-8")
+source = audit_source + pagination_source + artifact_download_source
 required = (
     "Invoke-RestMethod -Method Get",
     "$requestTimeoutSeconds = 30",
     "function Invoke-GitHubGetAll",
     '. (Join-Path $PSScriptRoot "github-pagination.ps1")',
+    '. (Join-Path $PSScriptRoot "github-artifact-download.ps1")',
     '[ValidateRange(1, 100)][int]$MaximumPages = 100',
     '[System.Collections.Generic.HashSet[string]]',
     'function ConvertFrom-GitHubQueryString',
@@ -85,7 +87,11 @@ required = (
     'auditArtifact.workflow_run.id -eq $auditRun.id',
     'artifactRetention.TotalDays -ge 29.9',
     'auditArtifact.archive_download_url -eq "$expectedArtifactUrl/zip"',
-    'Invoke-WebRequest -Method Get -Uri $auditArtifact.archive_download_url',
+    'Save-GitHubArtifactArchive -ArchiveApiUri $auditArtifact.archive_download_url',
+    'GitHub artifact endpoint did not return the expected redirect',
+    'GitHub artifact redirect location is ambiguous',
+    "'^productionresults[a-z0-9-]*\\.blob\\.core\\.windows\\.net$'",
+    'GitHub artifact redirect target is not trusted',
     'auditArtifact.size_in_bytes -le 1MB',
     'downloadedArchiveSize -eq $auditArtifact.size_in_bytes',
     'downloadedArchiveDigest -eq $auditArtifact.digest',
@@ -153,8 +159,7 @@ authenticated_requests = [
 ]
 if any("-TimeoutSec $requestTimeoutSeconds" not in line for line in authenticated_requests):
     raise SystemExit("ERROR: authenticated GitHub requests must have a bounded timeout")
-redirect_free_requests = [line for line in authenticated_requests if "archive_download_url" not in line]
-if any("-MaximumRedirection 0" not in line for line in redirect_free_requests):
+if any("-MaximumRedirection 0" not in line for line in authenticated_requests):
     raise SystemExit("ERROR: authenticated GitHub API requests must reject redirects")
 for hidden_result_filter in (
     "ci.yml/runs?branch=main&event=push&status=success",
