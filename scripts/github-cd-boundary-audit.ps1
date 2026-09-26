@@ -171,6 +171,7 @@ try {
     $totalExpandedBytes = 0L
     foreach ($entry in $archiveEntries) {
       Assert-True ($entry.FullName -eq $entry.Name -and -not [string]::IsNullOrWhiteSpace($entry.Name)) "Docker Hub provenance audit ZIP contains a nested or unsafe path"
+      Assert-GitHubArtifactZipEntryType -Entry $entry -DisplayName $entry.FullName
       Assert-True ($entry.Length -gt 0 -and $entry.Length -le 2MB -and $entry.CompressedLength -gt 0 -and $entry.CompressedLength -le 1MB) "Docker Hub provenance audit ZIP entry size is invalid: $($entry.FullName)"
       $totalExpandedBytes += $entry.Length
     }

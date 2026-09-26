@@ -62,4 +62,22 @@ foreach ($untrustedLocation in @(
   }
 }
 
-Write-Host "PASS: GitHub artifact download separates authentication from a single trusted signed redirect"
+$regularEntry = [pscustomobject]@{ ExternalAttributes = -2119958496 }
+Assert-GitHubArtifactZipEntryType -Entry $regularEntry -DisplayName "regular.json"
+
+function Assert-ZipEntryTypeFailure {
+  param([Parameter(Mandatory)][int]$ExternalAttributes)
+  try {
+    Assert-GitHubArtifactZipEntryType -Entry ([pscustomobject]@{ ExternalAttributes = $ExternalAttributes }) -DisplayName "unsafe-entry"
+  } catch {
+    if ($_.Exception.Message -notlike "*is not a regular file*") { throw }
+    return
+  }
+  throw "Expected special ZIP entry to be rejected: $ExternalAttributes"
+}
+
+Assert-ZipEntryTypeFailure -ExternalAttributes -1577123840 # Unix symbolic link (0120777)
+Assert-ZipEntryTypeFailure -ExternalAttributes 1106051088  # Unix directory plus DOS directory bit
+Assert-ZipEntryTypeFailure -ExternalAttributes -2119957472 # Regular Unix mode plus DOS reparse-point bit
+
+Write-Host "PASS: GitHub artifact download separates authentication from a trusted redirect and rejects special ZIP entries"
