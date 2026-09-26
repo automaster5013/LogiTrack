@@ -1,0 +1,65 @@
+name: Docker Hub provenance audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 19 * * *"
+
+permissions:
+  contents: read
+  attestations: read
+
+concurrency:
+  group: dockerhub-provenance-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Verify current main image provenance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_CLI_VERSION: 2.101.0
+      GH_CLI_ARCHIVE_SHA256: 9bca2d1c16825f109907a23307628a2f0698fbf99662b73a5cf0b020293072b8
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install pinned provenance verifier
+        run: |
+          set -euo pipefail
+          archive="gh_${GH_CLI_VERSION}_linux_amd64.tar.gz"
+          source_url="https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/$archive"
+          mkdir -p work/tools
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors \
+            --connect-timeout 10 --max-time 120 --output "work/tools/$archive" "$source_url"
+          echo "$GH_CLI_ARCHIVE_SHA256  work/tools/$archive" | sha256sum --check --strict
+          tar --extract --gzip --file "work/tools/$archive" --directory work/tools
+          verifier="$GITHUB_WORKSPACE/work/tools/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh"
+          test "$("$verifier" version | awk 'NR == 1 { print $3 }')" = "$GH_CLI_VERSION"
+          echo "$(dirname "$verifier")" >> "$GITHUB_PATH"
+
+      - name: Verify current main Docker Hub attestations
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          revision="$(git rev-parse HEAD)"
+          test "$revision" = "$(git rev-parse origin/main)"
+          ./scripts/dockerhub-provenance-audit.sh "$revision"
+
+      - name: Record audit summary
+        if: success()
+        run: |
+          {
+            echo "## Docker Hub provenance audit"
+            echo ""
+            echo "Verified all five current `main` image attestations directly from Docker Hub."
+            echo ""
+            echo "- Revision: `$(git rev-parse HEAD)`"
+            echo "- Verifier: GitHub CLI `$GH_CLI_VERSION`"
+            echo "- Verifier archive SHA-256: `$GH_CLI_ARCHIVE_SHA256`"
+          } >> "$GITHUB_STEP_SUMMARY"
