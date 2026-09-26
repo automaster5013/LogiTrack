@@ -5,6 +5,7 @@ import yaml
 
 
 WORKFLOW_PATH = Path(".github/workflows/publish-dockerhub-images.yml")
+DELIVERY_PATH = Path("docs/delivery.md")
 PINNED_ACTION = re.compile(r"^[^@\s]+@[0-9a-f]{40}$")
 SERVICES = ("api", "analytics", "simulator", "web", "otel-collector")
 
@@ -129,6 +130,16 @@ def main() -> None:
     ):
         if value not in ci_source:
             raise AssertionError(f"CI does not safely gate the reusable Docker Hub workflow: {value}")
+
+    delivery = DELIVERY_PATH.read_text(encoding="utf-8")
+    for value in (
+        "일부 image가 게시된 뒤 registry 조회나 네트워크 오류로 실행이 중단되면",
+        "registry에서 확인한 digest URI를 pull",
+        "SBOM·취약점 증적 생성 전에 수행",
+        "이미 게시된 immutable digest에 결속",
+    ):
+        if value not in delivery:
+            raise AssertionError(f"Docker Hub partial-publication recovery documentation is incomplete: {value}")
 
     print("PASS: Docker Hub CD is CI-gated, least-privileged, scanned, immutable, and digest-verified")
 
