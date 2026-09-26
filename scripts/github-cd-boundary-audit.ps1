@@ -201,8 +201,9 @@ try {
     Assert-True ($tagEvidence.name -eq $mainCommit.sha -and $tagEvidence.digest -match '^sha256:[0-9a-f]{64}$') "Docker Hub provenance tag evidence is invalid: $service"
     $auditedDockerHubDigests[$service] = [string]$tagEvidence.digest
     $evidencePlatforms = @($tagEvidence.images | Where-Object { $_.os -eq "linux" -and $_.architecture -eq "amd64" })
-    Assert-True ($evidencePlatforms.Count -eq 1) "Docker Hub provenance tag evidence platform drifted: $service"
+    Assert-True (@($tagEvidence.images).Count -eq 1 -and $evidencePlatforms.Count -eq 1) "Docker Hub provenance tag evidence platform set drifted: $service"
     $verificationEvidence = @(Get-Content -Raw -LiteralPath (Join-Path $auditEvidenceRoot "logitrack-$service.provenance.json") | ConvertFrom-Json)
+    Assert-True ($verificationEvidence.Count -eq 1) "Docker Hub provenance verification evidence must contain exactly one attestation: $service"
     $expectedSubject = "docker.io/$Owner/logitrack-$service"
     $expectedSubjectDigest = ([string]$tagEvidence.digest).Substring(7)
     $expectedRepositoryUrl = "https://github.com/$Owner/$Repository"
@@ -248,7 +249,7 @@ try {
       $statement.predicate.runDetails.builder.id -eq $expectedSigner -and
       @($statement.subject | Where-Object { $_.name -eq $expectedSubject -and $_.digest.sha256 -eq $expectedSubjectDigest }).Count -eq 1
     })
-    Assert-True ($matchingStatements.Count -ge 1) "Docker Hub provenance verification evidence identity, build source, or subject does not match: $service"
+    Assert-True ($matchingStatements.Count -eq 1) "Docker Hub provenance verification evidence identity, build source, or subject does not match: $service"
   }
 } finally {
   if (Test-Path -LiteralPath $auditTempRoot) { Remove-Item -LiteralPath $auditTempRoot -Recurse -Force }
@@ -261,7 +262,7 @@ foreach ($service in $dockerHubServices) {
   Assert-True ($dockerHubTag.name -eq $mainCommit.sha -and $dockerHubTag.digest -match '^sha256:[0-9a-f]{64}$') "Docker Hub immutable tag or digest drifted: $service"
   Assert-True ($dockerHubTag.digest -eq $auditedDockerHubDigests[$service]) "Docker Hub live tag digest does not match the sealed provenance audit evidence: $service"
   $linuxAmd64Images = @($dockerHubTag.images | Where-Object { $_.os -eq "linux" -and $_.architecture -eq "amd64" })
-  Assert-True ($linuxAmd64Images.Count -eq 1) "Docker Hub image platform drifted: $service"
+  Assert-True (@($dockerHubTag.images).Count -eq 1 -and $linuxAmd64Images.Count -eq 1) "Docker Hub image platform set drifted: $service"
 }
 
 Write-Output "PASS: GitHub main, staging CD, Docker Hub CD, provenance evidence, private reporting, dependency, secret, and CodeQL boundaries are intact"
