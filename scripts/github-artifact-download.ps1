@@ -1,3 +1,18 @@
+function Assert-GitHubArtifactZipEntryType {
+  param(
+    [Parameter(Mandatory)]$Entry,
+    [Parameter(Mandatory)][string]$DisplayName
+  )
+
+  $unixMode = (([int64]$Entry.ExternalAttributes -shr 16) -band 0xFFFF)
+  $unixFileType = $unixMode -band 0xF000
+  $dosAttributes = [int64]$Entry.ExternalAttributes -band 0xFFFF
+  $unsafeDosAttributes = $dosAttributes -band 0x410
+  if ($unixFileType -ne 0x8000 -or $unsafeDosAttributes -ne 0) {
+    throw "AUDIT FAILED: GitHub artifact ZIP entry is not a regular file: $DisplayName"
+  }
+}
+
 function Save-GitHubArtifactArchive {
   param(
     [Parameter(Mandatory)][uri]$ArchiveApiUri,
