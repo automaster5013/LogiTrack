@@ -111,11 +111,38 @@ Assert-True ($repositorySecrets.total_count -eq 1 -and ($repositorySecretNames -
 
 $dockerHubWorkflow = Invoke-GitHubGet "/actions/workflows/publish-dockerhub-images.yml"
 Assert-True ($dockerHubWorkflow.state -eq "active" -and $dockerHubWorkflow.path -eq ".github/workflows/publish-dockerhub-images.yml") "Docker Hub publication workflow is not active"
+$provenanceAuditWorkflow = Invoke-GitHubGet "/actions/workflows/dockerhub-provenance-audit.yml"
+Assert-True ($provenanceAuditWorkflow.state -eq "active" -and $provenanceAuditWorkflow.path -eq ".github/workflows/dockerhub-provenance-audit.yml") "Docker Hub provenance audit workflow is not active"
 $mainCommit = Invoke-GitHubGet "/commits/main"
 $ciRuns = Invoke-GitHubGet "/actions/workflows/ci.yml/runs?branch=main&event=push&status=success&per_page=1"
 $latestCiRun = @($ciRuns.workflow_runs | Where-Object { $null -ne $_ })
 Assert-True ($latestCiRun.Count -eq 1 -and $latestCiRun[0].event -eq "push") "CI has no successful main push run"
 Assert-True ($latestCiRun[0].head_sha -eq $mainCommit.sha) "latest main commit has not completed CI and Docker Hub publication"
+
+$provenanceAuditRuns = Invoke-GitHubGet "/actions/workflows/dockerhub-provenance-audit.yml/runs?branch=main&status=success&per_page=1"
+$latestProvenanceAudit = @($provenanceAuditRuns.workflow_runs | Where-Object { $null -ne $_ })
+Assert-True ($latestProvenanceAudit.Count -eq 1) "Docker Hub provenance audit has no successful main run"
+$auditRun = $latestProvenanceAudit[0]
+Assert-True ($auditRun.head_sha -eq $mainCommit.sha -and $auditRun.head_branch -eq "main") "latest main commit has not completed the Docker Hub provenance audit"
+Assert-True ($auditRun.event -in @("schedule", "workflow_dispatch") -and $auditRun.run_attempt -ge 1) "Docker Hub provenance audit run identity drifted"
+$auditCreatedAt = [DateTimeOffset]::Parse([string]$auditRun.created_at)
+$auditAge = [DateTimeOffset]::UtcNow - $auditCreatedAt
+Assert-True ($auditAge.TotalMinutes -ge -5 -and $auditAge.TotalHours -le 26) "Docker Hub provenance audit is stale"
+
+$provenanceArtifacts = Invoke-GitHubGet "/actions/runs/$($auditRun.id)/artifacts?per_page=10"
+$auditArtifacts = @($provenanceArtifacts.artifacts)
+Assert-True ($provenanceArtifacts.total_count -eq 1 -and $auditArtifacts.Count -eq 1) "Docker Hub provenance audit evidence artifact count drifted"
+$auditArtifact = $auditArtifacts[0]
+$expectedAuditArtifactName = "dockerhub-provenance-audit-$($mainCommit.sha)-$($auditRun.run_attempt)"
+Assert-True ($auditArtifact.name -eq $expectedAuditArtifactName -and -not $auditArtifact.expired -and $auditArtifact.size_in_bytes -gt 0) "Docker Hub provenance audit evidence identity or availability drifted"
+Assert-True ($auditArtifact.digest -match '^sha256:[0-9a-f]{64}$') "Docker Hub provenance audit evidence digest is invalid"
+Assert-True ($auditArtifact.workflow_run.id -eq $auditRun.id -and $auditArtifact.workflow_run.repository_id -eq $repositoryInfo.id -and $auditArtifact.workflow_run.head_sha -eq $mainCommit.sha -and $auditArtifact.workflow_run.head_branch -eq "main") "Docker Hub provenance audit evidence run binding drifted"
+$artifactCreatedAt = [DateTimeOffset]::Parse([string]$auditArtifact.created_at)
+$artifactExpiresAt = [DateTimeOffset]::Parse([string]$auditArtifact.expires_at)
+$artifactRetention = $artifactExpiresAt - $artifactCreatedAt
+Assert-True ($artifactRetention.TotalDays -ge 29.9 -and $artifactRetention.TotalDays -le 30.1) "Docker Hub provenance audit evidence retention drifted"
+$expectedArtifactUrl = "https://api.github.com/repos/$Owner/$Repository/actions/artifacts/$($auditArtifact.id)"
+Assert-True ($auditArtifact.url -eq $expectedArtifactUrl -and $auditArtifact.archive_download_url -eq "$expectedArtifactUrl/zip") "Docker Hub provenance audit evidence URL escaped the repository"
 
 $dockerHubServices = @("api", "analytics", "simulator", "web", "otel-collector")
 foreach ($service in $dockerHubServices) {
@@ -127,4 +154,4 @@ foreach ($service in $dockerHubServices) {
   Assert-True ($linuxAmd64Images.Count -eq 1) "Docker Hub image platform drifted: $service"
 }
 
-Write-Output "PASS: GitHub main, staging CD, Docker Hub CD, private reporting, dependency, secret, and CodeQL boundaries are intact"
+Write-Output "PASS: GitHub main, staging CD, Docker Hub CD, provenance evidence, private reporting, dependency, secret, and CodeQL boundaries are intact"
