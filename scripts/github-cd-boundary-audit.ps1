@@ -116,16 +116,16 @@ $provenanceAuditWorkflow = Invoke-GitHubGet "/actions/workflows/dockerhub-proven
 Assert-True ($provenanceAuditWorkflow.state -eq "active" -and $provenanceAuditWorkflow.path -eq ".github/workflows/dockerhub-provenance-audit.yml") "Docker Hub provenance audit workflow is not active"
 $mainCommit = Invoke-GitHubGet "/commits/main"
 $mainCommittedAt = [DateTimeOffset]::Parse([string]$mainCommit.commit.committer.date)
-$ciRuns = Invoke-GitHubGet "/actions/workflows/ci.yml/runs?branch=main&event=push&status=success&per_page=1"
+$ciRuns = Invoke-GitHubGet "/actions/workflows/ci.yml/runs?branch=main&event=push&per_page=1"
 $latestCiRun = @($ciRuns.workflow_runs | Where-Object { $null -ne $_ })
-Assert-True ($latestCiRun.Count -eq 1 -and $latestCiRun[0].event -eq "push") "CI has no successful main push run"
-Assert-True ($latestCiRun[0].head_sha -eq $mainCommit.sha) "latest main commit has not completed CI and Docker Hub publication"
+Assert-True ($latestCiRun.Count -eq 1 -and $latestCiRun[0].event -eq "push") "CI has no main push run"
+Assert-True ($latestCiRun[0].head_sha -eq $mainCommit.sha -and $latestCiRun[0].status -eq "completed" -and $latestCiRun[0].conclusion -eq "success") "latest main CI and Docker Hub publication has not completed successfully"
 
-$provenanceAuditRuns = Invoke-GitHubGet "/actions/workflows/dockerhub-provenance-audit.yml/runs?branch=main&status=success&per_page=1"
+$provenanceAuditRuns = Invoke-GitHubGet "/actions/workflows/dockerhub-provenance-audit.yml/runs?branch=main&per_page=1"
 $latestProvenanceAudit = @($provenanceAuditRuns.workflow_runs | Where-Object { $null -ne $_ })
-Assert-True ($latestProvenanceAudit.Count -eq 1) "Docker Hub provenance audit has no successful main run"
+Assert-True ($latestProvenanceAudit.Count -eq 1) "Docker Hub provenance audit has no main run"
 $auditRun = $latestProvenanceAudit[0]
-Assert-True ($auditRun.head_sha -eq $mainCommit.sha -and $auditRun.head_branch -eq "main") "latest main commit has not completed the Docker Hub provenance audit"
+Assert-True ($auditRun.head_sha -eq $mainCommit.sha -and $auditRun.head_branch -eq "main" -and $auditRun.status -eq "completed" -and $auditRun.conclusion -eq "success") "latest main Docker Hub provenance audit has not completed successfully"
 Assert-True ($auditRun.event -in @("schedule", "workflow_dispatch") -and $auditRun.run_attempt -ge 1) "Docker Hub provenance audit run identity drifted"
 $auditCreatedAt = [DateTimeOffset]::Parse([string]$auditRun.created_at)
 $auditAge = [DateTimeOffset]::UtcNow - $auditCreatedAt
