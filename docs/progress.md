@@ -276,6 +276,7 @@
 
 ## 현재 상태
 
+- Docker Hub digest 5종에 GitHub OIDC·공개 Sigstore 기반 SLSA build provenance를 keyless 서명해 registry에 게시하고 attestation ID·repository 고정 검증 URL을 release manifest에 결합
 - Docker Hub SBOM·취약점 증적을 release manifest와 분리 업로드하고 GitHub artifact archive SHA-256·동일 실행 다운로드 URL을 manifest에 고정해 다운로드 묶음의 동일성과 게시 provenance를 함께 검증
 - Docker Hub release manifest에 게시 시각·CI 실행과 workflow 정의 provenance·scanner provenance·digest URI 5종·SBOM 및 CRITICAL 보고서 SHA-256을 결합하고 독립 validator와 변조 거부 테스트로 게시 증적 무결성 강화
 - Docker Hub CD 도입 후 GitHub live 감사가 repository secret 0개를 요구하던 기존 OIDC-only 전제를 수정하고, staging secret 0개·repository `DOCKERHUB_TOKEN` 단일 허용·게시 workflow 활성 상태·최신 main 성공 실행·공개 image 5종의 SHA tag와 `linux/amd64` digest를 읽기 전용으로 검증
