@@ -205,11 +205,50 @@ try {
     $verificationEvidence = @(Get-Content -Raw -LiteralPath (Join-Path $auditEvidenceRoot "logitrack-$service.provenance.json") | ConvertFrom-Json)
     $expectedSubject = "docker.io/$Owner/logitrack-$service"
     $expectedSubjectDigest = ([string]$tagEvidence.digest).Substring(7)
+    $expectedRepositoryUrl = "https://github.com/$Owner/$Repository"
+    $expectedSigner = "$expectedRepositoryUrl/.github/workflows/publish-dockerhub-images.yml@refs/heads/main"
+    $expectedBuildConfig = "$expectedRepositoryUrl/.github/workflows/ci.yml@refs/heads/main"
+    $expectedDependency = "git+$expectedRepositoryUrl@refs/heads/main"
     $matchingStatements = @($verificationEvidence | Where-Object {
-      $_.verificationResult.statement.predicateType -eq "https://slsa.dev/provenance/v1" -and
-      @($_.verificationResult.statement.subject | Where-Object { $_.name -eq $expectedSubject -and $_.digest.sha256 -eq $expectedSubjectDigest }).Count -ge 1
+      $result = $_.verificationResult
+      $certificate = $result.signature.certificate
+      $statement = $result.statement
+      $buildDefinition = $statement.predicate.buildDefinition
+      $workflow = $buildDefinition.externalParameters.workflow
+      $github = $buildDefinition.internalParameters.github
+      $dependencies = @($buildDefinition.resolvedDependencies)
+      $invocationId = [string]$statement.predicate.runDetails.metadata.invocationId
+      $certificate.certificateIssuer -eq "CN=sigstore-intermediate,O=sigstore.dev" -and
+      $certificate.issuer -eq "https://token.actions.githubusercontent.com" -and
+      $certificate.subjectAlternativeName -eq $expectedSigner -and
+      $certificate.githubWorkflowRepository -eq "$Owner/$Repository" -and
+      $certificate.githubWorkflowRef -eq "refs/heads/main" -and
+      $certificate.githubWorkflowSHA -eq $mainCommit.sha -and
+      $certificate.buildSignerURI -eq $expectedSigner -and
+      $certificate.buildSignerDigest -eq $mainCommit.sha -and
+      $certificate.runnerEnvironment -eq "github-hosted" -and
+      $certificate.sourceRepositoryURI -eq $expectedRepositoryUrl -and
+      $certificate.sourceRepositoryDigest -eq $mainCommit.sha -and
+      $certificate.sourceRepositoryRef -eq "refs/heads/main" -and
+      $certificate.sourceRepositoryIdentifier -eq [string]$repositoryInfo.id -and
+      $certificate.sourceRepositoryOwnerURI -eq "https://github.com/$Owner" -and
+      $certificate.sourceRepositoryOwnerIdentifier -eq [string]$repositoryInfo.owner.id -and
+      $certificate.buildConfigURI -eq $expectedBuildConfig -and
+      $certificate.buildConfigDigest -eq $mainCommit.sha -and
+      $certificate.buildTrigger -eq "push" -and
+      $certificate.sourceRepositoryVisibilityAtSigning -eq "public" -and
+      $certificate.runInvocationURI -eq $invocationId -and
+      $invocationId -match "^https://github\.com/$Owner/$Repository/actions/runs/[1-9][0-9]*/attempts/[1-9][0-9]*$" -and
+      $result.verifiedIdentity.runnerEnvironment -eq "github-hosted" -and
+      $statement.predicateType -eq "https://slsa.dev/provenance/v1" -and
+      $buildDefinition.buildType -eq "https://actions.github.io/buildtypes/workflow/v1" -and
+      $workflow.repository -eq $expectedRepositoryUrl -and $workflow.ref -eq "refs/heads/main" -and $workflow.path -eq ".github/workflows/ci.yml" -and
+      $github.event_name -eq "push" -and $github.repository_id -eq [string]$repositoryInfo.id -and $github.repository_owner_id -eq [string]$repositoryInfo.owner.id -and $github.runner_environment -eq "github-hosted" -and
+      $dependencies.Count -eq 1 -and $dependencies[0].uri -eq $expectedDependency -and $dependencies[0].digest.gitCommit -eq $mainCommit.sha -and
+      $statement.predicate.runDetails.builder.id -eq $expectedSigner -and
+      @($statement.subject | Where-Object { $_.name -eq $expectedSubject -and $_.digest.sha256 -eq $expectedSubjectDigest }).Count -eq 1
     })
-    Assert-True ($matchingStatements.Count -ge 1) "Docker Hub provenance verification evidence subject does not match: $service"
+    Assert-True ($matchingStatements.Count -ge 1) "Docker Hub provenance verification evidence identity, build source, or subject does not match: $service"
   }
 } finally {
   if (Test-Path -LiteralPath $auditTempRoot) { Remove-Item -LiteralPath $auditTempRoot -Recurse -Force }

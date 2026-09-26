@@ -295,6 +295,7 @@
 - showcase의 메시지·관제 시뮬레이터·핵심 기능을 데스크톱과 모바일의 단일 뷰포트 그리드에 재배치해 페이지 스크롤 없이 첫 화면에서 전체 가치 제안을 확인
 - Cognito access token의 `iat`를 정수 NumericDate로 제한하고 60초를 넘는 미래 발급 시각을 거부해 서명된 비정상 세션의 시간 경계를 강화
 - provenance 감사 artifact에 봉인된 서비스별 digest를 현재 Docker Hub SHA tag의 live digest와 직접 결속해 유효하지만 오래된 증거의 독립 통과 차단
+- 보관된 provenance 검증 JSON의 Sigstore issuer·signer workflow·source commit/ref·repository/owner ID·runner·CI build config·원본 실행을 live 감사에서 재검증해 다른 유효한 attestation 혼입 차단
 모든 예정 우선순위 완료. 이후 작업은 새 요구사항 또는 운영 검증 결과에 따라 결정한다.
 2026-09-23: AWS 서울 리전에 월 USD 70 Budget으로 제한한 단일 호스트 staging runtime과 OIDC·SSM 기반 digest 고정 CD를 실제 적용하고 `www.logitrack.kr` HTTPS 배포를 검증했다.
 - 암호화된 runtime root EBS를 매일 snapshot하고 최신 7개를 보존하는 DLM 정책 적용, 임시 snapshot 생성 완료와 PostgreSQL 19개 테이블 복원 검증
