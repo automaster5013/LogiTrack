@@ -21,6 +21,7 @@ $baseUri = "https://api.github.com/repos/$Owner/$Repository"
 $requestTimeoutSeconds = 30
 . (Join-Path $PSScriptRoot "github-pagination.ps1")
 . (Join-Path $PSScriptRoot "github-artifact-download.ps1")
+. (Join-Path $PSScriptRoot "github-evidence-json.ps1")
 
 function Invoke-GitHubGet {
   param([Parameter(Mandatory)][AllowEmptyString()][string]$Path)
@@ -202,12 +203,14 @@ try {
   Assert-True ((@($checksumFiles | Sort-Object) -join ",") -eq ($expectedEvidenceFiles -join ",")) "Docker Hub provenance audit checksum file set drifted"
 
   foreach ($service in $dockerHubServices) {
-    $tagEvidence = Get-Content -Raw -LiteralPath (Join-Path $auditEvidenceRoot "logitrack-$service.tag.json") | ConvertFrom-Json
+    $tagEvidenceName = "logitrack-$service.tag.json"
+    $tagEvidence = ConvertFrom-GitHubEvidenceJson -Json (Get-Content -Raw -LiteralPath (Join-Path $auditEvidenceRoot $tagEvidenceName)) -DisplayName $tagEvidenceName
     Assert-True ($tagEvidence.name -eq $mainCommit.sha -and $tagEvidence.digest -match '^sha256:[0-9a-f]{64}$') "Docker Hub provenance tag evidence is invalid: $service"
     $auditedDockerHubDigests[$service] = [string]$tagEvidence.digest
     $evidencePlatforms = @($tagEvidence.images | Where-Object { $_.os -eq "linux" -and $_.architecture -eq "amd64" })
     Assert-True (@($tagEvidence.images).Count -eq 1 -and $evidencePlatforms.Count -eq 1) "Docker Hub provenance tag evidence platform set drifted: $service"
-    $verificationEvidence = @(Get-Content -Raw -LiteralPath (Join-Path $auditEvidenceRoot "logitrack-$service.provenance.json") | ConvertFrom-Json)
+    $provenanceEvidenceName = "logitrack-$service.provenance.json"
+    $verificationEvidence = @(ConvertFrom-GitHubEvidenceJson -Json (Get-Content -Raw -LiteralPath (Join-Path $auditEvidenceRoot $provenanceEvidenceName)) -DisplayName $provenanceEvidenceName)
     Assert-True ($verificationEvidence.Count -eq 1) "Docker Hub provenance verification evidence must contain exactly one attestation: $service"
     $verifiedTimestamps = @($verificationEvidence[0].verificationResult.verifiedTimestamps)
     Assert-True ($verifiedTimestamps.Count -eq 1 -and $verifiedTimestamps[0].type -eq "Tlog" -and $verifiedTimestamps[0].uri -eq "https://rekor.sigstore.dev") "Docker Hub provenance transparency log evidence drifted: $service"
