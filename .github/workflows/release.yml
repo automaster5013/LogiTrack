@@ -103,14 +103,37 @@ jobs:
     needs: release
     permissions:
       actions: read
-      contents: write
+      contents: read
       id-token: write
     # The upstream trusted-builder identity requires a release tag; a commit SHA
     # is rejected by its detect-env job and cannot produce verifiable provenance.
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
       base64-subjects: ${{ needs.release.outputs.hashes }}
-      upload-assets: true
-      upload-tag-name: ${{ needs.release.outputs.version }}
+      upload-assets: false
       provenance-name: logitrack-${{ needs.release.outputs.version }}.tar.gz.intoto.jsonl
+
+  upload-provenance:
+    name: Attach SLSA provenance to release
+    needs: [release, provenance]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Download generated provenance
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: logitrack-${{ needs.release.outputs.version }}.tar.gz.intoto.jsonl
+          path: provenance
+      - name: Upload provenance without mutating release metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          provenance="provenance/logitrack-$VERSION.tar.gz.intoto.jsonl"
+          test -s "$provenance"
+          gh release upload "$VERSION" "$provenance" --repo "$GITHUB_REPOSITORY"
 
