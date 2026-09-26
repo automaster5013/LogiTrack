@@ -24,7 +24,7 @@ staging CD는 서울 리전의 `www.logitrack.kr`에 적용되어 있다. image 
 
 GitHub 저장소의 실제 승인자·`main` 전용 deployment branch·environment 변수·staging secret 부재·정확히 하나인 repository secret 이름·기본 token read 권한과 action SHA 고정 설정은 `./scripts/github-cd-boundary-audit.ps1`로 읽기 전용 감사한다. 같은 감사는 Docker Hub 게시 workflow가 활성 상태인지, 최신 `main` SHA의 성공 실행과 공개 repository 5개에 동일 SHA의 유효한 `linux/amd64` digest가 존재하는지도 확인한다. secret 값 자체는 GitHub API에서 다시 읽을 수 없으므로 이름과 실제 게시 성공을 결합해 구성과 기능을 검증한다.
 
-`.github/workflows/dockerhub-provenance-audit.yml`은 매일 최신 `main` SHA의 공개 Docker Hub 이미지 5종을 조회하고 registry의 OCI attestation bundle을 다시 내려받아 signer workflow·source ref·source commit·GitHub-hosted runner·SLSA subject/digest를 암호학적으로 검증한다. 감사 workflow는 Docker Hub token이나 deployment environment를 받지 않고 GitHub attestation read 권한과 공개 registry 접근만 사용하며, 검증기 버전과 archive SHA-256도 게시 workflow와 동일하게 고정한다.
+`.github/workflows/dockerhub-provenance-audit.yml`은 매일 최신 `main` SHA의 공개 Docker Hub 이미지 5종을 조회하고 registry의 OCI attestation bundle을 다시 내려받아 signer workflow·source ref·source commit·GitHub-hosted runner·SLSA subject/digest를 암호학적으로 검증한다. 감사 workflow는 Docker Hub token이나 deployment environment를 받지 않고 GitHub attestation read 권한과 공개 registry 접근만 사용하며, 검증기 버전과 archive SHA-256도 게시 workflow와 동일하게 고정한다. Docker Hub tag 응답 5개와 검증 JSON 5개의 SHA-256 목록을 만든 뒤 실행 attempt까지 포함한 불변 artifact로 업로드하고, GitHub가 계산한 archive digest와 같은 실행에 속한 다운로드 URL을 요약에 기록해 30일 보존한다.
 
 GitHub의 Dependabot vulnerability alerts와 security update PR, secret scanning과 push protection을 활성화한다. 같은 감사 스크립트는 설정 drift뿐 아니라 미해결 secret 경고와 high·critical Dependabot 경고가 없는지도 확인한다.
 

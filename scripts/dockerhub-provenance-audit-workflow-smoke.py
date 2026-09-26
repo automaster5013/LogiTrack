@@ -27,9 +27,18 @@ required = (
     "persist-credentials: false",
     "GH_CLI_VERSION: 2.101.0",
     "GH_CLI_ARCHIVE_SHA256: 9bca2d1c16825f109907a23307628a2f0698fbf99662b73a5cf0b020293072b8",
+    "ARTIFACT_RETENTION_DAYS: 30",
     "sha256sum --check --strict",
     'test "$revision" = "$(git rev-parse origin/main)"',
     './scripts/dockerhub-provenance-audit.sh "$revision"',
+    "Seal provenance audit evidence",
+    'test "$(find . -maxdepth 1 -type f -name \'*.json\' | wc -l)" -eq 10',
+    "sha256sum --check --strict SHA256SUMS",
+    "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+    "dockerhub-provenance-audit-${{ github.sha }}-${{ github.run_attempt }}",
+    "retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}",
+    "EVIDENCE_DIGEST: sha256:${{ steps.evidence.outputs.artifact-digest }}",
+    "EVIDENCE_URL: ${{ steps.evidence.outputs.artifact-url }}",
 )
 for boundary in required:
     if boundary not in source:
