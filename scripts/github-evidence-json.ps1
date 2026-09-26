@@ -47,3 +47,32 @@ function ConvertFrom-GitHubEvidenceJson {
     throw "AUDIT FAILED: GitHub evidence JSON cannot be converted safely: $DisplayName"
   }
 }
+
+function Read-GitHubEvidenceJson {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$DisplayName,
+    [ValidateRange(1, 10485760)][int]$MaximumBytes = 2097152,
+    [ValidateRange(1, 100)][int]$MaximumDepth = 64
+  )
+
+  try {
+    [byte[]]$bytes = [System.IO.File]::ReadAllBytes($Path)
+  } catch {
+    throw "AUDIT FAILED: GitHub evidence JSON cannot be read safely: $DisplayName"
+  }
+  if ($bytes.Length -lt 1 -or $bytes.Length -gt $MaximumBytes) {
+    throw "AUDIT FAILED: GitHub evidence JSON byte size is invalid: $DisplayName"
+  }
+  if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+    throw "AUDIT FAILED: GitHub evidence JSON contains a UTF-8 byte-order mark: $DisplayName"
+  }
+
+  $strictUtf8 = [System.Text.UTF8Encoding]::new($false, $true)
+  try {
+    $json = $strictUtf8.GetString($bytes)
+  } catch {
+    throw "AUDIT FAILED: GitHub evidence JSON is not valid UTF-8: $DisplayName"
+  }
+  return ConvertFrom-GitHubEvidenceJson -Json $json -DisplayName $DisplayName -MaximumDepth $MaximumDepth
+}
