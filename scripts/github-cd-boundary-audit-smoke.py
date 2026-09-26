@@ -4,13 +4,15 @@ from pathlib import Path
 audit_source = Path("scripts/github-cd-boundary-audit.ps1").read_text(encoding="utf-8")
 pagination_source = Path("scripts/github-pagination.ps1").read_text(encoding="utf-8")
 artifact_download_source = Path("scripts/github-artifact-download.ps1").read_text(encoding="utf-8")
-source = audit_source + pagination_source + artifact_download_source
+evidence_json_source = Path("scripts/github-evidence-json.ps1").read_text(encoding="utf-8")
+source = audit_source + pagination_source + artifact_download_source + evidence_json_source
 required = (
     "Invoke-RestMethod -Method Get",
     "$requestTimeoutSeconds = 30",
     "function Invoke-GitHubGetAll",
     '. (Join-Path $PSScriptRoot "github-pagination.ps1")',
     '. (Join-Path $PSScriptRoot "github-artifact-download.ps1")',
+    '. (Join-Path $PSScriptRoot "github-evidence-json.ps1")',
     '[ValidateRange(1, 100)][int]$MaximumPages = 100',
     '[System.Collections.Generic.HashSet[string]]',
     'function ConvertFrom-GitHubQueryString',
@@ -100,6 +102,12 @@ required = (
     'dosAttributes -ne 0x20',
     'GitHub artifact ZIP entry metadata is not canonical',
     'Assert-GitHubArtifactZipEntryType -Entry $entry',
+    'function ConvertFrom-GitHubEvidenceJson',
+    '[ValidateRange(1, 100)][int]$MaximumDepth = 64',
+    '[StringComparer]::OrdinalIgnoreCase',
+    'duplicate or case-conflicting property',
+    'JsonCommentHandling]::Disallow',
+    'ConvertFrom-GitHubEvidenceJson -Json (Get-Content -Raw',
     'auditArtifact.size_in_bytes -le 1MB',
     'downloadedArchiveSize -eq $auditArtifact.size_in_bytes',
     'downloadedArchiveDigest -eq $auditArtifact.digest',
@@ -175,6 +183,8 @@ for hidden_result_filter in (
 ):
     if hidden_result_filter in audit_source:
         raise SystemExit("ERROR: GitHub CD audit must inspect the latest workflow result without hiding failures")
+if "| ConvertFrom-Json" in audit_source:
+    raise SystemExit("ERROR: GitHub provenance evidence must use the strict JSON converter")
 for mutation in ("-Method Post", "-Method Put", "-Method Patch", "-Method Delete"):
     if mutation in source:
         raise SystemExit(f"ERROR: GitHub CD audit must remain read-only: {mutation}")
