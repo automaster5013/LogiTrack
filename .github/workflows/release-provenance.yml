@@ -76,7 +76,7 @@ jobs:
     needs: prepare
     permissions:
       actions: read
-      contents: read
+      contents: write
       id-token: write
     # The upstream trusted-builder identity requires a release tag; a commit SHA
     # is rejected by its detect-env job and cannot produce verifiable provenance.
