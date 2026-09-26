@@ -123,6 +123,8 @@ curl -X POST http://localhost:8080/api/orders/{orderId}/dispatch \
 - [CI/CD와 릴리스 전략](docs/delivery.md)
 - [10분 데모 시나리오](docs/demo.md)
 - [구현 진행 현황](docs/progress.md)
+- [기여 가이드](CONTRIBUTING.md)
+- [행동강령](CODE_OF_CONDUCT.md)
 
 ## 로컬 검증
 

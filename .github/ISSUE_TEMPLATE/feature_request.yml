@@ -1,0 +1,48 @@
+name: Feature request
+description: Propose a scoped improvement to LogiTrack
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Explain the operational problem before proposing an implementation. Substantial changes should be agreed here before code is written.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Operational problem
+      description: Who is affected, what are they trying to do, and what currently prevents it?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe observable success without prescribing unnecessary implementation details.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: Include API, event, data, security, compatibility, or operator workflow impacts when known.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What workarounds or smaller options have you considered?
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation plan
+      description: How should the behavior and failure recovery be tested?
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and discussions for this proposal.
+          required: true
+        - label: I am willing to help refine or implement this proposal.
+          required: false
