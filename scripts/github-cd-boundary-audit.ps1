@@ -145,6 +145,55 @@ $expectedArtifactUrl = "https://api.github.com/repos/$Owner/$Repository/actions/
 Assert-True ($auditArtifact.url -eq $expectedArtifactUrl -and $auditArtifact.archive_download_url -eq "$expectedArtifactUrl/zip") "Docker Hub provenance audit evidence URL escaped the repository"
 
 $dockerHubServices = @("api", "analytics", "simulator", "web", "otel-collector")
+$expectedEvidenceFiles = @($dockerHubServices | ForEach-Object { "logitrack-$_.provenance.json"; "logitrack-$_.tag.json" } | Sort-Object)
+$auditTempRoot = Join-Path ([System.IO.Path]::GetTempPath()) "logitrack-provenance-audit-$([guid]::NewGuid().ToString('N'))"
+try {
+  New-Item -ItemType Directory -Path $auditTempRoot | Out-Null
+  $auditArchive = Join-Path $auditTempRoot "evidence.zip"
+  $auditEvidenceRoot = Join-Path $auditTempRoot "evidence"
+  Invoke-WebRequest -Method Get -Uri $auditArtifact.archive_download_url -Headers $headers -OutFile $auditArchive
+  $downloadedArchiveDigest = "sha256:$((Get-FileHash -LiteralPath $auditArchive -Algorithm SHA256).Hash.ToLowerInvariant())"
+  Assert-True ($downloadedArchiveDigest -eq $auditArtifact.digest) "downloaded Docker Hub provenance audit archive digest does not match GitHub"
+  Expand-Archive -LiteralPath $auditArchive -DestinationPath $auditEvidenceRoot
+
+  $jsonFiles = @(Get-ChildItem -LiteralPath $auditEvidenceRoot -File -Filter "*.json")
+  $actualEvidenceFiles = @($jsonFiles.Name | Sort-Object)
+  Assert-True ($jsonFiles.Count -eq 10 -and ($actualEvidenceFiles -join ",") -eq ($expectedEvidenceFiles -join ",")) "Docker Hub provenance audit evidence file set drifted"
+  $checksumPath = Join-Path $auditEvidenceRoot "SHA256SUMS"
+  Assert-True (Test-Path -LiteralPath $checksumPath -PathType Leaf) "Docker Hub provenance audit evidence checksum list is missing"
+  $checksumLines = @(Get-Content -LiteralPath $checksumPath)
+  Assert-True ($checksumLines.Count -eq 10) "Docker Hub provenance audit checksum count drifted"
+  $checksumFiles = @()
+  foreach ($line in $checksumLines) {
+    Assert-True ($line -match '^([0-9a-f]{64})  \./(logitrack-(api|analytics|simulator|web|otel-collector)\.(provenance|tag)\.json)$') "Docker Hub provenance audit checksum entry is invalid"
+    $expectedHash = $matches[1]
+    $filename = $matches[2]
+    $checksumFiles += $filename
+    $evidencePath = Join-Path $auditEvidenceRoot $filename
+    Assert-True (Test-Path -LiteralPath $evidencePath -PathType Leaf) "Docker Hub provenance audit checksum references a missing file"
+    $actualHash = (Get-FileHash -LiteralPath $evidencePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    Assert-True ($actualHash -eq $expectedHash) "Docker Hub provenance audit evidence content hash does not match: $filename"
+  }
+  Assert-True ((@($checksumFiles | Sort-Object) -join ",") -eq ($expectedEvidenceFiles -join ",")) "Docker Hub provenance audit checksum file set drifted"
+
+  foreach ($service in $dockerHubServices) {
+    $tagEvidence = Get-Content -Raw -LiteralPath (Join-Path $auditEvidenceRoot "logitrack-$service.tag.json") | ConvertFrom-Json
+    Assert-True ($tagEvidence.name -eq $mainCommit.sha -and $tagEvidence.digest -match '^sha256:[0-9a-f]{64}$') "Docker Hub provenance tag evidence is invalid: $service"
+    $evidencePlatforms = @($tagEvidence.images | Where-Object { $_.os -eq "linux" -and $_.architecture -eq "amd64" })
+    Assert-True ($evidencePlatforms.Count -eq 1) "Docker Hub provenance tag evidence platform drifted: $service"
+    $verificationEvidence = @(Get-Content -Raw -LiteralPath (Join-Path $auditEvidenceRoot "logitrack-$service.provenance.json") | ConvertFrom-Json)
+    $expectedSubject = "docker.io/$Owner/logitrack-$service"
+    $expectedSubjectDigest = ([string]$tagEvidence.digest).Substring(7)
+    $matchingStatements = @($verificationEvidence | Where-Object {
+      $_.verificationResult.statement.predicateType -eq "https://slsa.dev/provenance/v1" -and
+      @($_.verificationResult.statement.subject | Where-Object { $_.name -eq $expectedSubject -and $_.digest.sha256 -eq $expectedSubjectDigest }).Count -ge 1
+    })
+    Assert-True ($matchingStatements.Count -ge 1) "Docker Hub provenance verification evidence subject does not match: $service"
+  }
+} finally {
+  if (Test-Path -LiteralPath $auditTempRoot) { Remove-Item -LiteralPath $auditTempRoot -Recurse -Force }
+}
+
 foreach ($service in $dockerHubServices) {
   $dockerHubRepository = Invoke-RestMethod -Method Get -Uri "https://hub.docker.com/v2/repositories/$Owner/logitrack-$service/"
   Assert-True (-not $dockerHubRepository.is_private -and $dockerHubRepository.namespace -eq $Owner -and $dockerHubRepository.name -eq "logitrack-$service") "Docker Hub repository identity or visibility drifted: $service"
