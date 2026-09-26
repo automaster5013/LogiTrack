@@ -66,7 +66,7 @@ $regularEntry = [pscustomobject]@{ ExternalAttributes = -2119958496 }
 Assert-GitHubArtifactZipEntryType -Entry $regularEntry -DisplayName "regular.json"
 
 function Assert-ZipEntryTypeFailure {
-  param([Parameter(Mandatory)][int]$ExternalAttributes)
+  param([Parameter(Mandatory)][int64]$ExternalAttributes)
   try {
     Assert-GitHubArtifactZipEntryType -Entry ([pscustomobject]@{ ExternalAttributes = $ExternalAttributes }) -DisplayName "unsafe-entry"
   } catch {
@@ -80,4 +80,21 @@ Assert-ZipEntryTypeFailure -ExternalAttributes -1577123840 # Unix symbolic link 
 Assert-ZipEntryTypeFailure -ExternalAttributes 1106051088  # Unix directory plus DOS directory bit
 Assert-ZipEntryTypeFailure -ExternalAttributes -2119957472 # Regular Unix mode plus DOS reparse-point bit
 
-Write-Host "PASS: GitHub artifact download separates authentication from a trusted redirect and rejects special ZIP entries"
+function Assert-ZipEntryMetadataFailure {
+  param([Parameter(Mandatory)][int64]$ExternalAttributes)
+  try {
+    Assert-GitHubArtifactZipEntryType -Entry ([pscustomobject]@{ ExternalAttributes = $ExternalAttributes }) -DisplayName "unsafe-metadata"
+  } catch {
+    if ($_.Exception.Message -notlike "*metadata is not canonical*") { throw }
+    return
+  }
+  throw "Expected non-canonical ZIP entry metadata to be rejected: $ExternalAttributes"
+}
+
+Assert-ZipEntryMetadataFailure -ExternalAttributes 2179792928 # Unix executable mode (0100755) plus DOS archive bit
+Assert-ZipEntryMetadataFailure -ExternalAttributes 2309226528 # Unix setuid mode (0104644) plus DOS archive bit
+Assert-ZipEntryMetadataFailure -ExternalAttributes 2176188448 # Unix world-writable mode (0100666) plus DOS archive bit
+Assert-ZipEntryMetadataFailure -ExternalAttributes 2175008802 # Canonical Unix mode plus DOS hidden bit
+Assert-ZipEntryMetadataFailure -ExternalAttributes 2175025184 # Canonical Unix mode plus DOS encrypted bit
+
+Write-Host "PASS: GitHub artifact download separates authentication from a trusted redirect and requires canonical regular-file ZIP entries"
