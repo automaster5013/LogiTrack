@@ -399,3 +399,4 @@
 - 정기 Docker Hub provenance 감사의 tag·검증 JSON 10개와 SHA-256 목록을 실행 attempt별 artifact로 30일 보존하고 archive digest·URL 기록
 - 읽기 전용 GitHub/CD 경계 감사에서 최신 main의 26시간 이내 provenance 감사 성공과 단일 증적 artifact의 run 결속·digest·크기·URL·30일 보존 drift 검증
 - provenance 감사 artifact를 직접 내려받아 archive digest, 정확한 JSON 10개, SHA256SUMS 전체, 서비스별 main tag·platform과 SLSA subject/digest 결속 검증
+- provenance 감사 ZIP 해제 전 archive·entry·전체 크기 상한, 정확한 최상위 엔트리 집합, 중복·중첩 경로 부재를 검증해 경로 탈출·ZIP bomb 차단
