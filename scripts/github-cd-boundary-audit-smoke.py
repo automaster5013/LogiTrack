@@ -125,6 +125,9 @@ required = (
     'https://hub.docker.com/v2/repositories/$Owner/logitrack-$service/tags/$($mainCommit.sha)',
     'dockerHubTag.digest -eq $auditedDockerHubDigests[$service]',
     '@($dockerHubTag.images).Count -eq 1',
+    '$confirmedMainCommit = Invoke-GitHubGet "/commits/main"',
+    'confirmedMainCommit.sha -eq $mainCommit.sha',
+    'main changed while the boundary audit was running',
     "'^sha256:[0-9a-f]{64}$'",
     '$_ .os -eq "linux"'.replace("$_ ", "$_"),
     '$_.architecture -eq "amd64"',
@@ -132,6 +135,12 @@ required = (
 missing = [control for control in required if control not in source]
 if missing:
     raise SystemExit("ERROR: GitHub CD audit is missing controls: " + ", ".join(missing))
+initial_main_index = audit_source.index('$mainCommit = Invoke-GitHubGet "/commits/main"')
+docker_hub_index = audit_source.rindex("$dockerHubTag = Invoke-RestMethod")
+confirmed_main_index = audit_source.index('$confirmedMainCommit = Invoke-GitHubGet "/commits/main"')
+success_index = audit_source.index('Write-Output "PASS: GitHub main')
+if not initial_main_index < docker_hub_index < confirmed_main_index < success_index:
+    raise SystemExit("ERROR: GitHub CD audit must reconfirm main after Docker Hub verification and before reporting success")
 for mutation in ("-Method Post", "-Method Put", "-Method Patch", "-Method Delete"):
     if mutation in source:
         raise SystemExit(f"ERROR: GitHub CD audit must remain read-only: {mutation}")

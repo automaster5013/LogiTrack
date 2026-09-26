@@ -273,4 +273,7 @@ foreach ($service in $dockerHubServices) {
   Assert-True (@($dockerHubTag.images).Count -eq 1 -and $linuxAmd64Images.Count -eq 1) "Docker Hub image platform set drifted: $service"
 }
 
+$confirmedMainCommit = Invoke-GitHubGet "/commits/main"
+Assert-True ($confirmedMainCommit.sha -eq $mainCommit.sha) "main changed while the boundary audit was running; retry against the new head"
+
 Write-Output "PASS: GitHub main, staging CD, Docker Hub CD, provenance evidence, private reporting, dependency, secret, and CodeQL boundaries are intact"
