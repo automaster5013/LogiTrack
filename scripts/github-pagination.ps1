@@ -30,6 +30,22 @@ function Invoke-GitHubGetAll {
     }
 
     $response = & $RequestInvoker $uri $Headers
+    $document = $null
+    try {
+      try {
+        $document = [System.Text.Json.JsonDocument]::Parse([string]$response.Content)
+      } catch {
+        throw "AUDIT FAILED: GitHub pagination returned invalid JSON: $Path"
+      }
+      if ($document.RootElement.ValueKind -ne [System.Text.Json.JsonValueKind]::Array) {
+        throw "AUDIT FAILED: GitHub pagination response is not an array: $Path"
+      }
+      if ($document.RootElement.GetArrayLength() -gt 100) {
+        throw "AUDIT FAILED: GitHub pagination response exceeded 100 items: $Path"
+      }
+    } finally {
+      if ($null -ne $document) { $document.Dispose() }
+    }
     $pageItems = @(($response.Content | ConvertFrom-Json) | Where-Object { $null -ne $_ })
     $items += $pageItems
     $link = @($response.Headers.Link) -join ","
