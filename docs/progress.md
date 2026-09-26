@@ -298,6 +298,7 @@
 - 보관된 provenance 검증 JSON의 Sigstore issuer·signer workflow·source commit/ref·repository/owner ID·runner·CI build config·원본 실행을 live 감사에서 재검증해 다른 유효한 attestation 혼입 차단
 - Docker Hub tag와 봉인 증거를 정확히 하나의 `linux/amd64` platform 및 하나의 신뢰 attestation으로 제한해 추가 항목을 통한 검증 모호성 차단
 - provenance 검증 결과를 정확히 하나의 Sigstore Rekor timestamp로 제한하고 main commit 이후·감사 실행 이전의 신뢰 시간 창에 결속해 재사용된 시간 증거 차단
+- Dependabot·secret scanning·CodeQL 열린 경고를 bounded pagination으로 전 페이지 감사해 100건 이후 high/critical 경고 누락 차단
 모든 예정 우선순위 완료. 이후 작업은 새 요구사항 또는 운영 검증 결과에 따라 결정한다.
 2026-09-23: AWS 서울 리전에 월 USD 70 Budget으로 제한한 단일 호스트 staging runtime과 OIDC·SSM 기반 digest 고정 CD를 실제 적용하고 `www.logitrack.kr` HTTPS 배포를 검증했다.
 - 암호화된 runtime root EBS를 매일 snapshot하고 최신 7개를 보존하는 DLM 정책 적용, 임시 snapshot 생성 완료와 PostgreSQL 19개 테이블 복원 검증
