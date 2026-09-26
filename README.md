@@ -2,8 +2,44 @@
 
 [![CI](https://github.com/automaster5013/LogiTrack/actions/workflows/ci.yml/badge.svg)](https://github.com/automaster5013/LogiTrack/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Live demo](https://img.shields.io/badge/live-logitrack.kr-16a34a)](https://www.logitrack.kr)
 
-실제 GPS 장비 없이 배송 차량, 창고, 주문의 상태 변화를 재현하는 이벤트 기반 물류 운영 플랫폼입니다.
+실제 GPS 장비 없이 주문·창고·배송 차량의 상태 변화를 재현하고 실시간으로 관제하는 이벤트 기반 물류 운영 플랫폼입니다.
+
+**[라이브 데모](https://www.logitrack.kr)** · **[10분 데모 시나리오](docs/demo.md)** · **[아키텍처](docs/architecture.md)** · **[운영 가이드](docs/operations.md)**
+
+LogiTrack is an event-driven logistics control tower that simulates order, warehouse, and fleet operations without dedicated GPS hardware.
+
+## 핵심 기능
+
+- **실시간 배송 관제** — MapLibre 지도, GPS 궤적, ETA, SSE 기반 차량·경고 업데이트
+- **신뢰할 수 있는 이벤트 처리** — transactional outbox, Kafka, 멱등 consumer, 재시도와 DLQ 복구
+- **창고 운영** — 입고·피킹·출고 workflow, 재고 원장, 동시성 제어와 감사 이력
+- **운영 가시성** — OpenTelemetry, Tempo, Prometheus, Grafana, 일별 KPI와 CSV/PDF 보고서
+- **배포와 공급망 보안** — GitHub Actions, Docker Hub provenance, AWS OIDC, digest 고정 배포와 자동 rollback
+
+## 아키텍처 한눈에 보기
+
+```text
+Next.js console <── SSE/REST ──> Spring Boot API ──> PostgreSQL + Redis
+                                      │
+                               transactional outbox
+                                      │
+                                      v
+                                   Kafka ──> Python simulator
+                                      │              │
+                                      └── telemetry ─┘
+                                      │
+                                      └──> Python analytics (route, ETA, PDF)
+```
+
+| 영역 | 기술 |
+| --- | --- |
+| Web | Next.js, TypeScript, MapLibre |
+| API | Java, Spring Boot, PostgreSQL, Redis |
+| Events & analytics | Kafka, Python, OSRM-compatible routing |
+| Observability | OpenTelemetry, Tempo, Prometheus, Grafana |
+| Delivery | Docker Compose, GitHub Actions, Docker Hub, Terraform, AWS |
 
 ## 주문부터 배송 완료까지
 
