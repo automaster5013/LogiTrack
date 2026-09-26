@@ -415,3 +415,4 @@
 - provenance 감사 ZIP 해제 전 archive·entry·전체 크기 상한, 정확한 최상위 엔트리 집합, 중복·중첩 경로 부재를 검증해 경로 탈출·ZIP bomb 차단
 - provenance 감사 ZIP 엔트리를 표준 `0100644` 일반 파일과 DOS archive 플래그로 고정해 실행·특권·공용 쓰기 권한과 숨김·암호화 등 비정상 메타데이터 차단
 - provenance 감사 JSON을 중복·대소문자 충돌 속성, 주석·후행 쉼표와 64단계 초과 중첩을 거부하는 strict parser로 선검증해 증적 의미 혼동과 parser 자원 고갈 차단
+- provenance 감사 JSON을 파일 바이트 기준 2 MiB로 재제한하고 BOM 없는 엄격한 UTF-8로만 해석해 잘못된 바이트의 대체 문자 정규화와 인코딩 모호성 차단

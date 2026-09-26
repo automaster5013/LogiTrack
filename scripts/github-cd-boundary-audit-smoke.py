@@ -103,11 +103,18 @@ required = (
     'GitHub artifact ZIP entry metadata is not canonical',
     'Assert-GitHubArtifactZipEntryType -Entry $entry',
     'function ConvertFrom-GitHubEvidenceJson',
+    'function Read-GitHubEvidenceJson',
     '[ValidateRange(1, 100)][int]$MaximumDepth = 64',
+    '[ValidateRange(1, 10485760)][int]$MaximumBytes = 2097152',
+    '[System.IO.File]::ReadAllBytes',
+    '[System.Text.UTF8Encoding]::new($false, $true)',
+    'contains a UTF-8 byte-order mark',
+    'is not valid UTF-8',
+    'byte size is invalid',
     '[StringComparer]::OrdinalIgnoreCase',
     'duplicate or case-conflicting property',
     'JsonCommentHandling]::Disallow',
-    'ConvertFrom-GitHubEvidenceJson -Json (Get-Content -Raw',
+    'Read-GitHubEvidenceJson -Path (Join-Path $auditEvidenceRoot',
     'auditArtifact.size_in_bytes -le 1MB',
     'downloadedArchiveSize -eq $auditArtifact.size_in_bytes',
     'downloadedArchiveDigest -eq $auditArtifact.digest',
@@ -185,6 +192,8 @@ for hidden_result_filter in (
         raise SystemExit("ERROR: GitHub CD audit must inspect the latest workflow result without hiding failures")
 if "| ConvertFrom-Json" in audit_source:
     raise SystemExit("ERROR: GitHub provenance evidence must use the strict JSON converter")
+if "Get-Content -Raw" in audit_source:
+    raise SystemExit("ERROR: GitHub provenance evidence must use strict byte-level UTF-8 decoding")
 for mutation in ("-Method Post", "-Method Put", "-Method Patch", "-Method Delete"):
     if mutation in source:
         raise SystemExit(f"ERROR: GitHub CD audit must remain read-only: {mutation}")
