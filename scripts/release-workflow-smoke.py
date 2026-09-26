@@ -9,7 +9,7 @@ BACKFILL_WORKFLOW_PATH = Path(".github/workflows/release-provenance.yml")
 PINNED_ACTION = re.compile(r"^[^@\s]+@[0-9a-f]{40}$")
 SLSA_GENERATOR = (
     "slsa-framework/slsa-github-generator/.github/workflows/"
-    "generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a"
+    "generator_generic_slsa3.yml@v2.1.0"
 )
 
 
