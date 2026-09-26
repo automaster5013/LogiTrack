@@ -29,13 +29,14 @@ function Invoke-GitHubGetAll {
     [Parameter(Mandatory)][uri]$BaseUri,
     [Parameter(Mandatory)][System.Collections.IDictionary]$Headers,
     [ValidateRange(1, 100)][int]$MaximumPages = 100,
+    [ValidateRange(1, 120)][int]$TimeoutSeconds = 30,
     [scriptblock]$RequestInvoker
   )
 
   if ($null -eq $RequestInvoker) {
     $RequestInvoker = {
-      param([uri]$RequestUri, [System.Collections.IDictionary]$RequestHeaders)
-      Invoke-WebRequest -Method Get -Uri $RequestUri -Headers $RequestHeaders
+      param([uri]$RequestUri, [System.Collections.IDictionary]$RequestHeaders, [int]$RequestTimeoutSeconds)
+      Invoke-WebRequest -Method Get -Uri $RequestUri -Headers $RequestHeaders -MaximumRedirection 0 -TimeoutSec $RequestTimeoutSeconds
     }
   }
 
@@ -56,7 +57,7 @@ function Invoke-GitHubGetAll {
       throw "AUDIT FAILED: GitHub pagination repeated a page: $Path"
     }
 
-    $response = & $RequestInvoker $uri $Headers
+    $response = & $RequestInvoker $uri $Headers $TimeoutSeconds
     $document = $null
     try {
       try {

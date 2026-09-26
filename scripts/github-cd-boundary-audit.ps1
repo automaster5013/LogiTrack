@@ -18,16 +18,17 @@ $headers = @{
   "X-GitHub-Api-Version" = "2022-11-28"
 }
 $baseUri = "https://api.github.com/repos/$Owner/$Repository"
+$requestTimeoutSeconds = 30
 . (Join-Path $PSScriptRoot "github-pagination.ps1")
 
 function Invoke-GitHubGet {
   param([Parameter(Mandatory)][AllowEmptyString()][string]$Path)
-  return Invoke-RestMethod -Method Get -Uri "$baseUri$Path" -Headers $headers
+  return Invoke-RestMethod -Method Get -Uri "$baseUri$Path" -Headers $headers -MaximumRedirection 0 -TimeoutSec $requestTimeoutSeconds
 }
 
 function Get-GitHubStatus {
   param([Parameter(Mandatory)][string]$Path)
-  $response = Invoke-WebRequest -Method Get -Uri "$baseUri$Path" -Headers $headers
+  $response = Invoke-WebRequest -Method Get -Uri "$baseUri$Path" -Headers $headers -MaximumRedirection 0 -TimeoutSec $requestTimeoutSeconds
   return [int]$response.StatusCode
 }
 
@@ -46,17 +47,17 @@ Assert-True ($security.dependabot_security_updates.status -eq "enabled") "Depend
 $privateVulnerabilityReporting = Invoke-GitHubGet "/private-vulnerability-reporting"
 Assert-True ($privateVulnerabilityReporting.enabled) "private vulnerability reporting is disabled"
 Assert-True ((Get-GitHubStatus "/vulnerability-alerts") -eq 204 -and (Get-GitHubStatus "/automated-security-fixes") -eq 200) "Dependabot alerts or automated security fixes are disabled"
-$dependabotAlerts = @(Invoke-GitHubGetAll -Path "/dependabot/alerts?state=open" -BaseUri $baseUri -Headers $headers)
+$dependabotAlerts = @(Invoke-GitHubGetAll -Path "/dependabot/alerts?state=open" -BaseUri $baseUri -Headers $headers -TimeoutSeconds $requestTimeoutSeconds)
 $highRiskAlerts = @($dependabotAlerts | Where-Object { $_.security_advisory.severity -in @("critical", "high") })
 Assert-True ($highRiskAlerts.Count -eq 0) "open critical or high Dependabot alerts require remediation"
-$secretAlerts = @(Invoke-GitHubGetAll -Path "/secret-scanning/alerts?state=open" -BaseUri $baseUri -Headers $headers)
+$secretAlerts = @(Invoke-GitHubGetAll -Path "/secret-scanning/alerts?state=open" -BaseUri $baseUri -Headers $headers -TimeoutSeconds $requestTimeoutSeconds)
 Assert-True ($secretAlerts.Count -eq 0) "open secret scanning alerts require remediation"
 $codeScanning = Invoke-GitHubGet "/code-scanning/default-setup"
 $codeLanguages = @($codeScanning.languages | Sort-Object)
 $expectedCodeLanguages = @("actions", "java-kotlin", "javascript", "javascript-typescript", "python", "typescript") | Sort-Object
 Assert-True ($codeScanning.state -eq "configured" -and $codeScanning.query_suite -eq "extended" -and $codeScanning.threat_model -eq "remote") "CodeQL default setup drifted"
 Assert-True ($codeScanning.runner_type -eq "standard" -and $codeScanning.schedule -eq "weekly" -and ($codeLanguages -join ",") -eq ($expectedCodeLanguages -join ",")) "CodeQL language, runner, or schedule drifted"
-$codeAlerts = @(Invoke-GitHubGetAll -Path "/code-scanning/alerts?state=open" -BaseUri $baseUri -Headers $headers)
+$codeAlerts = @(Invoke-GitHubGetAll -Path "/code-scanning/alerts?state=open" -BaseUri $baseUri -Headers $headers -TimeoutSeconds $requestTimeoutSeconds)
 $highRiskCodeAlerts = @($codeAlerts | Where-Object { $_.rule.security_severity_level -in @("critical", "high") })
 Assert-True ($highRiskCodeAlerts.Count -eq 0) "open critical or high CodeQL alerts require remediation"
 
@@ -155,7 +156,7 @@ try {
   New-Item -ItemType Directory -Path $auditTempRoot | Out-Null
   $auditArchive = Join-Path $auditTempRoot "evidence.zip"
   $auditEvidenceRoot = Join-Path $auditTempRoot "evidence"
-  Invoke-WebRequest -Method Get -Uri $auditArtifact.archive_download_url -Headers $headers -OutFile $auditArchive
+  Invoke-WebRequest -Method Get -Uri $auditArtifact.archive_download_url -Headers $headers -OutFile $auditArchive -TimeoutSec $requestTimeoutSeconds
   $downloadedArchiveSize = (Get-Item -LiteralPath $auditArchive).Length
   Assert-True ($downloadedArchiveSize -eq $auditArtifact.size_in_bytes -and $downloadedArchiveSize -le 1MB) "downloaded Docker Hub provenance audit archive size does not match GitHub"
   $downloadedArchiveDigest = "sha256:$((Get-FileHash -LiteralPath $auditArchive -Algorithm SHA256).Hash.ToLowerInvariant())"
@@ -264,9 +265,9 @@ try {
 }
 
 foreach ($service in $dockerHubServices) {
-  $dockerHubRepository = Invoke-RestMethod -Method Get -Uri "https://hub.docker.com/v2/repositories/$Owner/logitrack-$service/"
+  $dockerHubRepository = Invoke-RestMethod -Method Get -Uri "https://hub.docker.com/v2/repositories/$Owner/logitrack-$service/" -MaximumRedirection 0 -TimeoutSec $requestTimeoutSeconds
   Assert-True (-not $dockerHubRepository.is_private -and $dockerHubRepository.namespace -eq $Owner -and $dockerHubRepository.name -eq "logitrack-$service") "Docker Hub repository identity or visibility drifted: $service"
-  $dockerHubTag = Invoke-RestMethod -Method Get -Uri "https://hub.docker.com/v2/repositories/$Owner/logitrack-$service/tags/$($mainCommit.sha)"
+  $dockerHubTag = Invoke-RestMethod -Method Get -Uri "https://hub.docker.com/v2/repositories/$Owner/logitrack-$service/tags/$($mainCommit.sha)" -MaximumRedirection 0 -TimeoutSec $requestTimeoutSeconds
   Assert-True ($dockerHubTag.name -eq $mainCommit.sha -and $dockerHubTag.digest -match '^sha256:[0-9a-f]{64}$') "Docker Hub immutable tag or digest drifted: $service"
   Assert-True ($dockerHubTag.digest -eq $auditedDockerHubDigests[$service]) "Docker Hub live tag digest does not match the sealed provenance audit evidence: $service"
   $linuxAmd64Images = @($dockerHubTag.images | Where-Object { $_.os -eq "linux" -and $_.architecture -eq "amd64" })
