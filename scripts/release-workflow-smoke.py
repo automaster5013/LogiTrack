@@ -61,7 +61,7 @@ def main() -> None:
         "cosign sign-blob --yes --bundle",
         "cosign verify-blob",
         '--certificate-oidc-issuer "https://token.actions.githubusercontent.com"',
-        'sha256sum "$archive"',
+        '(cd dist && sha256sum "logitrack-$VERSION.tar.gz"',
         'echo "hashes=$(sha256sum "$archive" | base64 -w0)"',
         '"/repos/$GITHUB_REPOSITORY/git/refs"',
         '--field ref="refs/tags/$VERSION"',
@@ -97,7 +97,8 @@ def main() -> None:
         'test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"',
         'git merge-base --is-ancestor "$tag_commit" origin/main',
         "--jq 'all(.[]; . == false)'",
-        'sha256sum --check --strict "$checksum"',
+        'test "$checksum_name" = "$archive" -o "$checksum_name" = "dist/$archive"',
+        'test "$expected_sha256" = "$(sha256sum "$archive" | awk',
         'cmp --silent expected.tar.gz "$archive"',
         '.tar.gz.intoto.jsonl',
     ):

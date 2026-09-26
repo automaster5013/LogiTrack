@@ -55,8 +55,10 @@ jobs:
           test -s "$archive"
           test -s "$checksum"
           test "$(wc -l < "$checksum")" -eq 1
-          test "$(awk '{print $2}' "$checksum")" = "$archive"
-          sha256sum --check --strict "$checksum"
+          checksum_name="$(awk '{print $2}' "$checksum")"
+          test "$checksum_name" = "$archive" -o "$checksum_name" = "dist/$archive"
+          expected_sha256="$(awk '{print $1}' "$checksum")"
+          test "$expected_sha256" = "$(sha256sum "$archive" | awk '{print $1}')"
           git archive --format=tar.gz --prefix="logitrack-$VERSION/" --output=expected.tar.gz "$tag_commit"
           cmp --silent expected.tar.gz "$archive"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"

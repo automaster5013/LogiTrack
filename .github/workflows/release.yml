@@ -59,7 +59,7 @@ jobs:
           mkdir -p dist
           archive="dist/logitrack-$VERSION.tar.gz"
           git archive --format=tar.gz --prefix="logitrack-$VERSION/" --output="$archive" HEAD
-          sha256sum "$archive" > "$archive.sha256"
+          (cd dist && sha256sum "logitrack-$VERSION.tar.gz" > "logitrack-$VERSION.tar.gz.sha256")
           test -s "$archive"
           test "$(wc -l < "$archive.sha256")" -eq 1
           echo "hashes=$(sha256sum "$archive" | base64 -w0)" >> "$GITHUB_OUTPUT"
