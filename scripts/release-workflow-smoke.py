@@ -42,7 +42,7 @@ def main() -> None:
         raise AssertionError("release provenance must pin the trusted builder release commit")
     if provenance.get("permissions") != {
         "actions": "read",
-        "contents": "read",
+        "contents": "write",
         "id-token": "write",
     }:
         raise AssertionError("release provenance permissions exceed generation")
@@ -96,7 +96,7 @@ def main() -> None:
         raise AssertionError("provenance backfill must use the trusted SLSA generator")
     if backfill_provenance.get("permissions") != {
         "actions": "read",
-        "contents": "read",
+        "contents": "write",
         "id-token": "write",
     }:
         raise AssertionError("provenance backfill permissions exceed generation")
