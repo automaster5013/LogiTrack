@@ -304,6 +304,7 @@
 - GitHub pagination의 next 링크를 단일 값·동일 API endpoint·동일 필수 query로 고정해 저장소 내부의 다른 목록이나 변경된 경고 상태로 감사 대상이 바뀌는 상황 차단
 - 장시간 GitHub·Docker Hub 경계 감사가 성공을 출력하기 직전에 main SHA를 다시 확인해 실행 중 새 병합을 이전 head의 정상 결과로 보고하는 경쟁 조건 차단
 - CI와 Docker Hub provenance의 최근 성공 이력이 아니라 최신 실행 자체의 완료·성공을 감사해 이후 실패·취소·진행 중 실행이 과거 성공에 가려지는 상황 차단
+- GitHub 인증 API와 Docker Hub 조회의 redirect를 금지하고 모든 외부 감사 요청을 30초로 제한해 자격 증명 경계 이탈과 무한 네트워크 정체 차단
 모든 예정 우선순위 완료. 이후 작업은 새 요구사항 또는 운영 검증 결과에 따라 결정한다.
 2026-09-23: AWS 서울 리전에 월 USD 70 Budget으로 제한한 단일 호스트 staging runtime과 OIDC·SSM 기반 digest 고정 CD를 실제 적용하고 `www.logitrack.kr` HTTPS 배포를 검증했다.
 - 암호화된 runtime root EBS를 매일 snapshot하고 최신 7개를 보존하는 DLM 정책 적용, 임시 snapshot 생성 완료와 PostgreSQL 19개 테이블 복원 검증

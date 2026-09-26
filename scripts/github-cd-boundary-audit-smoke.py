@@ -6,6 +6,7 @@ pagination_source = Path("scripts/github-pagination.ps1").read_text(encoding="ut
 source = audit_source + pagination_source
 required = (
     "Invoke-RestMethod -Method Get",
+    "$requestTimeoutSeconds = 30",
     "function Invoke-GitHubGetAll",
     '. (Join-Path $PSScriptRoot "github-pagination.ps1")',
     '[ValidateRange(1, 100)][int]$MaximumPages = 100',
@@ -22,7 +23,9 @@ required = (
     'GitHub pagination response is not an array',
     'GitHub pagination response exceeded 100 items',
     '$document.Dispose()',
-    '$response = & $RequestInvoker $uri $Headers',
+    '[ValidateRange(1, 120)][int]$TimeoutSeconds = 30',
+    '-MaximumRedirection 0 -TimeoutSec $RequestTimeoutSeconds',
+    '$response = & $RequestInvoker $uri $Headers $TimeoutSeconds',
     'rel="next"',
     'GitHub pagination escaped the repository',
     'GitHub pagination exceeded $MaximumPages pages',
@@ -143,6 +146,16 @@ confirmed_main_index = audit_source.index('$confirmedMainCommit = Invoke-GitHubG
 success_index = audit_source.index('Write-Output "PASS: GitHub main')
 if not initial_main_index < docker_hub_index < confirmed_main_index < success_index:
     raise SystemExit("ERROR: GitHub CD audit must reconfirm main after Docker Hub verification and before reporting success")
+authenticated_requests = [
+    line
+    for line in audit_source.splitlines()
+    if ("Invoke-RestMethod" in line or "Invoke-WebRequest" in line) and "-Headers $headers" in line
+]
+if any("-TimeoutSec $requestTimeoutSeconds" not in line for line in authenticated_requests):
+    raise SystemExit("ERROR: authenticated GitHub requests must have a bounded timeout")
+redirect_free_requests = [line for line in authenticated_requests if "archive_download_url" not in line]
+if any("-MaximumRedirection 0" not in line for line in redirect_free_requests):
+    raise SystemExit("ERROR: authenticated GitHub API requests must reject redirects")
 for hidden_result_filter in (
     "ci.yml/runs?branch=main&event=push&status=success",
     "dockerhub-provenance-audit.yml/runs?branch=main&status=success",
