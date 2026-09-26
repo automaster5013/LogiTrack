@@ -20,6 +20,7 @@ $headers = @{
 $baseUri = "https://api.github.com/repos/$Owner/$Repository"
 $requestTimeoutSeconds = 30
 . (Join-Path $PSScriptRoot "github-pagination.ps1")
+. (Join-Path $PSScriptRoot "github-artifact-download.ps1")
 
 function Invoke-GitHubGet {
   param([Parameter(Mandatory)][AllowEmptyString()][string]$Path)
@@ -156,7 +157,7 @@ try {
   New-Item -ItemType Directory -Path $auditTempRoot | Out-Null
   $auditArchive = Join-Path $auditTempRoot "evidence.zip"
   $auditEvidenceRoot = Join-Path $auditTempRoot "evidence"
-  Invoke-WebRequest -Method Get -Uri $auditArtifact.archive_download_url -Headers $headers -OutFile $auditArchive -TimeoutSec $requestTimeoutSeconds
+  Save-GitHubArtifactArchive -ArchiveApiUri $auditArtifact.archive_download_url -Headers $headers -DestinationPath $auditArchive -TimeoutSeconds $requestTimeoutSeconds
   $downloadedArchiveSize = (Get-Item -LiteralPath $auditArchive).Length
   Assert-True ($downloadedArchiveSize -eq $auditArtifact.size_in_bytes -and $downloadedArchiveSize -le 1MB) "downloaded Docker Hub provenance audit archive size does not match GitHub"
   $downloadedArchiveDigest = "sha256:$((Get-FileHash -LiteralPath $auditArchive -Algorithm SHA256).Hash.ToLowerInvariant())"
