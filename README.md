@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/automaster5013/LogiTrack/actions/workflows/ci.yml/badge.svg)](https://github.com/automaster5013/LogiTrack/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14964/badge)](https://www.bestpractices.dev/projects/14964)
 [![Live demo](https://img.shields.io/badge/live-logitrack.kr-16a34a)](https://www.logitrack.kr)
 
 실제 GPS 장비 없이 주문·창고·배송 차량의 상태 변화를 재현하고 실시간으로 관제하는 이벤트 기반 물류 운영 플랫폼입니다.
