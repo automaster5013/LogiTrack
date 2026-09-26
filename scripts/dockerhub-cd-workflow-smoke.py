@@ -45,6 +45,8 @@ def main() -> None:
         "linux/amd64",
         "scripts/sbom-smoke.py",
         "--severity CRITICAL",
+        "Reuse immutable registry images after a partial publication",
+        "docker tag \"$pinned\" \"logitrack-$service:$REVISION\"",
         "Push immutable images and verify registry digests",
         "docker buildx imagetools inspect",
         "inspect_manifest_with_retry",
@@ -103,13 +105,15 @@ def main() -> None:
         if f"logitrack-{service}:$REVISION" not in source:
             raise AssertionError(f"Docker Hub publication does not build {service} by commit SHA")
 
+    retry_reuse_index = source.index("Reuse immutable registry images after a partial publication")
+    metadata_index = source.index("Enforce runtime and provenance metadata")
     scan_index = source.index("Generate and validate supply-chain evidence")
     push_index = source.index("Push immutable images and verify registry digests")
     evidence_upload_index = source.index("Upload immutable Docker Hub supply-chain evidence")
     upload_index = source.index("Upload immutable Docker Hub release manifest")
     verify_index = source.index("Verify published provenance policy")
     bind_index = source.index("Bind signed provenance to release manifest")
-    if not scan_index < evidence_upload_index < push_index < verify_index < bind_index < upload_index:
+    if not retry_reuse_index < metadata_index < scan_index < evidence_upload_index < push_index < verify_index < bind_index < upload_index:
         raise AssertionError("evidence must be uploaded before digest-bound publication manifest")
     if source.count("retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}") != 2:
         raise AssertionError("both Docker Hub evidence artifacts must share the retention policy")
