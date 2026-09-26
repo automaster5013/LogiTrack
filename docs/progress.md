@@ -396,3 +396,4 @@
 - Docker Hub OCI attestation을 게시 직후 signer workflow·main ref·source commit·GitHub-hosted runner 정책으로 암호학적 재검증하고 결과 JSON의 SHA-256을 release manifest에 결합
 - Docker Hub provenance 검증용 GitHub CLI의 버전·공식 release URL·archive SHA-256을 고정하고 release manifest에 기록해 runner 도구 drift 차단
 - 비밀정보 없이 매일 최신 main의 Docker Hub 이미지 5종과 registry OCI 증명을 다시 검증하는 정기 provenance 감사 workflow 추가
+- 정기 Docker Hub provenance 감사의 tag·검증 JSON 10개와 SHA-256 목록을 실행 attempt별 artifact로 30일 보존하고 archive digest·URL 기록

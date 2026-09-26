@@ -21,6 +21,7 @@ jobs:
     env:
       GH_CLI_VERSION: 2.101.0
       GH_CLI_ARCHIVE_SHA256: 9bca2d1c16825f109907a23307628a2f0698fbf99662b73a5cf0b020293072b8
+      ARTIFACT_RETENTION_DAYS: 30
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -51,9 +52,33 @@ jobs:
           test "$revision" = "$(git rev-parse origin/main)"
           ./scripts/dockerhub-provenance-audit.sh "$revision"
 
+      - name: Seal provenance audit evidence
+        run: |
+          set -euo pipefail
+          cd work/dockerhub-provenance-audit
+          test "$(find . -maxdepth 1 -type f -name '*.json' | wc -l)" -eq 10
+          sha256sum ./*.json | LC_ALL=C sort --key=2 > SHA256SUMS
+          sha256sum --check --strict SHA256SUMS
+
+      - name: Upload immutable provenance audit evidence
+        id: evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: dockerhub-provenance-audit-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            work/dockerhub-provenance-audit/*.json
+            work/dockerhub-provenance-audit/SHA256SUMS
+          if-no-files-found: error
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
       - name: Record audit summary
         if: success()
+        env:
+          EVIDENCE_DIGEST: sha256:${{ steps.evidence.outputs.artifact-digest }}
+          EVIDENCE_URL: ${{ steps.evidence.outputs.artifact-url }}
         run: |
+          [[ "$EVIDENCE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$EVIDENCE_URL" =~ ^https://github\.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts/[1-9][0-9]*$ ]]
           {
             echo "## Docker Hub provenance audit"
             echo ""
@@ -62,4 +87,6 @@ jobs:
             echo "- Revision: `$(git rev-parse HEAD)`"
             echo "- Verifier: GitHub CLI `$GH_CLI_VERSION`"
             echo "- Verifier archive SHA-256: `$GH_CLI_ARCHIVE_SHA256`"
+            echo "- Evidence retention: `$ARTIFACT_RETENTION_DAYS days`"
+            echo "- Evidence: [$EVIDENCE_DIGEST]($EVIDENCE_URL)"
           } >> "$GITHUB_STEP_SUMMARY"
