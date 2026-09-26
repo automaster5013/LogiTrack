@@ -1,0 +1,85 @@
+name: Backfill GitHub release provenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing semantic version tag to attest (for example, v1.0.0)
+        required: true
+        type: string
+
+permissions: read-all
+
+concurrency:
+  group: github-release-provenance-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Verify existing release archive
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      hashes: ${{ steps.provenance.outputs.hashes }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify immutable release archive
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+          git fetch --force origin "refs/tags/$VERSION:refs/tags/$VERSION"
+          tag_commit="$(git rev-list -n 1 "$VERSION")"
+          git merge-base --is-ancestor "$tag_commit" origin/main
+
+          archive="logitrack-$VERSION.tar.gz"
+          checksum="$archive.sha256"
+          provenance="$archive.intoto.jsonl"
+          test "$(gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease --jq '[.isDraft,.isPrerelease] | all(. == false)')" = true
+          test "$(gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" --json assets --jq ".assets | map(select(.name == \"$provenance\")) | length")" -eq 0
+          gh release download "$VERSION" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "$archive" \
+            --pattern "$checksum"
+          test -s "$archive"
+          test -s "$checksum"
+          test "$(wc -l < "$checksum")" -eq 1
+          test "$(awk '{print $2}' "$checksum")" = "$archive"
+          sha256sum --check --strict "$checksum"
+          git archive --format=tar.gz --prefix="logitrack-$VERSION/" --output=expected.tar.gz "$tag_commit"
+          cmp --silent expected.tar.gz "$archive"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Encode verified provenance subject
+        id: provenance
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          archive="logitrack-$VERSION.tar.gz"
+          echo "hashes=$(sha256sum "$archive" | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+  provenance:
+    name: Generate SLSA provenance
+    needs: prepare
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
+    # slsa-verifier requires this trusted builder to use its immutable release tag.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.prepare.outputs.hashes }}
+      upload-assets: true
+      upload-tag-name: ${{ needs.prepare.outputs.version }}
+      provenance-name: logitrack-${{ needs.prepare.outputs.version }}.tar.gz.intoto.jsonl

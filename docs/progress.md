@@ -5,6 +5,7 @@
 ## 완료
 
 - `main` HEAD만 대상으로 하는 수동 GitHub source release workflow, SHA-256 sidecar와 GitHub OIDC 기반 Cosign keyless 서명·게시 전 identity 검증
+- source archive SHA-256을 SLSA 격리 빌더에 전달해 `.intoto.jsonl` provenance를 release에 자동 첨부하고 기존 release는 tag 재생성 archive와 다운로드 자산의 byte-for-byte 일치 검증 후에만 provenance 보강
 
 - Cognito WebAuthn 교차 기기 QR 로그인용 Authorization Code + PKCE/nonce BFF, HttpOnly access-token 세션, 제한된 API 프록시, Cognito 그룹 RBAC와 access-token client 검증을 구현했다. `/`와 `/showcase`는 요청별 CSP nonce를 포함해 서버 렌더링되는 프로젝트 소개·가상 운송 관제 첫 화면이며, 인증된 운영 콘솔은 `/console`에서 제공한다.
 - staging release manifest에 artifact 보존 기간을 숫자로 기록·검증해 독립 증적에서도 30일 만료 정책 확인 가능
