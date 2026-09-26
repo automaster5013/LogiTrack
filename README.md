@@ -10,6 +10,16 @@
 
 LogiTrack is an event-driven logistics control tower that simulates order, warehouse, and fleet operations without dedicated GPS hardware.
 
+## 화면 미리보기
+
+![LogiTrack 프로젝트 소개 화면에서 서울 물류 관제 흐름과 핵심 기능을 설명하는 모습](docs/images/project-overview.png)
+
+*프로젝트 소개 화면 — 로컬 Docker Compose 환경, 1440×900 데스크톱 뷰포트.*
+
+![합성 배송 데이터로 차량 진행률과 서울·인천 간 실시간 경로를 표시하는 LogiTrack 운영 콘솔](docs/images/operator-console-active-delivery.jpg)
+
+*운영 콘솔 — `DEMO-README-001` 합성 주문을 사용한 로컬 Docker Compose 환경, 1440×900 데스크톱 뷰포트.*
+
 ## 핵심 기능
 
 - **실시간 배송 관제** — MapLibre 지도, GPS 궤적, ETA, SSE 기반 차량·경고 업데이트
