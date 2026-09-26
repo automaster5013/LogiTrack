@@ -394,3 +394,4 @@
 - API 요청과 Kafka 이벤트 JSON의 중첩 깊이를 기본 100단계로 제한하고 최대 설정값도 200으로 고정해 parser 자원 고갈 방지
 - OIDC JWT resource server와 VIEWER·OPERATOR·RECOVERY_OPERATOR·ADMIN RBAC, 인증 subject 기반 감사 actor, public-origin 인증 fail-fast 경계 구현
 - Docker Hub OCI attestation을 게시 직후 signer workflow·main ref·source commit·GitHub-hosted runner 정책으로 암호학적 재검증하고 결과 JSON의 SHA-256을 release manifest에 결합
+- Docker Hub provenance 검증용 GitHub CLI의 버전·공식 release URL·archive SHA-256을 고정하고 release manifest에 기록해 runner 도구 drift 차단

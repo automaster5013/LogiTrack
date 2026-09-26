@@ -29,6 +29,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--workflow-sha", required=True)
     parser.add_argument("--scanner-image", required=True)
     parser.add_argument("--scanner-version", required=True)
+    parser.add_argument("--verifier-version", required=True)
+    parser.add_argument("--verifier-archive-sha256", required=True)
     parser.add_argument("--evidence-artifact-digest", required=True)
     parser.add_argument("--evidence-artifact-url", required=True)
     return parser.parse_args()
@@ -54,12 +56,13 @@ def main() -> None:
     expected_fields = {
         "schemaVersion", "revision", "publishedAt", "registry", "namespace",
         "sourceRepository", "imagePlatform", "scannerImage", "scannerVersion",
+        "provenanceVerifier",
         "blockedVulnerabilitySeverities", "workflowRunId", "workflowRunAttempt",
         "workflowRunUrl", "workflowEvent", "workflowRef", "workflowSha",
         "artifactRetentionDays", "evidenceArtifact", "evidenceArtifactDigest",
         "evidenceArtifactUrl", "images",
     }
-    if set(manifest) != expected_fields or manifest["schemaVersion"] != 5:
+    if set(manifest) != expected_fields or manifest["schemaVersion"] != 6:
         raise AssertionError("Docker Hub release manifest schema is invalid")
     expected_url = f"https://github.com/{args.repository}/actions/runs/{args.run_id}"
     expected_ref = f"{args.repository}/.github/workflows/ci.yml@refs/heads/main"
@@ -72,6 +75,15 @@ def main() -> None:
         "imagePlatform": "linux/amd64",
         "scannerImage": args.scanner_image,
         "scannerVersion": args.scanner_version,
+        "provenanceVerifier": {
+            "name": "GitHub CLI",
+            "version": args.verifier_version,
+            "source": (
+                "https://github.com/cli/cli/releases/download/"
+                f"v{args.verifier_version}/gh_{args.verifier_version}_linux_amd64.tar.gz"
+            ),
+            "archiveSha256": args.verifier_archive_sha256,
+        },
         "blockedVulnerabilitySeverities": ["CRITICAL"],
         "workflowRunId": args.run_id,
         "workflowRunAttempt": args.run_attempt,
@@ -89,6 +101,10 @@ def main() -> None:
             raise AssertionError(f"Docker Hub release manifest {field} does not match")
     if args.workflow_ref != expected_ref:
         raise AssertionError("workflow ref must identify main CI")
+    if not SEMVER.fullmatch(args.verifier_version) or not SHA256.fullmatch(
+        args.verifier_archive_sha256
+    ):
+        raise AssertionError("provenance verifier identity is invalid")
     if not DIGEST.fullmatch(args.evidence_artifact_digest):
         raise AssertionError("evidence artifact digest must be SHA-256")
     artifact_url = re.compile(
