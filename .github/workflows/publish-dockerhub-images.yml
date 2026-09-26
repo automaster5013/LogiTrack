@@ -147,12 +147,24 @@ jobs:
           set -euo pipefail
           mkdir -p work/dockerhub
           printf '[]' > work/dockerhub/images.json
+          inspect_manifest_with_retry() {
+            local destination="$1"
+            local attempt manifest
+            for attempt in 1 2 3 4 5; do
+              if manifest="$(timeout 30s docker buildx imagetools inspect "$destination" --format '{{json .Manifest}}' 2>/dev/null)"; then
+                printf '%s' "$manifest"
+                return 0
+              fi
+              if [ "$attempt" -lt 5 ]; then sleep "$((attempt * 2))"; fi
+            done
+            return 1
+          }
           for service in api analytics simulator web otel-collector; do
             source_image="logitrack-$service:$REVISION"
             destination="docker.io/$DOCKERHUB_NAMESPACE/logitrack-$service:$REVISION"
             local_image_id="$(docker image inspect --format '{{.Id}}' "$source_image")"
             docker tag "$source_image" "$destination"
-            if existing_manifest="$(docker buildx imagetools inspect "$destination" --format '{{json .Manifest}}' 2>/dev/null)"; then
+            if existing_manifest="$(timeout 30s docker buildx imagetools inspect "$destination" --format '{{json .Manifest}}' 2>/dev/null)"; then
               digest="$(jq -r .digest <<<"$existing_manifest")"
               [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
               pinned="docker.io/$DOCKERHUB_NAMESPACE/logitrack-$service@$digest"
@@ -164,7 +176,11 @@ jobs:
               fi
             else
               docker push "$destination"
-              digest="$(docker buildx imagetools inspect "$destination" --format '{{json .Manifest}}' | jq -r .digest)"
+              if ! pushed_manifest="$(inspect_manifest_with_retry "$destination")"; then
+                echo "::error::$destination was not readable after bounded registry propagation retries"
+                exit 1
+              fi
+              digest="$(jq -r .digest <<<"$pushed_manifest")"
             fi
             [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
             echo "${service//-/_}-digest=$digest" >> "$GITHUB_OUTPUT"
