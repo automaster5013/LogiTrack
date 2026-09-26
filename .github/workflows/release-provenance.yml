@@ -46,7 +46,7 @@ jobs:
           archive="logitrack-$VERSION.tar.gz"
           checksum="$archive.sha256"
           provenance="$archive.intoto.jsonl"
-          test "$(gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease --jq '[.isDraft,.isPrerelease] | all(. == false)')" = true
+          test "$(gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease --jq 'all(.[]; . == false)')" = true
           test "$(gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" --json assets --jq ".assets | map(select(.name == \"$provenance\")) | length")" -eq 0
           gh release download "$VERSION" \
             --repo "$GITHUB_REPOSITORY" \

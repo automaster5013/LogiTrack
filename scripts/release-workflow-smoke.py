@@ -96,6 +96,7 @@ def main() -> None:
         'test "$GITHUB_EVENT_NAME" = workflow_dispatch',
         'test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"',
         'git merge-base --is-ancestor "$tag_commit" origin/main',
+        "--jq 'all(.[]; . == false)'",
         'sha256sum --check --strict "$checksum"',
         'cmp --silent expected.tar.gz "$archive"',
         '.tar.gz.intoto.jsonl',
