@@ -1,3 +1,28 @@
+function ConvertFrom-GitHubQueryString {
+  param(
+    [Parameter(Mandatory)][AllowEmptyString()][string]$Query,
+    [Parameter(Mandatory)][string]$Path
+  )
+
+  $parameters = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::Ordinal)
+  foreach ($component in $Query.TrimStart('?').Split('&', [StringSplitOptions]::RemoveEmptyEntries)) {
+    $separatorIndex = $component.IndexOf('=')
+    $encodedName = if ($separatorIndex -ge 0) { $component.Substring(0, $separatorIndex) } else { $component }
+    $encodedValue = if ($separatorIndex -ge 0) { $component.Substring($separatorIndex + 1) } else { "" }
+    try {
+      $name = [uri]::UnescapeDataString($encodedName.Replace('+', ' '))
+      $value = [uri]::UnescapeDataString($encodedValue.Replace('+', ' '))
+    } catch {
+      throw "AUDIT FAILED: GitHub pagination query is invalid: $Path"
+    }
+    if ([string]::IsNullOrWhiteSpace($name) -or $parameters.ContainsKey($name)) {
+      throw "AUDIT FAILED: GitHub pagination query is ambiguous: $Path"
+    }
+    $parameters[$name] = $value
+  }
+  return ,$parameters
+}
+
 function Invoke-GitHubGetAll {
   param(
     [Parameter(Mandatory)][string]$Path,
@@ -23,6 +48,8 @@ function Invoke-GitHubGetAll {
   $separator = if ($Path.Contains("?")) { "&" } else { "?" }
   [uri]$uri = "$($BaseUri.AbsoluteUri.TrimEnd('/'))$Path${separator}per_page=100"
   $repositoryPathPrefix = "$($BaseUri.AbsolutePath.TrimEnd('/'))/"
+  $endpointPath = $uri.AbsolutePath
+  $requiredQuery = ConvertFrom-GitHubQueryString -Query $uri.Query -Path $Path
 
   for ($page = 1; $page -le $MaximumPages; $page++) {
     if (-not $visitedUris.Add($uri.AbsoluteUri)) {
@@ -49,10 +76,14 @@ function Invoke-GitHubGetAll {
     $pageItems = @(($response.Content | ConvertFrom-Json) | Where-Object { $null -ne $_ })
     $items += $pageItems
     $link = @($response.Headers.Link) -join ","
-    if ($link -notmatch '<([^>]+)>;\s*rel="next"') { return $items }
+    $nextLinks = [regex]::Matches($link, '<([^>]+)>;\s*rel="next"')
+    if ($nextLinks.Count -eq 0) { return $items }
+    if ($nextLinks.Count -ne 1) {
+      throw "AUDIT FAILED: GitHub pagination contains ambiguous next links: $Path"
+    }
 
     $nextUri = $null
-    $isAbsolute = [uri]::TryCreate($matches[1], [UriKind]::Absolute, [ref]$nextUri)
+    $isAbsolute = [uri]::TryCreate($nextLinks[0].Groups[1].Value, [UriKind]::Absolute, [ref]$nextUri)
     $isTrusted = $isAbsolute -and
       $nextUri.Scheme -eq $BaseUri.Scheme -and
       $nextUri.Host -eq $BaseUri.Host -and
@@ -61,6 +92,15 @@ function Invoke-GitHubGetAll {
       $nextUri.AbsolutePath.StartsWith($repositoryPathPrefix, [StringComparison]::Ordinal)
     if (-not $isTrusted) {
       throw "AUDIT FAILED: GitHub pagination escaped the repository: $Path"
+    }
+    if ($nextUri.AbsolutePath -cne $endpointPath) {
+      throw "AUDIT FAILED: GitHub pagination changed the endpoint: $Path"
+    }
+    $nextQuery = ConvertFrom-GitHubQueryString -Query $nextUri.Query -Path $Path
+    foreach ($requiredName in $requiredQuery.Keys) {
+      if (-not $nextQuery.ContainsKey($requiredName) -or $nextQuery[$requiredName] -cne $requiredQuery[$requiredName]) {
+        throw "AUDIT FAILED: GitHub pagination changed a required query parameter: $Path"
+      }
     }
     $uri = $nextUri
   }
