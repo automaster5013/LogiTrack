@@ -143,6 +143,7 @@ curl -X POST http://localhost:8080/api/orders/{orderId}/dispatch \
 ```bash
 python -m unittest discover simulator/tests
 python scripts/compose-config-smoke.py
+python scripts/markdown-link-smoke.py
 python -m unittest discover analytics/tests
 ```
 

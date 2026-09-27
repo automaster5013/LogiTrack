@@ -3,6 +3,7 @@ from pathlib import Path
 
 
 CONTRIBUTING_PATH = Path("CONTRIBUTING.md")
+README_PATH = Path("README.md")
 PACKAGE_PATH = Path("web/package.json")
 WEB_VALIDATION_COMMAND = "Push-Location web; npm ci; npm run build; Pop-Location"
 MARKDOWN_LINK_COMMAND = "python scripts/markdown-link-smoke.py"
@@ -10,6 +11,7 @@ MARKDOWN_LINK_COMMAND = "python scripts/markdown-link-smoke.py"
 
 def main() -> None:
     guide = CONTRIBUTING_PATH.read_text(encoding="utf-8")
+    readme = README_PATH.read_text(encoding="utf-8")
     package = json.loads(PACKAGE_PATH.read_text(encoding="utf-8"))
     scripts = package.get("scripts", {})
 
@@ -17,6 +19,8 @@ def main() -> None:
         raise AssertionError("contributor web validation must match the locked CI build")
     if MARKDOWN_LINK_COMMAND not in guide:
         raise AssertionError("contributor guide must include the CI Markdown link validation")
+    if MARKDOWN_LINK_COMMAND not in readme:
+        raise AssertionError("README local validation must include the CI Markdown link validation")
     if "npm test" in guide or "npm run test" in guide:
         raise AssertionError("contributor guide references a web test script that does not exist")
     if "build" not in scripts:
