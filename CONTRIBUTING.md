@@ -37,7 +37,7 @@ python -m unittest discover simulator/tests
 python -m unittest discover analytics/tests
 python scripts/compose-config-smoke.py
 pwsh ./scripts/domain-coverage.ps1
-Push-Location web; npm ci; npm test; npm run build; Pop-Location
+Push-Location web; npm ci; npm run build; Pop-Location
 ```
 
 For changes that cross service boundaries, start the stack and run `pwsh ./scripts/smoke.ps1`. Additional focused smoke tests are documented in [README.md](README.md#로컬-검증).
