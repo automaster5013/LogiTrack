@@ -43,6 +43,7 @@ type StreamFixture = {
   acknowledgementDelayMs?: number;
   acknowledgementDelayMsById?: Record<string, number>;
   waitForAcknowledgementBeforeStream?: boolean;
+  streamDelayAfterAcknowledgementMs?: number;
 };
 
 async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRows: DeliveryAlert[] = [], streamFixture?: StreamFixture) {
@@ -124,6 +125,7 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
       streamRequestCount += 1;
       if (streamFixture?.waitForAcknowledgementBeforeStream) {
         while (acknowledgementRequestCount === 0) await new Promise(resolve => setTimeout(resolve, 10));
+        if (streamFixture.streamDelayAfterAcknowledgementMs) await new Promise(resolve => setTimeout(resolve, streamFixture.streamDelayAfterAcknowledgementMs));
       }
       if (streamFixture?.delayMs) await new Promise(resolve => setTimeout(resolve, streamFixture.delayMs));
       const bodies = streamFixture?.bodiesByConnection;
@@ -588,6 +590,51 @@ test("accepts a streamed acknowledgement when the request later fails", async ({
   await expect.poll(() => requests.acknowledgementCompletedCount()).toBe(1);
   await expect(page.locator(".alertHeaderStats")).toContainText("0미확인");
   await expect(page.locator(".errorPanel")).toHaveCount(0);
+});
+
+test("clears a request failure when acknowledgement arrives from the stream", async ({ page }) => {
+  const occurredAt = new Date().toISOString();
+  const activeDeliveries = deliveries.map((delivery, index) => index === 0 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    progress: 0.5,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: occurredAt,
+  } : delivery);
+  const activeAlert: DeliveryAlert = {
+    id: "20000000-0000-4000-8000-000000000016",
+    deliveryId: activeDeliveries[0].id,
+    alertType: "DELAY",
+    severity: "WARNING",
+    status: "ACTIVE",
+    message: "도착 예정 시각보다 지연되고 있습니다.",
+    observedValue: 900,
+    thresholdValue: 600,
+    occurrenceCount: 1,
+    firstObservedAt: occurredAt,
+    lastObservedAt: occurredAt,
+  };
+  const acknowledgedAlert: DeliveryAlert = {
+    ...activeAlert,
+    acknowledgedAt: occurredAt,
+    acknowledgedBy: "incident-lead",
+  };
+
+  await mockOverview(page, activeDeliveries, [activeAlert], {
+    body: `event: connected\ndata: {}\n\nevent: alert-update\ndata: ${JSON.stringify(acknowledgedAlert)}\n\n`,
+    acknowledgementResponse: acknowledgedAlert,
+    acknowledgementFailuresBeforeSuccess: 1,
+    waitForAcknowledgementBeforeStream: true,
+    streamDelayAfterAcknowledgementMs: 1_000,
+  });
+  await page.goto("/console#overview");
+
+  await page.getByRole("button", { name: "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리" }).click();
+
+  await expect(page.locator(".errorPanel")).toContainText("경고 확인 처리에 실패했습니다.");
+  await expect(page.getByText(/확인 · incident-lead/)).toBeVisible();
+  await expect(page.locator(".errorPanel")).toHaveCount(0);
+  await expect(page.locator(".alertHeaderStats")).toContainText("0미확인");
 });
 
 test("preserves a resolved stream update while acknowledgement is pending", async ({ page }) => {
