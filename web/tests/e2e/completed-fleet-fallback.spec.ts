@@ -127,6 +127,7 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
     }
     return route.fulfill({ status: 404, ...common, json: { error: "not_found" } });
   });
+  return { acknowledgementRequestCount: () => acknowledgementRequestCount };
 }
 
 test("shows completed vehicles automatically when no delivery is active", async ({ page }) => {
@@ -460,7 +461,7 @@ test("acknowledges an active alert with operator trace context", async ({ page }
     acknowledgedBy: "control-tower",
   };
 
-  await mockOverview(page, activeDeliveries, [activeAlert], {
+  const requests = await mockOverview(page, activeDeliveries, [activeAlert], {
     body: "event: connected\ndata: {}\n\n",
     delayMs: 10_000,
     acknowledgementResponse: acknowledgedAlert,
@@ -468,12 +469,14 @@ test("acknowledges an active alert with operator trace context", async ({ page }
   await page.goto("/console#overview");
 
   await expect(page.locator(".alertHeaderStats")).toContainText("1미확인");
-  await page.getByRole("button", { name: "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리" }).click();
+  const acknowledgementButton = page.getByRole("button", { name: "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리" });
+  await acknowledgementButton.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
 
   await expect(page.locator(".alertHeaderStats")).toContainText("0미확인");
   await expect(page.getByText(/확인 · control-tower/)).toBeVisible();
   await expect(page.getByRole("button", { name: /TRUCK-01.*경고 확인 처리/ })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "확인 필요 1", exact: true })).toBeVisible();
+  expect(requests.acknowledgementRequestCount()).toBe(1);
 });
 
 test("recovers when alert acknowledgement initially fails", async ({ page }) => {
