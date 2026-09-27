@@ -75,11 +75,11 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
         return route.fulfill({ status: 400, ...common, json: { error: "invalid_acknowledgement" } });
       }
       acknowledgementRequestCount += 1;
+      const acknowledgementDelayMs = streamFixture.acknowledgementDelayMsById?.[alertId] || streamFixture.acknowledgementDelayMs;
+      if (acknowledgementDelayMs) await new Promise(resolve => setTimeout(resolve, acknowledgementDelayMs));
       if (acknowledgementRequestCount <= (streamFixture.acknowledgementFailuresBeforeSuccess || 0)) {
         return route.fulfill({ status: 503, ...common, json: { error: "temporarily_unavailable" } });
       }
-      const acknowledgementDelayMs = streamFixture.acknowledgementDelayMsById?.[alertId] || streamFixture.acknowledgementDelayMs;
-      if (acknowledgementDelayMs) await new Promise(resolve => setTimeout(resolve, acknowledgementDelayMs));
       return route.fulfill({ status: 200, ...common, json: acknowledgementResponse });
     }
     if (url.pathname === "/api/deliveries/page") {
@@ -529,6 +529,50 @@ test("recovers when alert acknowledgement initially fails", async ({ page }) => 
   await expect(page.locator(".errorPanel")).toHaveCount(0);
   await expect(page.locator(".alertHeaderStats")).toContainText("0미확인");
   await expect(page.getByText(/확인 · control-tower/)).toBeVisible();
+});
+
+test("accepts a streamed acknowledgement when the request later fails", async ({ page }) => {
+  const occurredAt = new Date().toISOString();
+  const activeDeliveries = deliveries.map((delivery, index) => index === 0 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    progress: 0.5,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: occurredAt,
+  } : delivery);
+  const activeAlert: DeliveryAlert = {
+    id: "20000000-0000-4000-8000-000000000015",
+    deliveryId: activeDeliveries[0].id,
+    alertType: "DELAY",
+    severity: "WARNING",
+    status: "ACTIVE",
+    message: "도착 예정 시각보다 지연되고 있습니다.",
+    observedValue: 900,
+    thresholdValue: 600,
+    occurrenceCount: 1,
+    firstObservedAt: occurredAt,
+    lastObservedAt: occurredAt,
+  };
+  const acknowledgedAlert: DeliveryAlert = {
+    ...activeAlert,
+    acknowledgedAt: occurredAt,
+    acknowledgedBy: "control-tower",
+  };
+
+  await mockOverview(page, activeDeliveries, [activeAlert], {
+    body: `event: connected\ndata: {}\n\nevent: alert-update\ndata: ${JSON.stringify(acknowledgedAlert)}\n\n`,
+    acknowledgementResponse: acknowledgedAlert,
+    acknowledgementFailuresBeforeSuccess: 1,
+    acknowledgementDelayMs: 500,
+    waitForAcknowledgementBeforeStream: true,
+  });
+  await page.goto("/console#overview");
+
+  await page.getByRole("button", { name: "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리" }).click();
+
+  await expect(page.getByText(/확인 · control-tower/)).toBeVisible();
+  await expect(page.locator(".alertHeaderStats")).toContainText("0미확인");
+  await expect(page.locator(".errorPanel")).toHaveCount(0);
 });
 
 test("preserves a resolved stream update while acknowledgement is pending", async ({ page }) => {
