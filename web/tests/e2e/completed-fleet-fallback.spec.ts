@@ -26,9 +26,10 @@ const deliveries = Array.from({ length: 6 }, (_, index) => {
   };
 });
 
-type StreamFixture = { body: string; delayMs?: number };
+type StreamFixture = { body: string; delayMs?: number; deliveryRowsAfterFirstLoad?: typeof deliveries };
 
 async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRows: DeliveryAlert[] = [], streamFixture?: StreamFixture) {
+  let deliveryRequestCount = 0;
   const routes = deliveryRows.map((delivery, index) => ({
     id: `10000000-0000-4000-8000-00000000000${index + 1}`,
     deliveryId: delivery.id,
@@ -45,7 +46,13 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
   await page.route("**/api/**", async route => {
     const url = new URL(route.request().url());
     const common = { headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" } };
-    if (url.pathname === "/api/deliveries/page") return route.fulfill({ ...common, json: { items: deliveryRows, page: 0, size: 100, totalElements: deliveryRows.length, hasMore: false } });
+    if (url.pathname === "/api/deliveries/page") {
+      deliveryRequestCount += 1;
+      const responseRows = deliveryRequestCount > 1 && streamFixture?.deliveryRowsAfterFirstLoad
+        ? streamFixture.deliveryRowsAfterFirstLoad
+        : deliveryRows;
+      return route.fulfill({ ...common, json: { items: responseRows, page: 0, size: 100, totalElements: responseRows.length, hasMore: false } });
+    }
     if (url.pathname === "/api/orders/page") return route.fulfill({ ...common, json: { items: [], page: 0, size: 100, totalElements: 0, hasMore: false } });
     if (url.pathname === "/api/alerts/page") return route.fulfill({ ...common, json: { items: alertRows, page: 0, size: 100, totalElements: alertRows.length, hasMore: false } });
     if (url.pathname === "/api/routes") {
@@ -262,6 +269,34 @@ test("updates the selected vehicle from delivery and telemetry stream events", a
 
   await page.getByRole("link", { name: "주문·차량" }).click();
   await expect(page.getByRole("button", { name: /TRUCK-01.*65% 진행.*위치 방금 수신/ })).toBeVisible();
+});
+
+test("resynchronizes deliveries after the event stream reconnects", async ({ page }) => {
+  const activeDeliveries = deliveries.map((delivery, index) => index === 0 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    currentLat: delivery.originLat + (delivery.destinationLat - delivery.originLat) * 0.2,
+    currentLon: delivery.originLon + (delivery.destinationLon - delivery.originLon) * 0.2,
+    progress: 0.2,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: new Date().toISOString(),
+  } : delivery);
+  const resynchronizedDeliveries = activeDeliveries.map((delivery, index) => index === 0 ? {
+    ...delivery,
+    currentLat: delivery.originLat + (delivery.destinationLat - delivery.originLat) * 0.8,
+    currentLon: delivery.originLon + (delivery.destinationLon - delivery.originLon) * 0.8,
+    progress: 0.8,
+  } : delivery);
+
+  await mockOverview(page, activeDeliveries, [], {
+    body: "event: connected\ndata: {}\n\n",
+    deliveryRowsAfterFirstLoad: resynchronizedDeliveries,
+  });
+  await page.goto("/console#overview");
+
+  await expect(page.locator(".focusStats")).toContainText("진행률20%");
+  await expect(page.locator(".focusStats")).toContainText("진행률80%", { timeout: 10_000 });
+  await expect(page.getByLabel("선택한 차량")).toHaveValue(resynchronizedDeliveries[0].id);
 });
 
 test("focuses the alerted vehicle from the attention summary", async ({ page }) => {
