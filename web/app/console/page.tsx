@@ -42,6 +42,7 @@ export default function Home(){
  const [items,setItems]=useState<Delivery[]>([]); const [connected,setConnected]=useState(false); const [streamWarning,setStreamWarning]=useState(false); const [workspaceErrors,setWorkspaceErrors]=useState<Map<Workspace,string>>(()=>new Map()); const [selected,setSelected]=useState<string>();
  const knownDeliveryIds=useRef(new Set<string>());
  const requestedMapIds=useRef(new Set<string>());
+ const initialFleetScopeResolved=useRef(false);
  const [fleetScope,setFleetScope]=useState<FleetScope>("LIVE"); const [fleetQuery,setFleetQuery]=useState("");
  const [freshnessNow,setFreshnessNow]=useState(()=>Date.now());
  const [routes,setRoutes]=useState<RouteSnapshot[]>([]);
@@ -91,6 +92,7 @@ export default function Home(){
  useEffect(()=>{if(connected){setStreamWarning(false);return}if(!workspaceReady)return;const timer=window.setTimeout(()=>setStreamWarning(true),5000);return()=>window.clearTimeout(timer)},[connected,workspaceReady]);
  useEffect(()=>{const timer=window.setInterval(()=>setFreshnessNow(Date.now()),30000);return()=>window.clearInterval(timer)},[]);
  const liveItems=useMemo(()=>items.filter(item=>item.status!=="DELIVERED"),[items]);
+ useEffect(()=>{if(initialFleetScopeResolved.current||items.length===0)return;initialFleetScopeResolved.current=true;if(liveItems.length===0)setFleetScope("ALL")},[items.length,liveItems.length]);
  const activeAlerts=useMemo(()=>alerts.filter(alert=>alert.status==="ACTIVE"),[alerts]);
  const overdueItems=useMemo(()=>liveItems.filter(item=>{if(!item.eta)return false;const eta=new Date(item.eta);return !Number.isNaN(eta.getTime())&&eta.getTime()<Date.now()}),[liveItems]);
  const attentionIds=useMemo(()=>new Set([...activeAlerts.map(alert=>alert.deliveryId),...overdueItems.map(item=>item.id)]),[activeAlerts,overdueItems]);
