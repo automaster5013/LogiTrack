@@ -273,3 +273,42 @@ test("focuses an overdue vehicle even when it has no active alert", async ({ pag
   await expect(page.locator(".focusStats .etaOverdue")).toContainText("예정 초과");
   await expect(page.getByRole("region", { name: /예정 초과 1대/ })).toBeVisible();
 });
+
+test("counts a vehicle with an alert and overdue ETA only once", async ({ page }) => {
+  const activeDeliveries = deliveries.map((delivery, index) => index < 2 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    currentLat: (delivery.originLat + delivery.destinationLat) / 2,
+    currentLon: (delivery.originLon + delivery.destinationLon) / 2,
+    progress: 0.4 + index * 0.1,
+    eta: index === 0 ? "2099-09-27T08:00:00Z" : "2000-01-01T00:00:00Z",
+    lastTelemetryAt: "2099-09-27T07:55:00Z",
+  } : delivery);
+  const alert: DeliveryAlert = {
+    id: "20000000-0000-4000-8000-000000000002",
+    deliveryId: activeDeliveries[1].id,
+    alertType: "DELAY",
+    severity: "CRITICAL",
+    status: "ACTIVE",
+    message: "예정 도착 시각을 초과했습니다.",
+    observedValue: 1_800,
+    thresholdValue: 600,
+    occurrenceCount: 2,
+    firstObservedAt: now,
+    lastObservedAt: now,
+  };
+
+  await mockOverview(page, activeDeliveries, [alert]);
+  await page.goto("/console#overview");
+
+  await expect(page.getByText("경고 1 · 예정 초과 1", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "확인 필요 1", exact: true })).toHaveAttribute("aria-pressed", "false");
+
+  await page.getByRole("button", { name: "지도에서 확인 →" }).click();
+
+  await expect(page.getByRole("button", { name: "확인 필요 1", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("선택한 차량")).toHaveValue(activeDeliveries[1].id);
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
+  await expect(page.locator(".focusStats")).toContainText("TRUCK-02");
+  await expect(page.locator(".focusStats .etaOverdue")).toContainText("예정 초과");
+});
