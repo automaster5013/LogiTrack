@@ -49,6 +49,10 @@ def pending_step_indexes(current_progress: float, steps: int) -> list[int]:
     return [index for index in range(1, steps + 1) if round(index / steps, 4) > current_progress]
 
 
+def telemetry_event_id(delivery_event_id: str, step_index: int) -> str:
+    return str(uuid.uuid5(uuid.UUID(delivery_event_id), f"vehicle.telemetry.v1:{step_index}"))
+
+
 def load_delivery_state(delivery_id: str, api_url: str = API_URL) -> tuple[float, str]:
     with urlopen(f"{api_url}/api/deliveries/{delivery_id}", timeout=5) as response:
         delivery = json.load(response)
@@ -75,7 +79,7 @@ def simulate(producer: Producer, event: dict) -> None:
         progress = round(index / STEPS, 4)
         status = "DELIVERED" if index == STEPS else "IN_TRANSIT"
         telemetry = {
-            "eventId": str(uuid.uuid4()), "eventType": "vehicle.telemetry.v1",
+            "eventId": telemetry_event_id(event["eventId"], index), "eventType": "vehicle.telemetry.v1",
             "occurredAt": utc_now(), "traceId": event.get("traceId", str(uuid.uuid4())), "schemaVersion": 1,
             "payload": {"deliveryId": payload["deliveryId"], "vehicleId": payload["vehicleId"],
                         "lat": point.lat, "lon": point.lon, "progress": progress,

@@ -1,5 +1,6 @@
 import sys
 import unittest
+import uuid
 from unittest import mock
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -7,11 +8,18 @@ from tempfile import TemporaryDirectory
 sys.path.insert(0, str(Path(__file__).parents[1]))
 from logitrack_sim.route import Point, distance_km, interpolate, planned_eta, sample_route
 from logitrack_sim import main
-from logitrack_sim.main import mark_healthy, pending_step_indexes, simulation_start_state, validate_config
+from logitrack_sim.main import mark_healthy, pending_step_indexes, simulation_start_state, telemetry_event_id, validate_config
 from datetime import datetime, timezone
 
 
 class RouteTest(unittest.TestCase):
+
+    def test_telemetry_event_ids_are_stable_per_delivery_event_step(self):
+        delivery_event_id = "8c9bf7fe-25f0-4d08-9a88-69dd4f1ad051"
+        first = telemetry_event_id(delivery_event_id, 1)
+        self.assertEqual(first, telemetry_event_id(delivery_event_id, 1))
+        self.assertNotEqual(first, telemetry_event_id(delivery_event_id, 2))
+        self.assertEqual(5, uuid.UUID(first).version)
 
     def test_staging_can_start_new_delivery_without_authenticated_api_read(self):
         original = main.RESUME_FROM_API
