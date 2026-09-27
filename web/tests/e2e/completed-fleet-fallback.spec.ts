@@ -32,6 +32,8 @@ type StreamFixture = {
   delayMs?: number;
   deliveryRowsAfterFirstLoad?: typeof deliveries;
   alertRowsAfterFirstLoad?: DeliveryAlert[];
+  alertRowsByRequest?: DeliveryAlert[][];
+  alertPageDelayAfterFirstLoadMs?: number;
   routeDistanceMetersAfterFirstLoad?: number;
   telemetryRows?: TelemetryPoint[];
   telemetryRowsAfterFirstLoad?: TelemetryPoint[];
@@ -50,6 +52,7 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
   let telemetryRequestCount = 0;
   let streamRequestCount = 0;
   let acknowledgementRequestCount = 0;
+  let acknowledgementCompletedCount = 0;
   const routes = deliveryRows.map((delivery, index) => ({
     id: `10000000-0000-4000-8000-00000000000${index + 1}`,
     deliveryId: delivery.id,
@@ -78,8 +81,10 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
       const acknowledgementDelayMs = streamFixture.acknowledgementDelayMsById?.[alertId] || streamFixture.acknowledgementDelayMs;
       if (acknowledgementDelayMs) await new Promise(resolve => setTimeout(resolve, acknowledgementDelayMs));
       if (acknowledgementRequestCount <= (streamFixture.acknowledgementFailuresBeforeSuccess || 0)) {
+        acknowledgementCompletedCount += 1;
         return route.fulfill({ status: 503, ...common, json: { error: "temporarily_unavailable" } });
       }
+      acknowledgementCompletedCount += 1;
       return route.fulfill({ status: 200, ...common, json: acknowledgementResponse });
     }
     if (url.pathname === "/api/deliveries/page") {
@@ -92,9 +97,9 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
     if (url.pathname === "/api/orders/page") return route.fulfill({ ...common, json: { items: [], page: 0, size: 100, totalElements: 0, hasMore: false } });
     if (url.pathname === "/api/alerts/page") {
       alertRequestCount += 1;
-      const responseRows = alertRequestCount > 1 && streamFixture?.alertRowsAfterFirstLoad
-        ? streamFixture.alertRowsAfterFirstLoad
-        : alertRows;
+      if (alertRequestCount > 1 && streamFixture?.alertPageDelayAfterFirstLoadMs) await new Promise(resolve => setTimeout(resolve, streamFixture.alertPageDelayAfterFirstLoadMs));
+      const responseRows = streamFixture?.alertRowsByRequest?.[Math.min(alertRequestCount - 1, streamFixture.alertRowsByRequest.length - 1)]
+        || (alertRequestCount > 1 && streamFixture?.alertRowsAfterFirstLoad ? streamFixture.alertRowsAfterFirstLoad : alertRows);
       return route.fulfill({ ...common, json: { items: responseRows, page: 0, size: 100, totalElements: responseRows.length, hasMore: false } });
     }
     if (url.pathname === "/api/routes") {
@@ -127,7 +132,11 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
     }
     return route.fulfill({ status: 404, ...common, json: { error: "not_found" } });
   });
-  return { acknowledgementRequestCount: () => acknowledgementRequestCount };
+  return {
+    acknowledgementRequestCount: () => acknowledgementRequestCount,
+    acknowledgementCompletedCount: () => acknowledgementCompletedCount,
+    alertRequestCount: () => alertRequestCount,
+  };
 }
 
 test("shows completed vehicles automatically when no delivery is active", async ({ page }) => {
@@ -463,12 +472,15 @@ test("acknowledges an active alert with operator trace context", async ({ page }
 
   const requests = await mockOverview(page, activeDeliveries, [activeAlert], {
     body: "event: connected\ndata: {}\n\n",
-    delayMs: 10_000,
+    bodiesByConnection: ["event: connected\ndata: {}\n\n", "event: connected\ndata: {}\n\n"],
+    alertRowsByRequest: [[activeAlert], [activeAlert], [acknowledgedAlert]],
+    alertPageDelayAfterFirstLoadMs: 800,
     acknowledgementResponse: acknowledgedAlert,
   });
   await page.goto("/console#overview");
 
   await expect(page.locator(".alertHeaderStats")).toContainText("1미확인");
+  await expect.poll(() => requests.alertRequestCount()).toBeGreaterThan(1);
   const acknowledgementButton = page.getByRole("button", { name: "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리" });
   await acknowledgementButton.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
 
@@ -477,6 +489,8 @@ test("acknowledges an active alert with operator trace context", async ({ page }
   await expect(page.getByRole("button", { name: /TRUCK-01.*경고 확인 처리/ })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "확인 필요 1", exact: true })).toBeVisible();
   expect(requests.acknowledgementRequestCount()).toBe(1);
+  await page.waitForTimeout(1_000);
+  await expect(page.getByText(/확인 · control-tower/)).toBeVisible();
 });
 
 test("recovers when alert acknowledgement initially fails", async ({ page }) => {
@@ -559,11 +573,11 @@ test("accepts a streamed acknowledgement when the request later fails", async ({
     acknowledgedBy: "control-tower",
   };
 
-  await mockOverview(page, activeDeliveries, [activeAlert], {
+  const requests = await mockOverview(page, activeDeliveries, [activeAlert], {
     body: `event: connected\ndata: {}\n\nevent: alert-update\ndata: ${JSON.stringify(acknowledgedAlert)}\n\n`,
     acknowledgementResponse: acknowledgedAlert,
     acknowledgementFailuresBeforeSuccess: 1,
-    acknowledgementDelayMs: 500,
+    acknowledgementDelayMs: 3_000,
     waitForAcknowledgementBeforeStream: true,
   });
   await page.goto("/console#overview");
@@ -571,6 +585,7 @@ test("accepts a streamed acknowledgement when the request later fails", async ({
   await page.getByRole("button", { name: "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리" }).click();
 
   await expect(page.getByText(/확인 · control-tower/)).toBeVisible();
+  await expect.poll(() => requests.acknowledgementCompletedCount()).toBe(1);
   await expect(page.locator(".alertHeaderStats")).toContainText("0미확인");
   await expect(page.locator(".errorPanel")).toHaveCount(0);
 });
