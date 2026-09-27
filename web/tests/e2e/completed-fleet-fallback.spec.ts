@@ -271,6 +271,54 @@ test("updates the selected vehicle from delivery and telemetry stream events", a
   await expect(page.getByRole("button", { name: /TRUCK-01.*65% 진행.*위치 방금 수신/ })).toBeVisible();
 });
 
+test("surfaces a new alert from the event stream across the attention views", async ({ page }) => {
+  const occurredAt = new Date().toISOString();
+  const activeDeliveries = deliveries.map((delivery, index) => index < 2 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    currentLat: (delivery.originLat + delivery.destinationLat) / 2,
+    currentLon: (delivery.originLon + delivery.destinationLon) / 2,
+    progress: 0.4 + index * 0.1,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: occurredAt,
+  } : delivery);
+  const alert: DeliveryAlert = {
+    id: "20000000-0000-4000-8000-000000000009",
+    deliveryId: activeDeliveries[1].id,
+    alertType: "ROUTE_DEVIATION",
+    severity: "CRITICAL",
+    status: "ACTIVE",
+    message: "계획 경로에서 크게 벗어났습니다.",
+    observedValue: 1_800,
+    thresholdValue: 500,
+    occurrenceCount: 2,
+    firstObservedAt: occurredAt,
+    lastObservedAt: occurredAt,
+  };
+  const streamBody = [
+    "event: connected\ndata: {}\n\n",
+    `event: alert-update\ndata: ${JSON.stringify(alert)}\n\n`,
+  ].join("");
+
+  await mockOverview(page, activeDeliveries, [], { body: streamBody, delayMs: 500 });
+  await page.goto("/console#overview");
+
+  await expect(page.getByText("현재 이상 없음")).toBeVisible();
+  await expect(page.getByText("경고 1건")).toBeVisible();
+  await expect(page.getByRole("button", { name: "확인 필요 1", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByRole("button", { name: "TRUCK-02 주문 ORD-DEMO-2 출발지 2에서 도착지 2 지도에서 보기" })).toBeVisible();
+
+  await page.getByRole("button", { name: "지도에서 확인 →" }).click();
+
+  await expect(page.getByRole("button", { name: "확인 필요 1", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("선택한 차량")).toHaveValue(activeDeliveries[1].id);
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
+
+  await page.getByRole("link", { name: "주문·차량" }).click();
+  await expect(page.getByRole("button", { name: /TRUCK-02.*경고 1건/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /TRUCK-01/ })).toHaveCount(0);
+});
+
 test("resynchronizes deliveries after the event stream reconnects", async ({ page }) => {
   const activeDeliveries = deliveries.map((delivery, index) => index === 0 ? {
     ...delivery,
