@@ -17,6 +17,7 @@ API_URL = os.getenv("API_URL", "http://localhost:8080")
 INTERVAL = float(os.getenv("SIMULATION_INTERVAL_SECONDS", "1"))
 STEPS = int(os.getenv("SIMULATION_STEPS", "20"))
 WORKERS = int(os.getenv("SIMULATION_MAX_WORKERS", "8"))
+RESUME_FROM_API = os.getenv("SIMULATION_RESUME_FROM_API", "true").lower()
 HEALTH_FILE = Path(os.getenv("SIMULATOR_HEALTH_FILE", "/tmp/logitrack-simulator-heartbeat"))
 
 
@@ -29,6 +30,8 @@ def validate_config(interval: float, steps: int, workers: int) -> None:
         raise ValueError("simulation workers must be between 1 and 100")
     if interval * steps > 120:
         raise ValueError("a simulation may run for at most 120 seconds")
+    if RESUME_FROM_API not in {"true", "false"}:
+        raise ValueError("SIMULATION_RESUME_FROM_API must be true or false")
 
 
 validate_config(INTERVAL, STEPS, WORKERS)
@@ -52,9 +55,15 @@ def load_delivery_state(delivery_id: str, api_url: str = API_URL) -> tuple[float
     return float(delivery["progress"]), str(delivery["status"])
 
 
+def simulation_start_state(delivery_id: str) -> tuple[float, str]:
+    if RESUME_FROM_API == "false":
+        return 0.0, "CREATED"
+    return load_delivery_state(delivery_id)
+
+
 def simulate(producer: Producer, event: dict) -> None:
     payload = event["payload"]
-    current_progress, current_status = load_delivery_state(payload["deliveryId"])
+    current_progress, current_status = simulation_start_state(payload["deliveryId"])
     if current_status == "DELIVERED":
         return
     origin, destination = Point(**payload["origin"]), Point(**payload["destination"])

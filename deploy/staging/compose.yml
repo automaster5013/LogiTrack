@@ -110,6 +110,7 @@ services:
       SIMULATION_INTERVAL_SECONDS: "2"
       SIMULATION_STEPS: "20"
       SIMULATION_MAX_WORKERS: "4"
+      SIMULATION_RESUME_FROM_API: "false"
       SIMULATOR_HEALTH_FILE: /tmp/logitrack-simulator-heartbeat
     depends_on:
       kafka-init: {condition: service_completed_successfully}
