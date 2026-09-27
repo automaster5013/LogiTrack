@@ -184,6 +184,10 @@ jobs:
         run: npm ci
       - name: Build and type-check production console
         run: npm run build
+      - name: Install Chromium for browser regression tests
+        run: npx playwright install --with-deps chromium
+      - name: Verify completed-fleet fallback in the browser
+        run: npm run test:e2e
 
   containers:
     name: Production images and supply-chain security
