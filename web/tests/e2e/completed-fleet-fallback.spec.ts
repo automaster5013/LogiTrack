@@ -46,7 +46,10 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
     if (url.pathname === "/api/deliveries/page") return route.fulfill({ ...common, json: { items: deliveryRows, page: 0, size: 100, totalElements: deliveryRows.length, hasMore: false } });
     if (url.pathname === "/api/orders/page") return route.fulfill({ ...common, json: { items: [], page: 0, size: 100, totalElements: 0, hasMore: false } });
     if (url.pathname === "/api/alerts/page") return route.fulfill({ ...common, json: { items: alertRows, page: 0, size: 100, totalElements: alertRows.length, hasMore: false } });
-    if (url.pathname === "/api/routes") return route.fulfill({ ...common, json: routes });
+    if (url.pathname === "/api/routes") {
+      const requestedIds = new Set((url.searchParams.get("deliveryIds") || "").split(",").filter(Boolean));
+      return route.fulfill({ ...common, json: requestedIds.size ? routes.filter(item => requestedIds.has(item.deliveryId)) : routes });
+    }
     if (url.pathname === "/api/telemetry/points" || url.pathname === "/api/reports/daily-kpis") return route.fulfill({ ...common, json: [] });
     if (url.pathname === "/api/operations/dlq-page") return route.fulfill({ ...common, json: { items: [], page: 0, size: 1, totalElements: 0, hasMore: false } });
     if (url.pathname === "/api/stream/deliveries") return route.fulfill({ status: 200, contentType: "text/event-stream", body: "event: connected\ndata: {}\n\n", headers: { "Access-Control-Allow-Origin": "*" } });
@@ -66,6 +69,46 @@ test("shows completed vehicles automatically when no delivery is active", async 
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(6);
   await expect(page.locator(".focusStats")).toContainText("26.0 km");
   await expect(page.locator(".focusStats")).toContainText("TRUCK-01");
+});
+
+test("prioritizes a searched vehicle beyond the fifty vehicle map limit", async ({ page }) => {
+  const denseDeliveries = Array.from({ length: 51 }, (_, index) => {
+    const template = deliveries[index % deliveries.length];
+    const sequence = (index + 1).toString().padStart(2, "0");
+    return {
+      ...template,
+      id: `dense-delivery-${sequence}`,
+      orderNumber: `ORD-DENSE-${sequence}`,
+      vehicleId: `TRUCK-${sequence}`,
+      originLat: template.originLat + index * 0.001,
+      originLon: template.originLon + index * 0.001,
+      destinationLat: template.destinationLat + index * 0.001,
+      destinationLon: template.destinationLon + index * 0.001,
+      currentLat: template.destinationLat + index * 0.001,
+      currentLon: template.destinationLon + index * 0.001,
+    };
+  });
+
+  await mockOverview(page, denseDeliveries);
+  await page.goto("/console#overview");
+
+  await expect(page.getByText("최근 50건을 지도에 표시합니다 · 검색하면 결과를 우선 표시합니다")).toBeVisible();
+  await expect(page.getByRole("region", { name: /^50대의 차량 운행 지도/ })).toBeVisible();
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(51);
+
+  await page.getByRole("searchbox", { name: "검색", exact: true }).fill("TRUCK-51");
+
+  await expect(page.getByLabel("선택한 차량")).toHaveValue(denseDeliveries[50].id);
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
+  await expect(page.locator(".focusStats")).toContainText("TRUCK-51");
+  await expect(page.locator(".focusStats")).toContainText("76.0 km");
+  await expect(page.getByRole("region", { name: /^1대의 차량 운행 지도/ })).toBeVisible();
+
+  await page.getByRole("button", { name: "검색 지우기" }).click();
+
+  await expect(page.getByLabel("선택한 차량")).toHaveValue(denseDeliveries[50].id);
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(51);
+  await expect(page.getByRole("region", { name: /^50대의 차량 운행 지도/ })).toBeVisible();
 });
 
 test("keeps the map and fleet list in sync when switching scopes", async ({ page }) => {
