@@ -100,6 +100,35 @@ test("keeps the map and fleet list in sync when switching scopes", async ({ page
   await expect(page.locator(".focusStats")).toContainText("TRUCK-01");
 });
 
+test("keeps fleet search synchronized across the map and vehicle list", async ({ page }) => {
+  await mockOverview(page, deliveries);
+  await page.goto("/console#overview");
+
+  await page.getByRole("searchbox", { name: "검색", exact: true }).fill("TRUCK-03");
+
+  await expect(page.getByText("1건", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("선택한 차량")).toHaveValue(deliveries[2].id);
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
+  await expect(page.locator(".focusStats")).toContainText("TRUCK-03");
+
+  await page.getByRole("link", { name: "주문·차량" }).click();
+
+  await expect(page.getByRole("searchbox", { name: "차량 검색" })).toHaveValue("TRUCK-03");
+  await expect(page.getByText("1 / 1건 표시 · 전체 6건")).toBeVisible();
+  await expect(page.getByRole("button", { name: /TRUCK-03/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /TRUCK-01/ })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "검색 초기화" }).click();
+
+  await expect(page.getByRole("searchbox", { name: "차량 검색" })).toHaveValue("");
+  await expect(page.getByText("6 / 6건 표시 · 전체 6건")).toBeVisible();
+  await expect(page.getByRole("button", { name: /TRUCK-01/ })).toBeVisible();
+
+  await page.getByRole("link", { name: "상황판" }).click();
+  await expect(page.getByRole("searchbox", { name: "검색", exact: true })).toHaveValue("");
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(6);
+});
+
 test("keeps the live scope when an active delivery exists", async ({ page }) => {
   const activeDeliveries = deliveries.map((delivery, index) => index === 0 ? {
     ...delivery,
