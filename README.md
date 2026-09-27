@@ -181,7 +181,7 @@ API의 기본 HTTP 수용량은 Tomcat worker 128개, 동시 연결 512개, 대�
 
 Kafka telemetry consumer 부재 경보는 유휴 상태에서 생성되지 않을 수 있는 lag 지표가 아니라 consumer의 partition assignment 지표 자체가 사라졌는지를 사용하므로, 입력이 잠시 없을 때 오탐하지 않습니다.
 
-GPS simulator는 기본적으로 delivery event 처리 시작 시 API에서 현재 진행률을 확인하고 이미 적용된 step을 건너뜁니다. 따라서 로컬 simulator 재시작이나 수동 telemetry 부하 검증 후에도 진행률을 0부터 다시 발행해 DLQ를 오염시키지 않습니다. 인증이 활성화된 staging은 simulator에 API 자격 증명을 배포하지 않으며 `SIMULATION_RESUME_FROM_API=false`로 신규 `delivery.created` 이벤트를 0%에서 직접 시작합니다. 이 격리 설정은 staging 구성 회귀 검사로 보호합니다.
+GPS simulator는 기본적으로 delivery event 처리 시작 시 API에서 현재 진행률을 확인하고 이미 적용된 step을 건너뜁니다. 따라서 로컬 simulator 재시작이나 수동 telemetry 부하 검증 후에도 진행률을 0부터 다시 발행해 DLQ를 오염시키지 않습니다. 인증이 활성화된 staging은 simulator에 API 자격 증명을 배포하지 않으며 `SIMULATION_RESUME_FROM_API=false`로 신규 `delivery.created` 이벤트를 0%에서 직접 시작합니다. 각 telemetry event ID는 원본 delivery event ID와 step 번호에서 결정론적으로 생성하므로 같은 생성 이벤트가 재전달되어도 API가 이미 처리한 step을 멱등하게 무시합니다. 이 격리 설정은 staging 구성 회귀 검사로 보호합니다.
 
 DLQ 단건·batch replay smoke는 의도적으로 잘못된 payload가 다시 격리되는 것까지 확인한 뒤 해당 실행의 원본·재격리 row와 연관 감사를 제거하므로, 반복 검증 자체가 운영 backlog 경보를 누적시키지 않습니다.
 
