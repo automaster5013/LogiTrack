@@ -15,17 +15,34 @@ VALIDATION_COMMANDS = (
 )
 
 
+def validation_block(document: str, marker: str) -> tuple[str, ...]:
+    marker_index = document.find(marker)
+    if marker_index < 0:
+        raise AssertionError(f"validation section marker is missing: {marker}")
+
+    fence_start = document.find("```", marker_index + len(marker))
+    if fence_start < 0:
+        raise AssertionError(f"validation code block is missing after: {marker}")
+    content_start = document.find("\n", fence_start)
+    fence_end = document.find("```", content_start + 1)
+    if content_start < 0 or fence_end < 0:
+        raise AssertionError(f"validation code block is not closed after: {marker}")
+
+    return tuple(line.strip() for line in document[content_start + 1 : fence_end].splitlines() if line.strip())
+
+
 def main() -> None:
     guide = CONTRIBUTING_PATH.read_text(encoding="utf-8")
     readme = README_PATH.read_text(encoding="utf-8")
     package = json.loads(PACKAGE_PATH.read_text(encoding="utf-8"))
     scripts = package.get("scripts", {})
 
-    for command in VALIDATION_COMMANDS:
-        if command not in guide:
-            raise AssertionError(f"contributor guide must include the core validation command: {command}")
-        if command not in readme:
-            raise AssertionError(f"README local validation must include the core validation command: {command}")
+    guide_commands = validation_block(guide, "Run the checks relevant to your change before opening a pull request:")
+    readme_commands = validation_block(readme, "## 로컬 검증")
+    if guide_commands != VALIDATION_COMMANDS:
+        raise AssertionError("contributor validation block must contain the ordered core commands only")
+    if readme_commands != VALIDATION_COMMANDS:
+        raise AssertionError("README local validation block must contain the ordered core commands only")
     if "npm test" in guide or "npm run test" in guide:
         raise AssertionError("contributor guide references a web test script that does not exist")
     if "build" not in scripts:
