@@ -26,7 +26,9 @@ const deliveries = Array.from({ length: 6 }, (_, index) => {
   };
 });
 
-async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRows: DeliveryAlert[] = []) {
+type StreamFixture = { body: string; delayMs?: number };
+
+async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRows: DeliveryAlert[] = [], streamFixture?: StreamFixture) {
   const routes = deliveryRows.map((delivery, index) => ({
     id: `10000000-0000-4000-8000-00000000000${index + 1}`,
     deliveryId: delivery.id,
@@ -52,7 +54,10 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
     }
     if (url.pathname === "/api/telemetry/points" || url.pathname === "/api/reports/daily-kpis") return route.fulfill({ ...common, json: [] });
     if (url.pathname === "/api/operations/dlq-page") return route.fulfill({ ...common, json: { items: [], page: 0, size: 1, totalElements: 0, hasMore: false } });
-    if (url.pathname === "/api/stream/deliveries") return route.fulfill({ status: 200, contentType: "text/event-stream", body: "event: connected\ndata: {}\n\n", headers: { "Access-Control-Allow-Origin": "*" } });
+    if (url.pathname === "/api/stream/deliveries") {
+      if (streamFixture?.delayMs) await new Promise(resolve => setTimeout(resolve, streamFixture.delayMs));
+      return route.fulfill({ status: 200, contentType: "text/event-stream", body: streamFixture?.body || "event: connected\ndata: {}\n\n", headers: { "Access-Control-Allow-Origin": "*" } });
+    }
     return route.fulfill({ status: 404, ...common, json: { error: "not_found" } });
   });
 }
@@ -214,6 +219,49 @@ test("keeps the live scope when an active delivery exists", async ({ page }) => 
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
   await expect(page.locator(".focusStats")).toContainText("26.0 km");
   await expect(page.locator(".focusStats")).toContainText("TRUCK-01");
+});
+
+test("updates the selected vehicle from delivery and telemetry stream events", async ({ page }) => {
+  const occurredAt = new Date().toISOString();
+  const activeDeliveries = deliveries.map((delivery, index) => index === 0 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    currentLat: delivery.originLat + (delivery.destinationLat - delivery.originLat) * 0.2,
+    currentLon: delivery.originLon + (delivery.destinationLon - delivery.originLon) * 0.2,
+    progress: 0.2,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: occurredAt,
+  } : delivery);
+  const updatedDelivery = {
+    ...activeDeliveries[0],
+    currentLat: activeDeliveries[0].originLat + (activeDeliveries[0].destinationLat - activeDeliveries[0].originLat) * 0.65,
+    currentLon: activeDeliveries[0].originLon + (activeDeliveries[0].destinationLon - activeDeliveries[0].originLon) * 0.65,
+    progress: 0.65,
+    lastTelemetryAt: occurredAt,
+  };
+  const telemetryPoint = {
+    eventId: "30000000-0000-4000-8000-000000000001",
+    deliveryId: updatedDelivery.id,
+    vehicleId: updatedDelivery.vehicleId,
+    latitude: updatedDelivery.currentLat,
+    longitude: updatedDelivery.currentLon,
+    progress: updatedDelivery.progress,
+    occurredAt,
+  };
+  const streamBody = [
+    "event: connected\ndata: {}\n\n",
+    `event: delivery-update\ndata: ${JSON.stringify(updatedDelivery)}\n\n`,
+    `event: telemetry-point\ndata: ${JSON.stringify(telemetryPoint)}\n\n`,
+  ].join("");
+
+  await mockOverview(page, activeDeliveries, [], { body: streamBody, delayMs: 500 });
+  await page.goto("/console#overview");
+
+  await expect(page.getByLabel("선택한 차량")).toHaveValue(updatedDelivery.id);
+  await expect(page.locator(".focusStats")).toContainText("진행률65%");
+
+  await page.getByRole("link", { name: "주문·차량" }).click();
+  await expect(page.getByRole("button", { name: /TRUCK-01.*65% 진행.*위치 방금 수신/ })).toBeVisible();
 });
 
 test("focuses the alerted vehicle from the attention summary", async ({ page }) => {
