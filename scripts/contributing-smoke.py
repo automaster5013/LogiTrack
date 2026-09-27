@@ -5,6 +5,7 @@ from pathlib import Path
 CONTRIBUTING_PATH = Path("CONTRIBUTING.md")
 PACKAGE_PATH = Path("web/package.json")
 WEB_VALIDATION_COMMAND = "Push-Location web; npm ci; npm run build; Pop-Location"
+MARKDOWN_LINK_COMMAND = "python scripts/markdown-link-smoke.py"
 
 
 def main() -> None:
@@ -14,6 +15,8 @@ def main() -> None:
 
     if WEB_VALIDATION_COMMAND not in guide:
         raise AssertionError("contributor web validation must match the locked CI build")
+    if MARKDOWN_LINK_COMMAND not in guide:
+        raise AssertionError("contributor guide must include the CI Markdown link validation")
     if "npm test" in guide or "npm run test" in guide:
         raise AssertionError("contributor guide references a web test script that does not exist")
     if "build" not in scripts:
