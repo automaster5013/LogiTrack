@@ -43,6 +43,7 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries) {
     const url = new URL(route.request().url());
     const common = { headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" } };
     if (url.pathname === "/api/deliveries/page") return route.fulfill({ ...common, json: { items: deliveryRows, page: 0, size: 100, totalElements: deliveryRows.length, hasMore: false } });
+    if (url.pathname === "/api/orders/page") return route.fulfill({ ...common, json: { items: [], page: 0, size: 100, totalElements: 0, hasMore: false } });
     if (url.pathname === "/api/alerts/page") return route.fulfill({ ...common, json: { items: [], page: 0, size: 100, totalElements: 0, hasMore: false } });
     if (url.pathname === "/api/routes") return route.fulfill({ ...common, json: routes });
     if (url.pathname === "/api/telemetry/points" || url.pathname === "/api/reports/daily-kpis") return route.fulfill({ ...common, json: [] });
@@ -63,6 +64,39 @@ test("shows completed vehicles automatically when no delivery is active", async 
   await expect(page.getByLabel("선택한 차량")).toHaveValue(deliveries[0].id);
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(6);
   await expect(page.locator(".focusStats")).toContainText("26.0 km");
+  await expect(page.locator(".focusStats")).toContainText("TRUCK-01");
+});
+
+test("keeps the map and fleet list in sync when switching scopes", async ({ page }) => {
+  await mockOverview(page, deliveries);
+  await page.goto("/console#overview");
+
+  const liveScopeButtons = page.getByRole("button", { name: "진행 중 0", exact: true });
+  const allScopeButtons = page.getByRole("button", { name: "전체 6", exact: true });
+  await expect(allScopeButtons).toHaveAttribute("aria-pressed", "true");
+
+  await liveScopeButtons.first().click();
+
+  await expect(liveScopeButtons).toHaveAttribute("aria-pressed", "true");
+  await expect(allScopeButtons).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByText("표시할 차량이 없습니다")).toBeVisible();
+  await expect(page.getByLabel("선택한 차량")).toHaveCount(0);
+
+  await page.getByRole("link", { name: "주문·차량" }).click();
+  await expect(page.getByRole("heading", { name: "차량 운행 현황" })).toBeVisible();
+  await expect(page.getByText("현재 범위와 검색 조건에 맞는 배송이 없습니다.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "진행 중 0", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+  await page.getByRole("button", { name: "전체 6", exact: true }).click();
+
+  await expect(page.getByRole("button", { name: "전체 6", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "진행 중 0", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByText("6 / 6건 표시 · 전체 6건")).toBeVisible();
+  await expect(page.getByRole("button", { name: /TRUCK-01/ })).toBeVisible();
+
+  await page.getByRole("link", { name: "상황판" }).click();
+  await expect(page.getByLabel("선택한 차량")).toHaveValue(deliveries[0].id);
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(6);
   await expect(page.locator(".focusStats")).toContainText("TRUCK-01");
 });
 
