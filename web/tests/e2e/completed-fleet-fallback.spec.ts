@@ -37,6 +37,8 @@ type StreamFixture = {
   telemetryRowsAfterFirstLoad?: TelemetryPoint[];
   acknowledgementResponse?: DeliveryAlert;
   acknowledgementFailuresBeforeSuccess?: number;
+  acknowledgementDelayMs?: number;
+  waitForAcknowledgementBeforeStream?: boolean;
 };
 
 async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRows: DeliveryAlert[] = [], streamFixture?: StreamFixture) {
@@ -72,6 +74,7 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
       if (acknowledgementRequestCount <= (streamFixture.acknowledgementFailuresBeforeSuccess || 0)) {
         return route.fulfill({ status: 503, ...common, json: { error: "temporarily_unavailable" } });
       }
+      if (streamFixture.acknowledgementDelayMs) await new Promise(resolve => setTimeout(resolve, streamFixture.acknowledgementDelayMs));
       return route.fulfill({ status: 200, ...common, json: streamFixture.acknowledgementResponse });
     }
     if (url.pathname === "/api/deliveries/page") {
@@ -109,6 +112,9 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
     if (url.pathname === "/api/operations/dlq-page") return route.fulfill({ ...common, json: { items: [], page: 0, size: 1, totalElements: 0, hasMore: false } });
     if (url.pathname === "/api/stream/deliveries") {
       streamRequestCount += 1;
+      if (streamFixture?.waitForAcknowledgementBeforeStream) {
+        while (acknowledgementRequestCount === 0) await new Promise(resolve => setTimeout(resolve, 10));
+      }
       if (streamFixture?.delayMs) await new Promise(resolve => setTimeout(resolve, streamFixture.delayMs));
       const bodies = streamFixture?.bodiesByConnection;
       const body = bodies?.[Math.min(streamRequestCount - 1, bodies.length - 1)] || streamFixture?.body || "event: connected\ndata: {}\n\n";
@@ -514,6 +520,59 @@ test("recovers when alert acknowledgement initially fails", async ({ page }) => 
 
   await expect(page.locator(".errorPanel")).toHaveCount(0);
   await expect(page.locator(".alertHeaderStats")).toContainText("0미확인");
+  await expect(page.getByText(/확인 · control-tower/)).toBeVisible();
+});
+
+test("preserves a resolved stream update while acknowledgement is pending", async ({ page }) => {
+  const occurredAt = new Date().toISOString();
+  const activeDeliveries = deliveries.map((delivery, index) => index === 0 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    currentLat: (delivery.originLat + delivery.destinationLat) / 2,
+    currentLon: (delivery.originLon + delivery.destinationLon) / 2,
+    progress: 0.5,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: occurredAt,
+  } : delivery);
+  const activeAlert: DeliveryAlert = {
+    id: "20000000-0000-4000-8000-000000000014",
+    deliveryId: activeDeliveries[0].id,
+    alertType: "ROUTE_DEVIATION",
+    severity: "CRITICAL",
+    status: "ACTIVE",
+    message: "계획 경로에서 크게 벗어났습니다.",
+    observedValue: 1_800,
+    thresholdValue: 500,
+    occurrenceCount: 2,
+    firstObservedAt: occurredAt,
+    lastObservedAt: occurredAt,
+  };
+  const acknowledgedAlert: DeliveryAlert = {
+    ...activeAlert,
+    acknowledgedAt: occurredAt,
+    acknowledgedBy: "control-tower",
+  };
+  const resolvedAlert: DeliveryAlert = {
+    ...activeAlert,
+    status: "RESOLVED",
+    message: "계획 경로로 복귀했습니다.",
+    resolvedAt: occurredAt,
+  };
+
+  await mockOverview(page, activeDeliveries, [activeAlert], {
+    body: `event: connected\ndata: {}\n\nevent: alert-update\ndata: ${JSON.stringify(resolvedAlert)}\n\n`,
+    acknowledgementResponse: acknowledgedAlert,
+    acknowledgementDelayMs: 500,
+    waitForAcknowledgementBeforeStream: true,
+  });
+  await page.goto("/console#overview");
+
+  await page.getByRole("button", { name: "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리" }).click();
+
+  await expect(page.getByText("현재 이상 없음")).toBeVisible();
+  await page.getByRole("button", { name: "전체 이력 1" }).click();
+  await expect(page.getByText("계획 경로로 복귀했습니다.")).toBeVisible();
+  await expect(page.getByText(/해결됨/)).toBeVisible();
   await expect(page.getByText(/확인 · control-tower/)).toBeVisible();
 });
 
