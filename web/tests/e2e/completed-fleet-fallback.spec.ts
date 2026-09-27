@@ -129,6 +129,28 @@ test("keeps fleet search synchronized across the map and vehicle list", async ({
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(6);
 });
 
+test("shows recovery guidance when fleet search has no results", async ({ page }) => {
+  await mockOverview(page, deliveries);
+  await page.goto("/console#overview");
+
+  const search = page.getByRole("searchbox", { name: "검색", exact: true });
+  await search.fill("TRUCK-99");
+
+  await expect(page.getByText("0건", { exact: true })).toBeVisible();
+  await expect(page.getByText("표시할 차량이 없습니다")).toBeVisible();
+  await expect(page.getByText("“TRUCK-99” 검색 결과가 없습니다. 검색어를 지우거나 범위를 전환해 주세요.")).toBeVisible();
+  await expect(page.getByLabel("선택한 차량")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: /^0대의 차량 운행 지도/ })).toBeVisible();
+
+  await page.getByRole("button", { name: "검색 지우기" }).click();
+
+  await expect(search).toHaveValue("");
+  await expect(page.getByText("0건", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("선택한 차량")).toHaveValue(deliveries[0].id);
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(6);
+  await expect(page.locator(".focusStats")).toContainText("TRUCK-01");
+});
+
 test("keeps the live scope when an active delivery exists", async ({ page }) => {
   const activeDeliveries = deliveries.map((delivery, index) => index === 0 ? {
     ...delivery,
