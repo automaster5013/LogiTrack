@@ -36,6 +36,7 @@ Run the checks relevant to your change before opening a pull request:
 python -m unittest discover simulator/tests
 python -m unittest discover analytics/tests
 python scripts/compose-config-smoke.py
+python scripts/markdown-link-smoke.py
 pwsh ./scripts/domain-coverage.ps1
 Push-Location web; npm ci; npm run build; Pop-Location
 ```

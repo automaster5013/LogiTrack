@@ -88,6 +88,8 @@ jobs:
         run: python scripts/clusterfuzzlite-workflow-smoke.py
       - name: Validate repository license contract
         run: python scripts/license-smoke.py
+      - name: Validate local Markdown links
+        run: python scripts/markdown-link-smoke.py
       - name: Validate contributor verification commands
         run: python scripts/contributing-smoke.py
       - name: Validate private vulnerability disclosure policy
