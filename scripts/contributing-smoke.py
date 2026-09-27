@@ -21,10 +21,12 @@ def validation_block(document: str, marker: str, language: str) -> tuple[str, ..
         raise AssertionError(f"validation section marker must occur exactly once: {marker}")
     marker_index = document.index(marker)
     section_start = marker_index + len(marker)
-    section_end = document.find("\n## ", section_start)
-    section = document[section_start : section_end if section_end >= 0 else len(document)]
+    next_section = re.search(r"(?m)^#{1,2}(?:[ \t]+|$)", document[section_start:])
+    section_end = section_start + next_section.start() if next_section else len(document)
+    section = document[section_start:section_end]
     block = re.match(
-        rf"\A[\t \r\n]*```{re.escape(language)}\r?\n(?P<body>.*?)\r?\n```",
+        rf"\A[\t \r\n]*```{re.escape(language)}[ \t]*\r?\n"
+        rf"(?P<body>.*?)\r?\n```[ \t]*(?:\r?\n|\Z)",
         section,
         flags=re.DOTALL,
     )
@@ -33,7 +35,30 @@ def validation_block(document: str, marker: str, language: str) -> tuple[str, ..
     return tuple(line.strip() for line in block.group("body").splitlines() if line.strip())
 
 
+def validate_parser_contract() -> None:
+    marker = "## Validation"
+    expected = ("first", "second")
+    valid = "# Guide\n\n## Validation\n\n```bash\nfirst\nsecond\n```\n\n## Next\n"
+    if validation_block(valid, marker, "bash") != expected:
+        raise AssertionError("validation block parser rejected its valid contract fixture")
+
+    invalid_documents = (
+        valid.replace("```bash", "```powershell", 1),
+        valid.replace("\n\n```bash", "\n\nprose\n\n```bash", 1),
+        "# Guide\n\n## Validation\n\n# Other\n\n```bash\nfirst\nsecond\n```\n",
+        valid.replace("\n```\n\n## Next", "\n```trailing\n\n## Next", 1),
+        f"{valid}\n{marker}\n",
+    )
+    for invalid in invalid_documents:
+        try:
+            validation_block(invalid, marker, "bash")
+        except AssertionError:
+            continue
+        raise AssertionError("validation block parser accepted an invalid contract fixture")
+
+
 def main() -> None:
+    validate_parser_contract()
     guide = CONTRIBUTING_PATH.read_text(encoding="utf-8")
     readme = README_PATH.read_text(encoding="utf-8")
     package = json.loads(PACKAGE_PATH.read_text(encoding="utf-8"))
