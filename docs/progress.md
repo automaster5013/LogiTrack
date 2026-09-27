@@ -430,3 +430,4 @@
 - Markdown 섹션 링크를 GitHub 제목 ID와 대조하고 중복 제목 접미사까지 검증해 제목 변경으로 깨진 문서 내 탐색 경로 차단
 - README와 기여 가이드에 동일한 Markdown 링크 검증 명령을 제공하고 문서 계약 검사로 로컬·CI 절차 불일치 방지
 - README와 기여 가이드의 핵심 로컬 검증 명령을 simulator·analytics·Compose·Markdown·API coverage·웹 build까지 일치시켜 변경 영역별 필수 검증 누락 방지
+- 문서 전체 문자열 검색이 아니라 실제 로컬 검증 코드 블록의 정확한 명령 집합과 순서를 검사해 다른 문맥의 중복 명령으로 인한 위양성 차단
