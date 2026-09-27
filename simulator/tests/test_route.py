@@ -1,15 +1,27 @@
 import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 from logitrack_sim.route import Point, distance_km, interpolate, planned_eta, sample_route
-from logitrack_sim.main import mark_healthy, pending_step_indexes, validate_config
+from logitrack_sim import main
+from logitrack_sim.main import mark_healthy, pending_step_indexes, simulation_start_state, validate_config
 from datetime import datetime, timezone
 
 
 class RouteTest(unittest.TestCase):
+
+    def test_staging_can_start_new_delivery_without_authenticated_api_read(self):
+        original = main.RESUME_FROM_API
+        try:
+            main.RESUME_FROM_API = "false"
+            with mock.patch.object(main, "load_delivery_state") as loader:
+                self.assertEqual((0.0, "CREATED"), simulation_start_state("delivery-1"))
+                loader.assert_not_called()
+        finally:
+            main.RESUME_FROM_API = original
     def test_mark_healthy_creates_and_refreshes_heartbeat(self):
         with TemporaryDirectory() as directory:
             heartbeat = Path(directory) / "simulator-heartbeat"
