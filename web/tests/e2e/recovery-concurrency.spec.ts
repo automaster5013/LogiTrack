@@ -1,0 +1,78 @@
+import { expect, test, type Page } from "@playwright/test";
+import type { DeadLetterEvent } from "../../app/types";
+
+const failedAt = "2026-09-28T01:00:00Z";
+const events: DeadLetterEvent[] = [
+  {
+    id: "00000000-0000-4000-8000-000000000101",
+    originalTopic: "telemetry.events.DLT",
+    messageKey: "delivery-101",
+    payload: "{}",
+    traceId: "trace-recovery-101",
+    exceptionMessage: "Telemetry payload could not be processed",
+    dlqPartition: 0,
+    dlqOffset: 101,
+    status: "PENDING",
+    failedAt,
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000102",
+    originalTopic: "telemetry.events.DLT",
+    messageKey: "delivery-102",
+    payload: "{}",
+    traceId: "trace-recovery-102",
+    exceptionMessage: "Telemetry payload could not be processed",
+    dlqPartition: 0,
+    dlqOffset: 102,
+    status: "PENDING",
+    failedAt,
+  },
+];
+
+async function mockRecovery(page: Page) {
+  const replayRequests: string[] = [];
+  await page.route("**/api/**", async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const common = { headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" } };
+    const replayMatch = url.pathname.match(/^\/api\/operations\/dlq\/([^/]+)\/replay$/);
+    if (replayMatch && request.method() === "POST") {
+      replayRequests.push(replayMatch[1]);
+      await new Promise(resolve => setTimeout(resolve, replayMatch[1] === events[0].id ? 1_000 : 2_500));
+      return route.fulfill({ status: 204, ...common });
+    }
+    if (url.pathname === "/api/operations/dlq-page") {
+      return route.fulfill({ ...common, json: { items: url.searchParams.get("size") === "1" ? events.slice(0, 1) : events, page: 0, size: Number(url.searchParams.get("size")), totalElements: events.length, hasMore: false } });
+    }
+    if (["/api/operations/replay-audits/page", "/api/operations/outbox/failures/page", "/api/operations/outbox/retry-audits/page", "/api/deliveries/page", "/api/alerts/page", "/api/orders/page"].includes(url.pathname)) {
+      return route.fulfill({ ...common, json: { items: [], page: 0, size: 100, totalElements: 0, hasMore: false } });
+    }
+    if (["/api/routes", "/api/telemetry/points", "/api/reports/daily-kpis"].includes(url.pathname)) {
+      return route.fulfill({ ...common, json: [] });
+    }
+    if (url.pathname === "/api/stream/deliveries") {
+      return route.fulfill({ status: 200, contentType: "text/event-stream", body: "event: connected\ndata: {}\n\n", headers: { "Access-Control-Allow-Origin": "*" } });
+    }
+    return route.fulfill({ status: 404, ...common, json: { error: "not_found" } });
+  });
+  return replayRequests;
+}
+
+test("keeps each concurrent DLQ replay disabled until its own request finishes", async ({ page }) => {
+  const replayRequests = await mockRecovery(page);
+  page.on("dialog", dialog => dialog.accept());
+  await page.goto("/console#recovery");
+
+  const firstReplay = page.getByRole("button", { name: "trace-recovery-101 재처리" });
+  const secondReplay = page.getByRole("button", { name: "trace-recovery-102 재처리" });
+  await expect(firstReplay).toBeVisible();
+
+  await firstReplay.click();
+  await secondReplay.click();
+  await expect(firstReplay).toBeDisabled();
+  await expect(secondReplay).toBeDisabled();
+  await expect(firstReplay).toBeEnabled({ timeout: 1_500 });
+  await expect(secondReplay).toBeDisabled();
+  await expect(secondReplay).toBeEnabled({ timeout: 3_000 });
+  expect(replayRequests).toEqual([events[0].id, events[1].id]);
+});
