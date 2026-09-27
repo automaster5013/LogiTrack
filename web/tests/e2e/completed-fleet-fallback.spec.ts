@@ -212,3 +212,36 @@ test("focuses the alerted vehicle from the attention summary", async ({ page }) 
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
   await expect(page.locator(".focusStats")).toContainText("TRUCK-02");
 });
+
+test("filters active vehicles to the stale telemetry scope", async ({ page }) => {
+  const activeDeliveries = deliveries.map((delivery, index) => index < 2 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    currentLat: (delivery.originLat + delivery.destinationLat) / 2,
+    currentLon: (delivery.originLon + delivery.destinationLon) / 2,
+    progress: 0.4 + index * 0.1,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: index === 0 ? "2099-09-27T07:55:00Z" : "2000-01-01T00:00:00Z",
+  } : delivery);
+
+  await mockOverview(page, activeDeliveries);
+  await page.goto("/console#overview");
+
+  await expect(page.getByRole("button", { name: "진행 중 2", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "위치 지연 1", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(2);
+
+  await page.getByRole("button", { name: "위치 지연 1", exact: true }).click();
+
+  await expect(page.getByRole("button", { name: "위치 지연 1", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "진행 중 2", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByLabel("선택한 차량")).toHaveValue(activeDeliveries[1].id);
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
+  await expect(page.locator(".focusStats")).toContainText("TRUCK-02");
+
+  await page.getByRole("link", { name: "주문·차량" }).click();
+  await expect(page.getByRole("button", { name: "위치 지연 1", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("1 / 1건 표시 · 전체 6건")).toBeVisible();
+  await expect(page.getByRole("button", { name: /TRUCK-02/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /TRUCK-01/ })).toHaveCount(0);
+});
