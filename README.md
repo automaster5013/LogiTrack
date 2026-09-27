@@ -111,7 +111,7 @@ curl -X POST http://localhost:8080/api/orders/{orderId}/dispatch \
 
 - [English quick start](docs/quickstart.en.md)
 - [요구사항과 성공 기준](docs/requirements.md)
-- [8~10주 로드맵](docs/roadmap.md)
+- [9주 실행 로드맵](docs/roadmap.md)
 - [아키텍처 및 데이터 모델](docs/architecture.md)
 - [운영자 QR·패스키 인증 설계](docs/qr-passkey-authentication.md)
 - [기술 선택 ADR](docs/adr/0001-technology-stack.md)
