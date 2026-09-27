@@ -12,7 +12,7 @@ VALIDATION_COMMANDS = (
     "python scripts/compose-config-smoke.py",
     "python scripts/markdown-link-smoke.py",
     "pwsh ./scripts/domain-coverage.ps1",
-    "Push-Location web; npm ci; npm run build; Pop-Location",
+    "Push-Location web; npm ci; npx playwright install chromium; npm run build; npm run test:e2e; Pop-Location",
 )
 
 
@@ -74,10 +74,9 @@ def main() -> None:
         raise AssertionError("contributor validation block must contain the ordered core commands only")
     if readme_commands != VALIDATION_COMMANDS:
         raise AssertionError("README local validation block must contain the ordered core commands only")
-    if "npm test" in guide or "npm run test" in guide:
-        raise AssertionError("contributor guide references a web test script that does not exist")
-    if "build" not in scripts:
-        raise AssertionError("web/package.json must define the documented build script")
+    for script in ("build", "test:e2e"):
+        if script not in scripts:
+            raise AssertionError(f"web/package.json must define the documented {script} script")
 
     print("PASS: contributor validation commands match the available web scripts and CI build")
 

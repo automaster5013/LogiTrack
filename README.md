@@ -146,7 +146,7 @@ python -m unittest discover analytics/tests
 python scripts/compose-config-smoke.py
 python scripts/markdown-link-smoke.py
 pwsh ./scripts/domain-coverage.ps1
-Push-Location web; npm ci; npm run build; Pop-Location
+Push-Location web; npm ci; npx playwright install chromium; npm run build; npm run test:e2e; Pop-Location
 ```
 
 통합 smoke test는 전체 스택 실행 후 `./scripts/smoke.ps1`로 수행합니다.
@@ -155,7 +155,7 @@ Push-Location web; npm ci; npm run build; Pop-Location
 
 핵심 도메인의 line/branch coverage 80% gate는 `./scripts/domain-coverage.ps1`로 실행합니다. 현재 기준선은 line 92.37%, branch 88.71%이며 기준 미달 시 빌드가 실패합니다.
 
-GitHub Actions의 `CI` workflow는 main push와 pull request마다 API 테스트·coverage gate, Python analytics/simulator 테스트, Docker Compose 구성 검증, TypeScript production build를 병렬 실행합니다. workflow 권한은 저장소 읽기로 제한됩니다.
+GitHub Actions의 `CI` workflow는 main push와 pull request마다 API 테스트·coverage gate, Python analytics/simulator 테스트, Docker Compose 구성 검증, TypeScript production build와 Chromium E2E 회귀 검사를 병렬 실행합니다. workflow 권한은 저장소 읽기로 제한됩니다.
 
 배포 가능한 production image와 non-root runtime은 `./scripts/container-build.ps1`로 검증합니다. CD는 수동 승인된 GitHub `staging` environment와 AWS OIDC를 통해 기대 AWS 계정 ID 및 ECR의 immutable tag·scan-on-push·AES256 설정을 확인한 뒤 검증된 이미지를 commit SHA tag로 게시하고, ECR에서 확인한 digest와 GitHub workflow 실행 식별자를 고정한 release manifest를 보관합니다. 부분 게시 후 재실행할 때는 기존 immutable tag의 digest와 OCI revision provenance를 검증한 image만 안전하게 재사용합니다. 실제 AWS staging runtime은 서울 리전에 적용되어 `https://www.logitrack.kr`에서 운영 중입니다. 단일 `t3a.medium`, public IPv4, 30 GiB gp3와 Caddy를 사용해 NAT Gateway·ALB·관리형 데이터 계층의 고정비를 피하고 웹 80/443만 공개합니다. SSM SecureString, digest 고정 배포, 자동 직전 release rollback, 일일 EBS snapshot과 별도 S3 PostgreSQL dump, EC2 자동 복구, USD 70 budget alert의 구성과 운영 절차는 `infra/aws/runtime/README.md`를 따릅니다. `.github/workflows/staging-health.yml`은 자격 증명 없이 6시간마다 DNS·HTTPS·TLS·보안 헤더와 내부 서비스 포트의 비공개 상태를 확인합니다. 이 staging은 단일 장애 도메인이므로 production 가용성 구성이 아닙니다.
 

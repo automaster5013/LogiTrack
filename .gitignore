@@ -4,6 +4,8 @@
 target/
 node_modules/
 .next/
+playwright-report/
+test-results/
 __pycache__/
 *.pyc
 *.log
