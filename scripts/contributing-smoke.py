@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 
@@ -15,20 +16,21 @@ VALIDATION_COMMANDS = (
 )
 
 
-def validation_block(document: str, marker: str) -> tuple[str, ...]:
-    marker_index = document.find(marker)
-    if marker_index < 0:
-        raise AssertionError(f"validation section marker is missing: {marker}")
-
-    fence_start = document.find("```", marker_index + len(marker))
-    if fence_start < 0:
-        raise AssertionError(f"validation code block is missing after: {marker}")
-    content_start = document.find("\n", fence_start)
-    fence_end = document.find("```", content_start + 1)
-    if content_start < 0 or fence_end < 0:
-        raise AssertionError(f"validation code block is not closed after: {marker}")
-
-    return tuple(line.strip() for line in document[content_start + 1 : fence_end].splitlines() if line.strip())
+def validation_block(document: str, marker: str, language: str) -> tuple[str, ...]:
+    if document.count(marker) != 1:
+        raise AssertionError(f"validation section marker must occur exactly once: {marker}")
+    marker_index = document.index(marker)
+    section_start = marker_index + len(marker)
+    section_end = document.find("\n## ", section_start)
+    section = document[section_start : section_end if section_end >= 0 else len(document)]
+    block = re.match(
+        rf"\A[\t \r\n]*```{re.escape(language)}\r?\n(?P<body>.*?)\r?\n```",
+        section,
+        flags=re.DOTALL,
+    )
+    if block is None:
+        raise AssertionError(f"validation section must start with a {language} code block: {marker}")
+    return tuple(line.strip() for line in block.group("body").splitlines() if line.strip())
 
 
 def main() -> None:
@@ -37,8 +39,12 @@ def main() -> None:
     package = json.loads(PACKAGE_PATH.read_text(encoding="utf-8"))
     scripts = package.get("scripts", {})
 
-    guide_commands = validation_block(guide, "Run the checks relevant to your change before opening a pull request:")
-    readme_commands = validation_block(readme, "## 로컬 검증")
+    guide_commands = validation_block(
+        guide,
+        "Run the checks relevant to your change before opening a pull request:",
+        "powershell",
+    )
+    readme_commands = validation_block(readme, "## 로컬 검증", "bash")
     if guide_commands != VALIDATION_COMMANDS:
         raise AssertionError("contributor validation block must contain the ordered core commands only")
     if readme_commands != VALIDATION_COMMANDS:
