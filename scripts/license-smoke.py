@@ -45,6 +45,7 @@ def main() -> None:
     documentation = readme[documentation_start:license_start]
     license_section = readme[license_start:validation_start]
     documentation_links = (
+        "[9주 실행 로드맵](docs/roadmap.md)",
         "[테스트 품질 기준선](docs/quality.md)",
         "[CI/CD와 릴리스 전략](docs/delivery.md)",
         "[10분 데모 시나리오](docs/demo.md)",
@@ -57,6 +58,10 @@ def main() -> None:
         raise AssertionError(f"README documentation navigation is incomplete: {missing_documentation}")
     if any(link in license_section for link in documentation_links):
         raise AssertionError("README documentation links must not be rendered inside the license section")
+
+    roadmap_title = Path("docs/roadmap.md").read_text(encoding="utf-8").splitlines()[0]
+    if roadmap_title != "# 9주 실행 로드맵":
+        raise AssertionError("roadmap title must match the README navigation label")
 
     print("PASS: canonical Apache-2.0 license, package metadata, and README navigation are consistent")
 
