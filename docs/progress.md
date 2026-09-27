@@ -4,6 +4,7 @@
 
 ## 완료
 
+- README의 테스트·배포·데모·진행·기여 링크를 단일 문서 탐색 목록으로 복원하고 라이선스 절로 다시 이탈하지 않도록 CI 회귀 검사 추가
 - 외부 기여 가이드의 웹 검증 명령을 실제 package script와 CI의 locked production build에 맞추고 자동 회귀 검사로 문서 drift 방지
 - Docker Hub image가 일부만 게시된 뒤 실행이 중단되어도 기존 immutable digest를 source repository·revision·platform으로 검증하고 SBOM 생성 전에 재사용해 overwrite 없이 게시·증명 절차를 안전하게 재개
 - `main` HEAD만 대상으로 하는 수동 GitHub source release workflow, SHA-256 sidecar와 GitHub OIDC 기반 Cosign keyless 서명·게시 전 identity 검증
