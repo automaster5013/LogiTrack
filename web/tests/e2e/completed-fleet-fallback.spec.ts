@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import type { DeliveryAlert } from "../../app/types";
 
 const now = "2026-09-27T08:00:00Z";
 const deliveries = Array.from({ length: 6 }, (_, index) => {
@@ -25,7 +26,7 @@ const deliveries = Array.from({ length: 6 }, (_, index) => {
   };
 });
 
-async function mockOverview(page: Page, deliveryRows: typeof deliveries) {
+async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRows: DeliveryAlert[] = []) {
   const routes = deliveryRows.map((delivery, index) => ({
     id: `10000000-0000-4000-8000-00000000000${index + 1}`,
     deliveryId: delivery.id,
@@ -44,7 +45,7 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries) {
     const common = { headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" } };
     if (url.pathname === "/api/deliveries/page") return route.fulfill({ ...common, json: { items: deliveryRows, page: 0, size: 100, totalElements: deliveryRows.length, hasMore: false } });
     if (url.pathname === "/api/orders/page") return route.fulfill({ ...common, json: { items: [], page: 0, size: 100, totalElements: 0, hasMore: false } });
-    if (url.pathname === "/api/alerts/page") return route.fulfill({ ...common, json: { items: [], page: 0, size: 100, totalElements: 0, hasMore: false } });
+    if (url.pathname === "/api/alerts/page") return route.fulfill({ ...common, json: { items: alertRows, page: 0, size: 100, totalElements: alertRows.length, hasMore: false } });
     if (url.pathname === "/api/routes") return route.fulfill({ ...common, json: routes });
     if (url.pathname === "/api/telemetry/points" || url.pathname === "/api/reports/daily-kpis") return route.fulfill({ ...common, json: [] });
     if (url.pathname === "/api/operations/dlq-page") return route.fulfill({ ...common, json: { items: [], page: 0, size: 1, totalElements: 0, hasMore: false } });
@@ -170,4 +171,44 @@ test("keeps the live scope when an active delivery exists", async ({ page }) => 
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
   await expect(page.locator(".focusStats")).toContainText("26.0 km");
   await expect(page.locator(".focusStats")).toContainText("TRUCK-01");
+});
+
+test("focuses the alerted vehicle from the attention summary", async ({ page }) => {
+  const activeDeliveries = deliveries.map((delivery, index) => index < 2 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    currentLat: (delivery.originLat + delivery.destinationLat) / 2,
+    currentLon: (delivery.originLon + delivery.destinationLon) / 2,
+    progress: 0.4 + index * 0.1,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: "2099-09-27T07:55:00Z",
+  } : delivery);
+  const alert: DeliveryAlert = {
+    id: "20000000-0000-4000-8000-000000000001",
+    deliveryId: activeDeliveries[1].id,
+    alertType: "ROUTE_DEVIATION",
+    severity: "WARNING",
+    status: "ACTIVE",
+    message: "계획 경로에서 벗어났습니다.",
+    observedValue: 700,
+    thresholdValue: 500,
+    occurrenceCount: 1,
+    firstObservedAt: now,
+    lastObservedAt: now,
+  };
+
+  await mockOverview(page, activeDeliveries, [alert]);
+  await page.goto("/console#overview");
+
+  await expect(page.getByRole("button", { name: "진행 중 2", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "지도에서 확인 →" })).toBeVisible();
+
+  await page.getByRole("button", { name: "지도에서 확인 →" }).click();
+
+  await expect(page.getByRole("button", { name: "확인 필요 1", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "진행 중 2", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByLabel("선택한 차량")).toHaveValue(activeDeliveries[1].id);
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
+  await expect(page.locator(".focusStats")).toContainText("TRUCK-02");
 });
