@@ -624,6 +624,8 @@ test("preserves a resolved stream update while acknowledgement is pending", asyn
     status: "RESOLVED",
     message: "계획 경로로 복귀했습니다.",
     resolvedAt: occurredAt,
+    acknowledgedAt: occurredAt,
+    acknowledgedBy: "incident-lead",
   };
 
   await mockOverview(page, activeDeliveries, [activeAlert], {
@@ -640,7 +642,7 @@ test("preserves a resolved stream update while acknowledgement is pending", asyn
   await page.getByRole("button", { name: "전체 이력 1" }).click();
   await expect(page.getByText("계획 경로로 복귀했습니다.")).toBeVisible();
   await expect(page.getByText(/해결됨/)).toBeVisible();
-  await expect(page.getByText(/확인 · control-tower/)).toBeVisible();
+  await expect(page.getByText(/확인 · incident-lead/)).toBeVisible();
 });
 
 test("tracks concurrent alert acknowledgements independently", async ({ page }) => {
