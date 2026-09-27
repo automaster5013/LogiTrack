@@ -453,3 +453,4 @@
 - SSE 재연결 snapshot에서 해결된 경고를 대응 필요 집계에서 제거하고 전체 이력의 해결 상태로 교체하는 흐름을 Chromium E2E로 검증
 - SSE 재연결 시 경로·텔레메트리 snapshot을 다시 조회해 지도 경로 거리와 차량 위치 최신성을 복구하는 흐름을 Chromium E2E로 검증
 - 재동기화 snapshot 요청 중 도착한 배송·경고 SSE가 늦은 snapshot에 덮이지 않도록 스트림 버전을 병합하고, 후속 `alert-update`의 활성→해결 전환이 확인 필요 집계와 전체 이력에 유지되는 흐름을 Chromium E2E로 검증
+- 운영자의 경고 확인 요청이 actor·trace context와 함께 전송되고 미확인 집계·담당자 표시를 즉시 갱신하되 활성 경고 범위는 유지하는 흐름을 Chromium E2E로 검증
