@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { DeliveryAlert } from "../../app/types";
+import type { DeliveryAlert, TelemetryPoint } from "../../app/types";
 
 const now = "2026-09-27T08:00:00Z";
 const deliveries = Array.from({ length: 6 }, (_, index) => {
@@ -31,11 +31,16 @@ type StreamFixture = {
   delayMs?: number;
   deliveryRowsAfterFirstLoad?: typeof deliveries;
   alertRowsAfterFirstLoad?: DeliveryAlert[];
+  routeDistanceMetersAfterFirstLoad?: number;
+  telemetryRows?: TelemetryPoint[];
+  telemetryRowsAfterFirstLoad?: TelemetryPoint[];
 };
 
 async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRows: DeliveryAlert[] = [], streamFixture?: StreamFixture) {
   let deliveryRequestCount = 0;
   let alertRequestCount = 0;
+  let routeRequestCount = 0;
+  let telemetryRequestCount = 0;
   const routes = deliveryRows.map((delivery, index) => ({
     id: `10000000-0000-4000-8000-00000000000${index + 1}`,
     deliveryId: delivery.id,
@@ -68,10 +73,22 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
       return route.fulfill({ ...common, json: { items: responseRows, page: 0, size: 100, totalElements: responseRows.length, hasMore: false } });
     }
     if (url.pathname === "/api/routes") {
+      routeRequestCount += 1;
       const requestedIds = new Set((url.searchParams.get("deliveryIds") || "").split(",").filter(Boolean));
-      return route.fulfill({ ...common, json: requestedIds.size ? routes.filter(item => requestedIds.has(item.deliveryId)) : routes });
+      const responseRows = routes.map((item, index) => routeRequestCount > 1 && index === 0 && streamFixture?.routeDistanceMetersAfterFirstLoad
+        ? { ...item, distanceMeters: streamFixture.routeDistanceMetersAfterFirstLoad }
+        : item);
+      return route.fulfill({ ...common, json: requestedIds.size ? responseRows.filter(item => requestedIds.has(item.deliveryId)) : responseRows });
     }
-    if (url.pathname === "/api/telemetry/points" || url.pathname === "/api/reports/daily-kpis") return route.fulfill({ ...common, json: [] });
+    if (url.pathname === "/api/telemetry/points") {
+      telemetryRequestCount += 1;
+      const responseRows = telemetryRequestCount > 1 && streamFixture?.telemetryRowsAfterFirstLoad
+        ? streamFixture.telemetryRowsAfterFirstLoad
+        : streamFixture?.telemetryRows || [];
+      const requestedIds = new Set((url.searchParams.get("deliveryIds") || "").split(",").filter(Boolean));
+      return route.fulfill({ ...common, json: requestedIds.size ? responseRows.filter(item => requestedIds.has(item.deliveryId)) : responseRows });
+    }
+    if (url.pathname === "/api/reports/daily-kpis") return route.fulfill({ ...common, json: [] });
     if (url.pathname === "/api/operations/dlq-page") return route.fulfill({ ...common, json: { items: [], page: 0, size: 1, totalElements: 0, hasMore: false } });
     if (url.pathname === "/api/stream/deliveries") {
       if (streamFixture?.delayMs) await new Promise(resolve => setTimeout(resolve, streamFixture.delayMs));
@@ -357,6 +374,50 @@ test("resynchronizes deliveries after the event stream reconnects", async ({ pag
   await expect(page.locator(".focusStats")).toContainText("진행률20%");
   await expect(page.locator(".focusStats")).toContainText("진행률80%", { timeout: 10_000 });
   await expect(page.getByLabel("선택한 차량")).toHaveValue(resynchronizedDeliveries[0].id);
+});
+
+test("resynchronizes route and telemetry snapshots after the event stream reconnects", async ({ page }) => {
+  const occurredAt = new Date().toISOString();
+  const activeDeliveries = deliveries.map((delivery, index) => index === 0 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    currentLat: (delivery.originLat + delivery.destinationLat) / 2,
+    currentLon: (delivery.originLon + delivery.destinationLon) / 2,
+    progress: 0.5,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: "2000-01-01T00:00:00Z",
+  } : delivery);
+  const initialTelemetry: TelemetryPoint = {
+    eventId: "30000000-0000-4000-8000-000000000011",
+    deliveryId: activeDeliveries[0].id,
+    vehicleId: activeDeliveries[0].vehicleId,
+    latitude: activeDeliveries[0].originLat,
+    longitude: activeDeliveries[0].originLon,
+    progress: 0.1,
+    occurredAt: "2000-01-01T00:00:00Z",
+  };
+  const resynchronizedTelemetry: TelemetryPoint = {
+    ...initialTelemetry,
+    eventId: "30000000-0000-4000-8000-000000000012",
+    latitude: activeDeliveries[0].currentLat,
+    longitude: activeDeliveries[0].currentLon,
+    progress: 0.5,
+    occurredAt,
+  };
+
+  await mockOverview(page, activeDeliveries, [], {
+    body: "event: connected\ndata: {}\n\n",
+    routeDistanceMetersAfterFirstLoad: 86_000,
+    telemetryRows: [initialTelemetry],
+    telemetryRowsAfterFirstLoad: [resynchronizedTelemetry],
+  });
+  await page.goto("/console#overview");
+
+  await expect(page.locator(".focusStats")).toContainText("26.0 km");
+  await expect(page.locator(".focusStats")).toContainText("86.0 km", { timeout: 10_000 });
+
+  await page.getByRole("link", { name: "주문·차량" }).click();
+  await expect(page.getByRole("button", { name: /TRUCK-01.*위치 방금 수신/ })).toBeVisible();
 });
 
 test("resynchronizes resolved alerts after the event stream reconnects", async ({ page }) => {

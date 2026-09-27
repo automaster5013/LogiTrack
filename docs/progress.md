@@ -451,3 +451,4 @@
 - SSE 연결이 종료된 뒤 EventSource가 재연결되면 배송 API를 다시 동기화해 스트림 단절 중 변경된 차량 진행률을 복구하는 흐름을 Chromium E2E로 검증
 - SSE `alert-update`로 새 경고를 수신하면 확인 필요 집계·지도 필터·차량 경고 표시가 새로고침 없이 함께 갱신되는 흐름을 Chromium E2E로 검증
 - SSE 재연결 snapshot에서 해결된 경고를 대응 필요 집계에서 제거하고 전체 이력의 해결 상태로 교체하는 흐름을 Chromium E2E로 검증
+- SSE 재연결 시 경로·텔레메트리 snapshot을 다시 조회해 지도 경로 거리와 차량 위치 최신성을 복구하는 흐름을 Chromium E2E로 검증
