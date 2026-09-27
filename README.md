@@ -127,16 +127,16 @@ curl -X POST http://localhost:8080/api/orders/{orderId}/dispatch \
 - [운영 및 장애 처리](docs/operations.md)
 - [장애 주입 및 복구 runbook](docs/failure-recovery-runbook.md)
 - [로컬 성능 기준선](docs/performance.md)
-
-## 라이선스
-
-이 프로젝트는 [Apache License 2.0](LICENSE)에 따라 배포됩니다.
 - [테스트 품질 기준선](docs/quality.md)
 - [CI/CD와 릴리스 전략](docs/delivery.md)
 - [10분 데모 시나리오](docs/demo.md)
 - [구현 진행 현황](docs/progress.md)
 - [기여 가이드](CONTRIBUTING.md)
 - [행동강령](CODE_OF_CONDUCT.md)
+
+## 라이선스
+
+이 프로젝트는 [Apache License 2.0](LICENSE)에 따라 배포됩니다.
 
 ## 로컬 검증
 

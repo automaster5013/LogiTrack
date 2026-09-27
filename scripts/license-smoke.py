@@ -36,7 +36,29 @@ def main() -> None:
     if "[Apache License 2.0](LICENSE)" not in readme:
         raise AssertionError("README license link is missing")
 
-    print("PASS: canonical Apache-2.0 license and package metadata are consistent")
+    documentation_start = readme.index("## 문서")
+    license_start = readme.index("## 라이선스")
+    validation_start = readme.index("## 로컬 검증")
+    if not documentation_start < license_start < validation_start:
+        raise AssertionError("README documentation, license, and validation sections are out of order")
+
+    documentation = readme[documentation_start:license_start]
+    license_section = readme[license_start:validation_start]
+    documentation_links = (
+        "[테스트 품질 기준선](docs/quality.md)",
+        "[CI/CD와 릴리스 전략](docs/delivery.md)",
+        "[10분 데모 시나리오](docs/demo.md)",
+        "[구현 진행 현황](docs/progress.md)",
+        "[기여 가이드](CONTRIBUTING.md)",
+        "[행동강령](CODE_OF_CONDUCT.md)",
+    )
+    missing_documentation = [link for link in documentation_links if link not in documentation]
+    if missing_documentation:
+        raise AssertionError(f"README documentation navigation is incomplete: {missing_documentation}")
+    if any(link in license_section for link in documentation_links):
+        raise AssertionError("README documentation links must not be rendered inside the license section")
+
+    print("PASS: canonical Apache-2.0 license, package metadata, and README navigation are consistent")
 
 
 if __name__ == "__main__":
