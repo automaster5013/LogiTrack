@@ -26,10 +26,16 @@ const deliveries = Array.from({ length: 6 }, (_, index) => {
   };
 });
 
-type StreamFixture = { body: string; delayMs?: number; deliveryRowsAfterFirstLoad?: typeof deliveries };
+type StreamFixture = {
+  body: string;
+  delayMs?: number;
+  deliveryRowsAfterFirstLoad?: typeof deliveries;
+  alertRowsAfterFirstLoad?: DeliveryAlert[];
+};
 
 async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRows: DeliveryAlert[] = [], streamFixture?: StreamFixture) {
   let deliveryRequestCount = 0;
+  let alertRequestCount = 0;
   const routes = deliveryRows.map((delivery, index) => ({
     id: `10000000-0000-4000-8000-00000000000${index + 1}`,
     deliveryId: delivery.id,
@@ -54,7 +60,13 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
       return route.fulfill({ ...common, json: { items: responseRows, page: 0, size: 100, totalElements: responseRows.length, hasMore: false } });
     }
     if (url.pathname === "/api/orders/page") return route.fulfill({ ...common, json: { items: [], page: 0, size: 100, totalElements: 0, hasMore: false } });
-    if (url.pathname === "/api/alerts/page") return route.fulfill({ ...common, json: { items: alertRows, page: 0, size: 100, totalElements: alertRows.length, hasMore: false } });
+    if (url.pathname === "/api/alerts/page") {
+      alertRequestCount += 1;
+      const responseRows = alertRequestCount > 1 && streamFixture?.alertRowsAfterFirstLoad
+        ? streamFixture.alertRowsAfterFirstLoad
+        : alertRows;
+      return route.fulfill({ ...common, json: { items: responseRows, page: 0, size: 100, totalElements: responseRows.length, hasMore: false } });
+    }
     if (url.pathname === "/api/routes") {
       const requestedIds = new Set((url.searchParams.get("deliveryIds") || "").split(",").filter(Boolean));
       return route.fulfill({ ...common, json: requestedIds.size ? routes.filter(item => requestedIds.has(item.deliveryId)) : routes });
@@ -345,6 +357,55 @@ test("resynchronizes deliveries after the event stream reconnects", async ({ pag
   await expect(page.locator(".focusStats")).toContainText("진행률20%");
   await expect(page.locator(".focusStats")).toContainText("진행률80%", { timeout: 10_000 });
   await expect(page.getByLabel("선택한 차량")).toHaveValue(resynchronizedDeliveries[0].id);
+});
+
+test("resynchronizes resolved alerts after the event stream reconnects", async ({ page }) => {
+  const occurredAt = new Date().toISOString();
+  const activeDeliveries = deliveries.map((delivery, index) => index < 2 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    currentLat: (delivery.originLat + delivery.destinationLat) / 2,
+    currentLon: (delivery.originLon + delivery.destinationLon) / 2,
+    progress: 0.4 + index * 0.1,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: occurredAt,
+  } : delivery);
+  const activeAlert: DeliveryAlert = {
+    id: "20000000-0000-4000-8000-000000000010",
+    deliveryId: activeDeliveries[1].id,
+    alertType: "DELAY",
+    severity: "WARNING",
+    status: "ACTIVE",
+    message: "도착 예정 시각보다 지연되고 있습니다.",
+    observedValue: 900,
+    thresholdValue: 600,
+    occurrenceCount: 1,
+    firstObservedAt: occurredAt,
+    lastObservedAt: occurredAt,
+  };
+  const resolvedAlert: DeliveryAlert = {
+    ...activeAlert,
+    status: "RESOLVED",
+    message: "도착 지연이 해소되었습니다.",
+    observedValue: 240,
+    resolvedAt: occurredAt,
+  };
+
+  await mockOverview(page, activeDeliveries, [activeAlert], {
+    body: "event: connected\ndata: {}\n\n",
+    alertRowsAfterFirstLoad: [resolvedAlert],
+  });
+  await page.goto("/console#overview");
+
+  await expect(page.getByText("경고 1건")).toBeVisible();
+  await expect(page.getByRole("button", { name: "확인 필요 1", exact: true })).toBeVisible();
+  await expect(page.getByText("현재 이상 없음")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("button", { name: "확인 필요 0", exact: true })).toBeVisible();
+  await expect(page.getByText("경고 1건")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "전체 이력 1" }).click();
+  await expect(page.getByText("도착 지연이 해소되었습니다.")).toBeVisible();
+  await expect(page.getByText(/해결됨/)).toBeVisible();
 });
 
 test("focuses the alerted vehicle from the attention summary", async ({ page }) => {
