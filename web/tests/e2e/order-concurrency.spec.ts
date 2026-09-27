@@ -7,7 +7,7 @@ const orders: CustomerOrder[] = [
   { id: "00000000-0000-4000-8000-000000000202", orderNumber: "ORD-E2E-202", status: "READY", originName: "Seoul Hub", originLat: 37.5665, originLon: 126.978, destinationName: "Busan DC", destinationLat: 35.1796, destinationLon: 129.0756, createdAt: timestamp, updatedAt: timestamp },
 ];
 
-async function mockOrders(page: Page) {
+async function mockOrders(page: Page, failuresBeforeSuccessById: Record<string, number> = {}) {
   const dispatchRequests: string[] = [];
   await page.route("**/api/**", async route => {
     const request = route.request();
@@ -19,6 +19,10 @@ async function mockOrders(page: Page) {
       if (!order) return route.fulfill({ status: 404, ...common, json: { error: "not_found" } });
       dispatchRequests.push(order.id);
       await new Promise(resolve => setTimeout(resolve, order.id === orders[0].id ? 1_000 : 2_500));
+      const requestCount = dispatchRequests.filter(id => id === order.id).length;
+      if (requestCount <= (failuresBeforeSuccessById[order.id] || 0)) {
+        return route.fulfill({ status: 503, ...common, json: { error: "temporarily_unavailable" } });
+      }
       return route.fulfill({ ...common, json: { ...order, status: "DISPATCHED", deliveryId: `delivery-${order.id.slice(-3)}`, vehicleId: "TRUCK-01", deliveryStatus: "CREATED", updatedAt: timestamp } });
     }
     if (url.pathname === "/api/orders/page") {
@@ -74,4 +78,26 @@ test("sends one dispatch request for immediate repeated input", async ({ page })
   await expect(dispatch).toBeDisabled();
   await expect(dispatch).toBeEnabled({ timeout: 1_500 });
   expect(dispatchRequests).toEqual([orders[0].id]);
+});
+
+test("keeps a failed dispatch error until that order recovers", async ({ page }) => {
+  const dispatchRequests = await mockOrders(page, { [orders[0].id]: 1 });
+  await page.goto("/console#orders");
+
+  const firstDispatch = page.getByRole("button", { name: "ORD-E2E-201 차량 배차" });
+  const secondDispatch = page.getByRole("button", { name: "ORD-E2E-202 차량 배차" });
+  await expect(firstDispatch).toBeVisible();
+  await firstDispatch.click();
+  await secondDispatch.click();
+
+  const dispatchError = page.getByText("주문 배차에 실패했습니다.");
+  await expect(dispatchError).toBeVisible({ timeout: 1_500 });
+  await expect(secondDispatch).toBeEnabled({ timeout: 3_000 });
+  await expect(dispatchError).toBeVisible();
+
+  await firstDispatch.click();
+  await expect(dispatchError).toBeVisible();
+  await expect(firstDispatch).toBeEnabled({ timeout: 1_500 });
+  await expect(dispatchError).toBeHidden();
+  expect(dispatchRequests).toEqual([orders[0].id, orders[1].id, orders[0].id]);
 });
