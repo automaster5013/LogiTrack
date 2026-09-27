@@ -28,6 +28,7 @@ const deliveries = Array.from({ length: 6 }, (_, index) => {
 
 type StreamFixture = {
   body: string;
+  bodiesByConnection?: string[];
   delayMs?: number;
   deliveryRowsAfterFirstLoad?: typeof deliveries;
   alertRowsAfterFirstLoad?: DeliveryAlert[];
@@ -41,6 +42,7 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
   let alertRequestCount = 0;
   let routeRequestCount = 0;
   let telemetryRequestCount = 0;
+  let streamRequestCount = 0;
   const routes = deliveryRows.map((delivery, index) => ({
     id: `10000000-0000-4000-8000-00000000000${index + 1}`,
     deliveryId: delivery.id,
@@ -91,8 +93,11 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
     if (url.pathname === "/api/reports/daily-kpis") return route.fulfill({ ...common, json: [] });
     if (url.pathname === "/api/operations/dlq-page") return route.fulfill({ ...common, json: { items: [], page: 0, size: 1, totalElements: 0, hasMore: false } });
     if (url.pathname === "/api/stream/deliveries") {
+      streamRequestCount += 1;
       if (streamFixture?.delayMs) await new Promise(resolve => setTimeout(resolve, streamFixture.delayMs));
-      return route.fulfill({ status: 200, contentType: "text/event-stream", body: streamFixture?.body || "event: connected\ndata: {}\n\n", headers: { "Access-Control-Allow-Origin": "*" } });
+      const bodies = streamFixture?.bodiesByConnection;
+      const body = bodies?.[Math.min(streamRequestCount - 1, bodies.length - 1)] || streamFixture?.body || "event: connected\ndata: {}\n\n";
+      return route.fulfill({ status: 200, contentType: "text/event-stream", body, headers: { "Access-Control-Allow-Origin": "*" } });
     }
     return route.fulfill({ status: 404, ...common, json: { error: "not_found" } });
   });
@@ -346,6 +351,57 @@ test("surfaces a new alert from the event stream across the attention views", as
   await page.getByRole("link", { name: "주문·차량" }).click();
   await expect(page.getByRole("button", { name: /TRUCK-02.*경고 1건/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /TRUCK-01/ })).toHaveCount(0);
+});
+
+test("resolves an active alert from a later stream update", async ({ page }) => {
+  const occurredAt = new Date().toISOString();
+  const activeDeliveries = deliveries.map((delivery, index) => index < 2 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    currentLat: (delivery.originLat + delivery.destinationLat) / 2,
+    currentLon: (delivery.originLon + delivery.destinationLon) / 2,
+    progress: 0.4 + index * 0.1,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: occurredAt,
+  } : delivery);
+  const activeAlert: DeliveryAlert = {
+    id: "20000000-0000-4000-8000-000000000011",
+    deliveryId: activeDeliveries[1].id,
+    alertType: "ROUTE_DEVIATION",
+    severity: "WARNING",
+    status: "ACTIVE",
+    message: "계획 경로에서 벗어났습니다.",
+    observedValue: 750,
+    thresholdValue: 500,
+    occurrenceCount: 1,
+    firstObservedAt: occurredAt,
+    lastObservedAt: occurredAt,
+  };
+  const resolvedAlert: DeliveryAlert = {
+    ...activeAlert,
+    status: "RESOLVED",
+    message: "계획 경로로 복귀했습니다.",
+    observedValue: 180,
+    resolvedAt: occurredAt,
+  };
+
+  await mockOverview(page, activeDeliveries, [activeAlert], {
+    body: "event: connected\ndata: {}\n\n",
+    bodiesByConnection: [
+      `event: connected\ndata: {}\n\nevent: alert-update\ndata: ${JSON.stringify(activeAlert)}\n\n`,
+      `event: connected\ndata: {}\n\nevent: alert-update\ndata: ${JSON.stringify(resolvedAlert)}\n\n`,
+    ],
+  });
+  await page.goto("/console#overview");
+
+  await expect(page.getByText("경고 1건")).toBeVisible();
+  await expect(page.getByRole("button", { name: "확인 필요 1", exact: true })).toBeVisible();
+  await expect(page.getByText("현재 이상 없음")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("button", { name: "확인 필요 0", exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "전체 이력 1" }).click();
+  await expect(page.getByText("계획 경로로 복귀했습니다.")).toBeVisible();
+  await expect(page.getByText(/해결됨/)).toBeVisible();
 });
 
 test("resynchronizes deliveries after the event stream reconnects", async ({ page }) => {
