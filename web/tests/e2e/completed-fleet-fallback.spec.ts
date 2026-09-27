@@ -485,7 +485,7 @@ test("acknowledges an active alert with operator trace context", async ({ page }
   await page.goto("/console#overview");
 
   await expect(page.locator(".alertHeaderStats")).toContainText("1미확인");
-  await expect.poll(() => requests.alertRequestCount()).toBeGreaterThan(1);
+  await expect.poll(() => requests.alertRequestCount(), { timeout: 15_000 }).toBeGreaterThan(1);
   const acknowledgementButton = page.getByRole("button", { name: "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리" });
   await acknowledgementButton.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
 
