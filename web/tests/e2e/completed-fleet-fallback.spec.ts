@@ -36,6 +36,7 @@ type StreamFixture = {
   telemetryRows?: TelemetryPoint[];
   telemetryRowsAfterFirstLoad?: TelemetryPoint[];
   acknowledgementResponse?: DeliveryAlert;
+  acknowledgementFailuresBeforeSuccess?: number;
 };
 
 async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRows: DeliveryAlert[] = [], streamFixture?: StreamFixture) {
@@ -44,6 +45,7 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
   let routeRequestCount = 0;
   let telemetryRequestCount = 0;
   let streamRequestCount = 0;
+  let acknowledgementRequestCount = 0;
   const routes = deliveryRows.map((delivery, index) => ({
     id: `10000000-0000-4000-8000-00000000000${index + 1}`,
     deliveryId: delivery.id,
@@ -65,6 +67,10 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
       const traceId = headers["x-trace-id"] || "";
       if (headers["x-operator"] !== "control-tower" || !/^[0-9a-f-]{36}$/i.test(traceId) || !streamFixture?.acknowledgementResponse) {
         return route.fulfill({ status: 400, ...common, json: { error: "invalid_acknowledgement" } });
+      }
+      acknowledgementRequestCount += 1;
+      if (acknowledgementRequestCount <= (streamFixture.acknowledgementFailuresBeforeSuccess || 0)) {
+        return route.fulfill({ status: 503, ...common, json: { error: "temporarily_unavailable" } });
       }
       return route.fulfill({ status: 200, ...common, json: streamFixture.acknowledgementResponse });
     }
@@ -457,6 +463,58 @@ test("acknowledges an active alert with operator trace context", async ({ page }
   await expect(page.getByText(/확인 · control-tower/)).toBeVisible();
   await expect(page.getByRole("button", { name: /TRUCK-01.*경고 확인 처리/ })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "확인 필요 1", exact: true })).toBeVisible();
+});
+
+test("recovers when alert acknowledgement initially fails", async ({ page }) => {
+  const occurredAt = new Date().toISOString();
+  const activeDeliveries = deliveries.map((delivery, index) => index === 0 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    currentLat: (delivery.originLat + delivery.destinationLat) / 2,
+    currentLon: (delivery.originLon + delivery.destinationLon) / 2,
+    progress: 0.5,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: occurredAt,
+  } : delivery);
+  const activeAlert: DeliveryAlert = {
+    id: "20000000-0000-4000-8000-000000000013",
+    deliveryId: activeDeliveries[0].id,
+    alertType: "ROUTE_DEVIATION",
+    severity: "CRITICAL",
+    status: "ACTIVE",
+    message: "계획 경로에서 크게 벗어났습니다.",
+    observedValue: 1_800,
+    thresholdValue: 500,
+    occurrenceCount: 2,
+    firstObservedAt: occurredAt,
+    lastObservedAt: occurredAt,
+  };
+  const acknowledgedAlert: DeliveryAlert = {
+    ...activeAlert,
+    acknowledgedAt: occurredAt,
+    acknowledgedBy: "control-tower",
+  };
+  const acknowledgementButton = "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리";
+
+  await mockOverview(page, activeDeliveries, [activeAlert], {
+    body: "event: connected\ndata: {}\n\n",
+    delayMs: 10_000,
+    acknowledgementResponse: acknowledgedAlert,
+    acknowledgementFailuresBeforeSuccess: 1,
+  });
+  await page.goto("/console#overview");
+
+  await page.getByRole("button", { name: acknowledgementButton }).click();
+
+  await expect(page.locator(".errorPanel")).toContainText("경고 확인 처리에 실패했습니다.");
+  await expect(page.getByRole("button", { name: acknowledgementButton })).toBeEnabled();
+  await expect(page.locator(".alertHeaderStats")).toContainText("1미확인");
+
+  await page.getByRole("button", { name: acknowledgementButton }).click();
+
+  await expect(page.locator(".errorPanel")).toHaveCount(0);
+  await expect(page.locator(".alertHeaderStats")).toContainText("0미확인");
+  await expect(page.getByText(/확인 · control-tower/)).toBeVisible();
 });
 
 test("resynchronizes deliveries after the event stream reconnects", async ({ page }) => {
