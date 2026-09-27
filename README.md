@@ -142,9 +142,11 @@ curl -X POST http://localhost:8080/api/orders/{orderId}/dispatch \
 
 ```bash
 python -m unittest discover simulator/tests
+python -m unittest discover analytics/tests
 python scripts/compose-config-smoke.py
 python scripts/markdown-link-smoke.py
-python -m unittest discover analytics/tests
+pwsh ./scripts/domain-coverage.ps1
+Push-Location web; npm ci; npm run build; Pop-Location
 ```
 
 통합 smoke test는 전체 스택 실행 후 `./scripts/smoke.ps1`로 수행합니다.

@@ -5,8 +5,14 @@ from pathlib import Path
 CONTRIBUTING_PATH = Path("CONTRIBUTING.md")
 README_PATH = Path("README.md")
 PACKAGE_PATH = Path("web/package.json")
-WEB_VALIDATION_COMMAND = "Push-Location web; npm ci; npm run build; Pop-Location"
-MARKDOWN_LINK_COMMAND = "python scripts/markdown-link-smoke.py"
+VALIDATION_COMMANDS = (
+    "python -m unittest discover simulator/tests",
+    "python -m unittest discover analytics/tests",
+    "python scripts/compose-config-smoke.py",
+    "python scripts/markdown-link-smoke.py",
+    "pwsh ./scripts/domain-coverage.ps1",
+    "Push-Location web; npm ci; npm run build; Pop-Location",
+)
 
 
 def main() -> None:
@@ -15,12 +21,11 @@ def main() -> None:
     package = json.loads(PACKAGE_PATH.read_text(encoding="utf-8"))
     scripts = package.get("scripts", {})
 
-    if WEB_VALIDATION_COMMAND not in guide:
-        raise AssertionError("contributor web validation must match the locked CI build")
-    if MARKDOWN_LINK_COMMAND not in guide:
-        raise AssertionError("contributor guide must include the CI Markdown link validation")
-    if MARKDOWN_LINK_COMMAND not in readme:
-        raise AssertionError("README local validation must include the CI Markdown link validation")
+    for command in VALIDATION_COMMANDS:
+        if command not in guide:
+            raise AssertionError(f"contributor guide must include the core validation command: {command}")
+        if command not in readme:
+            raise AssertionError(f"README local validation must include the core validation command: {command}")
     if "npm test" in guide or "npm run test" in guide:
         raise AssertionError("contributor guide references a web test script that does not exist")
     if "build" not in scripts:
