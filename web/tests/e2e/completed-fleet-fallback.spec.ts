@@ -71,7 +71,7 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
   await page.route("**/api/**", async route => {
     const url = new URL(route.request().url());
     const common = { headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" } };
-    if (url.pathname === "/api/runtime-version") return route.fulfill({ ...common, json: { version: "11111111-1111-4111-8111-111111111111", revision: "0123456789abcdef0123456789abcdef01234567", builtAt: "2026-09-28T09:00:00Z" } });
+    if (url.pathname === "/api/runtime-version") return route.fulfill({ ...common, json: { version: "11111111-1111-4111-8111-111111111111", revision: "0123456789abcdef0123456789abcdef01234567", builtAt: "2026-09-28T09:00:00Z", environment: "test" } });
     if (url.pathname.match(/^\/api\/alerts\/[^/]+\/acknowledgement$/) && route.request().method() === "POST") {
       const headers = route.request().headers();
       const traceId = headers["x-trace-id"] || "";
@@ -157,7 +157,7 @@ test("shows completed vehicles automatically when no delivery is active", async 
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(6);
   await expect(page.locator(".focusStats")).toContainText("26.0 km");
   await expect(page.locator(".focusStats")).toContainText("TRUCK-01");
-  await expect(page.getByLabel("실행 버전 0123456")).toBeVisible();
+  await expect(page.getByLabel("실행 환경 TEST 버전 0123456")).toBeVisible();
   const legendToggle = page.getByRole("button", { name: /지도 범례 6대 표시 보기/ });
   await expect(legendToggle).toHaveAttribute("aria-expanded", "false");
   await expect(page.getByText("실제 이동", { exact: true })).toBeHidden();

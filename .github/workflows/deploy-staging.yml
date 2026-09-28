@@ -119,6 +119,7 @@ jobs:
               https://www.logitrack.kr/api/runtime-version --output /tmp/logitrack-runtime || true
             if jq -e --arg revision "$REVISION" '
               .revision == $revision and
+              .environment == "staging" and
               (.version | type == "string" and test("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")) and
               (.builtAt | type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"))
             ' /tmp/logitrack-runtime >/dev/null 2>&1; then
@@ -128,6 +129,7 @@ jobs:
           done
           jq -e --arg revision "$REVISION" '
             .revision == $revision and
+            .environment == "staging" and
             (.version | type == "string" and test("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")) and
             (.builtAt | type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"))
           ' /tmp/logitrack-runtime >/dev/null
