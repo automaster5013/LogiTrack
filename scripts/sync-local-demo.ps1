@@ -23,6 +23,12 @@ try {
   docker compose up -d --build api simulator web
   if ($LASTEXITCODE -ne 0) { throw "Local live demo rebuild failed" }
 
+  # kafka-init is a one-shot dependency. Remove its successful, stopped
+  # container so routine local synchronization does not leave disposable
+  # Docker objects behind.
+  docker compose rm -f kafka-init
+  if ($LASTEXITCODE -ne 0) { throw "Local Kafka initialization container cleanup failed" }
+
   $deadline = (Get-Date).AddSeconds(120)
   do {
     try {
