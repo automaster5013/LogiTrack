@@ -85,10 +85,11 @@ jobs:
           SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
         run: |
           set -euo pipefail
+          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           docker build --platform "$IMAGE_PLATFORM" --label org.opencontainers.image.source="$SOURCE_URL" --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-api:$REVISION" ./api
           docker build --platform "$IMAGE_PLATFORM" --label org.opencontainers.image.source="$SOURCE_URL" --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-analytics:$REVISION" ./analytics
           docker build --platform "$IMAGE_PLATFORM" --label org.opencontainers.image.source="$SOURCE_URL" --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-simulator:$REVISION" ./simulator
-          docker build --platform "$IMAGE_PLATFORM" --build-arg NEXT_PUBLIC_API_URL=/backend --label org.opencontainers.image.source="$SOURCE_URL" --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-web:$REVISION" ./web
+          docker build --platform "$IMAGE_PLATFORM" --build-arg NEXT_PUBLIC_API_URL=/backend --build-arg APP_REVISION="$REVISION" --build-arg APP_BUILD_TIME="$BUILD_TIME" --build-arg APP_ENVIRONMENT=production --label org.opencontainers.image.source="$SOURCE_URL" --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-web:$REVISION" ./web
           docker build --platform "$IMAGE_PLATFORM" --label org.opencontainers.image.source="$SOURCE_URL" --label org.opencontainers.image.revision="$REVISION" --tag "logitrack-otel-collector:$REVISION" ./infra/otel
 
       - name: Reuse immutable registry images after a partial publication

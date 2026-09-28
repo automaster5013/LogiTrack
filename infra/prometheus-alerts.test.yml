@@ -1,0 +1,128 @@
+rule_files:
+  - prometheus-alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: demo cleanup never started
+    interval: 1m
+    input_series:
+      - series: 'logitrack_demo_cleanup_failures_total{application="logitrack-control-api"}'
+        values: '0+0x20'
+      - series: 'logitrack_demo_cleanup_last_success_timestamp_seconds{application="logitrack-control-api"}'
+        values: '0+0x20'
+      - series: 'logitrack_demo_cleanup_monitor_started_timestamp_seconds{application="logitrack-control-api"}'
+        values: '1+0x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: LogiTrackDemoCleanupFailing
+        exp_alerts: []
+      - eval_time: 17m
+        alertname: LogiTrackDemoCleanupFailing
+        exp_alerts:
+          - exp_labels: &demo_cleanup_labels
+              application: logitrack-control-api
+              severity: warning
+            exp_annotations: &demo_cleanup_annotations
+              summary: Completed demo delivery cleanup is failing or stale
+              description: The demo cleanup failed, never started, or has not completed successfully during the last 15 minutes.
+
+  - name: demo cleanup recently succeeded
+    interval: 1m
+    input_series:
+      - series: 'logitrack_demo_cleanup_failures_total{application="logitrack-control-api"}'
+        values: '0+0x20'
+      - series: 'logitrack_demo_cleanup_last_success_timestamp_seconds{application="logitrack-control-api"}'
+        values: '900+0x20'
+      - series: 'logitrack_demo_cleanup_monitor_started_timestamp_seconds{application="logitrack-control-api"}'
+        values: '1+0x20'
+    alert_rule_test:
+      - eval_time: 17m
+        alertname: LogiTrackDemoCleanupFailing
+        exp_alerts: []
+
+  - name: demo cleanup success became stale
+    interval: 1m
+    input_series:
+      - series: 'logitrack_demo_cleanup_failures_total{application="logitrack-control-api"}'
+        values: '0+0x35'
+      - series: 'logitrack_demo_cleanup_last_success_timestamp_seconds{application="logitrack-control-api"}'
+        values: '600+0x35'
+      - series: 'logitrack_demo_cleanup_monitor_started_timestamp_seconds{application="logitrack-control-api"}'
+        values: '1+0x35'
+    alert_rule_test:
+      - eval_time: 27m
+        alertname: LogiTrackDemoCleanupFailing
+        exp_alerts:
+          - exp_labels: *demo_cleanup_labels
+            exp_annotations: *demo_cleanup_annotations
+
+  - name: demo cleanup failure counter increased
+    interval: 1m
+    input_series:
+      - series: 'logitrack_demo_cleanup_failures_total{application="logitrack-control-api"}'
+        values: '0 0 1+0x10'
+      - series: 'logitrack_demo_cleanup_last_success_timestamp_seconds{application="logitrack-control-api"}'
+        values: '120+0x12'
+      - series: 'logitrack_demo_cleanup_monitor_started_timestamp_seconds{application="logitrack-control-api"}'
+        values: '1+0x12'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: LogiTrackDemoCleanupFailing
+        exp_alerts:
+          - exp_labels: *demo_cleanup_labels
+            exp_annotations: *demo_cleanup_annotations
+
+  - name: demo fleet remains below target
+    interval: 1m
+    input_series:
+      - series: 'logitrack_demo_active_deliveries{application="logitrack-control-api"}'
+        values: '10+0x5'
+      - series: 'logitrack_demo_target_deliveries{application="logitrack-control-api"}'
+        values: '12+0x5'
+      - series: 'logitrack_demo_replenishment_failures_total{application="logitrack-control-api"}'
+        values: '0+0x5'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: LogiTrackDemoFleetBelowTarget
+        exp_alerts:
+          - exp_labels:
+              application: logitrack-control-api
+              severity: warning
+            exp_annotations:
+              summary: Live demo fleet is below its configured target
+              description: Active demo vehicles remain below target or replenishment attempts are failing.
+
+  - name: demo fleet meets target
+    interval: 1m
+    input_series:
+      - series: 'logitrack_demo_active_deliveries{application="logitrack-control-api"}'
+        values: '12+0x5'
+      - series: 'logitrack_demo_target_deliveries{application="logitrack-control-api"}'
+        values: '12+0x5'
+      - series: 'logitrack_demo_replenishment_failures_total{application="logitrack-control-api"}'
+        values: '0+0x5'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: LogiTrackDemoFleetBelowTarget
+        exp_alerts: []
+
+  - name: demo fleet replenishment keeps failing
+    interval: 1m
+    input_series:
+      - series: 'logitrack_demo_active_deliveries{application="logitrack-control-api"}'
+        values: '12+0x6'
+      - series: 'logitrack_demo_target_deliveries{application="logitrack-control-api"}'
+        values: '12+0x6'
+      - series: 'logitrack_demo_replenishment_failures_total{application="logitrack-control-api"}'
+        values: '0 1+0x5'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: LogiTrackDemoFleetBelowTarget
+        exp_alerts:
+          - exp_labels:
+              application: logitrack-control-api
+              severity: warning
+            exp_annotations:
+              summary: Live demo fleet is below its configured target
+              description: Active demo vehicles remain below target or replenishment attempts are failing.

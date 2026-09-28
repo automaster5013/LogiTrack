@@ -95,6 +95,16 @@ if services["api"].get("environment", {}).get("SECURITY_CLIENT_ID") != "${COGNIT
     errors.append("staging API must validate tokens against the same required Cognito client ID as the web")
 if services["simulator"].get("environment", {}).get("SIMULATION_RESUME_FROM_API") != "false":
     errors.append("staging simulator must not call the authenticated API before starting a new delivery")
+api_environment = services["api"].get("environment", {})
+simulator_environment = services["simulator"].get("environment", {})
+if api_environment.get("LOGITRACK_DEMO_SEED_ENABLED") != "true" or api_environment.get("LOGITRACK_DEMO_TARGET_ACTIVE_DELIVERIES") != "15":
+    errors.append("staging must keep a bounded 15-delivery live demo fleet")
+if api_environment.get("LOGITRACK_DEMO_STALE_AFTER_SECONDS") != "7200" or api_environment.get("LOGITRACK_DEMO_SEED_DELAY_MS") != "10000":
+    errors.append("staging must replace stale demo deliveries within a bounded interval")
+if api_environment.get("LOGITRACK_DEMO_COMPLETED_RETENTION") != "7d" or api_environment.get("LOGITRACK_DEMO_CLEANUP_BATCH_SIZE") != "250":
+    errors.append("staging completed demo retention must stay bounded")
+if simulator_environment.get("SIMULATION_INTERVAL_SECONDS") != "60" or simulator_environment.get("SIMULATION_STEPS") != "60" or simulator_environment.get("SIMULATION_MAX_WORKERS") != "15":
+    errors.append("staging demo deliveries must move once per minute for one bounded hour")
 if "id-token: write" not in workflow or "AWS-RunShellScript" not in workflow:
     errors.append("deployment workflow must use OIDC and SSM Run Command")
 if "fetch-depth: 0" not in workflow:
@@ -105,13 +115,26 @@ if 'actions = ["ecr:DescribeImages"]' not in tf:
     errors.append("deployment role must be able to verify the five manifest digests")
 if "secrets." in workflow:
     errors.append("deployment workflow must not consume long-lived GitHub secrets")
-for boundary in ("SECURE OPERATOR ACCESS", "운영자 로그인", "token_exchange_failed", "인증 서버가 로그인을 완료하지 못했습니다", "다시 로그인하기", "authentication error pages must not mutate authentication cookies", "unknown authentication errors must not be rendered as trusted operator guidance", "/console", "returnTo=%2Fconsole", "forged_console_headers", "forged_token", "4102444800", "/auth/login", "__Host-lt_oauth_state __Host-lt_oidc_nonce __Host-lt_pkce_verifier", "code_challenge_method=S256", "authorization_location", "redirect_state", "cookie_state", "redirect_nonce", "cookie_nonce", "pkce_verifier", "expected_challenge", "/auth/callback", "invalid_callback_status", "invalid_oauth_response", "invalid callback must not create or mutate the access token cookie", "cross_origin_logout_status", "cross_origin_logout_rejected", "same_origin_logout_status", "logout_location", "logout_uri=https%3A%2F%2Fwww.logitrack.kr%2Flogin", "rejected cross-origin logout must not mutate authentication cookies", "cross_origin_bff_status", "cross_origin_request_rejected", "same_origin_bff_status", "anonymous_read_status", "forged_bff_status", "invalid_authentication", "authentication_required", "rejected cross-origin proxy requests must not mutate authentication cookies", "anonymous proxy rejection must not mutate authentication cookies", "anonymous proxy reads must not mutate authentication cookies", "/backend/api/deliveries", "/api/runtime-version", "jq -e", "cache-control: .*no-store"):
+for boundary in ("SECURE OPERATOR ACCESS", "운영자 로그인", "token_exchange_failed", "인증 서버가 로그인을 완료하지 못했습니다", "다시 로그인하기", "authentication error pages must not mutate authentication cookies", "unknown authentication errors must not be rendered as trusted operator guidance", "/console", "returnTo=%2Fconsole", "forged_console_headers", "forged_token", "4102444800", "/auth/login", "__Host-lt_oauth_state __Host-lt_oidc_nonce __Host-lt_pkce_verifier", "code_challenge_method=S256", "authorization_location", "redirect_state", "cookie_state", "redirect_nonce", "pkce_verifier", "expected_challenge", "/auth/callback", "invalid_callback_status", "invalid_oauth_response", "invalid callback must not create or mutate the access token cookie", "cross_origin_logout_status", "cross_origin_logout_rejected", "same_origin_logout_status", "logout_location", "logout_uri=https%3A%2F%2Fwww.logitrack.kr%2Flogin", "rejected cross-origin logout must not mutate authentication cookies", "cross_origin_bff_status", "cross_origin_request_rejected", "same_origin_bff_status", "anonymous_read_status", "forged_bff_status", "invalid_authentication", "authentication_required", "rejected cross-origin proxy requests must not mutate authentication cookies", "anonymous proxy rejection must not mutate authentication cookies", "anonymous proxy reads must not mutate authentication cookies", "/backend/api/deliveries", "/api/runtime-version", ".revision == $revision", ".environment == \"staging\"", ".builtAt", "jq -e", "cache-control: .*no-store"):
     if boundary not in workflow:
         errors.append(f"post-deployment public verification is missing application boundary: {boundary}")
 if deploy_script.count("docker compose --progress quiet") < 3:
     errors.append("deployment pull, start, and rollback must bound SSM output with quiet Compose progress")
 if "--retry-all-errors" not in deploy_script or "--connect-timeout" not in deploy_script:
     errors.append("public readiness must tolerate bounded first-certificate provisioning failures")
+for fleet_gate in (
+    "exec -T postgres psql",
+    "status IN ('CREATED','IN_TRANSIT','DELAYED')",
+    "vehicle_id LIKE 'TRUCK-DEMO-%'",
+    "COALESCE(last_telemetry_at,created_at) >= NOW() - INTERVAL '7200 seconds'",
+    "active_demo_deliveries >= 15",
+    "for attempt in $(seq 1 24)",
+    "live demo fleet did not reach its configured target",
+):
+    if fleet_gate not in deploy_script:
+        errors.append(f"deployment live demo fleet gate is missing: {fleet_gate}")
+if deploy_script.index("live demo fleet did not reach its configured target") > deploy_script.index("deployed-revision"):
+    errors.append("live demo fleet must be verified before recording a successful deployment")
 
 if errors:
     print("\n".join(f"ERROR: {e}" for e in errors), file=sys.stderr)

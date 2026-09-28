@@ -141,10 +141,11 @@ jobs:
           REVISION: ${{ steps.revision.outputs.sha }}
           SOURCE_URL: https://github.com/${{ github.repository }}
         run: |
+          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           docker build --label org.opencontainers.image.revision="$REVISION" --label org.opencontainers.image.source="$SOURCE_URL" --tag "logitrack-api:$REVISION" ./api
           docker build --label org.opencontainers.image.revision="$REVISION" --label org.opencontainers.image.source="$SOURCE_URL" --tag "logitrack-analytics:$REVISION" ./analytics
           docker build --label org.opencontainers.image.revision="$REVISION" --label org.opencontainers.image.source="$SOURCE_URL" --tag "logitrack-simulator:$REVISION" ./simulator
-          docker build --build-arg NEXT_PUBLIC_API_URL=/backend --label org.opencontainers.image.revision="$REVISION" --label org.opencontainers.image.source="$SOURCE_URL" --tag "logitrack-web:$REVISION" ./web
+          docker build --build-arg NEXT_PUBLIC_API_URL=/backend --build-arg APP_REVISION="$REVISION" --build-arg APP_BUILD_TIME="$BUILD_TIME" --build-arg APP_ENVIRONMENT=staging --label org.opencontainers.image.revision="$REVISION" --label org.opencontainers.image.source="$SOURCE_URL" --tag "logitrack-web:$REVISION" ./web
           docker build --label org.opencontainers.image.revision="$REVISION" --label org.opencontainers.image.source="$SOURCE_URL" --tag "logitrack-otel-collector:$REVISION" ./infra/otel
       - name: Enforce hardened runtime metadata
         env:

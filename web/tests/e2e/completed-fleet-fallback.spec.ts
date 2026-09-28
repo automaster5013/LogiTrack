@@ -32,10 +32,19 @@ type StreamFixture = {
   delayMs?: number;
   deliveryRowsAfterFirstLoad?: typeof deliveries;
   alertRowsAfterFirstLoad?: DeliveryAlert[];
+  alertRowsByRequest?: DeliveryAlert[][];
+  alertPageDelayAfterFirstLoadMs?: number;
   routeDistanceMetersAfterFirstLoad?: number;
   telemetryRows?: TelemetryPoint[];
   telemetryRowsAfterFirstLoad?: TelemetryPoint[];
   acknowledgementResponse?: DeliveryAlert;
+  acknowledgementResponses?: Record<string, DeliveryAlert>;
+  acknowledgementFailuresBeforeSuccess?: number;
+  acknowledgementDelayMs?: number;
+  acknowledgementDelayMsById?: Record<string, number>;
+  waitForAcknowledgementBeforeStream?: boolean;
+  waitForAcknowledgementCountBeforeStream?: number;
+  streamDelayAfterAcknowledgementMs?: number;
 };
 
 async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRows: DeliveryAlert[] = [], streamFixture?: StreamFixture) {
@@ -44,6 +53,8 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
   let routeRequestCount = 0;
   let telemetryRequestCount = 0;
   let streamRequestCount = 0;
+  let acknowledgementRequestCount = 0;
+  let acknowledgementCompletedCount = 0;
   const routes = deliveryRows.map((delivery, index) => ({
     id: `10000000-0000-4000-8000-00000000000${index + 1}`,
     deliveryId: delivery.id,
@@ -60,13 +71,24 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
   await page.route("**/api/**", async route => {
     const url = new URL(route.request().url());
     const common = { headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" } };
+    if (url.pathname === "/api/runtime-version") return route.fulfill({ ...common, json: { version: "11111111-1111-4111-8111-111111111111", revision: "0123456789abcdef0123456789abcdef01234567", builtAt: "2026-09-28T09:00:00Z", environment: "test" } });
     if (url.pathname.match(/^\/api\/alerts\/[^/]+\/acknowledgement$/) && route.request().method() === "POST") {
       const headers = route.request().headers();
       const traceId = headers["x-trace-id"] || "";
-      if (headers["x-operator"] !== "control-tower" || !/^[0-9a-f-]{36}$/i.test(traceId) || !streamFixture?.acknowledgementResponse) {
+      const alertId = url.pathname.split("/")[3];
+      const acknowledgementResponse = streamFixture?.acknowledgementResponses?.[alertId] || streamFixture?.acknowledgementResponse;
+      if (headers["x-operator"] !== "control-tower" || !/^[0-9a-f-]{36}$/i.test(traceId) || !acknowledgementResponse) {
         return route.fulfill({ status: 400, ...common, json: { error: "invalid_acknowledgement" } });
       }
-      return route.fulfill({ status: 200, ...common, json: streamFixture.acknowledgementResponse });
+      acknowledgementRequestCount += 1;
+      const acknowledgementDelayMs = streamFixture.acknowledgementDelayMsById?.[alertId] || streamFixture.acknowledgementDelayMs;
+      if (acknowledgementDelayMs) await new Promise(resolve => setTimeout(resolve, acknowledgementDelayMs));
+      if (acknowledgementRequestCount <= (streamFixture.acknowledgementFailuresBeforeSuccess || 0)) {
+        acknowledgementCompletedCount += 1;
+        return route.fulfill({ status: 503, ...common, json: { error: "temporarily_unavailable" } });
+      }
+      acknowledgementCompletedCount += 1;
+      return route.fulfill({ status: 200, ...common, json: acknowledgementResponse });
     }
     if (url.pathname === "/api/deliveries/page") {
       deliveryRequestCount += 1;
@@ -78,9 +100,9 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
     if (url.pathname === "/api/orders/page") return route.fulfill({ ...common, json: { items: [], page: 0, size: 100, totalElements: 0, hasMore: false } });
     if (url.pathname === "/api/alerts/page") {
       alertRequestCount += 1;
-      const responseRows = alertRequestCount > 1 && streamFixture?.alertRowsAfterFirstLoad
-        ? streamFixture.alertRowsAfterFirstLoad
-        : alertRows;
+      if (alertRequestCount > 1 && streamFixture?.alertPageDelayAfterFirstLoadMs) await new Promise(resolve => setTimeout(resolve, streamFixture.alertPageDelayAfterFirstLoadMs));
+      const responseRows = streamFixture?.alertRowsByRequest?.[Math.min(alertRequestCount - 1, streamFixture.alertRowsByRequest.length - 1)]
+        || (alertRequestCount > 1 && streamFixture?.alertRowsAfterFirstLoad ? streamFixture.alertRowsAfterFirstLoad : alertRows);
       return route.fulfill({ ...common, json: { items: responseRows, page: 0, size: 100, totalElements: responseRows.length, hasMore: false } });
     }
     if (url.pathname === "/api/routes") {
@@ -103,6 +125,12 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
     if (url.pathname === "/api/operations/dlq-page") return route.fulfill({ ...common, json: { items: [], page: 0, size: 1, totalElements: 0, hasMore: false } });
     if (url.pathname === "/api/stream/deliveries") {
       streamRequestCount += 1;
+      const acknowledgementCountBeforeStream = streamFixture?.waitForAcknowledgementCountBeforeStream || (streamFixture?.waitForAcknowledgementBeforeStream ? 1 : 0);
+      if (acknowledgementCountBeforeStream) {
+        while (acknowledgementRequestCount < acknowledgementCountBeforeStream) await new Promise(resolve => setTimeout(resolve, 10));
+        const streamDelayAfterAcknowledgementMs = streamFixture?.streamDelayAfterAcknowledgementMs;
+        if (streamDelayAfterAcknowledgementMs) await new Promise(resolve => setTimeout(resolve, streamDelayAfterAcknowledgementMs));
+      }
       if (streamFixture?.delayMs) await new Promise(resolve => setTimeout(resolve, streamFixture.delayMs));
       const bodies = streamFixture?.bodiesByConnection;
       const body = bodies?.[Math.min(streamRequestCount - 1, bodies.length - 1)] || streamFixture?.body || "event: connected\ndata: {}\n\n";
@@ -110,6 +138,11 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
     }
     return route.fulfill({ status: 404, ...common, json: { error: "not_found" } });
   });
+  return {
+    acknowledgementRequestCount: () => acknowledgementRequestCount,
+    acknowledgementCompletedCount: () => acknowledgementCompletedCount,
+    alertRequestCount: () => alertRequestCount,
+  };
 }
 
 test("shows completed vehicles automatically when no delivery is active", async ({ page }) => {
@@ -117,13 +150,45 @@ test("shows completed vehicles automatically when no delivery is active", async 
 
   await page.goto("/console#overview");
 
-  await expect(page.getByText("전체 6건")).toBeVisible();
+  await expect(page.locator(".hero>div").first()).toContainText("실시간 운행00진행 중 전체 0건 · 위치 지연 0건모든 위치 최신");
   await expect(page.getByRole("button", { name: "전체 6", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "진행 중 0", exact: true })).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByLabel("선택한 차량")).toHaveValue(deliveries[0].id);
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(6);
   await expect(page.locator(".focusStats")).toContainText("26.0 km");
   await expect(page.locator(".focusStats")).toContainText("TRUCK-01");
+  const runtimeBadge=page.getByLabel("실행 환경 TEST 버전 0123456");
+  await expect(runtimeBadge).toBeVisible();
+  await expect(runtimeBadge).toHaveAttribute("aria-expanded","false");
+  await runtimeBadge.click();
+  await expect(runtimeBadge).toHaveAttribute("aria-expanded","true");
+  const runtimeDetails=page.getByRole("complementary",{name:"실행 환경 상세",exact:true});
+  await expect(runtimeDetails).toContainText("0123456789abcdef0123456789abcdef01234567");
+  await expect(runtimeDetails).toContainText("환경별 데이터에 따라 다를 수 있습니다.");
+  await page.keyboard.press("Escape");
+  await expect(runtimeDetails).toBeHidden();
+  const legendToggle = page.getByRole("button", { name: /지도 범례 6대 표시 보기/ });
+  await expect(legendToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByText("실제 이동", { exact: true })).toBeHidden();
+  await legendToggle.click();
+  await expect(page.getByRole("button", { name: /지도 범례 6대 표시 접기/ })).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByText("실제 이동", { exact: true })).toBeVisible();
+  await expect(page.getByText("차량을 선택하면 상세 경로와 거점이 강조됩니다.")).toBeVisible();
+  const expandMap=page.getByRole("button",{name:"지도 확대 보기"});
+  await expandMap.click();
+  await expect(page.locator(".mapShell")).toHaveClass(/mapExpanded/);
+  await expect(page.getByRole("button",{name:"지도 원래 크기로"})).toHaveAttribute("aria-pressed","true");
+  const expandedHud=page.getByRole("complementary",{name:"확대 지도 선택 차량 정보"});
+  await expect(expandedHud).toContainText("TRUCK-01");
+  await expect(expandedHud).toContainText("배송 완료");
+  await expect(expandedHud).toContainText("출발지 1 → 도착지 1");
+  await expect(expandedHud).toContainText("진행률100%");
+  await expect(expandedHud).toContainText("최근 위치");
+  await page.keyboard.press("Escape");
+  await expect(expandedHud).toBeHidden();
+  await expect(page.locator(".mapShell")).not.toHaveClass(/mapExpanded/);
+  await page.setViewportSize({width:390,height:844});
+  await expect(runtimeBadge.getByText("TEST",{exact:true})).toBeVisible();
 });
 
 test("prioritizes a searched vehicle beyond the fifty vehicle map limit", async ({ page }) => {
@@ -262,13 +327,39 @@ test("keeps the live scope when an active delivery exists", async ({ page }) => 
   await mockOverview(page, activeDeliveries);
   await page.goto("/console#overview");
 
-  await expect(page.getByText("전체 6건")).toBeVisible();
+  await expect(page.locator(".hero>div").first()).toContainText("실시간 운행00진행 중 전체 1건 · 위치 지연 1건지연 차량 확인 →");
   await expect(page.getByRole("button", { name: "진행 중 1", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "전체 6", exact: true })).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByLabel("선택한 차량")).toHaveValue(activeDeliveries[0].id);
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
   await expect(page.locator(".focusStats")).toContainText("26.0 km");
   await expect(page.locator(".focusStats")).toContainText("TRUCK-01");
+});
+
+test("defaults to recently reporting vehicles while keeping stale active deliveries accessible", async ({ page }) => {
+  const activeDeliveries = deliveries.map((delivery, index) => index < 2 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    progress: index === 0 ? 0.25 : 0.75,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: index === 0 ? "2099-09-27T07:59:30Z" : "2020-09-27T08:00:00Z",
+  } : delivery);
+  await mockOverview(page, activeDeliveries);
+
+  await page.goto("/console#overview");
+
+  await expect(page.getByRole("button", { name: "실시간 1", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "진행 중 2", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator(".hero>div").first()).toContainText("실시간 운행01진행 중 전체 2건 · 위치 지연 1건지연 차량 확인 →");
+  await expect(page.locator(".hero>div").nth(2)).toContainText("평균 진행률25%최근 위치 수신 차량 기준");
+  await expect(page.getByLabel("선택한 차량")).toHaveValue(activeDeliveries[0].id);
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
+
+  await page.getByRole("button", { name: "진행 중 2", exact: true }).click();
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(2);
+  await page.getByRole("button", { name: "지연 차량 확인 →", exact: true }).click();
+  await expect(page.getByRole("button", { name: "위치 지연 1", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("선택한 차량")).toHaveValue(activeDeliveries[1].id);
 });
 
 test("updates the selected vehicle from delivery and telemetry stream events", async ({ page }) => {
@@ -443,20 +534,318 @@ test("acknowledges an active alert with operator trace context", async ({ page }
     acknowledgedBy: "control-tower",
   };
 
-  await mockOverview(page, activeDeliveries, [activeAlert], {
+  const requests = await mockOverview(page, activeDeliveries, [activeAlert], {
     body: "event: connected\ndata: {}\n\n",
-    delayMs: 10_000,
+    bodiesByConnection: ["event: connected\ndata: {}\n\n", "event: connected\ndata: {}\n\n"],
+    alertRowsByRequest: [[activeAlert], [activeAlert], [acknowledgedAlert]],
+    alertPageDelayAfterFirstLoadMs: 800,
     acknowledgementResponse: acknowledgedAlert,
   });
   await page.goto("/console#overview");
 
   await expect(page.locator(".alertHeaderStats")).toContainText("1미확인");
-  await page.getByRole("button", { name: "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리" }).click();
+  await expect.poll(() => requests.alertRequestCount(), { timeout: 15_000 }).toBeGreaterThan(1);
+  const acknowledgementButton = page.getByRole("button", { name: "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리" });
+  await acknowledgementButton.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
 
   await expect(page.locator(".alertHeaderStats")).toContainText("0미확인");
   await expect(page.getByText(/확인 · control-tower/)).toBeVisible();
   await expect(page.getByRole("button", { name: /TRUCK-01.*경고 확인 처리/ })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "확인 필요 1", exact: true })).toBeVisible();
+  expect(requests.acknowledgementRequestCount()).toBe(1);
+  await page.waitForTimeout(1_000);
+  await expect(page.getByText(/확인 · control-tower/)).toBeVisible();
+});
+
+test("recovers when alert acknowledgement initially fails", async ({ page }) => {
+  const occurredAt = new Date().toISOString();
+  const activeDeliveries = deliveries.map((delivery, index) => index === 0 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    currentLat: (delivery.originLat + delivery.destinationLat) / 2,
+    currentLon: (delivery.originLon + delivery.destinationLon) / 2,
+    progress: 0.5,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: occurredAt,
+  } : delivery);
+  const activeAlert: DeliveryAlert = {
+    id: "20000000-0000-4000-8000-000000000013",
+    deliveryId: activeDeliveries[0].id,
+    alertType: "ROUTE_DEVIATION",
+    severity: "CRITICAL",
+    status: "ACTIVE",
+    message: "계획 경로에서 크게 벗어났습니다.",
+    observedValue: 1_800,
+    thresholdValue: 500,
+    occurrenceCount: 2,
+    firstObservedAt: occurredAt,
+    lastObservedAt: occurredAt,
+  };
+  const acknowledgedAlert: DeliveryAlert = {
+    ...activeAlert,
+    acknowledgedAt: occurredAt,
+    acknowledgedBy: "control-tower",
+  };
+  const acknowledgementButton = "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리";
+
+  await mockOverview(page, activeDeliveries, [activeAlert], {
+    body: "event: connected\ndata: {}\n\n",
+    delayMs: 10_000,
+    acknowledgementResponse: acknowledgedAlert,
+    acknowledgementFailuresBeforeSuccess: 1,
+  });
+  await page.goto("/console#overview");
+
+  await page.getByRole("button", { name: acknowledgementButton }).click();
+
+  await expect(page.locator(".errorPanel")).toContainText("경고 확인 처리에 실패했습니다.");
+  await expect(page.getByRole("button", { name: acknowledgementButton })).toBeEnabled();
+  await expect(page.locator(".alertHeaderStats")).toContainText("1미확인");
+
+  await page.getByRole("button", { name: acknowledgementButton }).click();
+
+  await expect(page.locator(".errorPanel")).toHaveCount(0);
+  await expect(page.locator(".alertHeaderStats")).toContainText("0미확인");
+  await expect(page.getByText(/확인 · control-tower/)).toBeVisible();
+});
+
+test("accepts a streamed acknowledgement when the request later fails", async ({ page }) => {
+  const occurredAt = new Date().toISOString();
+  const activeDeliveries = deliveries.map((delivery, index) => index === 0 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    progress: 0.5,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: occurredAt,
+  } : delivery);
+  const activeAlert: DeliveryAlert = {
+    id: "20000000-0000-4000-8000-000000000015",
+    deliveryId: activeDeliveries[0].id,
+    alertType: "DELAY",
+    severity: "WARNING",
+    status: "ACTIVE",
+    message: "도착 예정 시각보다 지연되고 있습니다.",
+    observedValue: 900,
+    thresholdValue: 600,
+    occurrenceCount: 1,
+    firstObservedAt: occurredAt,
+    lastObservedAt: occurredAt,
+  };
+  const acknowledgedAlert: DeliveryAlert = {
+    ...activeAlert,
+    acknowledgedAt: occurredAt,
+    acknowledgedBy: "control-tower",
+  };
+
+  const requests = await mockOverview(page, activeDeliveries, [activeAlert], {
+    body: `event: connected\ndata: {}\n\nevent: alert-update\ndata: ${JSON.stringify(acknowledgedAlert)}\n\n`,
+    acknowledgementResponse: acknowledgedAlert,
+    acknowledgementFailuresBeforeSuccess: 1,
+    acknowledgementDelayMs: 3_000,
+    waitForAcknowledgementBeforeStream: true,
+  });
+  await page.goto("/console#overview");
+
+  await page.getByRole("button", { name: "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리" }).click();
+
+  await expect(page.getByText(/확인 · control-tower/)).toBeVisible();
+  await expect.poll(() => requests.acknowledgementCompletedCount()).toBe(1);
+  await expect(page.locator(".alertHeaderStats")).toContainText("0미확인");
+  await expect(page.locator(".errorPanel")).toHaveCount(0);
+});
+
+test("clears a request failure when acknowledgement arrives from the stream", async ({ page }) => {
+  const occurredAt = new Date().toISOString();
+  const activeDeliveries = deliveries.map((delivery, index) => index === 0 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    progress: 0.5,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: occurredAt,
+  } : delivery);
+  const activeAlert: DeliveryAlert = {
+    id: "20000000-0000-4000-8000-000000000016",
+    deliveryId: activeDeliveries[0].id,
+    alertType: "DELAY",
+    severity: "WARNING",
+    status: "ACTIVE",
+    message: "도착 예정 시각보다 지연되고 있습니다.",
+    observedValue: 900,
+    thresholdValue: 600,
+    occurrenceCount: 1,
+    firstObservedAt: occurredAt,
+    lastObservedAt: occurredAt,
+  };
+  const acknowledgedAlert: DeliveryAlert = {
+    ...activeAlert,
+    acknowledgedAt: occurredAt,
+    acknowledgedBy: "incident-lead",
+  };
+
+  await mockOverview(page, activeDeliveries, [activeAlert], {
+    body: `event: connected\ndata: {}\n\nevent: alert-update\ndata: ${JSON.stringify(acknowledgedAlert)}\n\n`,
+    acknowledgementResponse: acknowledgedAlert,
+    acknowledgementFailuresBeforeSuccess: 1,
+    waitForAcknowledgementBeforeStream: true,
+    streamDelayAfterAcknowledgementMs: 1_000,
+  });
+  await page.goto("/console#overview");
+
+  await page.getByRole("button", { name: "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리" }).click();
+
+  await expect(page.locator(".errorPanel")).toContainText("경고 확인 처리에 실패했습니다.");
+  await expect(page.getByText(/확인 · incident-lead/)).toBeVisible();
+  await expect(page.locator(".errorPanel")).toHaveCount(0);
+  await expect(page.locator(".alertHeaderStats")).toContainText("0미확인");
+});
+
+test("keeps another alert acknowledgement failure after a streamed recovery", async ({ page }) => {
+  const occurredAt = new Date().toISOString();
+  const activeDeliveries = deliveries.map((delivery, index) => index < 2 ? { ...delivery, status: "IN_TRANSIT", progress: 0.5, eta: "2099-09-27T08:00:00Z", lastTelemetryAt: occurredAt } : delivery);
+  const activeAlerts: DeliveryAlert[] = activeDeliveries.slice(0, 2).map((delivery, index) => ({
+    id: `20000000-0000-4000-8000-00000000003${index}`,
+    deliveryId: delivery.id,
+    alertType: index === 0 ? "DELAY" : "ROUTE_DEVIATION",
+    severity: index === 0 ? "WARNING" : "CRITICAL",
+    status: "ACTIVE",
+    message: index === 0 ? "도착 예정 시각보다 지연되고 있습니다." : "계획 경로에서 크게 벗어났습니다.",
+    observedValue: 900,
+    thresholdValue: 600,
+    occurrenceCount: 1,
+    firstObservedAt: occurredAt,
+    lastObservedAt: occurredAt,
+  }));
+  const streamedAcknowledgement: DeliveryAlert = { ...activeAlerts[1], acknowledgedAt: occurredAt, acknowledgedBy: "incident-lead" };
+  const acknowledgementResponses = Object.fromEntries(activeAlerts.map(alert => [alert.id, { ...alert, acknowledgedAt: occurredAt, acknowledgedBy: "control-tower" }]));
+  const firstButton = "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리";
+  const secondButton = "TRUCK-02 주문 ORD-DEMO-2 출발지 2에서 도착지 2 경고 확인 처리";
+
+  await mockOverview(page, activeDeliveries, activeAlerts, {
+    body: `event: connected\ndata: {}\n\nevent: alert-update\ndata: ${JSON.stringify(streamedAcknowledgement)}\n\n`,
+    acknowledgementResponses,
+    acknowledgementFailuresBeforeSuccess: 2,
+    waitForAcknowledgementCountBeforeStream: 2,
+    streamDelayAfterAcknowledgementMs: 1_000,
+  });
+  await page.goto("/console#overview");
+
+  await page.getByRole("button", { name: firstButton }).click();
+  await page.getByRole("button", { name: secondButton }).click();
+
+  await expect(page.getByText(/확인 · incident-lead/)).toBeVisible();
+  await expect(page.getByRole("button", { name: firstButton })).toBeEnabled();
+  await expect(page.locator(".errorPanel")).toContainText("경고 확인 처리에 실패했습니다.");
+});
+
+test("preserves a resolved stream update while acknowledgement is pending", async ({ page }) => {
+  const occurredAt = new Date().toISOString();
+  const activeDeliveries = deliveries.map((delivery, index) => index === 0 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    currentLat: (delivery.originLat + delivery.destinationLat) / 2,
+    currentLon: (delivery.originLon + delivery.destinationLon) / 2,
+    progress: 0.5,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: occurredAt,
+  } : delivery);
+  const activeAlert: DeliveryAlert = {
+    id: "20000000-0000-4000-8000-000000000014",
+    deliveryId: activeDeliveries[0].id,
+    alertType: "ROUTE_DEVIATION",
+    severity: "CRITICAL",
+    status: "ACTIVE",
+    message: "계획 경로에서 크게 벗어났습니다.",
+    observedValue: 1_800,
+    thresholdValue: 500,
+    occurrenceCount: 2,
+    firstObservedAt: occurredAt,
+    lastObservedAt: occurredAt,
+  };
+  const acknowledgedAlert: DeliveryAlert = {
+    ...activeAlert,
+    acknowledgedAt: occurredAt,
+    acknowledgedBy: "control-tower",
+  };
+  const resolvedAlert: DeliveryAlert = {
+    ...activeAlert,
+    status: "RESOLVED",
+    message: "계획 경로로 복귀했습니다.",
+    resolvedAt: occurredAt,
+    acknowledgedAt: occurredAt,
+    acknowledgedBy: "incident-lead",
+  };
+
+  await mockOverview(page, activeDeliveries, [activeAlert], {
+    body: `event: connected\ndata: {}\n\nevent: alert-update\ndata: ${JSON.stringify(resolvedAlert)}\n\n`,
+    acknowledgementResponse: acknowledgedAlert,
+    acknowledgementDelayMs: 500,
+    waitForAcknowledgementBeforeStream: true,
+  });
+  await page.goto("/console#overview");
+
+  await page.getByRole("button", { name: "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리" }).click();
+
+  await expect(page.getByText("현재 이상 없음")).toBeVisible();
+  await page.getByRole("button", { name: "전체 이력 1" }).click();
+  await expect(page.getByText("계획 경로로 복귀했습니다.")).toBeVisible();
+  await expect(page.getByText(/해결됨/)).toBeVisible();
+  await expect(page.getByText(/확인 · incident-lead/)).toBeVisible();
+});
+
+test("tracks concurrent alert acknowledgements independently", async ({ page }) => {
+  const occurredAt = new Date().toISOString();
+  const activeDeliveries = deliveries.map((delivery, index) => index < 2 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    currentLat: (delivery.originLat + delivery.destinationLat) / 2,
+    currentLon: (delivery.originLon + delivery.destinationLon) / 2,
+    progress: 0.5,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: occurredAt,
+  } : delivery);
+  const activeAlerts: DeliveryAlert[] = activeDeliveries.slice(0, 2).map((delivery, index) => ({
+    id: `20000000-0000-4000-8000-00000000002${index}`,
+    deliveryId: delivery.id,
+    alertType: index === 0 ? "DELAY" : "ROUTE_DEVIATION",
+    severity: index === 0 ? "WARNING" : "CRITICAL",
+    status: "ACTIVE",
+    message: index === 0 ? "도착 예정 시각보다 지연되고 있습니다." : "계획 경로에서 크게 벗어났습니다.",
+    observedValue: 900,
+    thresholdValue: 600,
+    occurrenceCount: 1,
+    firstObservedAt: occurredAt,
+    lastObservedAt: occurredAt,
+  }));
+  const acknowledgementResponses = Object.fromEntries(activeAlerts.map(alert => [alert.id, {
+    ...alert,
+    acknowledgedAt: occurredAt,
+    acknowledgedBy: "control-tower",
+  }]));
+  const firstButton = "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리";
+  const secondButton = "TRUCK-02 주문 ORD-DEMO-2 출발지 2에서 도착지 2 경고 확인 처리";
+
+  await mockOverview(page, activeDeliveries, activeAlerts, {
+    body: "event: connected\ndata: {}\n\n",
+    delayMs: 10_000,
+    acknowledgementResponses,
+    acknowledgementDelayMsById: {
+      [activeAlerts[0].id]: 300,
+      [activeAlerts[1].id]: 1_200,
+    },
+  });
+  await page.goto("/console#overview");
+
+  await page.getByRole("button", { name: firstButton }).click();
+  await page.getByRole("button", { name: secondButton }).click();
+
+  await expect(page.getByRole("button", { name: firstButton })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: secondButton })).toBeDisabled();
+  await expect(page.getByRole("button", { name: secondButton })).toHaveText("확인 처리 중…");
+  await expect(page.locator(".alertHeaderStats")).toContainText("1미확인");
+
+  await expect(page.getByRole("button", { name: secondButton })).toHaveCount(0);
+  await expect(page.locator(".alertHeaderStats")).toContainText("0미확인");
+  await expect(page.getByText(/확인 · control-tower/)).toHaveCount(2);
 });
 
 test("resynchronizes deliveries after the event stream reconnects", async ({ page }) => {
@@ -607,7 +996,7 @@ test("focuses the alerted vehicle from the attention summary", async ({ page }) 
   await mockOverview(page, activeDeliveries, [alert]);
   await page.goto("/console#overview");
 
-  await expect(page.getByRole("button", { name: "진행 중 2", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "실시간 2", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(2);
   await expect(page.getByRole("button", { name: "지도에서 확인 →" })).toBeVisible();
 
@@ -634,9 +1023,9 @@ test("filters active vehicles to the stale telemetry scope", async ({ page }) =>
   await mockOverview(page, activeDeliveries);
   await page.goto("/console#overview");
 
-  await expect(page.getByRole("button", { name: "진행 중 2", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "실시간 1", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "위치 지연 1", exact: true })).toHaveAttribute("aria-pressed", "false");
-  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(2);
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
 
   await page.getByRole("button", { name: "위치 지연 1", exact: true }).click();
 
@@ -645,6 +1034,8 @@ test("filters active vehicles to the stale telemetry scope", async ({ page }) =>
   await expect(page.getByLabel("선택한 차량")).toHaveValue(activeDeliveries[1].id);
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
   await expect(page.locator(".focusStats")).toContainText("TRUCK-02");
+  await expect(page.locator(".focusStats")).toContainText("운송 중");
+  await expect(page.locator(".focusStats")).toContainText("최근 위치24시간 이상위치 지연");
 
   await page.getByRole("link", { name: "주문·차량" }).click();
   await expect(page.getByRole("button", { name: "위치 지연 1", exact: true })).toHaveAttribute("aria-pressed", "true");
