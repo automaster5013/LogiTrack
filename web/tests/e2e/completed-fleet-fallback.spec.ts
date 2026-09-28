@@ -178,7 +178,14 @@ test("shows completed vehicles automatically when no delivery is active", async 
   await expandMap.click();
   await expect(page.locator(".mapShell")).toHaveClass(/mapExpanded/);
   await expect(page.getByRole("button",{name:"지도 원래 크기로"})).toHaveAttribute("aria-pressed","true");
+  const expandedHud=page.getByRole("complementary",{name:"확대 지도 선택 차량 정보"});
+  await expect(expandedHud).toContainText("TRUCK-01");
+  await expect(expandedHud).toContainText("배송 완료");
+  await expect(expandedHud).toContainText("출발지 1 → 도착지 1");
+  await expect(expandedHud).toContainText("진행률100%");
+  await expect(expandedHud).toContainText("최근 위치");
   await page.keyboard.press("Escape");
+  await expect(expandedHud).toBeHidden();
   await expect(page.locator(".mapShell")).not.toHaveClass(/mapExpanded/);
   await page.setViewportSize({width:390,height:844});
   await expect(runtimeBadge.getByText("TEST",{exact:true})).toBeVisible();
