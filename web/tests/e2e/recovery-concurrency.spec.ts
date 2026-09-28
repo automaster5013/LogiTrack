@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { DeadLetterEvent, OutboxFailure } from "../../app/types";
+import type { DeadLetterEvent, DiscardPlan, OutboxFailure } from "../../app/types";
 
 const failedAt = "2026-09-28T01:00:00Z";
 const events: DeadLetterEvent[] = [
@@ -33,12 +33,15 @@ const outboxFailures: OutboxFailure[] = [
   { id: "failure2-0000-4000-8000-000000000102", aggregateType: "Delivery", aggregateId: "delivery-102", eventType: "DeliveryDelayed", topic: "delivery.events", attempts: 4, lastError: "Broker unavailable", createdAt: failedAt, status: "FAILED" },
 ];
 
-type RecoveryFixture = { replayFailuresBeforeSuccessById?: Record<string,number>; discardFailuresBeforeSuccessById?: Record<string,number>; outboxFailuresBeforeSuccessById?: Record<string,number> };
+type RecoveryFixture = { replayFailuresBeforeSuccessById?: Record<string,number>; discardFailuresBeforeSuccessById?: Record<string,number>; outboxFailuresBeforeSuccessById?: Record<string,number>; discardPlanFailuresBeforeSuccess?:number; discardPlanExecutionFailuresBeforeSuccess?:number };
 
 async function mockRecovery(page: Page, fixture: RecoveryFixture = {}) {
   const replayRequests: string[] = [];
   const discardRequests: string[] = [];
+  const discardPlanRequests: string[][] = [];
+  const discardPlanExecutionRequests: string[] = [];
   const outboxRetryRequests: string[] = [];
+  const discardPlan: DiscardPlan = { id:"00000000-0000-4000-8000-000000000201", actor:"control-tower", reason:"invalid telemetry payloads", eventIds:[events[0].id], status:"PREPARED", createdAt:failedAt, expiresAt:"2026-09-28T02:00:00Z", succeededCount:0, failedCount:0 };
   await page.route("**/api/**", async route => {
     const request = route.request();
     const url = new URL(request.url());
@@ -58,6 +61,19 @@ async function mockRecovery(page: Page, fixture: RecoveryFixture = {}) {
       const requestCount = discardRequests.filter(id => id === discardMatch[1]).length;
       if (requestCount <= (fixture.discardFailuresBeforeSuccessById?.[discardMatch[1]] || 0)) return route.fulfill({ status: 503, ...common, json: { error: "temporarily_unavailable" } });
       return route.fulfill({ status: 204, ...common });
+    }
+    if (url.pathname === "/api/operations/discard-plans" && request.method() === "POST") {
+      const body = request.postDataJSON() as { eventIds:string[]; reason:string };
+      discardPlanRequests.push(body.eventIds);
+      await new Promise(resolve => setTimeout(resolve, 1_000));
+      if (discardPlanRequests.length <= (fixture.discardPlanFailuresBeforeSuccess || 0)) return route.fulfill({ status:503, ...common, json:{ error:"temporarily_unavailable" } });
+      return route.fulfill({ ...common, json:{ ...discardPlan, eventIds:body.eventIds, reason:body.reason } });
+    }
+    if (url.pathname === `/api/operations/discard-plans/${discardPlan.id}/execute` && request.method() === "POST") {
+      discardPlanExecutionRequests.push(discardPlan.id);
+      await new Promise(resolve => setTimeout(resolve, 1_000));
+      if (discardPlanExecutionRequests.length <= (fixture.discardPlanExecutionFailuresBeforeSuccess || 0)) return route.fulfill({ status:503, ...common, json:{ error:"temporarily_unavailable" } });
+      return route.fulfill({ ...common, json:{ ...discardPlan, status:"EXECUTED", succeededCount:discardPlan.eventIds.length, executedAt:"2026-09-28T01:30:00Z" } });
     }
     const outboxRetryMatch = url.pathname.match(/^\/api\/operations\/outbox\/failures\/([^/]+)\/retry$/);
     if (outboxRetryMatch && request.method() === "POST") {
@@ -84,7 +100,7 @@ async function mockRecovery(page: Page, fixture: RecoveryFixture = {}) {
     }
     return route.fulfill({ status: 404, ...common, json: { error: "not_found" } });
   });
-  return { replayRequests, discardRequests, outboxRetryRequests };
+  return { replayRequests, discardRequests, discardPlanRequests, discardPlanExecutionRequests, outboxRetryRequests };
 }
 
 test("keeps each concurrent DLQ replay disabled until its own request finishes", async ({ page }) => {
@@ -236,4 +252,76 @@ test("keeps a DLQ discard error visible until retry succeeds", async ({ page }) 
   await expect(discard).toBeEnabled({ timeout: 1_500 });
   await expect(discardError).toBeHidden();
   expect(discardRequests).toEqual([events[0].id,events[0].id]);
+});
+
+test("sends one bulk discard plan request for immediate repeated input", async ({ page }) => {
+  const { discardPlanRequests } = await mockRecovery(page);
+  await page.goto("/console#recovery");
+  await page.getByRole("checkbox", { name:"trace-recovery-101 일괄 폐기 선택" }).check();
+  await page.getByPlaceholder("폐기 사유를 입력하세요").fill("invalid telemetry payloads");
+  const prepare = page.getByRole("button", { name:"선택한 1건 검토" });
+  await prepare.evaluate(button => {
+    const prepareButton = button as HTMLButtonElement;
+    prepareButton.click();
+    prepareButton.click();
+  });
+
+  await expect(page.getByRole("button", { name:"검토 준비 중…" })).toBeDisabled();
+  await expect(page.getByText("승인 대기 · 1건")).toBeVisible({ timeout:1_500 });
+  expect(discardPlanRequests).toEqual([[events[0].id]]);
+});
+
+test("keeps a bulk discard plan error visible until retry succeeds", async ({ page }) => {
+  const { discardPlanRequests } = await mockRecovery(page, { discardPlanFailuresBeforeSuccess:1 });
+  await page.goto("/console#recovery");
+  await page.getByRole("checkbox", { name:"trace-recovery-101 일괄 폐기 선택" }).check();
+  await page.getByPlaceholder("폐기 사유를 입력하세요").fill("invalid telemetry payloads");
+  const prepare = page.getByRole("button", { name:"선택한 1건 검토" });
+  const error = page.getByText("일괄 폐기 계획 생성에 실패했습니다. 선택 항목과 사유를 확인해 주세요.");
+  await prepare.click();
+  await expect(error).toBeVisible({ timeout:1_500 });
+
+  await prepare.click();
+  await expect(error).toBeVisible();
+  await expect(page.getByText("승인 대기 · 1건")).toBeVisible({ timeout:1_500 });
+  await expect(error).toBeHidden();
+  expect(discardPlanRequests).toEqual([[events[0].id],[events[0].id]]);
+});
+
+test("sends one bulk discard execution request for immediate repeated input", async ({ page }) => {
+  const { discardPlanExecutionRequests } = await mockRecovery(page);
+  await page.goto("/console#recovery");
+  await page.getByRole("checkbox", { name:"trace-recovery-101 일괄 폐기 선택" }).check();
+  await page.getByPlaceholder("폐기 사유를 입력하세요").fill("invalid telemetry payloads");
+  await page.getByRole("button", { name:"선택한 1건 검토" }).click();
+  await page.getByLabel("승인어 DISCARD 입력").fill("DISCARD");
+  const execute = page.getByRole("button", { name:"영구 폐기 실행" });
+  await execute.evaluate(button => {
+    const executeButton = button as HTMLButtonElement;
+    executeButton.click();
+    executeButton.click();
+  });
+
+  await expect(page.getByRole("button", { name:"폐기 중…" })).toBeDisabled();
+  await expect(page.getByText("실행 완료 · 1건")).toBeVisible({ timeout:1_500 });
+  expect(discardPlanExecutionRequests).toEqual(["00000000-0000-4000-8000-000000000201"]);
+});
+
+test("keeps a bulk discard execution error visible until retry succeeds", async ({ page }) => {
+  const { discardPlanExecutionRequests } = await mockRecovery(page, { discardPlanExecutionFailuresBeforeSuccess:1 });
+  await page.goto("/console#recovery");
+  await page.getByRole("checkbox", { name:"trace-recovery-101 일괄 폐기 선택" }).check();
+  await page.getByPlaceholder("폐기 사유를 입력하세요").fill("invalid telemetry payloads");
+  await page.getByRole("button", { name:"선택한 1건 검토" }).click();
+  await page.getByLabel("승인어 DISCARD 입력").fill("DISCARD");
+  const execute = page.getByRole("button", { name:"영구 폐기 실행" });
+  const error = page.getByText("일괄 폐기 실행에 실패했습니다. 계획 만료 또는 이벤트 상태를 확인해 주세요.");
+  await execute.click();
+  await expect(error).toBeVisible({ timeout:1_500 });
+
+  await execute.click();
+  await expect(error).toBeVisible();
+  await expect(page.getByText("실행 완료 · 1건")).toBeVisible({ timeout:1_500 });
+  await expect(error).toBeHidden();
+  expect(discardPlanExecutionRequests).toEqual(["00000000-0000-4000-8000-000000000201","00000000-0000-4000-8000-000000000201"]);
 });
