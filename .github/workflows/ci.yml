@@ -165,6 +165,8 @@ jobs:
         run: |
           docker run --rm --entrypoint promtool --volume "$PWD/infra:/etc/prometheus:ro" prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 check config /etc/prometheus/prometheus.yml
           docker run --rm --entrypoint promtool --volume "$PWD/infra:/etc/prometheus:ro" prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 test rules /etc/prometheus/prometheus-alerts.test.yml
+      - name: Validate provisioned Grafana dashboards
+        run: python scripts/grafana-dashboard-smoke.py
 
   web:
     name: TypeScript production build
