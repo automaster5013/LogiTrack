@@ -33,10 +33,11 @@ const outboxFailures: OutboxFailure[] = [
   { id: "failure2-0000-4000-8000-000000000102", aggregateType: "Delivery", aggregateId: "delivery-102", eventType: "DeliveryDelayed", topic: "delivery.events", attempts: 4, lastError: "Broker unavailable", createdAt: failedAt, status: "FAILED" },
 ];
 
-type RecoveryFixture = { replayFailuresBeforeSuccessById?: Record<string,number>; outboxFailuresBeforeSuccessById?: Record<string,number> };
+type RecoveryFixture = { replayFailuresBeforeSuccessById?: Record<string,number>; discardFailuresBeforeSuccessById?: Record<string,number>; outboxFailuresBeforeSuccessById?: Record<string,number> };
 
 async function mockRecovery(page: Page, fixture: RecoveryFixture = {}) {
   const replayRequests: string[] = [];
+  const discardRequests: string[] = [];
   const outboxRetryRequests: string[] = [];
   await page.route("**/api/**", async route => {
     const request = route.request();
@@ -48,6 +49,14 @@ async function mockRecovery(page: Page, fixture: RecoveryFixture = {}) {
       await new Promise(resolve => setTimeout(resolve, replayMatch[1] === events[0].id ? 1_000 : 2_500));
       const requestCount = replayRequests.filter(id => id === replayMatch[1]).length;
       if (requestCount <= (fixture.replayFailuresBeforeSuccessById?.[replayMatch[1]] || 0)) return route.fulfill({ status: 503, ...common, json: { error: "temporarily_unavailable" } });
+      return route.fulfill({ status: 204, ...common });
+    }
+    const discardMatch = url.pathname.match(/^\/api\/operations\/dlq\/([^/]+)\/discard$/);
+    if (discardMatch && request.method() === "POST") {
+      discardRequests.push(discardMatch[1]);
+      await new Promise(resolve => setTimeout(resolve, 1_000));
+      const requestCount = discardRequests.filter(id => id === discardMatch[1]).length;
+      if (requestCount <= (fixture.discardFailuresBeforeSuccessById?.[discardMatch[1]] || 0)) return route.fulfill({ status: 503, ...common, json: { error: "temporarily_unavailable" } });
       return route.fulfill({ status: 204, ...common });
     }
     const outboxRetryMatch = url.pathname.match(/^\/api\/operations\/outbox\/failures\/([^/]+)\/retry$/);
@@ -75,7 +84,7 @@ async function mockRecovery(page: Page, fixture: RecoveryFixture = {}) {
     }
     return route.fulfill({ status: 404, ...common, json: { error: "not_found" } });
   });
-  return { replayRequests, outboxRetryRequests };
+  return { replayRequests, discardRequests, outboxRetryRequests };
 }
 
 test("keeps each concurrent DLQ replay disabled until its own request finishes", async ({ page }) => {
@@ -192,4 +201,39 @@ test("sends one outbox retry request for immediate repeated input", async ({ pag
   await expect(retry).toBeDisabled();
   await expect(retry).toBeEnabled({ timeout: 1_500 });
   expect(outboxRetryRequests).toEqual([outboxFailures[0].id]);
+});
+
+test("sends one DLQ discard request for immediate repeated input", async ({ page }) => {
+  const { discardRequests } = await mockRecovery(page);
+  page.on("dialog", dialog => dialog.type()==="prompt"?dialog.accept("invalid telemetry payload"):dialog.accept());
+  await page.goto("/console#recovery");
+
+  const discard = page.getByRole("button", { name: "trace-recovery-101 영구 폐기" });
+  await expect(discard).toBeVisible();
+  await discard.evaluate(button => {
+    const discardButton = button as HTMLButtonElement;
+    discardButton.click();
+    discardButton.click();
+  });
+
+  await expect(discard).toBeDisabled();
+  await expect(discard).toBeEnabled({ timeout: 1_500 });
+  expect(discardRequests).toEqual([events[0].id]);
+});
+
+test("keeps a DLQ discard error visible until retry succeeds", async ({ page }) => {
+  const { discardRequests } = await mockRecovery(page, { discardFailuresBeforeSuccessById: { [events[0].id]: 1 } });
+  page.on("dialog", dialog => dialog.type()==="prompt"?dialog.accept("invalid telemetry payload"):dialog.accept());
+  await page.goto("/console#recovery");
+
+  const discard = page.getByRole("button", { name: "trace-recovery-101 영구 폐기" });
+  const discardError = page.getByText("DLQ 이벤트 폐기에 실패했습니다. 폐기 사유를 확인해 주세요.");
+  await discard.click();
+  await expect(discardError).toBeVisible({ timeout: 1_500 });
+
+  await discard.click();
+  await expect(discardError).toBeVisible();
+  await expect(discard).toBeEnabled({ timeout: 1_500 });
+  await expect(discardError).toBeHidden();
+  expect(discardRequests).toEqual([events[0].id,events[0].id]);
 });
