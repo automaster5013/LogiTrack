@@ -81,3 +81,4 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 .alertOrder{display:block;margin-top:5px;color:var(--muted);font:700 9px monospace}
 .alertRoute{display:block;margin-top:4px;color:var(--muted);font-size:10px}
 .alertMetric{display:block;margin:-4px 0 9px;color:#3f6258;font:700 9px monospace}
+.heroFleetAction{display:block;min-height:34px;margin-top:9px;border:1px solid #b9c9c2;border-radius:5px;background:#f7faf8;color:#315c4d;padding:7px 10px;font:800 10px sans-serif;cursor:pointer}.heroFleetAction:hover:not(:disabled){border-color:#315c4d;background:#eef7f2}.heroFleetAction:disabled{border-color:#d9ddd8;background:#f5f6f2;color:#8b9691;cursor:default}@media(max-width:600px){.heroFleetAction{min-width:0;width:100%;min-height:44px}}
