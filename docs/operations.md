@@ -132,7 +132,7 @@ analytics 응답은 저장 전에 경로 ID, DB 길이에 맞는 provider·algor
 
 ## 복구 큐 경보
 
-API는 `logitrack_outbox_backlog{status="pending|failed"}`, `logitrack_outbox_oldest_age_seconds`, `logitrack_dlq_backlog` gauge를 10초마다 갱신한다. 조회 실패 시 마지막 정상 값을 유지하고 `logitrack_recovery_metrics_refresh_failures_total`을 누적하며, 로그는 장애·복구 전환에 한 번씩만 남긴다. Prometheus는 API scrape 1분 중단 또는 FAILED outbox 2분 지속 시 critical, metric refresh 실패·pending outbox 100건 초과·가장 오래된 pending 5분 초과·DLQ 존재·경로 fallback 반복·PDF 반복 실패·API 5xx 반복·p95 latency 상승·보존 정리 실패 시 warning을 발생시킨다. 데모 자동 보충이 활성화된 환경에서는 완료 이력 정리 건수·실패·감시 시작·마지막 성공 시각을 별도 지표로 제공하고 첫 실행 누락, 실패 또는 15분 정체를 경고한다. Kafka client metric을 이용해 telemetry partition lag 합계가 100건을 5분간 넘으면 warning, consumer partition metric이 2분간 사라지면 critical을 발생시킨다. `./scripts/recovery-metrics-smoke.ps1`로 지표 노출, 16개 규칙 로드, 데모 정리 경보의 정상·실패·정체·첫 실행 누락 시나리오를 함께 검증한다.
+API는 `logitrack_outbox_backlog{status="pending|failed"}`, `logitrack_outbox_oldest_age_seconds`, `logitrack_dlq_backlog` gauge를 10초마다 갱신한다. 조회 실패 시 마지막 정상 값을 유지하고 `logitrack_recovery_metrics_refresh_failures_total`을 누적하며, 로그는 장애·복구 전환에 한 번씩만 남긴다. Prometheus는 API scrape 1분 중단 또는 FAILED outbox 2분 지속 시 critical, metric refresh 실패·pending outbox 100건 초과·가장 오래된 pending 5분 초과·DLQ 존재·경로 fallback 반복·PDF 반복 실패·API 5xx 반복·p95 latency 상승·보존 정리 실패 시 warning을 발생시킨다. 데모 자동 보충이 활성화된 환경에서는 완료 이력 정리 건수·실패·감시 시작·마지막 성공 시각과 활성·목표 차량 수·보충 실패를 별도 지표로 제공한다. 정리 첫 실행 누락·실패·15분 정체와 실시간 데모 차량이 목표보다 2분간 적은 상태를 경고한다. Kafka client metric을 이용해 telemetry partition lag 합계가 100건을 5분간 넘으면 warning, consumer partition metric이 2분간 사라지면 critical을 발생시킨다. `./scripts/recovery-metrics-smoke.ps1`로 지표 노출, 17개 규칙 로드, 데모 정리·차량 부족 경보 시나리오를 함께 검증한다.
 
 가장 오래된 outbox 나이는 payload 전체 행을 읽지 않고 PostgreSQL `MIN(created_at)` scalar 집계로 계산한다.
 
