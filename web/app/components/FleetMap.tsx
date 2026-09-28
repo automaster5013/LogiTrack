@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AttributionControl, GeoJSONSource, Map, NavigationControl, ScaleControl, setWorkerUrl } from "maplibre-gl";
+import type { FilterSpecification } from "maplibre-gl";
 import type { FeatureCollection, Geometry } from "geojson";
 import type { Delivery, RouteSnapshot, TelemetryPoint } from "../types";
 
@@ -59,12 +60,12 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
   const host=useRef<HTMLDivElement>(null); const mapRef=useRef<Map|null>(null); const loaded=useRef(false);
   const deliveriesRef=useRef(deliveries); const routesRef=useRef(routes); const telemetryRef=useRef(telemetry); const selectedRef=useRef(selectedId);
   deliveriesRef.current=deliveries; routesRef.current=routes; telemetryRef.current=telemetry; selectedRef.current=selectedId;
-  const [mapError,setMapError]=useState(false); const [mapReady,setMapReady]=useState(false);
+  const [mapError,setMapError]=useState(false); const [mapReady,setMapReady]=useState(false); const [legendExpanded,setLegendExpanded]=useState(false);
 
   useEffect(()=>{
     if(!host.current||mapRef.current)return;
-    const map=new Map({container:host.current,style:STYLE,center:[126.84,37.51],zoom:9.6,pitch:42,bearing:-8,locale:MAP_LOCALE,
-      attributionControl:false,maxPitch:65});
+    const map=new Map({container:host.current,style:STYLE,center:[126.84,37.51],zoom:9.6,pitch:36,bearing:-6,locale:MAP_LOCALE,
+      attributionControl:false,maxPitch:65,cooperativeGestures:true});
     mapRef.current=map;
     map.addControl(new NavigationControl({visualizePitch:true}),"top-right");
     map.addControl(new ScaleControl({unit:"metric"}),"bottom-left");
@@ -73,16 +74,20 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
     map.on("load",()=>{
       window.clearTimeout(loadTimeout); loaded.current=true; setMapError(false);
       map.addSource("fleet",{type:"geojson",data:features(deliveriesRef.current,routesRef.current,telemetryRef.current)});
-      map.addLayer({id:"planned-shadow",type:"line",source:"fleet",filter:["==",["get","kind"],"route"],paint:{"line-color":"#ffffff","line-width":7,"line-opacity":0.72}});
-      map.addLayer({id:"planned",type:"line",source:"fleet",filter:["==",["get","kind"],"route"],paint:{"line-color":"#315048","line-width":1.5,"line-dasharray":[2,2],"line-opacity":0.3}});
-      map.addLayer({id:"traveled",type:"line",source:"fleet",filter:["==",["get","kind"],"traveled"],paint:{"line-color":"#7ebd20","line-width":3,"line-opacity":0.38}});
-      map.addLayer({id:"selected-planned",type:"line",source:"fleet",filter:["all",["==",["get","kind"],"route"],["==",["get","id"],selectedRef.current||""]],paint:{"line-color":"#17372d","line-width":3,"line-dasharray":[2,2],"line-opacity":0.95}});
-      map.addLayer({id:"selected-traveled",type:"line",source:"fleet",filter:["all",["==",["get","kind"],"traveled"],["==",["get","id"],selectedRef.current||""]],paint:{"line-color":"#9be900","line-width":6,"line-opacity":1}});
-      map.addLayer({id:"hubs",type:"circle",source:"fleet",filter:["in",["get","kind"],["literal",["origin","destination"]]],paint:{"circle-radius":6,"circle-color":"#ffffff","circle-stroke-color":"#19372e","circle-stroke-width":2}});
-      map.addLayer({id:"vehicles-halo",type:"circle",source:"fleet",filter:["==",["get","kind"],"vehicle"],paint:{"circle-radius":15,"circle-color":["case",["==",["get","status"],"DELAYED"],"#ff6b46",["==",["get","overdue"],true],"#f4a62a","#a7ef19"],"circle-opacity":0.24}});
-      map.addLayer({id:"vehicles",type:"circle",source:"fleet",filter:["==",["get","kind"],"vehicle"],paint:{"circle-radius":8,"circle-color":["case",["==",["get","status"],"DELAYED"],"#ff5a36",["==",["get","overdue"],true],"#d77b00","#172d26"],"circle-stroke-color":"#ffffff","circle-stroke-width":2.5}});
-      map.addLayer({id:"selected-vehicle",type:"circle",source:"fleet",filter:["all",["==",["get","kind"],"vehicle"],["==",["get","id"],selectedRef.current||""]],paint:{"circle-radius":13,"circle-color":"rgba(0,0,0,0)","circle-stroke-color":"#b9f227","circle-stroke-width":4}});
-      map.addLayer({id:"vehicle-labels",type:"symbol",source:"fleet",filter:["==",["get","kind"],"vehicle"],layout:{"text-field":["get","label"],"text-size":11,"text-offset":[0,1.8],"text-anchor":"top","text-font":["Noto Sans Regular"]},paint:{"text-color":"#10221d","text-halo-color":"#ffffff","text-halo-width":2}});
+      const selectedFilter=(kind:string)=>["all",["==",["get","kind"],kind],["==",["get","id"],selectedRef.current||""]] as FilterSpecification;
+      map.addLayer({id:"planned-shadow",type:"line",source:"fleet",filter:["==",["get","kind"],"route"],paint:{"line-color":"#ffffff","line-width":5,"line-opacity":0.28}});
+      map.addLayer({id:"planned",type:"line",source:"fleet",filter:["==",["get","kind"],"route"],paint:{"line-color":"#38564d","line-width":1.25,"line-dasharray":[2,3],"line-opacity":0.22}});
+      map.addLayer({id:"traveled",type:"line",source:"fleet",filter:["==",["get","kind"],"traveled"],paint:{"line-color":"#76a930","line-width":2.25,"line-opacity":0.24}});
+      map.addLayer({id:"selected-planned-casing",type:"line",source:"fleet",filter:selectedFilter("route"),paint:{"line-color":"#ffffff","line-width":7,"line-opacity":0.9}});
+      map.addLayer({id:"selected-planned",type:"line",source:"fleet",filter:selectedFilter("route"),paint:{"line-color":"#17372d","line-width":3,"line-dasharray":[2,2],"line-opacity":1}});
+      map.addLayer({id:"selected-traveled-casing",type:"line",source:"fleet",filter:selectedFilter("traveled"),paint:{"line-color":"#17372d","line-width":9,"line-opacity":0.8}});
+      map.addLayer({id:"selected-traveled",type:"line",source:"fleet",filter:selectedFilter("traveled"),paint:{"line-color":"#a8ef18","line-width":5.5,"line-opacity":1}});
+      map.addLayer({id:"hubs",type:"circle",source:"fleet",filter:["all",["in",["get","kind"],["literal",["origin","destination"]]],["==",["get","id"],selectedRef.current||""]],paint:{"circle-radius":6,"circle-color":"#ffffff","circle-stroke-color":"#17372d","circle-stroke-width":2.5}});
+      map.addLayer({id:"vehicles-halo",type:"circle",source:"fleet",filter:["==",["get","kind"],"vehicle"],paint:{"circle-radius":12,"circle-color":["case",["==",["get","status"],"DELAYED"],"#ff6b46",["==",["get","overdue"],true],"#f4a62a","#a7ef19"],"circle-opacity":0.2}});
+      map.addLayer({id:"vehicles",type:"circle",source:"fleet",filter:["==",["get","kind"],"vehicle"],paint:{"circle-radius":6.5,"circle-color":["case",["==",["get","status"],"DELAYED"],"#ff5a36",["==",["get","overdue"],true],"#d77b00","#17372d"],"circle-stroke-color":"#ffffff","circle-stroke-width":2}});
+      map.addLayer({id:"selected-vehicle-glow",type:"circle",source:"fleet",filter:selectedFilter("vehicle"),paint:{"circle-radius":19,"circle-color":"#b9f227","circle-opacity":0.22}});
+      map.addLayer({id:"selected-vehicle",type:"circle",source:"fleet",filter:selectedFilter("vehicle"),paint:{"circle-radius":12,"circle-color":"rgba(0,0,0,0)","circle-stroke-color":"#b9f227","circle-stroke-width":4}});
+      map.addLayer({id:"vehicle-labels",type:"symbol",source:"fleet",filter:selectedFilter("vehicle"),layout:{"text-field":["get","label"],"text-size":12,"text-offset":[0,1.75],"text-anchor":"top","text-font":["Noto Sans Regular"]},paint:{"text-color":"#10221d","text-halo-color":"#ffffff","text-halo-width":2.5}});
       map.on("mouseenter","vehicles",()=>map.getCanvas().style.cursor="pointer"); map.on("mouseleave","vehicles",()=>map.getCanvas().style.cursor="");
       map.on("click","vehicles",e=>{const id=e.features?.[0]?.properties?.id;if(id)onSelect(id)});
       const selected=deliveriesRef.current.find(x=>x.id===selectedRef.current);
@@ -100,9 +105,10 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
   useEffect(()=>{
     const map=mapRef.current;if(!map||!loaded.current||!selectedId)return;
     const d=deliveries.find(x=>x.id===selectedId);if(!d)return;
-    map.setFilter("selected-vehicle",["all",["==",["get","kind"],"vehicle"],["==",["get","id"],selectedId]]);
-    map.setFilter("selected-planned",["all",["==",["get","kind"],"route"],["==",["get","id"],selectedId]]);
-    map.setFilter("selected-traveled",["all",["==",["get","kind"],"traveled"],["==",["get","id"],selectedId]]);
+    for(const layer of ["selected-vehicle-glow","selected-vehicle","vehicle-labels"]) map.setFilter(layer,["all",["==",["get","kind"],"vehicle"],["==",["get","id"],selectedId]]);
+    for(const layer of ["selected-planned-casing","selected-planned"]) map.setFilter(layer,["all",["==",["get","kind"],"route"],["==",["get","id"],selectedId]]);
+    for(const layer of ["selected-traveled-casing","selected-traveled"]) map.setFilter(layer,["all",["==",["get","kind"],"traveled"],["==",["get","id"],selectedId]]);
+    map.setFilter("hubs",["all",["in",["get","kind"],["literal",["origin","destination"]]],["==",["get","id"],selectedId]]);
     fitDelivery(map,d,routes,telemetry);
   },[selectedId,routes,telemetry]);
 
@@ -114,7 +120,7 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
     : `${deliveries.length}대의 차량 운행 지도.${overdueLabel}`;
   const showEntireFleet=()=>{const map=mapRef.current;if(map&&deliveries.length)fitFleet(map,deliveries)};
 
-  return <div className={`mapShell ${mapReady?"ready":""}`} role="region" aria-label={mapLabel}><div ref={host} className="mapCanvas"/>{mapError&&<div className="mapError" role="alert"><b>지도를 불러오지 못했습니다</b><span>지도 타일 연결을 확인하세요. 배송 데이터 스트림은 계속 동작합니다.</span><button type="button" onClick={()=>window.location.reload()}>지도 다시 불러오기</button></div>}{!mapError&&deliveries.length===0&&<div className="mapEmpty"><b>표시할 차량이 없습니다</b><span>{emptyMessage||"범위를 전환하거나 새 배송을 생성해 주세요."}</span></div>}<div className="mapLegend" aria-label="지도 범례"><strong>지도 읽는 법</strong><span><i className="liveDot"/> 운송 차량</span><span><i className="overdueDot"/> 예정 초과</span><span><i className="delayedDot"/> 지연 차량</span><span><i className="selectedDot"/> 선택 차량</span><span><i className="travelDot"/> 실제 이동</span><span><i className="routeDot"/> 계획 경로</span><span className="mapReady"><i/> {mapReady?"지도 준비됨":"지도 로딩 중"}</span></div>{deliveries.length>1&&<button type="button" className="mapReset" onClick={showEntireFleet}>전체 차량 보기</button>}<p className="mapHint">차량 점을 선택하면 계획 경로와 실제 이동을 강조합니다</p></div>;
+  return <div className={`mapShell ${mapReady?"ready":""}`} role="region" aria-label={mapLabel}><div ref={host} className="mapCanvas"/>{mapError&&<div className="mapError" role="alert"><b>지도를 불러오지 못했습니다</b><span>지도 타일 연결을 확인하세요. 배송 데이터 스트림은 계속 동작합니다.</span><button type="button" onClick={()=>window.location.reload()}>지도 다시 불러오기</button></div>}{!mapError&&deliveries.length===0&&<div className="mapEmpty"><b>표시할 차량이 없습니다</b><span>{emptyMessage||"범위를 전환하거나 새 배송을 생성해 주세요."}</span></div>}<div className={`mapLegend ${legendExpanded?"expanded":"compact"}`} aria-label="지도 범례"><button type="button" className="mapLegendToggle" aria-expanded={legendExpanded} aria-controls="fleet-map-legend-items" onClick={()=>setLegendExpanded(value=>!value)}><span><i className="mapReadyDot"/> 지도 범례</span><small>{deliveries.length}대 표시</small><b>{legendExpanded?"접기":"보기"}</b></button><div id="fleet-map-legend-items" className="mapLegendItems" hidden={!legendExpanded}><span><i className="liveDot"/> 운송 차량</span><span><i className="overdueDot"/> 예정 초과</span><span><i className="delayedDot"/> 지연 차량</span><span><i className="selectedDot"/> 선택 차량</span><span><i className="travelDot"/> 실제 이동</span><span><i className="routeDot"/> 계획 경로</span><p>차량을 선택하면 상세 경로와 거점이 강조됩니다.</p></div></div>{deliveries.length>1&&<button type="button" className="mapReset" onClick={showEntireFleet}>전체 차량 보기</button>}</div>;
 }
 
 function fitFleet(map:Map,deliveries:Delivery[]) {

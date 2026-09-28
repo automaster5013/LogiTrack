@@ -156,6 +156,13 @@ test("shows completed vehicles automatically when no delivery is active", async 
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(6);
   await expect(page.locator(".focusStats")).toContainText("26.0 km");
   await expect(page.locator(".focusStats")).toContainText("TRUCK-01");
+  const legendToggle = page.getByRole("button", { name: /지도 범례 6대 표시 보기/ });
+  await expect(legendToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByText("실제 이동", { exact: true })).toBeHidden();
+  await legendToggle.click();
+  await expect(page.getByRole("button", { name: /지도 범례 6대 표시 접기/ })).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByText("실제 이동", { exact: true })).toBeVisible();
+  await expect(page.getByText("차량을 선택하면 상세 경로와 거점이 강조됩니다.")).toBeVisible();
 });
 
 test("prioritizes a searched vehicle beyond the fifty vehicle map limit", async ({ page }) => {
