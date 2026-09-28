@@ -133,9 +133,14 @@ groups:
             logitrack_demo_cleanup_last_success_timestamp_seconds > 0
             and time() - logitrack_demo_cleanup_last_success_timestamp_seconds > 900
           )
+          or
+          (
+            logitrack_demo_cleanup_last_success_timestamp_seconds == 0
+            and time() - logitrack_demo_cleanup_monitor_started_timestamp_seconds > 900
+          )
         for: 1m
         labels:
           severity: warning
         annotations:
           summary: Completed demo delivery cleanup is failing or stale
-          description: The demo cleanup failed or has not completed successfully during the last 15 minutes.
+          description: The demo cleanup failed, never started, or has not completed successfully during the last 15 minutes.
