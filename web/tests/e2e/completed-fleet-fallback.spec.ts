@@ -174,6 +174,12 @@ test("shows completed vehicles automatically when no delivery is active", async 
   await expect(page.getByRole("button", { name: /지도 범례 6대 표시 접기/ })).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByText("실제 이동", { exact: true })).toBeVisible();
   await expect(page.getByText("차량을 선택하면 상세 경로와 거점이 강조됩니다.")).toBeVisible();
+  const expandMap=page.getByRole("button",{name:"지도 확대 보기"});
+  await expandMap.click();
+  await expect(page.locator(".mapShell")).toHaveClass(/mapExpanded/);
+  await expect(page.getByRole("button",{name:"지도 원래 크기로"})).toHaveAttribute("aria-pressed","true");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".mapShell")).not.toHaveClass(/mapExpanded/);
   await page.setViewportSize({width:390,height:844});
   await expect(runtimeBadge.getByText("TEST",{exact:true})).toBeVisible();
 });
