@@ -185,7 +185,8 @@ test("keeps a failed outbox retry error until that event recovers", async ({ pag
 
 test("sends one DLQ replay request for immediate repeated input", async ({ page }) => {
   const { replayRequests } = await mockRecovery(page);
-  page.on("dialog", dialog => dialog.accept());
+  const dialogs:string[]=[];
+  page.on("dialog", dialog => { dialogs.push(dialog.type()); return dialog.accept(); });
   await page.goto("/console#recovery");
 
   const replay = page.getByRole("button", { name: "trace-recovery-101 재처리" });
@@ -199,11 +200,13 @@ test("sends one DLQ replay request for immediate repeated input", async ({ page 
   await expect(replay).toBeDisabled();
   await expect(replay).toBeEnabled({ timeout: 1_500 });
   expect(replayRequests).toEqual([events[0].id]);
+  expect(dialogs).toEqual(["confirm"]);
 });
 
 test("sends one outbox retry request for immediate repeated input", async ({ page }) => {
   const { outboxRetryRequests } = await mockRecovery(page);
-  page.on("dialog", dialog => dialog.accept());
+  const dialogs:string[]=[];
+  page.on("dialog", dialog => { dialogs.push(dialog.type()); return dialog.accept(); });
   await page.goto("/console#recovery");
 
   const retry = page.getByRole("button", { name: "DeliveryUpdated failure1 재발행" });
@@ -217,11 +220,13 @@ test("sends one outbox retry request for immediate repeated input", async ({ pag
   await expect(retry).toBeDisabled();
   await expect(retry).toBeEnabled({ timeout: 1_500 });
   expect(outboxRetryRequests).toEqual([outboxFailures[0].id]);
+  expect(dialogs).toEqual(["confirm"]);
 });
 
 test("sends one DLQ discard request for immediate repeated input", async ({ page }) => {
   const { discardRequests } = await mockRecovery(page);
-  page.on("dialog", dialog => dialog.type()==="prompt"?dialog.accept("invalid telemetry payload"):dialog.accept());
+  const dialogs:string[]=[];
+  page.on("dialog", dialog => { dialogs.push(dialog.type()); return dialog.type()==="prompt"?dialog.accept("invalid telemetry payload"):dialog.accept(); });
   await page.goto("/console#recovery");
 
   const discard = page.getByRole("button", { name: "trace-recovery-101 영구 폐기" });
@@ -235,6 +240,7 @@ test("sends one DLQ discard request for immediate repeated input", async ({ page
   await expect(discard).toBeDisabled();
   await expect(discard).toBeEnabled({ timeout: 1_500 });
   expect(discardRequests).toEqual([events[0].id]);
+  expect(dialogs).toEqual(["confirm","prompt"]);
 });
 
 test("keeps a DLQ discard error visible until retry succeeds", async ({ page }) => {
