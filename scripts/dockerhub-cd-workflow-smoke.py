@@ -71,7 +71,7 @@ def main() -> None:
         "evidenceArtifactUrl",
         "dockerhub-supply-chain-${{ github.sha }}",
         "Upload immutable Docker Hub release manifest",
-        "actions/attest@a1948c3f048ba23858d222213b7c278aabede763",
+        "actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6",
         "push-to-registry: true",
         "create-storage-record: false",
         "attestationId",
@@ -118,7 +118,7 @@ def main() -> None:
         raise AssertionError("evidence must be uploaded before digest-bound publication manifest")
     if source.count("retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}") != 2:
         raise AssertionError("both Docker Hub evidence artifacts must share the retention policy")
-    if source.count("uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763") != 5:
+    if source.count("uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6") != 5:
         raise AssertionError("every Docker Hub image must receive pinned provenance attestation")
 
     ci_source = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
