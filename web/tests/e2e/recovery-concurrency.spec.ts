@@ -33,7 +33,9 @@ const outboxFailures: OutboxFailure[] = [
   { id: "failure2-0000-4000-8000-000000000102", aggregateType: "Delivery", aggregateId: "delivery-102", eventType: "DeliveryDelayed", topic: "delivery.events", attempts: 4, lastError: "Broker unavailable", createdAt: failedAt, status: "FAILED" },
 ];
 
-async function mockRecovery(page: Page) {
+type RecoveryFixture = { replayFailuresBeforeSuccessById?: Record<string,number>; outboxFailuresBeforeSuccessById?: Record<string,number> };
+
+async function mockRecovery(page: Page, fixture: RecoveryFixture = {}) {
   const replayRequests: string[] = [];
   const outboxRetryRequests: string[] = [];
   await page.route("**/api/**", async route => {
@@ -44,12 +46,16 @@ async function mockRecovery(page: Page) {
     if (replayMatch && request.method() === "POST") {
       replayRequests.push(replayMatch[1]);
       await new Promise(resolve => setTimeout(resolve, replayMatch[1] === events[0].id ? 1_000 : 2_500));
+      const requestCount = replayRequests.filter(id => id === replayMatch[1]).length;
+      if (requestCount <= (fixture.replayFailuresBeforeSuccessById?.[replayMatch[1]] || 0)) return route.fulfill({ status: 503, ...common, json: { error: "temporarily_unavailable" } });
       return route.fulfill({ status: 204, ...common });
     }
     const outboxRetryMatch = url.pathname.match(/^\/api\/operations\/outbox\/failures\/([^/]+)\/retry$/);
     if (outboxRetryMatch && request.method() === "POST") {
       outboxRetryRequests.push(outboxRetryMatch[1]);
       await new Promise(resolve => setTimeout(resolve, outboxRetryMatch[1] === outboxFailures[0].id ? 1_000 : 2_500));
+      const requestCount = outboxRetryRequests.filter(id => id === outboxRetryMatch[1]).length;
+      if (requestCount <= (fixture.outboxFailuresBeforeSuccessById?.[outboxRetryMatch[1]] || 0)) return route.fulfill({ status: 503, ...common, json: { error: "temporarily_unavailable" } });
       return route.fulfill({ status: 204, ...common });
     }
     if (url.pathname === "/api/operations/dlq-page") {
@@ -108,4 +114,46 @@ test("keeps each concurrent outbox retry disabled until its own request finishes
   await expect(secondRetry).toBeDisabled();
   await expect(secondRetry).toBeEnabled({ timeout: 3_000 });
   expect(outboxRetryRequests).toEqual([outboxFailures[0].id, outboxFailures[1].id]);
+});
+
+test("keeps a failed DLQ replay error until that event recovers", async ({ page }) => {
+  const { replayRequests } = await mockRecovery(page, { replayFailuresBeforeSuccessById: { [events[0].id]: 1 } });
+  page.on("dialog", dialog => dialog.accept());
+  await page.goto("/console#recovery");
+
+  const firstReplay = page.getByRole("button", { name: "trace-recovery-101 재처리" });
+  const secondReplay = page.getByRole("button", { name: "trace-recovery-102 재처리" });
+  await firstReplay.click();
+  await secondReplay.click();
+  const replayError = page.getByText("DLQ 이벤트 재처리에 실패했습니다.");
+  await expect(replayError).toBeVisible({ timeout: 1_500 });
+  await expect(secondReplay).toBeEnabled({ timeout: 3_000 });
+  await expect(replayError).toBeVisible();
+
+  await firstReplay.click();
+  await expect(replayError).toBeVisible();
+  await expect(firstReplay).toBeEnabled({ timeout: 1_500 });
+  await expect(replayError).toBeHidden();
+  expect(replayRequests).toEqual([events[0].id,events[1].id,events[0].id]);
+});
+
+test("keeps a failed outbox retry error until that event recovers", async ({ page }) => {
+  const { outboxRetryRequests } = await mockRecovery(page, { outboxFailuresBeforeSuccessById: { [outboxFailures[0].id]: 1 } });
+  page.on("dialog", dialog => dialog.accept());
+  await page.goto("/console#recovery");
+
+  const firstRetry = page.getByRole("button", { name: "DeliveryUpdated failure1 재발행" });
+  const secondRetry = page.getByRole("button", { name: "DeliveryDelayed failure2 재발행" });
+  await firstRetry.click();
+  await secondRetry.click();
+  const retryError = page.getByText("Outbox 이벤트 재발행에 실패했습니다.");
+  await expect(retryError).toBeVisible({ timeout: 1_500 });
+  await expect(secondRetry).toBeEnabled({ timeout: 3_000 });
+  await expect(retryError).toBeVisible();
+
+  await firstRetry.click();
+  await expect(retryError).toBeVisible();
+  await expect(firstRetry).toBeEnabled({ timeout: 1_500 });
+  await expect(retryError).toBeHidden();
+  expect(outboxRetryRequests).toEqual([outboxFailures[0].id,outboxFailures[1].id,outboxFailures[0].id]);
 });
