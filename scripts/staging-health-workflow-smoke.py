@@ -90,6 +90,8 @@ for boundary in (
     "invalid_oauth_response",
     "invalid callback must not create or mutate the access token cookie",
     "/api/runtime-version",
+    ".revision",
+    ".builtAt",
     "jq -e",
     "cache-control: .*no-store",
     "cross_origin_logout_status",
