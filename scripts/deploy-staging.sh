@@ -9,6 +9,7 @@ source_dir="$(cd "$(dirname "$0")/../deploy/staging" && pwd)"
 root=/opt/logitrack
 release="$root/releases/$revision"
 previous=""
+fleet_metrics=""
 
 [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || { echo "revision must be a full lowercase SHA" >&2; exit 2; }
 [[ "$account_id" =~ ^[0-9]{12}$ ]] || { echo "AWS_ACCOUNT_ID must be a 12-digit account" >&2; exit 2; }
@@ -59,6 +60,7 @@ docker compose --progress quiet --project-directory "$release" --env-file "$rele
 
 rollback() {
   status=$?
+  if [[ -n "$fleet_metrics" ]]; then rm -f "$fleet_metrics"; fi
   if [[ $status -ne 0 && -n "$previous" && -d "$previous" ]]; then
     echo "deployment failed; restoring $(basename "$previous")" >&2
     ln -sfn "$previous" "$root/current"
@@ -69,6 +71,24 @@ rollback() {
 trap rollback EXIT
 ln -sfn "$release" "$root/current"
 docker compose --progress quiet --project-directory "$release" --env-file "$release/.env" -f "$release/compose.yml" up -d --remove-orphans --wait --wait-timeout 600
+fleet_metrics="$(mktemp)"
+fleet_ready() {
+  awk '
+    /^logitrack_demo_active_deliveries[{ ]/ { active=$2 }
+    /^logitrack_demo_target_deliveries[{ ]/ { target=$2 }
+    END { exit !(active != "" && target == 15 && active >= target) }
+  ' "$fleet_metrics"
+}
+for attempt in $(seq 1 24); do
+  : >"$fleet_metrics"
+  docker compose --progress quiet --project-directory "$release" --env-file "$release/.env" -f "$release/compose.yml" \
+    exec -T api wget -qO- http://127.0.0.1:8080/actuator/prometheus >"$fleet_metrics" || true
+  if fleet_ready; then break; fi
+  sleep 5
+done
+fleet_ready || { echo "live demo fleet did not reach its configured target" >&2; exit 5; }
+rm -f "$fleet_metrics"
+fleet_metrics=""
 curl --fail --silent --show-error --retry 24 --retry-delay 5 --retry-all-errors --connect-timeout 10 --max-time 20 https://www.logitrack.kr/login >/dev/null
 printf '%s\n' "$revision" >"$root/deployed-revision"
 chmod 0644 "$root/deployed-revision"

@@ -122,6 +122,18 @@ if deploy_script.count("docker compose --progress quiet") < 3:
     errors.append("deployment pull, start, and rollback must bound SSM output with quiet Compose progress")
 if "--retry-all-errors" not in deploy_script or "--connect-timeout" not in deploy_script:
     errors.append("public readiness must tolerate bounded first-certificate provisioning failures")
+for fleet_gate in (
+    "logitrack_demo_active_deliveries",
+    "logitrack_demo_target_deliveries",
+    "target == 15",
+    "active >= target",
+    "for attempt in $(seq 1 24)",
+    "live demo fleet did not reach its configured target",
+):
+    if fleet_gate not in deploy_script:
+        errors.append(f"deployment live demo fleet gate is missing: {fleet_gate}")
+if deploy_script.index("live demo fleet did not reach its configured target") > deploy_script.index("deployed-revision"):
+    errors.append("live demo fleet must be verified before recording a successful deployment")
 
 if errors:
     print("\n".join(f"ERROR: {e}" for e in errors), file=sys.stderr)
