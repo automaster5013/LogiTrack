@@ -99,6 +99,8 @@ api_environment = services["api"].get("environment", {})
 simulator_environment = services["simulator"].get("environment", {})
 if api_environment.get("LOGITRACK_DEMO_SEED_ENABLED") != "true" or api_environment.get("LOGITRACK_DEMO_TARGET_ACTIVE_DELIVERIES") != "15":
     errors.append("staging must keep a bounded 15-delivery live demo fleet")
+if api_environment.get("LOGITRACK_DEMO_STALE_AFTER_SECONDS") != "7200" or api_environment.get("LOGITRACK_DEMO_SEED_DELAY_MS") != "10000":
+    errors.append("staging must replace stale demo deliveries within a bounded interval")
 if simulator_environment.get("SIMULATION_INTERVAL_SECONDS") != "60" or simulator_environment.get("SIMULATION_STEPS") != "60" or simulator_environment.get("SIMULATION_MAX_WORKERS") != "15":
     errors.append("staging demo deliveries must move once per minute for one bounded hour")
 if "id-token: write" not in workflow or "AWS-RunShellScript" not in workflow:
