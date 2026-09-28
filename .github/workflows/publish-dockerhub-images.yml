@@ -232,7 +232,7 @@ jobs:
 
       - name: Attest API image provenance
         id: attest-api
-        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: docker.io/automaster5013/logitrack-api
           subject-digest: ${{ steps.publish.outputs.api-digest }}
@@ -241,7 +241,7 @@ jobs:
 
       - name: Attest analytics image provenance
         id: attest-analytics
-        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: docker.io/automaster5013/logitrack-analytics
           subject-digest: ${{ steps.publish.outputs.analytics-digest }}
@@ -250,7 +250,7 @@ jobs:
 
       - name: Attest simulator image provenance
         id: attest-simulator
-        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: docker.io/automaster5013/logitrack-simulator
           subject-digest: ${{ steps.publish.outputs.simulator-digest }}
@@ -259,7 +259,7 @@ jobs:
 
       - name: Attest web image provenance
         id: attest-web
-        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: docker.io/automaster5013/logitrack-web
           subject-digest: ${{ steps.publish.outputs.web-digest }}
@@ -268,7 +268,7 @@ jobs:
 
       - name: Attest OpenTelemetry Collector image provenance
         id: attest-otel
-        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: docker.io/automaster5013/logitrack-otel-collector
           subject-digest: ${{ steps.publish.outputs.otel_collector-digest }}
