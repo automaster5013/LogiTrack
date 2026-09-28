@@ -66,3 +66,7 @@ aws cloudwatch describe-alarms --alarm-names <system_recovery_alarm_name> --prof
 ```
 
 CloudWatch Logs를 기본 활성화하지 않아 고정 수집 비용을 피한다. 문제 조사에는 bounded Docker json logs와 SSM Session Manager를 사용한다. root 권한 사용자는 Docker inspect로 container environment를 볼 수 있으므로 instance role과 SSM 접근을 배포 관리자에게만 제한해야 한다.
+
+## 라이브 데모 데이터
+
+staging API는 `LOGITRACK_DEMO_SEED_ENABLED=true`일 때만 진행 중 배송을 15건까지 자동 보충한다. simulator는 각 배송을 60단계, 60초 간격으로 한 시간 동안 이동시켜 운영 콘솔의 기본 `LIVE` 지도에 차량·계획 경로·실제 이동 궤적·ETA가 계속 표시되게 한다. 이 기능은 `deploy/staging/compose.yml`에만 활성화되어 로컬·테스트·다른 운영 환경에는 합성 데이터를 만들지 않으며, 목표 수와 시뮬레이션 상한은 회귀 검사로 제한한다.

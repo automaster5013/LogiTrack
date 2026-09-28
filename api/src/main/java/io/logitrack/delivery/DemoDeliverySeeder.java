@@ -1,0 +1,63 @@
+package io.logitrack.delivery;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
+@Component
+@ConditionalOnProperty(name="logitrack.demo.seed-enabled",havingValue="true")
+public class DemoDeliverySeeder {
+    private static final Logger log=LoggerFactory.getLogger(DemoDeliverySeeder.class);
+    private static final List<DemoRoute> ROUTES=List.of(
+        new DemoRoute("Seoul Hub",37.5665,126.9780,"Incheon DC",37.4563,126.7052),
+        new DemoRoute("Goyang Hub",37.6584,126.8320,"Seoul East",37.5384,127.0823),
+        new DemoRoute("Gimpo Depot",37.6153,126.7156,"Songpa DC",37.5145,127.1059),
+        new DemoRoute("Incheon Port",37.4485,126.6047,"Seongnam Hub",37.4200,127.1265),
+        new DemoRoute("Suwon Hub",37.2636,127.0286,"Yeouido DC",37.5219,126.9245),
+        new DemoRoute("Paju Depot",37.7599,126.7800,"Gwangmyeong Hub",37.4786,126.8644),
+        new DemoRoute("Namyangju Hub",37.6360,127.2165,"Bucheon DC",37.5034,126.7660),
+        new DemoRoute("Hanam Depot",37.5393,127.2148,"Anyang Hub",37.3943,126.9568)
+    );
+    private static final List<Delivery.Status> ACTIVE_STATUSES=List.of(
+        Delivery.Status.CREATED,Delivery.Status.IN_TRANSIT,Delivery.Status.DELAYED);
+
+    private final DeliveryRepository deliveries;
+    private final DeliveryService service;
+    private final int targetActive;
+
+    public DemoDeliverySeeder(DeliveryRepository deliveries,DeliveryService service,
+        @Value("${logitrack.demo.target-active-deliveries:12}") int targetActive){
+        if(targetActive<1||targetActive>50)throw new IllegalArgumentException("demo target must be between 1 and 50");
+        this.deliveries=deliveries;this.service=service;this.targetActive=targetActive;
+    }
+
+    @Scheduled(initialDelayString="${logitrack.demo.seed-initial-delay-ms:5000}",
+        fixedDelayString="${logitrack.demo.seed-delay-ms:60000}")
+    public void replenish(){
+        long active=deliveries.countByStatusIn(ACTIVE_STATUSES);
+        int missing=(int)Math.max(0,targetActive-active);
+        for(int index=0;index<missing;index++){
+            var route=ROUTES.get((int)((active+index)%ROUTES.size()));
+            var token=UUID.randomUUID().toString().substring(0,8);
+            var request=new CreateDeliveryRequest("DEMO-"+token,"TRUCK-DEMO-"+token,
+                new CreateDeliveryRequest.Location(route.originName(),route.originLat(),route.originLon()),
+                new CreateDeliveryRequest.Location(route.destinationName(),route.destinationLat(),route.destinationLon()));
+            try{
+                service.create(request,"demo-seed-"+token,"demo-seeder-"+Instant.now().toEpochMilli());
+            }catch(Exception error){
+                log.warn("Demo delivery replenishment failed: {}",error.getClass().getSimpleName());
+            }
+        }
+        if(missing>0)log.info("Requested {} demo deliveries to restore active target {}",missing,targetActive);
+    }
+
+    private record DemoRoute(String originName,double originLat,double originLon,
+        String destinationName,double destinationLat,double destinationLon){}
+}

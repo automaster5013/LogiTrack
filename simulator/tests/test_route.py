@@ -69,8 +69,8 @@ class RouteTest(unittest.TestCase):
         self.assertLessEqual(value - before, 751)
 
     def test_rejects_resource_exhausting_simulator_configuration(self):
-        validate_config(1, 20, 8)
-        for values in [(0, 20, 8), (1, 1, 8), (1, 20, 0), (1, 1000, 8)]:
+        validate_config(60, 60, 15)
+        for values in [(0, 20, 8), (1, 1, 8), (1, 20, 0), (60, 1000, 8)]:
             with self.assertRaises(ValueError): validate_config(*values)
 
     def test_resumes_after_the_last_applied_progress_step(self):
