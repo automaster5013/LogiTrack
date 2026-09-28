@@ -157,7 +157,16 @@ test("shows completed vehicles automatically when no delivery is active", async 
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(6);
   await expect(page.locator(".focusStats")).toContainText("26.0 km");
   await expect(page.locator(".focusStats")).toContainText("TRUCK-01");
-  await expect(page.getByLabel("실행 환경 TEST 버전 0123456")).toBeVisible();
+  const runtimeBadge=page.getByLabel("실행 환경 TEST 버전 0123456");
+  await expect(runtimeBadge).toBeVisible();
+  await expect(runtimeBadge).toHaveAttribute("aria-expanded","false");
+  await runtimeBadge.click();
+  await expect(runtimeBadge).toHaveAttribute("aria-expanded","true");
+  const runtimeDetails=page.getByRole("complementary",{name:"실행 환경 상세",exact:true});
+  await expect(runtimeDetails).toContainText("0123456789abcdef0123456789abcdef01234567");
+  await expect(runtimeDetails).toContainText("환경별 데이터에 따라 다를 수 있습니다.");
+  await page.keyboard.press("Escape");
+  await expect(runtimeDetails).toBeHidden();
   const legendToggle = page.getByRole("button", { name: /지도 범례 6대 표시 보기/ });
   await expect(legendToggle).toHaveAttribute("aria-expanded", "false");
   await expect(page.getByText("실제 이동", { exact: true })).toBeHidden();
@@ -165,6 +174,8 @@ test("shows completed vehicles automatically when no delivery is active", async 
   await expect(page.getByRole("button", { name: /지도 범례 6대 표시 접기/ })).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByText("실제 이동", { exact: true })).toBeVisible();
   await expect(page.getByText("차량을 선택하면 상세 경로와 거점이 강조됩니다.")).toBeVisible();
+  await page.setViewportSize({width:390,height:844});
+  await expect(runtimeBadge.getByText("TEST",{exact:true})).toBeVisible();
 });
 
 test("prioritizes a searched vehicle beyond the fifty vehicle map limit", async ({ page }) => {
