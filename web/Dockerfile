@@ -13,7 +13,11 @@ COPY . .
 RUN npm run build
 FROM node:22-alpine@sha256:b6f26b36c8ff49624cfdac716b8ea1138d606df02586a77d364bb5536a634f85
 WORKDIR /app
+ARG APP_REVISION=local
+ARG APP_BUILD_TIME=unknown
 ENV NODE_ENV=production
+ENV APP_REVISION=$APP_REVISION
+ENV APP_BUILD_TIME=$APP_BUILD_TIME
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-v* \
     && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg
 COPY --from=build --chown=node:node /app/.next/standalone ./
