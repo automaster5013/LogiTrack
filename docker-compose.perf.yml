@@ -29,7 +29,7 @@ services:
     volumes: ["postgres-perf-data:/var/lib/postgresql/data"]
 
   redis:
-    image: redis:7-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
+    image: redis:8-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
     logging: *default-logging
     stop_grace_period: 35s
     mem_limit: 256m
