@@ -43,14 +43,8 @@ export default function ReplayOperationsPanel({ events, totalEvents, audits, bus
   useEffect(()=>setVisibleAudits(current=>Math.min(Math.max(current,8),Math.max(filteredAudits.length,8))),[filteredAudits.length]);
   useEffect(()=>setSelectedIds(current=>current.filter(id=>events.some(event=>event.id===id&&event.status==="PENDING"))),[events]);
   const toggle=(id:string)=>setSelectedIds(current=>current.includes(id)?current.filter(value=>value!==id):current.length<20?[...current,id]:current);
-  const replayEvent=(event:DeadLetterEvent)=>{
-    const identifier=event.traceId||event.messageKey||event.id;
-    if(window.confirm(`${identifier} 이벤트를 재처리하시겠습니까? 성공한 작업은 복구 감사 이력에 기록됩니다.`)) onReplay(event.id);
-  };
-  const discardEvent=(event:DeadLetterEvent)=>{
-    const identifier=event.traceId||event.messageKey||event.id;
-    if(window.confirm(`${identifier} 이벤트를 영구 폐기하시겠습니까? 이 작업은 되돌릴 수 없으며 복구 감사 이력에 기록됩니다.`)) onDiscard(event.id);
-  };
+  const replayEvent=(event:DeadLetterEvent)=>onReplay(event.id);
+  const discardEvent=(event:DeadLetterEvent)=>onDiscard(event.id);
   const prepare=(event:FormEvent)=>{event.preventDefault();onPrepareDiscard(selectedIds,reason)};
   const reset=()=>{setSelectedIds([]);setReason("");setApproval("");onResetDiscardPlan()};
   return <section className="replayBoard">

@@ -33,9 +33,7 @@ export default function OutboxRecoveryPanel({failures,audits,busyIds,onRetry}:Pr
   useEffect(()=>setVisibleAudits(8),[auditQuery]);
   const shownFailures=filteredFailures.slice(0,visibleFailures);
   const shownAudits=filteredAudits.slice(0,visibleAudits);
-  const retryEvent=(event:OutboxFailure)=>{
-    if(window.confirm(`${event.eventType} 실패 이벤트(${event.id.slice(0,8)})를 재발행 대기열에 등록하시겠습니까? 성공한 요청은 감사 이력에 기록됩니다.`)) onRetry(event.id);
-  };
+  const retryEvent=(event:OutboxFailure)=>onRetry(event.id);
   return <section className="replayBoard">
     <div className="replayHeader"><div><p className="eyebrow">복구 / 이벤트 발행함</p><h2>발행 실패 복구</h2></div><div><b>{failures.length}</b><span>발행 실패</span></div></div>
     <div className="replayColumns">
