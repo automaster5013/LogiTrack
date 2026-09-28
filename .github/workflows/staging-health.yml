@@ -191,6 +191,10 @@ jobs:
             "https://$TARGET_HOST/api/runtime-version"
           jq -e '.version | type == "string" and test("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")' \
             /tmp/logitrack-runtime >/dev/null
+          jq -e '
+            (.revision | type == "string" and test("^[0-9a-f]{40}$")) and
+            (.builtAt | type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"))
+          ' /tmp/logitrack-runtime >/dev/null
           tr -d '\r' </tmp/logitrack-runtime-headers >/tmp/logitrack-runtime-headers.normalized
           grep -Eqi '^content-type: application/json' /tmp/logitrack-runtime-headers.normalized
           grep -Eqi '^cache-control: .*no-store' /tmp/logitrack-runtime-headers.normalized
