@@ -101,6 +101,8 @@ if api_environment.get("LOGITRACK_DEMO_SEED_ENABLED") != "true" or api_environme
     errors.append("staging must keep a bounded 15-delivery live demo fleet")
 if api_environment.get("LOGITRACK_DEMO_STALE_AFTER_SECONDS") != "7200" or api_environment.get("LOGITRACK_DEMO_SEED_DELAY_MS") != "10000":
     errors.append("staging must replace stale demo deliveries within a bounded interval")
+if api_environment.get("LOGITRACK_DEMO_COMPLETED_RETENTION") != "7d" or api_environment.get("LOGITRACK_DEMO_CLEANUP_BATCH_SIZE") != "250":
+    errors.append("staging completed demo retention must stay bounded")
 if simulator_environment.get("SIMULATION_INTERVAL_SECONDS") != "60" or simulator_environment.get("SIMULATION_STEPS") != "60" or simulator_environment.get("SIMULATION_MAX_WORKERS") != "15":
     errors.append("staging demo deliveries must move once per minute for one bounded hour")
 if "id-token: write" not in workflow or "AWS-RunShellScript" not in workflow:
