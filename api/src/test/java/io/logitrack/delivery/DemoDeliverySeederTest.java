@@ -34,6 +34,9 @@ class DemoDeliverySeederTest {
         assertEquals(0,metrics.get("logitrack.demo.cleanup.failures").counter().count());
         assertEquals(true,metrics.get("logitrack.demo.cleanup.last.success.timestamp.seconds").gauge().value()>0);
         assertEquals(true,metrics.get("logitrack.demo.cleanup.monitor.started.timestamp.seconds").gauge().value()>0);
+        assertEquals(10,metrics.get("logitrack.demo.active.deliveries").gauge().value());
+        assertEquals(12,metrics.get("logitrack.demo.target.deliveries").gauge().value());
+        assertEquals(0,metrics.get("logitrack.demo.replenishment.failures").counter().count());
     }
 
     @Test void doesNothingWhenTheTargetIsAlreadyMet(){
@@ -50,6 +53,21 @@ class DemoDeliverySeederTest {
         assertEquals(1,metrics.get("logitrack.demo.cleanup.failures").counter().count());
         assertEquals(0,metrics.get("logitrack.demo.cleanup.last.success.timestamp.seconds").gauge().value());
         assertEquals(true,metrics.get("logitrack.demo.cleanup.monitor.started.timestamp.seconds").gauge().value()>0);
+    }
+
+    @Test void recordsCreationFailures(){
+        when(deliveries.countFreshDemoActive(any(),any())).thenReturn(11L);
+        doThrow(new IllegalStateException("write failed")).when(service).create(any(),anyString(),anyString());
+        new DemoDeliverySeeder(deliveries,service,metrics,12,7200,Duration.ofDays(7),250).replenish();
+        assertEquals(1,metrics.get("logitrack.demo.replenishment.failures").counter().count());
+        assertEquals(11,metrics.get("logitrack.demo.active.deliveries").gauge().value());
+    }
+
+    @Test void recordsActiveCountFailuresWithoutCreatingDeliveries(){
+        when(deliveries.countFreshDemoActive(any(),any())).thenThrow(new IllegalStateException("read failed"));
+        new DemoDeliverySeeder(deliveries,service,metrics,12,7200,Duration.ofDays(7),250).replenish();
+        verifyNoInteractions(service);
+        assertEquals(1,metrics.get("logitrack.demo.replenishment.failures").counter().count());
     }
 
     @Test void rejectsUnsafeTargets(){

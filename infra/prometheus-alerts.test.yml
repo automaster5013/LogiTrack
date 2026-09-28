@@ -72,3 +72,57 @@ tests:
         exp_alerts:
           - exp_labels: *demo_cleanup_labels
             exp_annotations: *demo_cleanup_annotations
+
+  - name: demo fleet remains below target
+    interval: 1m
+    input_series:
+      - series: 'logitrack_demo_active_deliveries{application="logitrack-control-api"}'
+        values: '10+0x5'
+      - series: 'logitrack_demo_target_deliveries{application="logitrack-control-api"}'
+        values: '12+0x5'
+      - series: 'logitrack_demo_replenishment_failures_total{application="logitrack-control-api"}'
+        values: '0+0x5'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: LogiTrackDemoFleetBelowTarget
+        exp_alerts:
+          - exp_labels:
+              application: logitrack-control-api
+              severity: warning
+            exp_annotations:
+              summary: Live demo fleet is below its configured target
+              description: Active demo vehicles remain below target or replenishment attempts are failing.
+
+  - name: demo fleet meets target
+    interval: 1m
+    input_series:
+      - series: 'logitrack_demo_active_deliveries{application="logitrack-control-api"}'
+        values: '12+0x5'
+      - series: 'logitrack_demo_target_deliveries{application="logitrack-control-api"}'
+        values: '12+0x5'
+      - series: 'logitrack_demo_replenishment_failures_total{application="logitrack-control-api"}'
+        values: '0+0x5'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: LogiTrackDemoFleetBelowTarget
+        exp_alerts: []
+
+  - name: demo fleet replenishment keeps failing
+    interval: 1m
+    input_series:
+      - series: 'logitrack_demo_active_deliveries{application="logitrack-control-api"}'
+        values: '12+0x6'
+      - series: 'logitrack_demo_target_deliveries{application="logitrack-control-api"}'
+        values: '12+0x6'
+      - series: 'logitrack_demo_replenishment_failures_total{application="logitrack-control-api"}'
+        values: '0 1+0x5'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: LogiTrackDemoFleetBelowTarget
+        exp_alerts:
+          - exp_labels:
+              application: logitrack-control-api
+              severity: warning
+            exp_annotations:
+              summary: Live demo fleet is below its configured target
+              description: Active demo vehicles remain below target or replenishment attempts are failing.
