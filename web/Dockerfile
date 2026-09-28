@@ -15,9 +15,11 @@ FROM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2ee
 WORKDIR /app
 ARG APP_REVISION=local
 ARG APP_BUILD_TIME=unknown
+ARG APP_ENVIRONMENT=local
 ENV NODE_ENV=production
 ENV APP_REVISION=$APP_REVISION
 ENV APP_BUILD_TIME=$APP_BUILD_TIME
+ENV APP_ENVIRONMENT=$APP_ENVIRONMENT
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-v* \
     && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg
 COPY --from=build --chown=node:node /app/.next/standalone ./

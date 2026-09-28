@@ -172,6 +172,12 @@ def main() -> None:
             raise AssertionError(f"{service_name} does not expose runtime readiness")
     if "SIMULATOR_HEALTH_FILE" not in services["simulator"]["environment"]:
         raise AssertionError("simulator heartbeat path is not configured")
+    simulator_environment = services["simulator"]["environment"]
+    if simulator_environment.get("SIMULATION_INTERVAL_SECONDS") != "1" or simulator_environment.get("SIMULATION_STEPS") != "20" or simulator_environment.get("SIMULATION_MAX_WORKERS") != "8":
+        raise AssertionError("simulator local defaults must stay bounded and overridable")
+    api_environment = services["api"]["environment"]
+    if api_environment.get("LOGITRACK_DEMO_COMPLETED_RETENTION") != "7d" or api_environment.get("LOGITRACK_DEMO_CLEANUP_BATCH_SIZE") != "250":
+        raise AssertionError("completed demo retention defaults must stay bounded and overridable")
     if services["web"]["environment"].get("HOSTNAME") != "0.0.0.0":
         raise AssertionError("web is not bound to every container interface")
 
