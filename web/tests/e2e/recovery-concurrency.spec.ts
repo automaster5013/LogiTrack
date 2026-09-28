@@ -157,3 +157,39 @@ test("keeps a failed outbox retry error until that event recovers", async ({ pag
   await expect(retryError).toBeHidden();
   expect(outboxRetryRequests).toEqual([outboxFailures[0].id,outboxFailures[1].id,outboxFailures[0].id]);
 });
+
+test("sends one DLQ replay request for immediate repeated input", async ({ page }) => {
+  const { replayRequests } = await mockRecovery(page);
+  page.on("dialog", dialog => dialog.accept());
+  await page.goto("/console#recovery");
+
+  const replay = page.getByRole("button", { name: "trace-recovery-101 재처리" });
+  await expect(replay).toBeVisible();
+  await replay.evaluate(button => {
+    const replayButton = button as HTMLButtonElement;
+    replayButton.click();
+    replayButton.click();
+  });
+
+  await expect(replay).toBeDisabled();
+  await expect(replay).toBeEnabled({ timeout: 1_500 });
+  expect(replayRequests).toEqual([events[0].id]);
+});
+
+test("sends one outbox retry request for immediate repeated input", async ({ page }) => {
+  const { outboxRetryRequests } = await mockRecovery(page);
+  page.on("dialog", dialog => dialog.accept());
+  await page.goto("/console#recovery");
+
+  const retry = page.getByRole("button", { name: "DeliveryUpdated failure1 재발행" });
+  await expect(retry).toBeVisible();
+  await retry.evaluate(button => {
+    const retryButton = button as HTMLButtonElement;
+    retryButton.click();
+    retryButton.click();
+  });
+
+  await expect(retry).toBeDisabled();
+  await expect(retry).toBeEnabled({ timeout: 1_500 });
+  expect(outboxRetryRequests).toEqual([outboxFailures[0].id]);
+});
