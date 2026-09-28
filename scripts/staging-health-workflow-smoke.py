@@ -116,6 +116,8 @@ for boundary in (
     "anonymous proxy reads must not mutate authentication cookies",
     "/backend/api/deliveries",
     'getent ahostsv4 "$AUTH_HOST"',
+    "--retry 24 --retry-delay 5 --retry-all-errors --retry-max-time 150",
+    '"https://$TARGET_HOST/login"',
     '"https://$AUTH_HOST/oauth2/authorize"',
     "https://auth\\.logitrack\\.kr/error\\?error=",
     'servername "$AUTH_HOST"',

@@ -27,6 +27,13 @@ jobs:
           getent ahostsv4 "$TARGET_HOST" >/dev/null
           getent ahostsv4 "$AUTH_HOST" >/dev/null
 
+          # A scheduled probe can overlap an approved digest deployment. Wait for the
+          # public edge to settle, while keeping a real outage bounded by this job.
+          curl --fail --silent --show-error --proto '=https' --tlsv1.2 \
+            --retry 24 --retry-delay 5 --retry-all-errors --retry-max-time 150 \
+            --connect-timeout 10 --max-time 20 --output /dev/null \
+            "https://$TARGET_HOST/login"
+
           http_headers="$(curl --silent --show-error --head --max-time 15 "http://$TARGET_HOST/login" | tr -d '\r')"
           grep -Eq '^HTTP/[0-9.]+ (301|302|307|308)' <<<"$http_headers"
           grep -Eqi '^location: https://www\.logitrack\.kr/login$' <<<"$http_headers"
