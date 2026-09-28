@@ -982,6 +982,8 @@ test("filters active vehicles to the stale telemetry scope", async ({ page }) =>
   await expect(page.getByLabel("선택한 차량")).toHaveValue(activeDeliveries[1].id);
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
   await expect(page.locator(".focusStats")).toContainText("TRUCK-02");
+  await expect(page.locator(".focusStats")).toContainText("운송 중");
+  await expect(page.locator(".focusStats")).toContainText("최근 위치24시간 이상위치 지연");
 
   await page.getByRole("link", { name: "주문·차량" }).click();
   await expect(page.getByRole("button", { name: "위치 지연 1", exact: true })).toHaveAttribute("aria-pressed", "true");
