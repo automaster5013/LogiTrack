@@ -12,6 +12,10 @@ function Get-RuntimeVersion {
   throw "Web runtime version endpoint did not become ready"
 }
 
+$metadata = Invoke-RestMethod http://localhost:3000/api/runtime-version -TimeoutSec 3
+if (-not $metadata.revision) { throw "Runtime revision is missing" }
+if (-not $metadata.builtAt) { throw "Runtime build timestamp is missing" }
+
 $before = Get-RuntimeVersion
 $stable = Get-RuntimeVersion
 if ($before -ne $stable) { throw "Runtime version changed without a deployment" }
@@ -24,4 +28,4 @@ do {
 } while ((!$after -or $after -eq $before) -and (Get-Date) -lt $deadline)
 
 if (!$after -or $after -eq $before) { throw "Runtime version did not change after web restart" }
-Write-Host "PASS: runtime version changed $before -> $after"
+Write-Host "PASS: runtime version changed $before -> $after (revision $($metadata.revision), built $($metadata.builtAt))"

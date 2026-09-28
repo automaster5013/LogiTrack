@@ -254,6 +254,8 @@ services:
       context: ./web
       args:
         NEXT_PUBLIC_MAP_STYLE_URL: ${NEXT_PUBLIC_MAP_STYLE_URL:-https://tiles.openfreemap.org/styles/liberty}
+        APP_REVISION: ${APP_REVISION:-local}
+        APP_BUILD_TIME: ${APP_BUILD_TIME:-unknown}
     restart: unless-stopped
     logging: *default-logging
     stop_grace_period: 35s

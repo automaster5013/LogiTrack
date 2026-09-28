@@ -208,10 +208,11 @@ jobs:
             --exit-code 1 --no-progress /workspace
       - name: Build deployable service images
         run: |
+          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-api:ci ./api
           docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-analytics:ci ./analytics
           docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-simulator:ci ./simulator
-          docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-web:ci ./web
+          docker build --build-arg APP_REVISION="$GITHUB_SHA" --build-arg APP_BUILD_TIME="$BUILD_TIME" --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-web:ci ./web
           docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-otel-collector:ci ./infra/otel
       - name: Enforce hardened runtime metadata
         run: |
