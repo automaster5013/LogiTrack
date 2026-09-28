@@ -1,5 +1,6 @@
 package io.logitrack.delivery;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -11,6 +12,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Component
 @ConditionalOnProperty(name="logitrack.demo.seed-enabled",havingValue="true")
@@ -35,8 +37,10 @@ public class DemoDeliverySeeder {
     private final long staleAfterSeconds;
     private final Duration completedRetention;
     private final int cleanupBatchSize;
+    private final MeterRegistry metrics;
+    private final AtomicLong cleanupLastSuccessEpochSecond=new AtomicLong();
 
-    public DemoDeliverySeeder(DeliveryRepository deliveries,DeliveryService service,
+    public DemoDeliverySeeder(DeliveryRepository deliveries,DeliveryService service,MeterRegistry metrics,
         @Value("${logitrack.demo.target-active-deliveries:12}") int targetActive,
         @Value("${logitrack.demo.stale-after-seconds:7200}") long staleAfterSeconds,
         @Value("${logitrack.demo.completed-retention:7d}") Duration completedRetention,
@@ -45,7 +49,10 @@ public class DemoDeliverySeeder {
         if(staleAfterSeconds<60||staleAfterSeconds>86400)throw new IllegalArgumentException("demo stale threshold must be between 60 and 86400 seconds");
         if(completedRetention.compareTo(Duration.ofMinutes(10))<0||completedRetention.compareTo(Duration.ofDays(90))>0)throw new IllegalArgumentException("demo completed retention must be between 10 minutes and 90 days");
         if(cleanupBatchSize<1||cleanupBatchSize>1000)throw new IllegalArgumentException("demo cleanup batch size must be between 1 and 1000");
-        this.deliveries=deliveries;this.service=service;this.targetActive=targetActive;this.staleAfterSeconds=staleAfterSeconds;this.completedRetention=completedRetention;this.cleanupBatchSize=cleanupBatchSize;
+        this.deliveries=deliveries;this.service=service;this.metrics=metrics;this.targetActive=targetActive;this.staleAfterSeconds=staleAfterSeconds;this.completedRetention=completedRetention;this.cleanupBatchSize=cleanupBatchSize;
+        metrics.counter("logitrack.demo.cleanup.deleted");
+        metrics.counter("logitrack.demo.cleanup.failures");
+        metrics.gauge("logitrack.demo.cleanup.last.success.timestamp.seconds",cleanupLastSuccessEpochSecond);
     }
 
     @Scheduled(initialDelayString="${logitrack.demo.seed-initial-delay-ms:5000}",
@@ -53,8 +60,11 @@ public class DemoDeliverySeeder {
     public void replenish(){
         try{
             int deleted=deliveries.deleteCompletedDemoBatchBefore(Instant.now().minus(completedRetention),cleanupBatchSize);
+            metrics.counter("logitrack.demo.cleanup.deleted").increment(deleted);
+            cleanupLastSuccessEpochSecond.set(Instant.now().getEpochSecond());
             if(deleted>0)log.info("Removed {} expired completed demo deliveries",deleted);
         }catch(RuntimeException error){
+            metrics.counter("logitrack.demo.cleanup.failures").increment();
             log.warn("Completed demo delivery cleanup failed; replenishment will continue: {}",error.getClass().getSimpleName());
         }
         long active=deliveries.countFreshDemoActive(ACTIVE_STATUSES,Instant.now().minusSeconds(staleAfterSeconds));

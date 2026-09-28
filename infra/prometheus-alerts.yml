@@ -125,3 +125,17 @@ groups:
         annotations:
           summary: Retention cleanup is failing
           description: A scheduled operational data cleanup transaction failed during the last 15 minutes.
+      - alert: LogiTrackDemoCleanupFailing
+        expr: |
+          increase(logitrack_demo_cleanup_failures_total[15m]) > 0
+          or
+          (
+            logitrack_demo_cleanup_last_success_timestamp_seconds > 0
+            and time() - logitrack_demo_cleanup_last_success_timestamp_seconds > 900
+          )
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Completed demo delivery cleanup is failing or stale
+          description: The demo cleanup failed or has not completed successfully during the last 15 minutes.
