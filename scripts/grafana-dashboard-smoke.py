@@ -13,8 +13,8 @@ if dashboard.get("refresh") != "30s" or dashboard.get("editable") is not False:
     raise AssertionError("demo cleanup dashboard refresh or immutability drifted")
 
 panels = dashboard.get("panels", [])
-if len(panels) != 6 or len({panel.get("id") for panel in panels}) != len(panels):
-    raise AssertionError("demo cleanup dashboard must contain six uniquely identified panels")
+if len(panels) != 8 or len({panel.get("id") for panel in panels}) != len(panels):
+    raise AssertionError("demo cleanup dashboard must contain eight uniquely identified panels")
 
 expressions = {
     target["expr"]
@@ -28,6 +28,9 @@ required_metrics = {
     "logitrack_demo_cleanup_last_success_timestamp_seconds",
     "logitrack_demo_cleanup_monitor_started_timestamp_seconds",
     "LogiTrackDemoCleanupFailing",
+    "logitrack_demo_active_deliveries",
+    "logitrack_demo_target_deliveries",
+    "logitrack_demo_replenishment_failures_total",
 }
 for metric in required_metrics:
     if not any(metric in expression for expression in expressions):

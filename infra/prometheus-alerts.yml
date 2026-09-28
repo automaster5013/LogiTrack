@@ -144,3 +144,13 @@ groups:
         annotations:
           summary: Completed demo delivery cleanup is failing or stale
           description: The demo cleanup failed, never started, or has not completed successfully during the last 15 minutes.
+      - alert: LogiTrackDemoFleetBelowTarget
+        expr: |
+          logitrack_demo_active_deliveries < logitrack_demo_target_deliveries
+          or increase(logitrack_demo_replenishment_failures_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Live demo fleet is below its configured target
+          description: Active demo vehicles remain below target or replenishment attempts are failing.

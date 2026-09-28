@@ -82,6 +82,29 @@
       "targets": [{"editorMode": "code", "expr": "max(ALERTS{alertname=\"LogiTrackDemoCleanupFailing\",alertstate=\"firing\"}) or vector(0)", "legendFormat": "alert", "range": true, "refId": "A"}],
       "title": "데모 정리 경보 상태",
       "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "차량", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 12, "gradientMode": "none", "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "insertNulls": false, "lineInterpolation": "stepAfter", "lineWidth": 2, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "spanNulls": false, "stacking": {"group": "A", "mode": "none"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 16, "x": 0, "y": 13},
+      "id": 7,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"hideZeros": false, "mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"editorMode": "code", "expr": "logitrack_demo_active_deliveries", "legendFormat": "활성 차량", "range": true, "refId": "A"},
+        {"editorMode": "code", "expr": "logitrack_demo_target_deliveries", "legendFormat": "목표 차량", "range": true, "refId": "B"}
+      ],
+      "title": "실시간 데모 차량 현재 / 목표",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 13},
+      "id": 8,
+      "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showPercentChange": false, "textMode": "auto", "wideLayout": true},
+      "targets": [{"editorMode": "code", "expr": "increase(logitrack_demo_replenishment_failures_total[15m])", "legendFormat": "failures", "range": true, "refId": "A"}],
+      "title": "최근 15분 차량 보충 실패",
+      "type": "stat"
     }
   ],
   "refresh": "30s",
