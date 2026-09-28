@@ -123,10 +123,11 @@ if deploy_script.count("docker compose --progress quiet") < 3:
 if "--retry-all-errors" not in deploy_script or "--connect-timeout" not in deploy_script:
     errors.append("public readiness must tolerate bounded first-certificate provisioning failures")
 for fleet_gate in (
-    "logitrack_demo_active_deliveries",
-    "logitrack_demo_target_deliveries",
-    "target == 15",
-    "active >= target",
+    "exec -T postgres psql",
+    "status IN ('CREATED','IN_TRANSIT','DELAYED')",
+    "vehicle_id LIKE 'TRUCK-DEMO-%'",
+    "COALESCE(last_telemetry_at,created_at) >= NOW() - INTERVAL '7200 seconds'",
+    "active_demo_deliveries >= 15",
     "for attempt in $(seq 1 24)",
     "live demo fleet did not reach its configured target",
 ):
