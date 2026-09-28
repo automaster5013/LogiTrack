@@ -69,6 +69,20 @@ rollback() {
 trap rollback EXIT
 ln -sfn "$release" "$root/current"
 docker compose --progress quiet --project-directory "$release" --env-file "$release/.env" -f "$release/compose.yml" up -d --remove-orphans --wait --wait-timeout 600
+fleet_ready() {
+  active_demo_deliveries="$(
+    docker compose --progress quiet --project-directory "$release" --env-file "$release/.env" -f "$release/compose.yml" \
+      exec -T postgres psql --username logitrack --dbname logitrack --tuples-only --no-align \
+      --command "SELECT count(*) FROM deliveries WHERE status IN ('CREATED','IN_TRANSIT','DELAYED') AND vehicle_id LIKE 'TRUCK-DEMO-%' AND COALESCE(last_telemetry_at,created_at) >= NOW() - INTERVAL '7200 seconds';" \
+      2>/dev/null || true
+  )"
+  [[ "$active_demo_deliveries" =~ ^[0-9]+$ ]] && (( active_demo_deliveries >= 15 ))
+}
+for attempt in $(seq 1 24); do
+  if fleet_ready; then break; fi
+  sleep 5
+done
+fleet_ready || { echo "live demo fleet did not reach its configured target" >&2; exit 5; }
 curl --fail --silent --show-error --retry 24 --retry-delay 5 --retry-all-errors --connect-timeout 10 --max-time 20 https://www.logitrack.kr/login >/dev/null
 printf '%s\n' "$revision" >"$root/deployed-revision"
 chmod 0644 "$root/deployed-revision"
