@@ -7,8 +7,11 @@ const orders: CustomerOrder[] = [
   { id: "00000000-0000-4000-8000-000000000202", orderNumber: "ORD-E2E-202", status: "READY", originName: "Seoul Hub", originLat: 37.5665, originLon: 126.978, destinationName: "Busan DC", destinationLat: 35.1796, destinationLon: 129.0756, createdAt: timestamp, updatedAt: timestamp },
 ];
 
-async function mockOrders(page: Page, failuresBeforeSuccessById: Record<string, number> = {}) {
+type OrderFixture = { dispatchFailuresBeforeSuccessById?: Record<string, number>; createFailuresBeforeSuccess?: number };
+
+async function mockOrders(page: Page, fixture: OrderFixture = {}) {
   const dispatchRequests: string[] = [];
+  let createRequests = 0;
   await page.route("**/api/**", async route => {
     const request = route.request();
     const url = new URL(request.url());
@@ -20,10 +23,18 @@ async function mockOrders(page: Page, failuresBeforeSuccessById: Record<string, 
       dispatchRequests.push(order.id);
       await new Promise(resolve => setTimeout(resolve, order.id === orders[0].id ? 1_000 : 2_500));
       const requestCount = dispatchRequests.filter(id => id === order.id).length;
-      if (requestCount <= (failuresBeforeSuccessById[order.id] || 0)) {
+      if (requestCount <= (fixture.dispatchFailuresBeforeSuccessById?.[order.id] || 0)) {
         return route.fulfill({ status: 503, ...common, json: { error: "temporarily_unavailable" } });
       }
       return route.fulfill({ ...common, json: { ...order, status: "DISPATCHED", deliveryId: `delivery-${order.id.slice(-3)}`, vehicleId: "TRUCK-01", deliveryStatus: "CREATED", updatedAt: timestamp } });
+    }
+    if (url.pathname === "/api/orders" && request.method() === "POST") {
+      createRequests += 1;
+      await new Promise(resolve => setTimeout(resolve, 1_000));
+      if (createRequests <= (fixture.createFailuresBeforeSuccess || 0)) {
+        return route.fulfill({ status: 503, ...common, json: { error: "temporarily_unavailable" } });
+      }
+      return route.fulfill({ status: 201, ...common, json: { ...orders[0], id: "00000000-0000-4000-8000-000000000203", orderNumber: "ORD-E2E-203" } });
     }
     if (url.pathname === "/api/orders/page") {
       return route.fulfill({ ...common, json: { items: orders, page: 0, size: 100, totalElements: orders.length, hasMore: false } });
@@ -42,11 +53,11 @@ async function mockOrders(page: Page, failuresBeforeSuccessById: Record<string, 
     }
     return route.fulfill({ status: 404, ...common, json: { error: "not_found" } });
   });
-  return dispatchRequests;
+  return { dispatchRequests, createRequests: () => createRequests };
 }
 
 test("tracks concurrent order dispatches independently", async ({ page }) => {
-  const dispatchRequests = await mockOrders(page);
+  const { dispatchRequests } = await mockOrders(page);
   await page.goto("/console#orders");
 
   const firstDispatch = page.getByRole("button", { name: "ORD-E2E-201 차량 배차" });
@@ -64,7 +75,7 @@ test("tracks concurrent order dispatches independently", async ({ page }) => {
 });
 
 test("sends one dispatch request for immediate repeated input", async ({ page }) => {
-  const dispatchRequests = await mockOrders(page);
+  const { dispatchRequests } = await mockOrders(page);
   await page.goto("/console#orders");
 
   const dispatch = page.getByRole("button", { name: "ORD-E2E-201 차량 배차" });
@@ -81,7 +92,7 @@ test("sends one dispatch request for immediate repeated input", async ({ page })
 });
 
 test("keeps a failed dispatch error until that order recovers", async ({ page }) => {
-  const dispatchRequests = await mockOrders(page, { [orders[0].id]: 1 });
+  const { dispatchRequests } = await mockOrders(page, { dispatchFailuresBeforeSuccessById: { [orders[0].id]: 1 } });
   await page.goto("/console#orders");
 
   const firstDispatch = page.getByRole("button", { name: "ORD-E2E-201 차량 배차" });
@@ -100,4 +111,37 @@ test("keeps a failed dispatch error until that order recovers", async ({ page })
   await expect(firstDispatch).toBeEnabled({ timeout: 1_500 });
   await expect(dispatchError).toBeHidden();
   expect(dispatchRequests).toEqual([orders[0].id, orders[1].id, orders[0].id]);
+});
+
+test("sends one create request for immediate repeated input", async ({ page }) => {
+  const fixture = await mockOrders(page);
+  await page.goto("/console#orders");
+
+  const createButton = page.locator(".orderHeader > button");
+  await expect(createButton).toHaveText("+ 새 주문");
+  await createButton.evaluate(button => {
+    const orderButton = button as HTMLButtonElement;
+    orderButton.click();
+    orderButton.click();
+  });
+
+  await expect(createButton).toBeDisabled();
+  await expect(createButton).toBeEnabled({ timeout: 1_500 });
+  expect(fixture.createRequests()).toBe(1);
+});
+
+test("keeps an order creation error visible until retry succeeds", async ({ page }) => {
+  const fixture = await mockOrders(page, { createFailuresBeforeSuccess: 1 });
+  await page.goto("/console#orders");
+
+  const createButton = page.locator(".orderHeader > button");
+  const createError = page.getByText("주문 생성에 실패했습니다.");
+  await createButton.click();
+  await expect(createError).toBeVisible({ timeout: 1_500 });
+
+  await createButton.click();
+  await expect(createError).toBeVisible();
+  await expect(createButton).toBeEnabled({ timeout: 1_500 });
+  await expect(createError).toBeHidden();
+  expect(fixture.createRequests()).toBe(2);
 });
