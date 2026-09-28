@@ -31,17 +31,20 @@ public class DemoDeliverySeeder {
     private final DeliveryRepository deliveries;
     private final DeliveryService service;
     private final int targetActive;
+    private final long staleAfterSeconds;
 
     public DemoDeliverySeeder(DeliveryRepository deliveries,DeliveryService service,
-        @Value("${logitrack.demo.target-active-deliveries:12}") int targetActive){
+        @Value("${logitrack.demo.target-active-deliveries:12}") int targetActive,
+        @Value("${logitrack.demo.stale-after-seconds:7200}") long staleAfterSeconds){
         if(targetActive<1||targetActive>50)throw new IllegalArgumentException("demo target must be between 1 and 50");
-        this.deliveries=deliveries;this.service=service;this.targetActive=targetActive;
+        if(staleAfterSeconds<60||staleAfterSeconds>86400)throw new IllegalArgumentException("demo stale threshold must be between 60 and 86400 seconds");
+        this.deliveries=deliveries;this.service=service;this.targetActive=targetActive;this.staleAfterSeconds=staleAfterSeconds;
     }
 
     @Scheduled(initialDelayString="${logitrack.demo.seed-initial-delay-ms:5000}",
         fixedDelayString="${logitrack.demo.seed-delay-ms:60000}")
     public void replenish(){
-        long active=deliveries.countByStatusIn(ACTIVE_STATUSES);
+        long active=deliveries.countFreshDemoActive(ACTIVE_STATUSES,Instant.now().minusSeconds(staleAfterSeconds));
         int missing=(int)Math.max(0,targetActive-active);
         for(int index=0;index<missing;index++){
             var route=ROUTES.get((int)((active+index)%ROUTES.size()));
