@@ -33,6 +33,15 @@ function estimatedCoordinates(route:[number,number][],progress:number,current:[n
   return [...route.slice(0,end),current];
 }
 
+function selectedTelemetryFreshness(delivery:Delivery,telemetry:TelemetryPoint[]){
+  const timestamps=[delivery.lastTelemetryAt,...telemetry.filter(point=>point.deliveryId===delivery.id).map(point=>point.occurredAt)]
+    .filter((value):value is string=>Boolean(value)).map(value=>new Date(value).getTime()).filter(value=>!Number.isNaN(value));
+  if(!timestamps.length)return {label:"위치 이벤트 없음",stale:true};
+  const ageMinutes=Math.max(0,Math.floor((Date.now()-Math.max(...timestamps))/60_000));
+  if(ageMinutes<1)return {label:"위치 방금 수신",stale:false};
+  return {label:`위치 ${ageMinutes<60?`${ageMinutes}분`:`${Math.floor(ageMinutes/60)}시간`} 전 수신`,stale:ageMinutes>=5};
+}
+
 function features(deliveries: Delivery[], routes: RouteSnapshot[], telemetry: TelemetryPoint[]): FeatureCollection<Geometry> {
   const result: FeatureCollection<Geometry>["features"] = [];
   const indexed=routeIndex(routes);
@@ -141,6 +150,7 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
   },[mapExpanded]);
 
   const selected=deliveries.find(delivery=>delivery.id===selectedId);
+  const selectedFreshness=selected?selectedTelemetryFreshness(selected,telemetry):undefined;
   const overdueCount=deliveries.filter(delivery=>{if(delivery.status==="DELIVERED"||!delivery.eta)return false;const eta=new Date(delivery.eta);return !Number.isNaN(eta.getTime())&&eta.getTime()<Date.now()}).length;
   const overdueLabel=overdueCount?` 예정 초과 ${overdueCount}대.`:"";
   const mapLabel=selected
@@ -155,6 +165,11 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
     <div className={`mapLegend ${legendExpanded?"expanded":"compact"}`} aria-label="지도 범례"><button type="button" className="mapLegendToggle" aria-expanded={legendExpanded} aria-controls="fleet-map-legend-items" onClick={()=>setLegendExpanded(value=>!value)}><span><i className="mapReadyDot"/> 지도 범례</span><small>{deliveries.length}대 표시</small><b>{legendExpanded?"접기":"보기"}</b></button><div id="fleet-map-legend-items" className="mapLegendItems" hidden={!legendExpanded}><span><i className="liveDot"/> 운송 차량</span><span><i className="overdueDot"/> 예정 초과</span><span><i className="delayedDot"/> 지연 차량</span><span><i className="selectedDot"/> 선택 차량</span><span><i className="travelDot"/> 실제 이동</span><span><i className="routeDot"/> 계획 경로</span><p>차량을 선택하면 상세 경로와 거점이 강조됩니다.</p></div></div>
     <button type="button" className="mapExpand" aria-pressed={mapExpanded} aria-label={mapExpanded?"지도 원래 크기로":"지도 확대 보기"} onClick={()=>setMapExpanded(value=>!value)}>{mapExpanded?"축소":"확대"}</button>
     {deliveries.length>1&&<button type="button" className="mapReset" onClick={showEntireFleet}>전체 차량 보기</button>}
+    {mapExpanded&&selected&&<aside className="mapExpandedHud" aria-label="확대 지도 선택 차량 정보" aria-live="polite">
+      <div><small>선택 차량</small><strong>{selected.vehicleId}</strong><span className={`mapHudState ${selected.status.toLowerCase()}`}>{STATUS_COPY[selected.status]}</span></div>
+      <p>{selected.originName} <b aria-hidden="true">→</b> {selected.destinationName}</p>
+      <dl><div><dt>주문</dt><dd>{selected.orderNumber}</dd></div><div><dt>진행률</dt><dd>{Math.round(selected.progress*100)}%</dd></div><div className={selectedFreshness?.stale?"stale":"fresh"}><dt>최근 위치</dt><dd>{selectedFreshness?.label}</dd></div></dl>
+    </aside>}
   </div>;
 }
 
