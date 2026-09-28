@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.*;
 
 public interface DeliveryRepository extends JpaRepository<Delivery, UUID> {
+    long countByStatusIn(Collection<Delivery.Status> statuses);
     Optional<Delivery> findByIdempotencyKey(String idempotencyKey);
     Optional<Delivery> findByOrderId(UUID orderId);
     List<Delivery> findByOrderIdIn(Collection<UUID> orderIds);

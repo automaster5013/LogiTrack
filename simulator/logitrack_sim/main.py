@@ -28,8 +28,8 @@ def validate_config(interval: float, steps: int, workers: int) -> None:
         raise ValueError("simulation steps must be between 2 and 1000")
     if not 1 <= workers <= 100:
         raise ValueError("simulation workers must be between 1 and 100")
-    if interval * steps > 120:
-        raise ValueError("a simulation may run for at most 120 seconds")
+    if interval * steps > 3600:
+        raise ValueError("a simulation may run for at most 3600 seconds")
     if RESUME_FROM_API not in {"true", "false"}:
         raise ValueError("SIMULATION_RESUME_FROM_API must be true or false")
 

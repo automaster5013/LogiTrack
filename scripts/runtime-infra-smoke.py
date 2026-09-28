@@ -95,6 +95,12 @@ if services["api"].get("environment", {}).get("SECURITY_CLIENT_ID") != "${COGNIT
     errors.append("staging API must validate tokens against the same required Cognito client ID as the web")
 if services["simulator"].get("environment", {}).get("SIMULATION_RESUME_FROM_API") != "false":
     errors.append("staging simulator must not call the authenticated API before starting a new delivery")
+api_environment = services["api"].get("environment", {})
+simulator_environment = services["simulator"].get("environment", {})
+if api_environment.get("LOGITRACK_DEMO_SEED_ENABLED") != "true" or api_environment.get("LOGITRACK_DEMO_TARGET_ACTIVE_DELIVERIES") != "15":
+    errors.append("staging must keep a bounded 15-delivery live demo fleet")
+if simulator_environment.get("SIMULATION_INTERVAL_SECONDS") != "60" or simulator_environment.get("SIMULATION_STEPS") != "60" or simulator_environment.get("SIMULATION_MAX_WORKERS") != "15":
+    errors.append("staging demo deliveries must move once per minute for one bounded hour")
 if "id-token: write" not in workflow or "AWS-RunShellScript" not in workflow:
     errors.append("deployment workflow must use OIDC and SSM Run Command")
 if "fetch-depth: 0" not in workflow:
