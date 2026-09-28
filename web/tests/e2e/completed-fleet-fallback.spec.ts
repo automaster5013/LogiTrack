@@ -71,6 +71,7 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
   await page.route("**/api/**", async route => {
     const url = new URL(route.request().url());
     const common = { headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" } };
+    if (url.pathname === "/api/runtime-version") return route.fulfill({ ...common, json: { version: "11111111-1111-4111-8111-111111111111", revision: "0123456789abcdef0123456789abcdef01234567", builtAt: "2026-09-28T09:00:00Z", environment: "test" } });
     if (url.pathname.match(/^\/api\/alerts\/[^/]+\/acknowledgement$/) && route.request().method() === "POST") {
       const headers = route.request().headers();
       const traceId = headers["x-trace-id"] || "";
@@ -149,13 +150,23 @@ test("shows completed vehicles automatically when no delivery is active", async 
 
   await page.goto("/console#overview");
 
-  await expect(page.getByText("전체 6건")).toBeVisible();
+  await expect(page.locator(".hero>div").first()).toContainText("실시간 운행00진행 중 전체 0건 · 위치 지연 0건모든 위치 최신");
   await expect(page.getByRole("button", { name: "전체 6", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "진행 중 0", exact: true })).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByLabel("선택한 차량")).toHaveValue(deliveries[0].id);
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(6);
   await expect(page.locator(".focusStats")).toContainText("26.0 km");
   await expect(page.locator(".focusStats")).toContainText("TRUCK-01");
+  const runtimeBadge=page.getByLabel("실행 환경 TEST 버전 0123456");
+  await expect(runtimeBadge).toBeVisible();
+  await expect(runtimeBadge).toHaveAttribute("aria-expanded","false");
+  await runtimeBadge.click();
+  await expect(runtimeBadge).toHaveAttribute("aria-expanded","true");
+  const runtimeDetails=page.getByRole("complementary",{name:"실행 환경 상세",exact:true});
+  await expect(runtimeDetails).toContainText("0123456789abcdef0123456789abcdef01234567");
+  await expect(runtimeDetails).toContainText("환경별 데이터에 따라 다를 수 있습니다.");
+  await page.keyboard.press("Escape");
+  await expect(runtimeDetails).toBeHidden();
   const legendToggle = page.getByRole("button", { name: /지도 범례 6대 표시 보기/ });
   await expect(legendToggle).toHaveAttribute("aria-expanded", "false");
   await expect(page.getByText("실제 이동", { exact: true })).toBeHidden();
@@ -163,6 +174,21 @@ test("shows completed vehicles automatically when no delivery is active", async 
   await expect(page.getByRole("button", { name: /지도 범례 6대 표시 접기/ })).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByText("실제 이동", { exact: true })).toBeVisible();
   await expect(page.getByText("차량을 선택하면 상세 경로와 거점이 강조됩니다.")).toBeVisible();
+  const expandMap=page.getByRole("button",{name:"지도 확대 보기"});
+  await expandMap.click();
+  await expect(page.locator(".mapShell")).toHaveClass(/mapExpanded/);
+  await expect(page.getByRole("button",{name:"지도 원래 크기로"})).toHaveAttribute("aria-pressed","true");
+  const expandedHud=page.getByRole("complementary",{name:"확대 지도 선택 차량 정보"});
+  await expect(expandedHud).toContainText("TRUCK-01");
+  await expect(expandedHud).toContainText("배송 완료");
+  await expect(expandedHud).toContainText("출발지 1 → 도착지 1");
+  await expect(expandedHud).toContainText("진행률100%");
+  await expect(expandedHud).toContainText("최근 위치");
+  await page.keyboard.press("Escape");
+  await expect(expandedHud).toBeHidden();
+  await expect(page.locator(".mapShell")).not.toHaveClass(/mapExpanded/);
+  await page.setViewportSize({width:390,height:844});
+  await expect(runtimeBadge.getByText("TEST",{exact:true})).toBeVisible();
 });
 
 test("prioritizes a searched vehicle beyond the fifty vehicle map limit", async ({ page }) => {
@@ -301,13 +327,39 @@ test("keeps the live scope when an active delivery exists", async ({ page }) => 
   await mockOverview(page, activeDeliveries);
   await page.goto("/console#overview");
 
-  await expect(page.getByText("전체 6건")).toBeVisible();
+  await expect(page.locator(".hero>div").first()).toContainText("실시간 운행00진행 중 전체 1건 · 위치 지연 1건지연 차량 확인 →");
   await expect(page.getByRole("button", { name: "진행 중 1", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "전체 6", exact: true })).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByLabel("선택한 차량")).toHaveValue(activeDeliveries[0].id);
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
   await expect(page.locator(".focusStats")).toContainText("26.0 km");
   await expect(page.locator(".focusStats")).toContainText("TRUCK-01");
+});
+
+test("defaults to recently reporting vehicles while keeping stale active deliveries accessible", async ({ page }) => {
+  const activeDeliveries = deliveries.map((delivery, index) => index < 2 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    progress: index === 0 ? 0.25 : 0.75,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: index === 0 ? "2099-09-27T07:59:30Z" : "2020-09-27T08:00:00Z",
+  } : delivery);
+  await mockOverview(page, activeDeliveries);
+
+  await page.goto("/console#overview");
+
+  await expect(page.getByRole("button", { name: "실시간 1", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "진행 중 2", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator(".hero>div").first()).toContainText("실시간 운행01진행 중 전체 2건 · 위치 지연 1건지연 차량 확인 →");
+  await expect(page.locator(".hero>div").nth(2)).toContainText("평균 진행률25%최근 위치 수신 차량 기준");
+  await expect(page.getByLabel("선택한 차량")).toHaveValue(activeDeliveries[0].id);
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
+
+  await page.getByRole("button", { name: "진행 중 2", exact: true }).click();
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(2);
+  await page.getByRole("button", { name: "지연 차량 확인 →", exact: true }).click();
+  await expect(page.getByRole("button", { name: "위치 지연 1", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("선택한 차량")).toHaveValue(activeDeliveries[1].id);
 });
 
 test("updates the selected vehicle from delivery and telemetry stream events", async ({ page }) => {
@@ -944,7 +996,7 @@ test("focuses the alerted vehicle from the attention summary", async ({ page }) 
   await mockOverview(page, activeDeliveries, [alert]);
   await page.goto("/console#overview");
 
-  await expect(page.getByRole("button", { name: "진행 중 2", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "실시간 2", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(2);
   await expect(page.getByRole("button", { name: "지도에서 확인 →" })).toBeVisible();
 
@@ -971,9 +1023,9 @@ test("filters active vehicles to the stale telemetry scope", async ({ page }) =>
   await mockOverview(page, activeDeliveries);
   await page.goto("/console#overview");
 
-  await expect(page.getByRole("button", { name: "진행 중 2", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "실시간 1", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "위치 지연 1", exact: true })).toHaveAttribute("aria-pressed", "false");
-  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(2);
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
 
   await page.getByRole("button", { name: "위치 지연 1", exact: true }).click();
 
