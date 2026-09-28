@@ -33,6 +33,7 @@ class DemoDeliverySeederTest {
         assertEquals(3,metrics.get("logitrack.demo.cleanup.deleted").counter().count());
         assertEquals(0,metrics.get("logitrack.demo.cleanup.failures").counter().count());
         assertEquals(true,metrics.get("logitrack.demo.cleanup.last.success.timestamp.seconds").gauge().value()>0);
+        assertEquals(true,metrics.get("logitrack.demo.cleanup.monitor.started.timestamp.seconds").gauge().value()>0);
     }
 
     @Test void doesNothingWhenTheTargetIsAlreadyMet(){
@@ -48,6 +49,7 @@ class DemoDeliverySeederTest {
         verify(service).create(any(),startsWith("demo-seed-"),startsWith("demo-seeder-"));
         assertEquals(1,metrics.get("logitrack.demo.cleanup.failures").counter().count());
         assertEquals(0,metrics.get("logitrack.demo.cleanup.last.success.timestamp.seconds").gauge().value());
+        assertEquals(true,metrics.get("logitrack.demo.cleanup.monitor.started.timestamp.seconds").gauge().value()>0);
     }
 
     @Test void rejectsUnsafeTargets(){

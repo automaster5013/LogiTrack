@@ -39,6 +39,7 @@ public class DemoDeliverySeeder {
     private final int cleanupBatchSize;
     private final MeterRegistry metrics;
     private final AtomicLong cleanupLastSuccessEpochSecond=new AtomicLong();
+    private final AtomicLong cleanupMonitorStartedEpochSecond=new AtomicLong();
 
     public DemoDeliverySeeder(DeliveryRepository deliveries,DeliveryService service,MeterRegistry metrics,
         @Value("${logitrack.demo.target-active-deliveries:12}") int targetActive,
@@ -52,7 +53,9 @@ public class DemoDeliverySeeder {
         this.deliveries=deliveries;this.service=service;this.metrics=metrics;this.targetActive=targetActive;this.staleAfterSeconds=staleAfterSeconds;this.completedRetention=completedRetention;this.cleanupBatchSize=cleanupBatchSize;
         metrics.counter("logitrack.demo.cleanup.deleted");
         metrics.counter("logitrack.demo.cleanup.failures");
+        cleanupMonitorStartedEpochSecond.set(Instant.now().getEpochSecond());
         metrics.gauge("logitrack.demo.cleanup.last.success.timestamp.seconds",cleanupLastSuccessEpochSecond);
+        metrics.gauge("logitrack.demo.cleanup.monitor.started.timestamp.seconds",cleanupMonitorStartedEpochSecond);
     }
 
     @Scheduled(initialDelayString="${logitrack.demo.seed-initial-delay-ms:5000}",
