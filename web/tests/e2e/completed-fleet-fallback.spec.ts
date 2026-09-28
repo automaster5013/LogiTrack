@@ -150,7 +150,7 @@ test("shows completed vehicles automatically when no delivery is active", async 
 
   await page.goto("/console#overview");
 
-  await expect(page.getByText("전체 6건")).toBeVisible();
+  await expect(page.locator(".hero>div").first()).toContainText("실시간 운행00진행 중 전체 0건");
   await expect(page.getByRole("button", { name: "전체 6", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "진행 중 0", exact: true })).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByLabel("선택한 차량")).toHaveValue(deliveries[0].id);
@@ -327,7 +327,7 @@ test("keeps the live scope when an active delivery exists", async ({ page }) => 
   await mockOverview(page, activeDeliveries);
   await page.goto("/console#overview");
 
-  await expect(page.getByText("전체 6건")).toBeVisible();
+  await expect(page.locator(".hero>div").first()).toContainText("실시간 운행00진행 중 전체 1건");
   await expect(page.getByRole("button", { name: "진행 중 1", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "전체 6", exact: true })).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByLabel("선택한 차량")).toHaveValue(activeDeliveries[0].id);
@@ -340,7 +340,7 @@ test("defaults to recently reporting vehicles while keeping stale active deliver
   const activeDeliveries = deliveries.map((delivery, index) => index < 2 ? {
     ...delivery,
     status: "IN_TRANSIT",
-    progress: 0.5,
+    progress: index === 0 ? 0.25 : 0.75,
     eta: "2099-09-27T08:00:00Z",
     lastTelemetryAt: index === 0 ? "2099-09-27T07:59:30Z" : "2020-09-27T08:00:00Z",
   } : delivery);
@@ -350,6 +350,8 @@ test("defaults to recently reporting vehicles while keeping stale active deliver
 
   await expect(page.getByRole("button", { name: "실시간 1", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "진행 중 2", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator(".hero>div").first()).toContainText("실시간 운행01진행 중 전체 2건");
+  await expect(page.locator(".hero>div").nth(2)).toContainText("평균 진행률25%최근 위치 수신 차량 기준");
   await expect(page.getByLabel("선택한 차량")).toHaveValue(activeDeliveries[0].id);
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
 
