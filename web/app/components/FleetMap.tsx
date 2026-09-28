@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AttributionControl, GeoJSONSource, Map, NavigationControl, ScaleControl, setWorkerUrl } from "maplibre-gl";
+import { AttributionControl, GeoJSONSource, Map, NavigationControl, Popup, ScaleControl, setWorkerUrl } from "maplibre-gl";
 import type { FilterSpecification } from "maplibre-gl";
 import type { FeatureCollection, Geometry } from "geojson";
 import type { Delivery, RouteSnapshot, TelemetryPoint } from "../types";
@@ -20,6 +20,7 @@ const MAP_LOCALE={
 };
 
 type Props = { deliveries: Delivery[]; routes: RouteSnapshot[]; telemetry: TelemetryPoint[]; selectedId?: string; onSelect: (id: string) => void; emptyMessage?: string };
+const STATUS_COPY:Record<Delivery["status"],string>={CREATED:"배송 준비",IN_TRANSIT:"운송 중",DELAYED:"지연",DELIVERED:"배송 완료"};
 
 function routeIndex(routes: RouteSnapshot[]) {
   const indexed=new globalThis.Map<string,[number,number][]>();
@@ -57,7 +58,7 @@ function features(deliveries: Delivery[], routes: RouteSnapshot[], telemetry: Te
 }
 
 export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelect,emptyMessage}:Props){
-  const host=useRef<HTMLDivElement>(null); const mapRef=useRef<Map|null>(null); const loaded=useRef(false);
+  const host=useRef<HTMLDivElement>(null); const mapRef=useRef<Map|null>(null); const popupRef=useRef<Popup|null>(null); const loaded=useRef(false);
   const deliveriesRef=useRef(deliveries); const routesRef=useRef(routes); const telemetryRef=useRef(telemetry); const selectedRef=useRef(selectedId);
   deliveriesRef.current=deliveries; routesRef.current=routes; telemetryRef.current=telemetry; selectedRef.current=selectedId;
   const [mapError,setMapError]=useState(false); const [mapReady,setMapReady]=useState(false); const [legendExpanded,setLegendExpanded]=useState(false);
@@ -88,13 +89,29 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
       map.addLayer({id:"selected-vehicle-glow",type:"circle",source:"fleet",filter:selectedFilter("vehicle"),paint:{"circle-radius":19,"circle-color":"#b9f227","circle-opacity":0.22}});
       map.addLayer({id:"selected-vehicle",type:"circle",source:"fleet",filter:selectedFilter("vehicle"),paint:{"circle-radius":12,"circle-color":"rgba(0,0,0,0)","circle-stroke-color":"#b9f227","circle-stroke-width":4}});
       map.addLayer({id:"vehicle-labels",type:"symbol",source:"fleet",filter:selectedFilter("vehicle"),layout:{"text-field":["get","label"],"text-size":12,"text-offset":[0,1.75],"text-anchor":"top","text-font":["Noto Sans Regular"]},paint:{"text-color":"#10221d","text-halo-color":"#ffffff","text-halo-width":2.5}});
-      map.on("mouseenter","vehicles",()=>map.getCanvas().style.cursor="pointer"); map.on("mouseleave","vehicles",()=>map.getCanvas().style.cursor="");
-      map.on("click","vehicles",e=>{const id=e.features?.[0]?.properties?.id;if(id)onSelect(id)});
+      map.on("mouseenter","vehicles",event=>{
+        map.getCanvas().style.cursor="pointer";
+        const id=event.features?.[0]?.properties?.id as string|undefined;
+        const delivery=deliveriesRef.current.find(item=>item.id===id);
+        if(!delivery)return;
+        const coordinates:[number,number]=[delivery.currentLon??delivery.originLon,delivery.currentLat??delivery.originLat];
+        const eta=delivery.eta?new Date(delivery.eta):undefined;
+        const overdue=delivery.status!=="DELIVERED"&&eta&&!Number.isNaN(eta.getTime())&&eta.getTime()<Date.now();
+        const preview=document.createElement("div"); preview.className="fleetMapPreview";
+        const title=document.createElement("strong"); title.textContent=delivery.vehicleId;
+        const state=document.createElement("span"); state.className=delivery.status==="DELAYED"?"delayed":overdue?"overdue":"live"; state.textContent=`${delivery.status==="DELAYED"?"지연":overdue?"예정 초과":STATUS_COPY[delivery.status]} · ${Math.round(delivery.progress*100)}%`;
+        const route=document.createElement("small"); route.textContent=`${delivery.originName} → ${delivery.destinationName}`;
+        preview.append(title,state,route);
+        popupRef.current?.remove();
+        popupRef.current=new Popup({closeButton:false,closeOnClick:false,offset:18,className:"fleetMapPopup"}).setLngLat(coordinates).setDOMContent(preview).addTo(map);
+      });
+      map.on("mouseleave","vehicles",()=>{map.getCanvas().style.cursor="";popupRef.current?.remove();popupRef.current=null});
+      map.on("click","vehicles",event=>{popupRef.current?.remove();popupRef.current=null;const id=event.features?.[0]?.properties?.id;if(id)onSelect(id)});
       const selected=deliveriesRef.current.find(x=>x.id===selectedRef.current);
       if(selected)fitDelivery(map,selected,routesRef.current,telemetryRef.current);
       map.once("idle",()=>setMapReady(true));
     });
-    return()=>{window.clearTimeout(loadTimeout);map.remove();mapRef.current=null;loaded.current=false};
+    return()=>{window.clearTimeout(loadTimeout);popupRef.current?.remove();popupRef.current=null;map.remove();mapRef.current=null;loaded.current=false};
   },[]);
 
   useEffect(()=>{
