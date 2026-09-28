@@ -92,6 +92,7 @@ for boundary in (
     "/api/runtime-version",
     ".revision",
     ".builtAt",
+    '.environment == "staging"',
     "jq -e",
     "cache-control: .*no-store",
     "cross_origin_logout_status",
