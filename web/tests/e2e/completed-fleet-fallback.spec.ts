@@ -336,6 +336,29 @@ test("keeps the live scope when an active delivery exists", async ({ page }) => 
   await expect(page.locator(".focusStats")).toContainText("TRUCK-01");
 });
 
+test("defaults to recently reporting vehicles while keeping stale active deliveries accessible", async ({ page }) => {
+  const activeDeliveries = deliveries.map((delivery, index) => index < 2 ? {
+    ...delivery,
+    status: "IN_TRANSIT",
+    progress: 0.5,
+    eta: "2099-09-27T08:00:00Z",
+    lastTelemetryAt: index === 0 ? "2099-09-27T07:59:30Z" : "2020-09-27T08:00:00Z",
+  } : delivery);
+  await mockOverview(page, activeDeliveries);
+
+  await page.goto("/console#overview");
+
+  await expect(page.getByRole("button", { name: "실시간 1", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "진행 중 2", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByLabel("선택한 차량")).toHaveValue(activeDeliveries[0].id);
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
+
+  await page.getByRole("button", { name: "진행 중 2", exact: true }).click();
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(2);
+  await page.getByRole("button", { name: "위치 지연 1", exact: true }).click();
+  await expect(page.getByLabel("선택한 차량")).toHaveValue(activeDeliveries[1].id);
+});
+
 test("updates the selected vehicle from delivery and telemetry stream events", async ({ page }) => {
   const occurredAt = new Date().toISOString();
   const activeDeliveries = deliveries.map((delivery, index) => index === 0 ? {
@@ -970,7 +993,7 @@ test("focuses the alerted vehicle from the attention summary", async ({ page }) 
   await mockOverview(page, activeDeliveries, [alert]);
   await page.goto("/console#overview");
 
-  await expect(page.getByRole("button", { name: "진행 중 2", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "실시간 2", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(2);
   await expect(page.getByRole("button", { name: "지도에서 확인 →" })).toBeVisible();
 
@@ -997,9 +1020,9 @@ test("filters active vehicles to the stale telemetry scope", async ({ page }) =>
   await mockOverview(page, activeDeliveries);
   await page.goto("/console#overview");
 
-  await expect(page.getByRole("button", { name: "진행 중 2", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "실시간 1", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "위치 지연 1", exact: true })).toHaveAttribute("aria-pressed", "false");
-  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(2);
+  await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
 
   await page.getByRole("button", { name: "위치 지연 1", exact: true }).click();
 
