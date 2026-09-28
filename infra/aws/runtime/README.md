@@ -71,4 +71,4 @@ CloudWatch Logs를 기본 활성화하지 않아 고정 수집 비용을 피한�
 
 staging API는 `LOGITRACK_DEMO_SEED_ENABLED=true`일 때만 최근 2시간 안에 생성되거나 위치를 수신한 `TRUCK-DEMO-*` 진행 배송을 15건까지 자동 보충한다. 과거 smoke 데이터나 중단된 오래된 운송은 목표 수에 포함하지 않으며 10초마다 부족분을 확인한다. simulator는 각 배송을 60단계, 60초 간격으로 한 시간 동안 이동시켜 운영 콘솔의 기본 `LIVE` 지도에 차량·계획 경로·실제 이동 궤적·ETA가 계속 표시되게 한다. 이 기능은 `deploy/staging/compose.yml`에만 활성화되어 로컬·테스트·다른 운영 환경에는 합성 데이터를 만들지 않으며, 목표 수와 시뮬레이션 상한은 회귀 검사로 제한한다.
 
-로컬에서 같은 실시간 차량 흐름이 필요할 때는 `./scripts/sync-local-demo.ps1`을 실행한다. 일반 `docker compose up`에서는 합성 데이터가 기본 비활성화되며, 전용 스크립트가 API·simulator·web을 현재 Git revision으로 다시 만들고 최근 위치를 전송 중인 데모 차량이 실제 생성될 때까지 검증한다.
+로컬에서 같은 실시간 차량 흐름이 필요할 때는 `./scripts/sync-local-demo.ps1`을 실행한다. 일반 `docker compose up`에서는 합성 데이터가 기본 비활성화되며, 전용 스크립트가 API·simulator·web을 현재 Git revision으로 다시 만들고 15대가 모두 최근 위치를 전송할 때까지 검증한다. 로컬 전용 simulator는 15개 worker로 각 운송을 120초간 유지해 짧은 완료·재생성 주기 사이에 실시간 차량 수가 급감하지 않도록 하며, staging의 60분 주기 설정은 변경하지 않는다.
