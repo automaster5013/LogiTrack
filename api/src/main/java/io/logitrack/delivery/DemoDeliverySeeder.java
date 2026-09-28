@@ -40,6 +40,8 @@ public class DemoDeliverySeeder {
     private final MeterRegistry metrics;
     private final AtomicLong cleanupLastSuccessEpochSecond=new AtomicLong();
     private final AtomicLong cleanupMonitorStartedEpochSecond=new AtomicLong();
+    private final AtomicLong activeDeliveries=new AtomicLong();
+    private final AtomicLong targetDeliveries=new AtomicLong();
 
     public DemoDeliverySeeder(DeliveryRepository deliveries,DeliveryService service,MeterRegistry metrics,
         @Value("${logitrack.demo.target-active-deliveries:12}") int targetActive,
@@ -53,9 +55,13 @@ public class DemoDeliverySeeder {
         this.deliveries=deliveries;this.service=service;this.metrics=metrics;this.targetActive=targetActive;this.staleAfterSeconds=staleAfterSeconds;this.completedRetention=completedRetention;this.cleanupBatchSize=cleanupBatchSize;
         metrics.counter("logitrack.demo.cleanup.deleted");
         metrics.counter("logitrack.demo.cleanup.failures");
+        metrics.counter("logitrack.demo.replenishment.failures");
         cleanupMonitorStartedEpochSecond.set(Instant.now().getEpochSecond());
+        targetDeliveries.set(targetActive);
         metrics.gauge("logitrack.demo.cleanup.last.success.timestamp.seconds",cleanupLastSuccessEpochSecond);
         metrics.gauge("logitrack.demo.cleanup.monitor.started.timestamp.seconds",cleanupMonitorStartedEpochSecond);
+        metrics.gauge("logitrack.demo.active.deliveries",activeDeliveries);
+        metrics.gauge("logitrack.demo.target.deliveries",targetDeliveries);
     }
 
     @Scheduled(initialDelayString="${logitrack.demo.seed-initial-delay-ms:5000}",
@@ -70,7 +76,15 @@ public class DemoDeliverySeeder {
             metrics.counter("logitrack.demo.cleanup.failures").increment();
             log.warn("Completed demo delivery cleanup failed; replenishment will continue: {}",error.getClass().getSimpleName());
         }
-        long active=deliveries.countFreshDemoActive(ACTIVE_STATUSES,Instant.now().minusSeconds(staleAfterSeconds));
+        long active;
+        try{
+            active=deliveries.countFreshDemoActive(ACTIVE_STATUSES,Instant.now().minusSeconds(staleAfterSeconds));
+            activeDeliveries.set(active);
+        }catch(RuntimeException error){
+            metrics.counter("logitrack.demo.replenishment.failures").increment();
+            log.warn("Demo delivery active count failed: {}",error.getClass().getSimpleName());
+            return;
+        }
         int missing=(int)Math.max(0,targetActive-active);
         for(int index=0;index<missing;index++){
             var route=ROUTES.get((int)((active+index)%ROUTES.size()));
@@ -81,6 +95,7 @@ public class DemoDeliverySeeder {
             try{
                 service.create(request,"demo-seed-"+token,"demo-seeder-"+Instant.now().toEpochMilli());
             }catch(Exception error){
+                metrics.counter("logitrack.demo.replenishment.failures").increment();
                 log.warn("Demo delivery replenishment failed: {}",error.getClass().getSimpleName());
             }
         }
