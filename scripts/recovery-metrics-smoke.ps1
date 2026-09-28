@@ -5,7 +5,7 @@ foreach($name in @("logitrack_outbox_backlog","logitrack_outbox_oldest_age_secon
 }
 $rules=Invoke-RestMethod http://localhost:9090/api/v1/rules
 $names=@($rules.data.groups.rules.name)
-foreach($name in @("LogiTrackApiDown","LogiTrackRecoveryMetricRefreshFailing","LogiTrackOutboxFailed","LogiTrackOutboxPublisherFailing","LogiTrackOutboxBacklogGrowing","LogiTrackOutboxOldestPending","LogiTrackDeadLetterBacklog","LogiTrackRouteAnalysisDegraded","LogiTrackPdfRenderingFailing","LogiTrackKpiProjectionStale","LogiTrackApiServerErrors","LogiTrackApiLatencyHigh","LogiTrackTelemetryConsumerLagHigh","LogiTrackTelemetryConsumerMissing","LogiTrackRetentionCleanupFailing")){
+foreach($name in @("LogiTrackApiDown","LogiTrackRecoveryMetricRefreshFailing","LogiTrackOutboxFailed","LogiTrackOutboxPublisherFailing","LogiTrackOutboxBacklogGrowing","LogiTrackOutboxOldestPending","LogiTrackDeadLetterBacklog","LogiTrackRouteAnalysisDegraded","LogiTrackPdfRenderingFailing","LogiTrackKpiProjectionStale","LogiTrackApiServerErrors","LogiTrackApiLatencyHigh","LogiTrackTelemetryConsumerLagHigh","LogiTrackTelemetryConsumerMissing","LogiTrackRetentionCleanupFailing","LogiTrackDemoCleanupFailing")){
   if($names-notcontains $name){throw "Missing Prometheus rule: $name"}
 }
-Write-Host "PASS: operational metrics exposed and 15 Prometheus alert rules loaded"
+Write-Host "PASS: operational metrics exposed and 16 Prometheus alert rules loaded"
