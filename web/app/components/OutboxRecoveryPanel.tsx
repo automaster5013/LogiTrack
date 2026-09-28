@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { OutboxFailure, OutboxRetryAudit } from "../types";
 
-type Props = { failures:OutboxFailure[]; audits:OutboxRetryAudit[]; busyId?:string; onRetry:(id:string)=>void };
+type Props = { failures:OutboxFailure[]; audits:OutboxRetryAudit[]; busyIds:ReadonlySet<string>; onRetry:(id:string)=>void };
 
 function elapsedLabel(createdAt:string){
   const elapsed=Math.max(0,Date.now()-new Date(createdAt).getTime());
@@ -13,7 +13,7 @@ function elapsedLabel(createdAt:string){
   return `${Math.floor(hours/24)}일`;
 }
 
-export default function OutboxRecoveryPanel({failures,audits,busyId,onRetry}:Props){
+export default function OutboxRecoveryPanel({failures,audits,busyIds,onRetry}:Props){
   const [visibleFailures,setVisibleFailures]=useState(8);
   const [visibleAudits,setVisibleAudits]=useState(8);
   const [failureQuery,setFailureQuery]=useState("");
@@ -33,9 +33,7 @@ export default function OutboxRecoveryPanel({failures,audits,busyId,onRetry}:Pro
   useEffect(()=>setVisibleAudits(8),[auditQuery]);
   const shownFailures=filteredFailures.slice(0,visibleFailures);
   const shownAudits=filteredAudits.slice(0,visibleAudits);
-  const retryEvent=(event:OutboxFailure)=>{
-    if(window.confirm(`${event.eventType} 실패 이벤트(${event.id.slice(0,8)})를 재발행 대기열에 등록하시겠습니까? 성공한 요청은 감사 이력에 기록됩니다.`)) onRetry(event.id);
-  };
+  const retryEvent=(event:OutboxFailure)=>onRetry(event.id);
   return <section className="replayBoard">
     <div className="replayHeader"><div><p className="eyebrow">복구 / 이벤트 발행함</p><h2>발행 실패 복구</h2></div><div><b>{failures.length}</b><span>발행 실패</span></div></div>
     <div className="replayColumns">
@@ -43,7 +41,7 @@ export default function OutboxRecoveryPanel({failures,audits,busyId,onRetry}:Pro
         {failures.length===0?<p className="replayEmpty">발행에 실패한 outbox 이벤트가 없습니다.</p>:filteredFailures.length===0?<p className="replayEmpty">검색 조건에 맞는 발행 실패 이벤트가 없습니다.</p>:shownFailures.map(event=><div className="deadLetterRow" key={event.id}>
           <span className="replayState pending">실패 {event.attempts}회</span>
           <span><b>{event.eventType}</b><small>{event.aggregateType} · {event.aggregateId.slice(0,8)} · {event.topic}</small><small>발생 {new Date(event.createdAt).toLocaleString("ko-KR")} · {elapsedLabel(event.createdAt)} 경과</small><em>{event.lastError||"이벤트 발행에 실패했습니다."}</em></span>
-          <button disabled={busyId===event.id} onClick={()=>retryEvent(event)} aria-label={`${event.eventType} ${event.id.slice(0,8)} 재발행`}>{busyId===event.id?"대기열 등록 중…":"다시 발행"}</button>
+          <button disabled={busyIds.has(event.id)} onClick={()=>retryEvent(event)} aria-label={`${event.eventType} ${event.id.slice(0,8)} 재발행`}>{busyIds.has(event.id)?"대기열 등록 중…":"다시 발행"}</button>
         </div>)}
         {filteredFailures.length>8&&<RecoveryListFooter label="실패 이벤트" shown={shownFailures.length} total={filteredFailures.length} step={8} onChange={setVisibleFailures}/>}
       </div>

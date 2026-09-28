@@ -162,7 +162,11 @@ jobs:
         if: always()
         run: docker compose down --volumes --remove-orphans
       - name: Validate Prometheus configuration and alert rules
-        run: docker run --rm --entrypoint promtool --volume "$PWD/infra:/etc/prometheus:ro" prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 check config /etc/prometheus/prometheus.yml
+        run: |
+          docker run --rm --entrypoint promtool --volume "$PWD/infra:/etc/prometheus:ro" prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 check config /etc/prometheus/prometheus.yml
+          docker run --rm --entrypoint promtool --volume "$PWD/infra:/etc/prometheus:ro" prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 test rules /etc/prometheus/prometheus-alerts.test.yml
+      - name: Validate provisioned Grafana dashboards
+        run: python scripts/grafana-dashboard-smoke.py
 
   web:
     name: TypeScript production build
@@ -208,10 +212,11 @@ jobs:
             --exit-code 1 --no-progress /workspace
       - name: Build deployable service images
         run: |
+          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-api:ci ./api
           docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-analytics:ci ./analytics
           docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-simulator:ci ./simulator
-          docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-web:ci ./web
+          docker build --build-arg APP_REVISION="$GITHUB_SHA" --build-arg APP_BUILD_TIME="$BUILD_TIME" --build-arg APP_ENVIRONMENT=ci --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-web:ci ./web
           docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag logitrack-otel-collector:ci ./infra/otel
       - name: Enforce hardened runtime metadata
         run: |

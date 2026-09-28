@@ -10,7 +10,7 @@ docker compose ps
 
 - 프로젝트 쇼케이스: `http://localhost:3000/`
 - 운영 콘솔: `http://localhost:3000/console`
-- Grafana: `http://localhost:3001` (`admin` / `.env`의 `GRAFANA_ADMIN_PASSWORD`)
+- Grafana: `http://localhost:3001` (`admin` / `.env`의 `GRAFANA_ADMIN_PASSWORD`). `LogiTrack` 폴더의 `LogiTrack Demo Cleanup Health` 대시보드에서 완료 데모 정리량·실패·마지막 성공 경과·경보 상태를 확인한다.
 - API readiness: `http://localhost:8080/actuator/health/readiness`
 
 ## 진행 순서
