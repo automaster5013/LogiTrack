@@ -208,6 +208,7 @@ test("shows completed vehicles automatically when no delivery is active", async 
 });
 
 test("prioritizes a searched vehicle beyond the fifty vehicle map limit", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
   const denseDeliveries = Array.from({ length: 51 }, (_, index) => {
     const template = deliveries[index % deliveries.length];
     const sequence = (index + 1).toString().padStart(2, "0");
@@ -231,6 +232,12 @@ test("prioritizes a searched vehicle beyond the fifty vehicle map limit", async 
   await expect(page.getByText("최근 50건을 지도에 표시합니다 · 검색하면 결과를 우선 표시합니다")).toBeVisible();
   await expect(page.getByRole("region", { name: /^50대의 차량 운행 지도/ })).toBeVisible();
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(51);
+  const denseMapBoardBox = await page.locator(".mapBoard").boundingBox();
+  const denseMapShellBox = await page.locator(".mapShell").boundingBox();
+  expect(denseMapBoardBox).not.toBeNull();
+  expect(denseMapShellBox).not.toBeNull();
+  expect(denseMapBoardBox!.y + denseMapBoardBox!.height).toBeLessThanOrEqual(768);
+  expect(denseMapShellBox!.height).toBeGreaterThanOrEqual(300);
 
   await page.getByRole("searchbox", { name: "검색", exact: true }).fill("TRUCK-51");
 

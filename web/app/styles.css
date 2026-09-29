@@ -111,5 +111,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
  .workspace-overview .mapShell:not(.mapExpanded){height:clamp(360px,calc(100dvh - 498px),560px)}
 }
 @media(min-width:1100px) and (min-height:760px) and (max-height:840px){
+ .workspace-overview .mapHeader{position:relative}
+ .workspace-overview .mapDensityNote{position:absolute;left:18px;bottom:5px;margin:0}
  .workspace-overview .mapShell:not(.mapExpanded){height:clamp(300px,calc(100dvh - 466px),360px)}
 }
