@@ -145,6 +145,40 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
   };
 }
 
+function createDenseDeliveries() {
+  return Array.from({ length: 51 }, (_, index) => {
+    const template = deliveries[index % deliveries.length];
+    const sequence = (index + 1).toString().padStart(2, "0");
+    return {
+      ...template,
+      id: `dense-delivery-${sequence}`,
+      orderNumber: `ORD-DENSE-${sequence}`,
+      vehicleId: `TRUCK-${sequence}`,
+      originLat: template.originLat + index * 0.001,
+      originLon: template.originLon + index * 0.001,
+      destinationLat: template.destinationLat + index * 0.001,
+      destinationLon: template.destinationLon + index * 0.001,
+      currentLat: template.destinationLat + index * 0.001,
+      currentLon: template.destinationLon + index * 0.001,
+    };
+  });
+}
+
+test("keeps the dense fleet map inside the narrow desktop viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 768 });
+  await mockOverview(page, createDenseDeliveries());
+  await page.goto("/console#overview");
+
+  await expect(page.getByText("최근 50건을 지도에 표시합니다 · 검색하면 결과를 우선 표시합니다")).toBeVisible();
+  const mapBoardBox = await page.locator(".mapBoard").boundingBox();
+  const mapShellBox = await page.locator(".mapShell").boundingBox();
+  expect(mapBoardBox).not.toBeNull();
+  expect(mapShellBox).not.toBeNull();
+  expect(mapBoardBox!.y + mapBoardBox!.height).toBeLessThanOrEqual(768);
+  expect(mapShellBox!.height).toBeGreaterThanOrEqual(280);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(900);
+});
+
 test("shows completed vehicles automatically when no delivery is active", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await mockOverview(page, deliveries);
@@ -226,22 +260,7 @@ test("shows completed vehicles automatically when no delivery is active", async 
 
 test("prioritizes a searched vehicle beyond the fifty vehicle map limit", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
-  const denseDeliveries = Array.from({ length: 51 }, (_, index) => {
-    const template = deliveries[index % deliveries.length];
-    const sequence = (index + 1).toString().padStart(2, "0");
-    return {
-      ...template,
-      id: `dense-delivery-${sequence}`,
-      orderNumber: `ORD-DENSE-${sequence}`,
-      vehicleId: `TRUCK-${sequence}`,
-      originLat: template.originLat + index * 0.001,
-      originLon: template.originLon + index * 0.001,
-      destinationLat: template.destinationLat + index * 0.001,
-      destinationLon: template.destinationLon + index * 0.001,
-      currentLat: template.destinationLat + index * 0.001,
-      currentLon: template.destinationLon + index * 0.001,
-    };
-  });
+  const denseDeliveries = createDenseDeliveries();
 
   await mockOverview(page, denseDeliveries);
   await page.goto("/console#overview");
