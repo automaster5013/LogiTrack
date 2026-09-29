@@ -84,7 +84,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 .heroFleetAction{display:block;min-height:34px;margin-top:9px;border:1px solid #b9c9c2;border-radius:5px;background:#f7faf8;color:#315c4d;padding:7px 10px;font:800 10px sans-serif;cursor:pointer}.heroFleetAction:hover:not(:disabled){border-color:#315c4d;background:#eef7f2}.heroFleetAction:disabled{border-color:#d9ddd8;background:#f5f6f2;color:#8b9691;cursor:default}@media(max-width:600px){.heroFleetAction{min-width:0;width:100%;min-height:44px}}
 
 /* Keep the complete live map in the initial phone, landscape-tablet, and desktop viewport. */
-@media(min-width:360px) and (min-height:680px){
+@media(min-width:320px) and (min-height:680px){
  .consoleMain.workspace-overview{padding-top:14px}
  .workspace-overview .appHeader{min-height:52px;padding-bottom:11px}
  .workspace-overview .brand>span{width:38px;height:38px}
@@ -110,12 +110,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
  .workspace-overview .focusStats .focusRoute{min-width:220px;padding-right:18px}
  .workspace-overview .mapShell:not(.mapExpanded){height:clamp(360px,calc(100dvh - 498px),560px)}
 }
-@media(min-width:360px) and (min-height:680px) and (max-height:840px){
+@media(min-width:320px) and (min-height:680px) and (max-height:840px){
  .workspace-overview .mapHeader{position:relative}
  .workspace-overview .mapDensityNote{position:absolute;left:18px;bottom:5px;margin:0}
  .workspace-overview .mapShell:not(.mapExpanded){height:clamp(300px,calc(100dvh - 466px),360px)}
 }
-@media(min-width:360px) and (min-height:680px) and (max-height:759px){
+@media(min-width:320px) and (min-height:680px) and (max-height:759px){
  .consoleMain.workspace-overview{padding-top:8px}
  .workspace-overview .workspaceIntro{padding-block:10px}
  .workspace-overview .hero{margin-bottom:10px}
@@ -123,12 +123,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
  .workspace-overview .mapHeader{min-height:104px;padding-block:9px}
  .workspace-overview .mapShell:not(.mapExpanded){height:clamp(280px,calc(100dvh - 432px),300px)}
 }
-@media(min-width:360px) and (max-width:1099px) and (min-height:680px){
+@media(min-width:320px) and (max-width:1099px) and (min-height:680px){
  .workspace-overview .mapTitle{min-width:280px}
  .workspace-overview .focusStats{gap:10px}
  .workspace-overview .focusStats .focusRoute{min-width:180px;max-width:240px;padding-right:10px}
 }
-@media(min-width:360px) and (max-width:1023px) and (min-height:760px) and (max-height:840px){
+@media(min-width:320px) and (max-width:1023px) and (min-height:760px) and (max-height:840px){
  .consoleMain.workspace-overview{padding-top:8px}
  .workspace-overview .workspaceIntro{padding-block:10px}
  .workspace-overview .hero{margin-bottom:6px}
@@ -147,16 +147,16 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 @media(min-width:701px) and (max-width:850px) and (min-height:841px){
  .workspace-overview .mapShell:not(.mapExpanded){height:clamp(360px,calc(100dvh - 552px),520px)}
 }
-@media(min-width:360px) and (max-width:700px) and (min-height:680px){
+@media(min-width:320px) and (max-width:700px) and (min-height:680px){
  .workspace-overview .hero{grid-template-columns:repeat(3,1fr) 1.5fr}
  .workspace-overview .hero form{grid-column:auto;min-height:90px;display:grid;grid-template-columns:1fr;place-items:center}
  .workspace-overview .mapHeader{min-height:164px;padding:12px 16px;gap:12px}
  .workspace-overview .focusStats>span:nth-of-type(2){display:none}
 }
-@media(min-width:360px) and (max-width:700px) and (min-height:841px){
+@media(min-width:320px) and (max-width:700px) and (min-height:841px){
  .workspace-overview .mapShell:not(.mapExpanded){height:360px}
 }
-@media(min-width:360px) and (max-width:600px) and (min-height:680px){
+@media(min-width:320px) and (max-width:600px) and (min-height:680px){
  .consoleMain.workspace-overview{padding-top:4px}
  .workspace-overview .workspaceIntro{display:flex;padding:12px 0 8px}
  .workspace-overview .hero>div:nth-child(3){grid-column:auto}
@@ -165,7 +165,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
  .workspace-overview .focusStats{grid-template-columns:1.5fr repeat(2,1fr)}
  .workspace-overview .focusStats .focusRoute{grid-column:auto;max-width:220px;border-right:1px solid #40564e;border-bottom:0;padding:0 12px 0 0}
 }
-@media(min-width:360px) and (max-width:600px) and (min-height:841px){
+@media(min-width:320px) and (max-width:600px) and (min-height:841px){
  .workspace-overview .mapShell:not(.mapExpanded){height:320px}
 }
 @media(min-width:480px) and (max-width:539px) and (min-height:841px){
@@ -177,10 +177,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 @media(min-width:360px) and (max-width:389px) and (min-height:841px){
  .workspace-overview .mapShell:not(.mapExpanded){height:260px}
 }
-@media(min-width:360px) and (max-width:419px) and (min-height:841px){
+@media(min-width:320px) and (max-width:359px) and (min-height:841px){
+ .workspace-overview .mapShell:not(.mapExpanded){height:240px}
+}
+@media(min-width:320px) and (max-width:419px) and (min-height:841px){
  .workspace-overview .hero>div,.workspace-overview .hero form{padding-inline:6px}
  .workspace-overview .hero form button{padding-inline:8px}
 }
-@media(min-width:360px) and (max-width:374px) and (min-height:841px){
+@media(min-width:320px) and (max-width:374px) and (min-height:841px){
  .workspace-overview .workspaceIntro div>p:last-child{display:none}
 }
