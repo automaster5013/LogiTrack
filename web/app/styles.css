@@ -196,4 +196,5 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 }
 @media(min-width:320px) and (max-width:600px) and (min-height:680px) and (max-height:759px){
  .workspace-overview .workspaceIntro{display:none}
+ .workspace-overview .mapBoard{margin-top:-2px}
 }
