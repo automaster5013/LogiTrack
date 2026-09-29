@@ -180,6 +180,26 @@ test("keeps the dense fleet map inside the narrow desktop viewport", async ({ pa
 });
 
 for (const viewport of [
+  { width: 850, height: 768, minimumMapHeight: 280 },
+  { width: 768, height: 1024, minimumMapHeight: 360 },
+]) {
+  test(`keeps the dense fleet map inside the ${viewport.width}px tablet breakpoint`, async ({ page }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await mockOverview(page, createDenseDeliveries());
+    await page.goto("/console#overview");
+
+    await expect(page.getByText("최근 50건을 지도에 표시합니다 · 검색하면 결과를 우선 표시합니다")).toBeVisible();
+    const mapBoardBox = await page.locator(".mapBoard").boundingBox();
+    const mapShellBox = await page.locator(".mapShell").boundingBox();
+    expect(mapBoardBox).not.toBeNull();
+    expect(mapShellBox).not.toBeNull();
+    expect(mapBoardBox!.y + mapBoardBox!.height).toBeLessThanOrEqual(viewport.height);
+    expect(mapShellBox!.height).toBeGreaterThanOrEqual(viewport.minimumMapHeight);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+  });
+}
+
+for (const viewport of [
   { width: 1280, height: 720, minimumMapHeight: 280 },
   { width: 1366, height: 768, minimumMapHeight: 300 },
   { width: 1600, height: 900, minimumMapHeight: 360 },
