@@ -123,6 +123,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
  .workspace-overview .mapHeader{min-height:104px;padding-block:9px}
  .workspace-overview .mapShell:not(.mapExpanded){height:clamp(280px,calc(100dvh - 432px),300px)}
 }
+@media(min-width:320px) and (max-width:600px) and (min-height:680px) and (max-height:759px){
+ .consoleMain.workspace-overview{padding-top:0}
+ .workspace-overview .hero{display:none}
+}
+@media(min-width:320px) and (max-width:359px) and (min-height:680px) and (max-height:759px){
+ .workspace-overview .mapShell:not(.mapExpanded){height:240px}
+}
 @media(min-width:320px) and (max-width:1099px) and (min-height:680px){
  .workspace-overview .mapTitle{min-width:280px}
  .workspace-overview .focusStats{gap:10px}
@@ -186,4 +193,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 }
 @media(min-width:320px) and (max-width:374px) and (min-height:841px){
  .workspace-overview .workspaceIntro div>p:last-child{display:none}
+}
+@media(min-width:320px) and (max-width:600px) and (min-height:680px) and (max-height:759px){
+ .workspace-overview .workspaceIntro{display:none}
+ .workspace-overview .mapBoard{margin-top:-2px}
 }
