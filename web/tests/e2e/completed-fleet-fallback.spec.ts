@@ -368,6 +368,28 @@ for (const viewport of [
 }
 
 for (const viewport of [
+  { width: 767, height: 760, minimumMapHeight: 280 },
+  { width: 767, height: 840, minimumMapHeight: 280 },
+  { width: 701, height: 760, minimumMapHeight: 280 },
+  { width: 701, height: 840, minimumMapHeight: 280 },
+]) {
+  test(`keeps the dense fleet map inside the ${viewport.width}x${viewport.height} medium-height transition-tablet viewport`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await mockOverview(page, createDenseDeliveries());
+    await page.goto("/console#overview");
+
+    await expect(page.getByText("최근 50건을 지도에 표시합니다 · 검색하면 결과를 우선 표시합니다")).toBeVisible();
+    const mapBoardBox = await page.locator(".mapBoard").boundingBox();
+    const mapShellBox = await page.locator(".mapShell").boundingBox();
+    expect(mapBoardBox).not.toBeNull();
+    expect(mapShellBox).not.toBeNull();
+    expect(mapBoardBox!.y + mapBoardBox!.height).toBeLessThanOrEqual(viewport.height);
+    expect(mapShellBox!.height).toBeGreaterThanOrEqual(viewport.minimumMapHeight);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+  });
+}
+
+for (const viewport of [
   { width: 1280, height: 720, minimumMapHeight: 280 },
   { width: 1366, height: 768, minimumMapHeight: 300 },
   { width: 1600, height: 900, minimumMapHeight: 360 },
