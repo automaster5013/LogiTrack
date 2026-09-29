@@ -158,7 +158,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 }
 @media(min-width:540px) and (max-width:600px) and (min-height:680px){
  .consoleMain.workspace-overview{padding-top:4px}
- .workspace-overview .workspaceIntro{display:flex}
+ .workspace-overview .workspaceIntro{display:flex;padding:12px 0 8px}
  .workspace-overview .hero>div:nth-child(3){grid-column:auto}
  .workspace-overview .mapTitle{width:100%}
  .workspace-overview .mapControls{display:flex}
