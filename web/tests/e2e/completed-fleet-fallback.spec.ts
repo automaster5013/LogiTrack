@@ -146,9 +146,17 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
 }
 
 test("shows completed vehicles automatically when no delivery is active", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 900 });
   await mockOverview(page, deliveries);
 
   await page.goto("/console#overview");
+
+  const mapBoardBox = await page.locator(".mapBoard").boundingBox();
+  const mapShellBox = await page.locator(".mapShell").boundingBox();
+  expect(mapBoardBox).not.toBeNull();
+  expect(mapShellBox).not.toBeNull();
+  expect(mapBoardBox!.y + mapBoardBox!.height).toBeLessThanOrEqual(900);
+  expect(mapShellBox!.height).toBeGreaterThanOrEqual(360);
 
   await expect(page.locator(".hero>div").first()).toContainText("실시간 운행00진행 중 전체 0건 · 위치 지연 0건모든 위치 최신");
   await expect(page.getByRole("button", { name: "전체 6", exact: true })).toHaveAttribute("aria-pressed", "true");
