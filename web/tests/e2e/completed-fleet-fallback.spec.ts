@@ -165,7 +165,7 @@ function createDenseDeliveries() {
 }
 
 test("keeps the dense fleet map inside the narrow desktop viewport", async ({ page }) => {
-  await page.setViewportSize({ width: 900, height: 768 });
+  await page.setViewportSize({ width: 851, height: 768 });
   await mockOverview(page, createDenseDeliveries());
   await page.goto("/console#overview");
 
@@ -176,8 +176,28 @@ test("keeps the dense fleet map inside the narrow desktop viewport", async ({ pa
   expect(mapShellBox).not.toBeNull();
   expect(mapBoardBox!.y + mapBoardBox!.height).toBeLessThanOrEqual(768);
   expect(mapShellBox!.height).toBeGreaterThanOrEqual(280);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(900);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(851);
 });
+
+for (const viewport of [
+  { width: 1280, height: 720, minimumMapHeight: 280 },
+  { width: 1366, height: 768, minimumMapHeight: 300 },
+  { width: 1600, height: 900, minimumMapHeight: 360 },
+]) {
+  test(`keeps the live map inside a ${viewport.width}x${viewport.height} initial viewport`, async ({ page }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await mockOverview(page, deliveries);
+    await page.goto("/console#overview");
+
+    const mapBoardBox = await page.locator(".mapBoard").boundingBox();
+    const mapShellBox = await page.locator(".mapShell").boundingBox();
+    expect(mapBoardBox).not.toBeNull();
+    expect(mapShellBox).not.toBeNull();
+    expect(mapBoardBox!.y + mapBoardBox!.height).toBeLessThanOrEqual(viewport.height);
+    expect(mapShellBox!.height).toBeGreaterThanOrEqual(viewport.minimumMapHeight);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+  });
+}
 
 test("shows completed vehicles automatically when no delivery is active", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
@@ -192,30 +212,6 @@ test("shows completed vehicles automatically when no delivery is active", async 
   expect(tabletMapBoardBox!.y + tabletMapBoardBox!.height).toBeLessThanOrEqual(768);
   expect(tabletMapShellBox!.height).toBeGreaterThanOrEqual(280);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1024);
-
-  await page.setViewportSize({ width: 1280, height: 720 });
-  const compactMapBoardBox = await page.locator(".mapBoard").boundingBox();
-  const compactMapShellBox = await page.locator(".mapShell").boundingBox();
-  expect(compactMapBoardBox).not.toBeNull();
-  expect(compactMapShellBox).not.toBeNull();
-  expect(compactMapBoardBox!.y + compactMapBoardBox!.height).toBeLessThanOrEqual(720);
-  expect(compactMapShellBox!.height).toBeGreaterThanOrEqual(280);
-
-  await page.setViewportSize({ width: 1600, height: 900 });
-  const mapBoardBox = await page.locator(".mapBoard").boundingBox();
-  const mapShellBox = await page.locator(".mapShell").boundingBox();
-  expect(mapBoardBox).not.toBeNull();
-  expect(mapShellBox).not.toBeNull();
-  expect(mapBoardBox!.y + mapBoardBox!.height).toBeLessThanOrEqual(900);
-  expect(mapShellBox!.height).toBeGreaterThanOrEqual(360);
-
-  await page.setViewportSize({ width: 1366, height: 768 });
-  const laptopMapBoardBox = await page.locator(".mapBoard").boundingBox();
-  const laptopMapShellBox = await page.locator(".mapShell").boundingBox();
-  expect(laptopMapBoardBox).not.toBeNull();
-  expect(laptopMapShellBox).not.toBeNull();
-  expect(laptopMapBoardBox!.y + laptopMapBoardBox!.height).toBeLessThanOrEqual(768);
-  expect(laptopMapShellBox!.height).toBeGreaterThanOrEqual(300);
 
   await expect(page.locator(".hero>div").first()).toContainText("실시간 운행00진행 중 전체 0건 · 위치 지연 0건모든 위치 최신");
   await expect(page.getByRole("button", { name: "전체 6", exact: true })).toHaveAttribute("aria-pressed", "true");
@@ -275,22 +271,6 @@ test("prioritizes a searched vehicle beyond the fifty vehicle map limit", async 
   expect(tabletDenseMapBoardBox!.y + tabletDenseMapBoardBox!.height).toBeLessThanOrEqual(768);
   expect(tabletDenseMapShellBox!.height).toBeGreaterThanOrEqual(280);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1024);
-
-  await page.setViewportSize({ width: 1280, height: 720 });
-  const compactDenseMapBoardBox = await page.locator(".mapBoard").boundingBox();
-  const compactDenseMapShellBox = await page.locator(".mapShell").boundingBox();
-  expect(compactDenseMapBoardBox).not.toBeNull();
-  expect(compactDenseMapShellBox).not.toBeNull();
-  expect(compactDenseMapBoardBox!.y + compactDenseMapBoardBox!.height).toBeLessThanOrEqual(720);
-  expect(compactDenseMapShellBox!.height).toBeGreaterThanOrEqual(280);
-
-  await page.setViewportSize({ width: 1366, height: 768 });
-  const denseMapBoardBox = await page.locator(".mapBoard").boundingBox();
-  const denseMapShellBox = await page.locator(".mapShell").boundingBox();
-  expect(denseMapBoardBox).not.toBeNull();
-  expect(denseMapShellBox).not.toBeNull();
-  expect(denseMapBoardBox!.y + denseMapBoardBox!.height).toBeLessThanOrEqual(768);
-  expect(denseMapShellBox!.height).toBeGreaterThanOrEqual(300);
 
   await page.getByRole("searchbox", { name: "검색", exact: true }).fill("TRUCK-51");
 
