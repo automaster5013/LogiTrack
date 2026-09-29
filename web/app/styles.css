@@ -157,6 +157,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
  .workspace-overview .mapShell:not(.mapExpanded){height:360px}
 }
 @media(width:600px) and (min-height:680px){
+ .consoleMain.workspace-overview{padding-top:8px}
  .workspace-overview .workspaceIntro{display:flex}
  .workspace-overview .hero>div:nth-child(3){grid-column:auto}
  .workspace-overview .mapTitle{width:100%}
