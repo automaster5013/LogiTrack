@@ -1,5 +1,6 @@
 # 구현 진행 현황
 
+- GitHub/CD 경계 감사에서 자동 `workflow_run` provenance 실행을 허용하되 동일 최신 main의 성공 CI 완료 이후 생성됐는지 확인해 새 자동화 경로를 신뢰 경계 안에 포함합니다.
 - 최신 `main` CI와 Docker Hub 게시가 성공하면 provenance 감사를 자동 실행하고, 실패·취소된 CI는 배제하며 실제 체크아웃한 main SHA로 증적 이름을 고정해 야간 실행 전 감사 공백과 실행 간 SHA 경쟁 조건을 제거합니다.
 - 로컬 데모 동기화가 성공한 Kafka 초기화 뒤 일회성 `kafka-init` 컨테이너만 즉시 제거하고, 광범위한 Docker prune 없이 실행 중 서비스와 영속 데이터는 보존하도록 회귀 검증합니다.
 - AWS 스테이징 배포가 Compose health 후 PostgreSQL에서 최근 2시간 내 활성 데모 차량 수를 대조해 2분 안에 15대가 확보되지 않으면 성공 기록 전 직전 release로 자동 롤백합니다.
