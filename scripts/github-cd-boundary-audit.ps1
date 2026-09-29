@@ -129,8 +129,12 @@ $latestProvenanceAudit = @($provenanceAuditRuns.workflow_runs | Where-Object { $
 Assert-True ($latestProvenanceAudit.Count -eq 1) "Docker Hub provenance audit has no main run"
 $auditRun = $latestProvenanceAudit[0]
 Assert-True ($auditRun.head_sha -eq $mainCommit.sha -and $auditRun.head_branch -eq "main" -and $auditRun.status -eq "completed" -and $auditRun.conclusion -eq "success") "latest main Docker Hub provenance audit has not completed successfully"
-Assert-True ($auditRun.event -in @("schedule", "workflow_dispatch") -and $auditRun.run_attempt -ge 1) "Docker Hub provenance audit run identity drifted"
+Assert-True ($auditRun.event -in @("schedule", "workflow_dispatch", "workflow_run") -and $auditRun.run_attempt -ge 1) "Docker Hub provenance audit run identity drifted"
 $auditCreatedAt = [DateTimeOffset]::Parse([string]$auditRun.created_at)
+if ($auditRun.event -eq "workflow_run") {
+  $ciCompletedAt = [DateTimeOffset]::Parse([string]$latestCiRun[0].updated_at)
+  Assert-True ($auditCreatedAt -ge $ciCompletedAt.AddMinutes(-1)) "automatic Docker Hub provenance audit predates the successful main CI run"
+}
 $auditAge = [DateTimeOffset]::UtcNow - $auditCreatedAt
 Assert-True ($auditAge.TotalMinutes -ge -5 -and $auditAge.TotalHours -le 26) "Docker Hub provenance audit is stale"
 
