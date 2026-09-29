@@ -194,6 +194,8 @@ for (const viewport of [
   { width: 540, height: 1024, minimumMapHeight: 320 },
   { width: 539, height: 1024, minimumMapHeight: 300 },
   { width: 480, height: 1024, minimumMapHeight: 300 },
+  { width: 479, height: 1024, minimumMapHeight: 280 },
+  { width: 390, height: 1024, minimumMapHeight: 280 },
 ]) {
   test(`keeps the dense fleet map inside the ${viewport.width}px tablet breakpoint`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
