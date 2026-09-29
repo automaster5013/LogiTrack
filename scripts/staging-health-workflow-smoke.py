@@ -91,6 +91,8 @@ for boundary in (
     "invalid callback must not create or mutate the access token cookie",
     "/api/runtime-version",
     ".revision",
+    '--arg expected_revision "$GITHUB_SHA"',
+    ".revision == $expected_revision",
     ".builtAt",
     '.environment == "staging"',
     "jq -e",
@@ -135,4 +137,4 @@ if errors:
 for header in ("-Server", "-Via", "-X-Powered-By", "-X-Nextjs-*"):
     if header not in caddy:
         raise SystemExit(f"ERROR: staging proxy does not suppress identity header: {header}")
-print("PASS: scheduled staging health verifies showcase layout, public TLS, auth boundaries, and private ports without credentials")
+print("PASS: scheduled staging health verifies main revision sync, showcase layout, public TLS, auth boundaries, and private ports without credentials")

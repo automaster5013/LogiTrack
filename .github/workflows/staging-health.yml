@@ -196,6 +196,8 @@ jobs:
             .environment == "staging" and
             (.builtAt | type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"))
           ' /tmp/logitrack-runtime >/dev/null
+          jq -e --arg expected_revision "$GITHUB_SHA" \
+            '.revision == $expected_revision' /tmp/logitrack-runtime >/dev/null
           tr -d '\r' </tmp/logitrack-runtime-headers >/tmp/logitrack-runtime-headers.normalized
           grep -Eqi '^content-type: application/json' /tmp/logitrack-runtime-headers.normalized
           grep -Eqi '^cache-control: .*no-store' /tmp/logitrack-runtime-headers.normalized
