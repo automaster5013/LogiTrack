@@ -2,6 +2,10 @@ name: Docker Hub provenance audit
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   schedule:
     - cron: "41 19 * * *"
 
@@ -16,6 +20,7 @@ concurrency:
 jobs:
   audit:
     name: Verify current main image provenance
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -44,13 +49,16 @@ jobs:
           test "$("$verifier" version | awk 'NR == 1 { print $3 }')" = "$GH_CLI_VERSION"
           echo "$(dirname "$verifier")" >> "$GITHUB_PATH"
 
-      - name: Verify current main Docker Hub attestations
+      - name: Resolve current main revision
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
           revision="$(git rev-parse HEAD)"
           test "$revision" = "$(git rev-parse origin/main)"
-          ./scripts/dockerhub-provenance-audit.sh "$revision"
+          echo "AUDIT_REVISION=$revision" >> "$GITHUB_ENV"
+
+      - name: Verify current main Docker Hub attestations
+        run: ./scripts/dockerhub-provenance-audit.sh "$AUDIT_REVISION"
 
       - name: Seal provenance audit evidence
         run: |
@@ -64,7 +72,7 @@ jobs:
         id: evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: dockerhub-provenance-audit-${{ github.sha }}-${{ github.run_attempt }}
+          name: dockerhub-provenance-audit-${{ env.AUDIT_REVISION }}-${{ github.run_attempt }}
           path: |
             work/dockerhub-provenance-audit/*.json
             work/dockerhub-provenance-audit/SHA256SUMS

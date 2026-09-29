@@ -10,16 +10,24 @@ trigger = workflow.get(True, workflow.get("on", {}))
 job = workflow.get("jobs", {}).get("audit", {})
 errors = []
 
-if set(trigger) != {"workflow_dispatch", "schedule"}:
+if set(trigger) != {"workflow_dispatch", "workflow_run", "schedule"}:
     errors.append("audit triggers drifted")
 if trigger.get("schedule") != [{"cron": "41 19 * * *"}]:
     errors.append("audit cadence drifted")
+if trigger.get("workflow_run") != {
+    "workflows": ["CI"],
+    "types": ["completed"],
+    "branches": ["main"],
+}:
+    errors.append("post-CI audit trigger drifted")
 if workflow.get("permissions") != {"contents": "read", "attestations": "read"}:
     errors.append("audit token permissions drifted")
 if "environment" in job or "secrets" in source:
     errors.append("public provenance audit must not receive deployment secrets")
 if job.get("runs-on") != "ubuntu-24.04" or job.get("timeout-minutes") != 10:
     errors.append("audit runner bounds drifted")
+if job.get("if") != "github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'":
+    errors.append("post-CI audit must reject unsuccessful workflow runs")
 
 required = (
     "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
@@ -30,12 +38,13 @@ required = (
     "ARTIFACT_RETENTION_DAYS: 30",
     "sha256sum --check --strict",
     'test "$revision" = "$(git rev-parse origin/main)"',
-    './scripts/dockerhub-provenance-audit.sh "$revision"',
+    'echo "AUDIT_REVISION=$revision" >> "$GITHUB_ENV"',
+    './scripts/dockerhub-provenance-audit.sh "$AUDIT_REVISION"',
     "Seal provenance audit evidence",
     'test "$(find . -maxdepth 1 -type f -name \'*.json\' | wc -l)" -eq 10',
     "sha256sum --check --strict SHA256SUMS",
     "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
-    "dockerhub-provenance-audit-${{ github.sha }}-${{ github.run_attempt }}",
+    "dockerhub-provenance-audit-${{ env.AUDIT_REVISION }}-${{ github.run_attempt }}",
     "retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}",
     "EVIDENCE_DIGEST: sha256:${{ steps.evidence.outputs.artifact-digest }}",
     "EVIDENCE_URL: ${{ steps.evidence.outputs.artifact-url }}",
