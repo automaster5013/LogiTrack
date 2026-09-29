@@ -146,11 +146,19 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
 }
 
 test("shows completed vehicles automatically when no delivery is active", async ({ page }) => {
-  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.setViewportSize({ width: 1280, height: 720 });
   await mockOverview(page, deliveries);
 
   await page.goto("/console#overview");
 
+  const compactMapBoardBox = await page.locator(".mapBoard").boundingBox();
+  const compactMapShellBox = await page.locator(".mapShell").boundingBox();
+  expect(compactMapBoardBox).not.toBeNull();
+  expect(compactMapShellBox).not.toBeNull();
+  expect(compactMapBoardBox!.y + compactMapBoardBox!.height).toBeLessThanOrEqual(720);
+  expect(compactMapShellBox!.height).toBeGreaterThanOrEqual(280);
+
+  await page.setViewportSize({ width: 1600, height: 900 });
   const mapBoardBox = await page.locator(".mapBoard").boundingBox();
   const mapShellBox = await page.locator(".mapShell").boundingBox();
   expect(mapBoardBox).not.toBeNull();
@@ -208,7 +216,7 @@ test("shows completed vehicles automatically when no delivery is active", async 
 });
 
 test("prioritizes a searched vehicle beyond the fifty vehicle map limit", async ({ page }) => {
-  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.setViewportSize({ width: 1280, height: 720 });
   const denseDeliveries = Array.from({ length: 51 }, (_, index) => {
     const template = deliveries[index % deliveries.length];
     const sequence = (index + 1).toString().padStart(2, "0");
@@ -232,6 +240,14 @@ test("prioritizes a searched vehicle beyond the fifty vehicle map limit", async 
   await expect(page.getByText("최근 50건을 지도에 표시합니다 · 검색하면 결과를 우선 표시합니다")).toBeVisible();
   await expect(page.getByRole("region", { name: /^50대의 차량 운행 지도/ })).toBeVisible();
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(51);
+  const compactDenseMapBoardBox = await page.locator(".mapBoard").boundingBox();
+  const compactDenseMapShellBox = await page.locator(".mapShell").boundingBox();
+  expect(compactDenseMapBoardBox).not.toBeNull();
+  expect(compactDenseMapShellBox).not.toBeNull();
+  expect(compactDenseMapBoardBox!.y + compactDenseMapBoardBox!.height).toBeLessThanOrEqual(720);
+  expect(compactDenseMapShellBox!.height).toBeGreaterThanOrEqual(280);
+
+  await page.setViewportSize({ width: 1366, height: 768 });
   const denseMapBoardBox = await page.locator(".mapBoard").boundingBox();
   const denseMapShellBox = await page.locator(".mapShell").boundingBox();
   expect(denseMapBoardBox).not.toBeNull();
