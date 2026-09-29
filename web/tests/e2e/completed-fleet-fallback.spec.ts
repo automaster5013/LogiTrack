@@ -1,6 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { DeliveryAlert, TelemetryPoint } from "../../app/types";
 
+// MapLibre canvases are resource-intensive; serial execution keeps viewport geometry deterministic.
+test.describe.configure({ mode: "serial" });
+
 const now = "2026-09-27T08:00:00Z";
 const deliveries = Array.from({ length: 6 }, (_, index) => {
   const originLon = 126.82 + index * 0.025;
@@ -182,6 +185,8 @@ test("keeps the dense fleet map inside the narrow desktop viewport", async ({ pa
 for (const viewport of [
   { width: 850, height: 768, minimumMapHeight: 280 },
   { width: 768, height: 1024, minimumMapHeight: 360 },
+  { width: 767, height: 1024, minimumMapHeight: 360 },
+  { width: 701, height: 1024, minimumMapHeight: 360 },
 ]) {
   test(`keeps the dense fleet map inside the ${viewport.width}px tablet breakpoint`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
