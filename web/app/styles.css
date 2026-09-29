@@ -144,3 +144,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
  .workspace-overview .focusStats{display:flex;width:auto;gap:8px}
  .workspace-overview .focusStats .focusRoute{min-width:160px;max-width:190px}
 }
+@media(min-width:768px) and (max-width:850px) and (min-height:841px){
+ .workspace-overview .mapShell:not(.mapExpanded){height:clamp(360px,calc(100dvh - 540px),520px)}
+}
