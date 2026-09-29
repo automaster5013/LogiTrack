@@ -206,3 +206,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
  .consoleMain.workspace-overview{padding-top:0}
  .workspace-overview .workspaceIntro,.workspace-overview .hero{display:none}
 }
+@media(min-width:701px) and (max-width:767px) and (min-height:680px) and (max-height:759px){
+ .consoleMain.workspace-overview{padding-top:0}
+ .workspace-overview .workspaceIntro,.workspace-overview .hero{display:none}
+}
