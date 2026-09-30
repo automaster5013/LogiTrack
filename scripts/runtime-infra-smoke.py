@@ -120,6 +120,12 @@ for boundary in ("SECURE OPERATOR ACCESS", "운영자 로그인", "token_exchang
         errors.append(f"post-deployment public verification is missing application boundary: {boundary}")
 if deploy_script.count("docker compose --progress quiet") < 3:
     errors.append("deployment pull, start, and rollback must bound SSM output with quiet Compose progress")
+image_prune = "docker image prune --all --force"
+compose_pull = 'docker compose --progress quiet --project-directory "$release" --env-file "$release/.env" -f "$release/compose.yml" pull'
+if image_prune not in deploy_script or deploy_script.index(image_prune) > deploy_script.index(compose_pull):
+    errors.append("deployment must reclaim unused images before pulling a release")
+if "docker system prune" in deploy_script or "docker volume prune" in deploy_script:
+    errors.append("deployment cleanup must not prune the whole Docker system or persistent volumes")
 if "--retry-all-errors" not in deploy_script or "--connect-timeout" not in deploy_script:
     errors.append("public readiness must tolerate bounded first-certificate provisioning failures")
 for fleet_gate in (
