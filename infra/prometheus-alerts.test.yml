@@ -19,6 +19,7 @@ tests:
               application: logitrack-control-api
               severity: critical
               slo: availability-99.9
+              component: api
             exp_annotations:
               summary: API availability error budget is burning rapidly
               description: The 99.9% API availability error budget is burning above 14.4x across both five-minute and one-hour windows.
@@ -39,6 +40,7 @@ tests:
               application: logitrack-control-api
               severity: warning
               slo: availability-99.9
+              component: api
             exp_annotations:
               summary: API availability error budget is burning persistently
               description: The 99.9% API availability error budget is burning above 6x across both thirty-minute and six-hour windows.
@@ -78,6 +80,7 @@ tests:
           - exp_labels: &demo_cleanup_labels
               application: logitrack-control-api
               severity: warning
+              component: demo
             exp_annotations: &demo_cleanup_annotations
               summary: Completed demo delivery cleanup is failing or stale
               description: The demo cleanup failed, never started, or has not completed successfully during the last 15 minutes.
@@ -145,6 +148,7 @@ tests:
           - exp_labels:
               application: logitrack-control-api
               severity: warning
+              component: demo
             exp_annotations:
               summary: Live demo fleet is below its configured target
               description: Active demo vehicles remain below target or replenishment attempts are failing.
@@ -180,6 +184,7 @@ tests:
           - exp_labels:
               application: logitrack-control-api
               severity: warning
+              component: demo
             exp_annotations:
               summary: Live demo fleet is below its configured target
               description: Active demo vehicles remain below target or replenishment attempts are failing.

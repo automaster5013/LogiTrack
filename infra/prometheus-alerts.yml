@@ -30,6 +30,7 @@ groups:
         labels:
           severity: critical
           slo: availability-99.9
+          component: api
         annotations:
           summary: API availability error budget is burning rapidly
           description: The 99.9% API availability error budget is burning above 14.4x across both five-minute and one-hour windows.
@@ -43,6 +44,7 @@ groups:
         labels:
           severity: warning
           slo: availability-99.9
+          component: api
         annotations:
           summary: API availability error budget is burning persistently
           description: The 99.9% API availability error budget is burning above 6x across both thirty-minute and six-hour windows.
@@ -55,6 +57,7 @@ groups:
         for: 1m
         labels:
           severity: critical
+          component: api
         annotations:
           summary: LogiTrack API is unavailable to Prometheus
           description: The API metrics endpoint has been unreachable for at least one minute.
@@ -64,6 +67,7 @@ groups:
         for: 1m
         labels:
           severity: warning
+          component: recovery
         annotations:
           summary: Recovery queue metrics are stale
           description: The API could not refresh recovery queue gauges from PostgreSQL.
@@ -73,6 +77,7 @@ groups:
         for: 2m
         labels:
           severity: critical
+          component: outbox
         annotations:
           summary: Transactional outbox contains failed events
           description: "{{ $value }} outbox event(s) exhausted retries and require operator recovery."
@@ -82,6 +87,7 @@ groups:
         for: 1m
         labels:
           severity: warning
+          component: outbox
         annotations:
           summary: Transactional outbox publisher is failing
           description: "{{ $value }} outbox polling attempt(s) failed during the last five minutes."
@@ -91,6 +97,7 @@ groups:
         for: 5m
         labels:
           severity: warning
+          component: outbox
         annotations:
           summary: Transactional outbox backlog is elevated
           description: "{{ $value }} outbox event(s) are waiting to be published."
@@ -100,6 +107,7 @@ groups:
         for: 5m
         labels:
           severity: warning
+          component: outbox
         annotations:
           summary: An outbox event has been pending too long
           description: "The oldest pending outbox event is {{ $value }} seconds old."
@@ -109,6 +117,7 @@ groups:
         for: 5m
         labels:
           severity: warning
+          component: telemetry
         annotations:
           summary: Telemetry dead-letter events require attention
           description: "{{ $value }} telemetry event(s) are waiting for replay."
@@ -118,6 +127,7 @@ groups:
         for: 1m
         labels:
           severity: warning
+          component: routing
         annotations:
           summary: Route analysis is repeatedly using the local fallback
           description: "{{ $value }} route requests used the fallback during the last five minutes."
@@ -127,6 +137,7 @@ groups:
         for: 1m
         labels:
           severity: warning
+          component: reporting
         annotations:
           summary: KPI PDF rendering is repeatedly failing
           description: "{{ $value }} KPI PDF requests failed during the last ten minutes."
@@ -140,6 +151,7 @@ groups:
         for: 1m
         labels:
           severity: warning
+          component: reporting
         annotations:
           summary: Daily KPI projection is stale
           description: The KPI projection has not completed successfully within three configured refresh intervals.
@@ -149,6 +161,7 @@ groups:
         for: 1m
         labels:
           severity: warning
+          component: api
         annotations:
           summary: LogiTrack API is returning repeated server errors
           description: "{{ $value }} API requests returned 5xx during the last five minutes."
@@ -158,6 +171,7 @@ groups:
         for: 5m
         labels:
           severity: warning
+          component: api
         annotations:
           summary: LogiTrack API p95 latency is elevated
           description: "API p95 latency has exceeded two seconds for five minutes."
@@ -167,6 +181,7 @@ groups:
         for: 5m
         labels:
           severity: warning
+          component: telemetry
         annotations:
           summary: Telemetry consumer lag is elevated
           description: "{{ $value }} telemetry event(s) are waiting across assigned Kafka partitions."
@@ -176,6 +191,7 @@ groups:
         for: 2m
         labels:
           severity: critical
+          component: telemetry
         annotations:
           summary: Telemetry consumer metrics are missing
           description: The API is reachable but telemetry consumer assignment metrics are not being exported.
@@ -185,6 +201,7 @@ groups:
         for: 1m
         labels:
           severity: warning
+          component: retention
         annotations:
           summary: Retention cleanup is failing
           description: A scheduled operational data cleanup transaction failed during the last 15 minutes.
@@ -205,6 +222,7 @@ groups:
         for: 1m
         labels:
           severity: warning
+          component: demo
         annotations:
           summary: Completed demo delivery cleanup is failing or stale
           description: The demo cleanup failed, never started, or has not completed successfully during the last 15 minutes.
@@ -216,6 +234,7 @@ groups:
         for: 2m
         labels:
           severity: warning
+          component: demo
         annotations:
           summary: Live demo fleet is below its configured target
           description: Active demo vehicles remain below target or replenishment attempts are failing.
