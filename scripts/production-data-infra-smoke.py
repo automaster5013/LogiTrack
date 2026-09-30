@@ -48,6 +48,9 @@ required = (
     'transit_encryption_mode    = "required"',
     'auth_token_wo              = var.cache_auth_token',
     'auth_token_wo_version      = var.cache_auth_token_version',
+    'resource "aws_secretsmanager_secret" "cache_auth"',
+    'secret_string_wo         = jsonencode({ password = var.cache_auth_token })',
+    'secret_string_wo_version = var.cache_auth_token_version',
     'snapshot_retention_limit = 7',
     'resource "aws_cloudwatch_metric_alarm" "cache_cpu_high"',
     'resource "aws_cloudwatch_metric_alarm" "cache_evictions"',
@@ -73,6 +76,7 @@ required = (
     'unclean.leader.election.enable=false',
     'resource "aws_msk_scram_secret_association" "kafka"',
     'secret_string_wo         = jsonencode(',
+    'jaas_config = "org.apache.kafka.common.security.scram.ScramLoginModule required',
     'secret_string_wo_version = var.kafka_scram_secret_version',
     'resource "aws_cloudwatch_metric_alarm" "kafka_under_replicated"',
     'resource "aws_cloudwatch_metric_alarm" "kafka_offline_partitions"',
@@ -86,7 +90,7 @@ for contract in required:
     if contract not in main:
         raise AssertionError(f"production data boundary is missing: {contract}")
 
-if main.count("prevent_destroy = true") < 9:
+if main.count("prevent_destroy = true") < 10:
     raise AssertionError("database, cache, Kafka, KMS keys, secrets, and logs require Terraform destroy protection")
 for forbidden in (
     'resource "aws_internet_gateway"',
