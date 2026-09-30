@@ -114,7 +114,7 @@ for contract in (
 ):
     if contract not in variables:
         raise AssertionError(f"production input boundary is missing: {contract}")
-if 'version = "~> 6.0"' not in versions or 'backend "s3" {}' not in versions:
+if 'version = "~> 6.0"' not in versions or 'backend "s3" {' not in versions:
     raise AssertionError("production data Terraform must pin the provider family and use remote state")
 for warning in ("not applied automatically", "ongoing AWS charges", "restore drill", "migration/cutover plan"):
     if warning not in readme:

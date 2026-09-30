@@ -156,6 +156,10 @@ jobs:
           terraform -chdir=infra/aws/runtime validate
       - name: Validate production data-plane Terraform
         run: |
+          python scripts/production-state-infra-smoke.py
+          terraform -chdir=infra/aws/production-state fmt -check
+          terraform -chdir=infra/aws/production-state init -backend=false -input=false
+          terraform -chdir=infra/aws/production-state validate
           python scripts/production-data-infra-smoke.py
           terraform -chdir=infra/aws/production-data fmt -check
           terraform -chdir=infra/aws/production-data init -backend=false -input=false
