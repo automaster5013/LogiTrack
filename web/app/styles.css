@@ -264,3 +264,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
  .workspace-overview .workspaceIntro{padding-block:8px}
  .workspace-overview .hero{margin-bottom:8px}
 }
+@media(min-width:1280px) and (max-width:1479px) and (min-height:680px) and (max-height:759px){
+ .consoleMain.workspace-overview{padding-top:0}
+ .workspace-overview .workspaceIntro{padding-block:0}
+ .workspace-overview .hero{margin-bottom:6px}
+}
