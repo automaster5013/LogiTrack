@@ -31,6 +31,9 @@ spring:
     listener.observation-enabled: true
     template.observation-enabled: true
   data.redis.host: ${REDIS_HOST:localhost}
+  data.redis.port: ${REDIS_PORT:6379}
+  data.redis.password: ${REDIS_PASSWORD:}
+  data.redis.ssl.enabled: ${REDIS_SSL_ENABLED:false}
   data.redis.connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
   data.redis.timeout: ${REDIS_COMMAND_TIMEOUT:2s}
 management:
