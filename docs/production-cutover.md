@@ -47,3 +47,13 @@ python scripts/production-cutover-complete.py --manifest <manifest.json> --ledge
 ```
 
 게이트는 승인 변경 창이 아직 유효하고 manifest digest가 ledger와 일치하는지, ledger가 정확한 순서로 완결됐는지, 모든 root receipt의 SHA-256·revision·AWS 계정·plan·manifest·검증 시각이 ledger와 일치하는지 확인한다. 이어서 TLS 1.2 이상의 공개 `www.logitrack.kr`에서 production runtime revision, 최근 build, 비캐시 JSON metadata, 브랜드 응답과 HSTS·CSP를 확인한 뒤에만 불변 completion receipt를 만든다. 이 명령이 성공하기 전에는 변경 티켓을 완료 처리하지 않는다.
+
+## Rollback fence
+
+manifest의 정량 rollback trigger가 충족되면 다른 cutover 명령보다 먼저 rollback fence를 선언한다. trigger 문자열은 승인 manifest의 항목과 정확히 같아야 하며, 판단 근거를 저장소 밖 HTTPS 증적에 먼저 보존한다.
+
+```powershell
+python scripts/production-cutover-rollback.py --manifest <manifest.json> --ledger <vault-path/apply-ledger.json> --receipt <vault-path/rollback.json> --revision <main-sha> --trigger "<approved-trigger>" --evidence-url <https-evidence-url> --actor <operator-id> --confirmation "ROLLBACK <main-sha>"
+```
+
+명령은 manifest·ledger 결속을 다시 확인하고 승인 변경 창 시작부터 종료 후 24시간 안에서만 rollback receipt SHA-256을 ledger에 기록한다. fence가 기록된 뒤 apply guard, post-apply 검증기와 cutover 완료 게이트는 모두 전진을 거부한다. 이것은 rollback 실행 자체를 대신하지 않는다. 즉시 manifest에 지정된 owner에게 에스컬레이션하고 승인된 기한 안에 이전 origin/DNS 복구 절차를 실행한 뒤 변경 티켓에 receipt와 복구 결과를 첨부한다. 기존 ledger나 receipt에서 fence를 삭제해 cutover를 재개하지 말고 새 revision·plan·승인으로 다시 시작한다.

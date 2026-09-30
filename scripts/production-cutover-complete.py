@@ -153,6 +153,8 @@ def main() -> int:
             raise ValueError(f"cutover manifest rejected: {preflight_result.stderr.removeprefix('FAIL: ').strip()}")
         manifest_sha = digest(args.manifest)
         ledger = load(args.ledger, "apply ledger")
+        if ledger.get("rollback"):
+            raise ValueError("rollback fence is active; cutover completion is forbidden")
         completed = ledger.get("completed")
         if ledger.get("schema_version") != 1 or ledger.get("revision") != args.revision or not isinstance(completed, list) or [item.get("root") for item in completed if isinstance(item, dict)] != ORDER:
             raise ValueError("apply ledger is not complete for all seven roots")
