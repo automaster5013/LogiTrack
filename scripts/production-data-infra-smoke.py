@@ -9,7 +9,8 @@ readme = (root / "README.md").read_text(encoding="utf-8")
 application = Path("api/src/main/resources/application.yml").read_text(encoding="utf-8")
 
 required = (
-    'count = 2',
+    'count = 3',
+    'private_cidrs      = ["10.40.10.0/24", "10.40.20.0/24", "10.40.30.0/24"]',
     'map_public_ip_on_launch = false',
     'resource "aws_route_table" "data"',
     'resource "aws_vpc_security_group_ingress_rule" "database_from_application"',
@@ -56,21 +57,47 @@ required = (
     'name  = "rds.force_ssl"',
     'enable_key_rotation     = true',
     'deletion_window_in_days = 30',
+    'resource "aws_msk_cluster" "kafka"',
+    'sid       = "AccountAdministration"',
+    'sid = "CloudWatchLogsEncryption"',
+    'identifiers = ["logs.${var.aws_region}.amazonaws.com"]',
+    'number_of_broker_nodes = 3',
+    'public_access { type = "DISABLED" }',
+    'sasl { scram = true }',
+    'unauthenticated = false',
+    'client_broker = "TLS"',
+    'in_cluster    = true',
+    'default.replication.factor=3',
+    'min.insync.replicas=2',
+    'auto.create.topics.enable=false',
+    'unclean.leader.election.enable=false',
+    'resource "aws_msk_scram_secret_association" "kafka"',
+    'secret_string_wo         = jsonencode(',
+    'secret_string_wo_version = var.kafka_scram_secret_version',
+    'resource "aws_cloudwatch_metric_alarm" "kafka_under_replicated"',
+    'resource "aws_cloudwatch_metric_alarm" "kafka_offline_partitions"',
+    'resource "aws_cloudwatch_metric_alarm" "kafka_disk_high"',
+    'metric_name         = "UnderMinIsrPartitionCount"',
+    'metric_name         = "OfflinePartitionsCount"',
+    'metric_name         = "KafkaDataLogsDiskUsed"',
+    '"Broker ID"    = each.value',
 )
 for contract in required:
     if contract not in main:
         raise AssertionError(f"production data boundary is missing: {contract}")
 
-if main.count("prevent_destroy = true") < 5:
-    raise AssertionError("database, cache, KMS keys, and cache logs require Terraform destroy protection")
+if main.count("prevent_destroy = true") < 9:
+    raise AssertionError("database, cache, Kafka, KMS keys, secrets, and logs require Terraform destroy protection")
 for forbidden in (
     'resource "aws_internet_gateway"',
     'resource "aws_nat_gateway"',
     'resource "aws_eip"',
-    'password =',
+    '\n  password =',
     'cidr_ipv4',
     '0.0.0.0/0',
     'auth_token              =',
+    'client_broker = "PLAINTEXT"',
+    'client_broker = "TLS_PLAINTEXT"',
 ):
     if forbidden in main:
         raise AssertionError(f"production data boundary contains forbidden public or secret configuration: {forbidden}")
@@ -81,6 +108,8 @@ for contract in (
     'contains(["db.t4g.medium", "db.t4g.large"], var.db_instance_class)',
     'arn:aws:sns:ap-northeast-2:',
     'contains(["cache.t4g.small", "cache.t4g.medium"], var.cache_node_type)',
+    'contains(["kafka.m7g.large", "kafka.m7g.xlarge"], var.kafka_instance_type)',
+    'var.kafka_version == "3.9.x"',
     'ephemeral   = true',
 ):
     if contract not in variables:
@@ -95,8 +124,11 @@ for setting in (
     'data.redis.port: ${REDIS_PORT:6379}',
     'data.redis.password: ${REDIS_PASSWORD:}',
     'data.redis.ssl.enabled: ${REDIS_SSL_ENABLED:false}',
+    'security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}',
+    'sasl.mechanism: ${KAFKA_SASL_MECHANISM:GSSAPI}',
+    'sasl.jaas.config: ${KAFKA_SASL_JAAS_CONFIG:}',
 ):
     if setting not in application:
         raise AssertionError(f"application cannot consume the production cache contract: {setting}")
 
-print("PASS: production PostgreSQL and Valkey are private, Multi-AZ, encrypted, observable, and destroy-protected")
+print("PASS: production PostgreSQL, Valkey, and MSK are private, Multi-AZ, encrypted, observable, and destroy-protected")

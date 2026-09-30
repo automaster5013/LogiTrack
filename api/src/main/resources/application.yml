@@ -18,6 +18,10 @@ spring:
     open-in-view: false
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    properties:
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
+      sasl.mechanism: ${KAFKA_SASL_MECHANISM:GSSAPI}
+      sasl.jaas.config: ${KAFKA_SASL_JAAS_CONFIG:}
     consumer:
       group-id: control-api-telemetry-v1
       auto-offset-reset: earliest
