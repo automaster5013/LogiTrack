@@ -4,6 +4,8 @@
 
 프로덕션 인프라의 비적용 Terraform 기준선은 `infra/aws/production-state`, `infra/aws/production-alerting`, `infra/aws/production-audit`, `infra/aws/production-certificates`, `infra/aws/production-data`, `infra/aws/production-compute`, `infra/aws/production-edge`에 분리되어 있다. 알림 계층은 서울 서비스 경보와 버지니아 엣지 경보를 회전형 고객 관리 KMS 키로 각각 암호화하고, 계정·리전·경보 이름이 제한된 CloudWatch 발행과 확인 완료된 HTTPS 페이징 수신자만 허용한다. 감사 계층은 모든 리전의 관리 이벤트를 KMS 암호화하고 무결성 검증하며 S3 Object Lock compliance mode로 400일 이상 변경 불가능하게 보존하고, 루트 계정 사용과 권한 거부 급증을 paging한다. 데이터 계층은 세 Availability Zone의 private subnet에 암호화된 RDS PostgreSQL Multi-AZ, 2노드 Valkey Multi-AZ automatic failover와 3브로커 MSK를 구성한다. 컴퓨트 계층은 같은 세 AZ에 API/analytics와 web Fargate task를 최소 3개씩 배치하고, 검증된 CloudFront 요청만 전달하는 ALB, AZ별 NAT, PrivateLink endpoint, secret JSON-key 주입, 자동 rollback과 autoscaling을 적용한다. 엣지 계층은 동적 응답 caching을 끈 dual-stack CloudFront, global WAF managed rule·viewer IP rate limit, TLS 1.2 및 전역 경보를 구성한다. 이 root들은 비용과 데이터 이전 위험 때문에 CI에서 validate만 하며 자동 apply하지 않는다. 적용 전 보호된 원격 state bootstrap, 예산, 승인된 HTTPS 페이징 수신자와 구독 확인, viewer/origin ACM 인증서, 감사 보존기간의 법무·보안 승인, 복원·failover·부하 훈련, migration/cutover 및 rollback 계획을 별도 승인해야 한다.
 
+실제 적용 전에는 [프로덕션 cutover gate](production-cutover.md)의 증적 manifest를 작성하고 동일 main revision에 대해 검증한다. 이 검증은 승인된 변경 창과 apply 권한을 대체하지 않는다.
+
 ## 로컬 자격 증명
 
 최초 실행 전에 `./scripts/init-env.ps1`로 Git에서 제외된 `.env`를 생성한다. PostgreSQL과 Grafana는 서로 다른 256-bit 난수 비밀번호를 사용하며 빈 값이나 저장소의 공개 기본값으로 기동할 수 없다. 영속 볼륨을 유지하면서 회전할 때는 스택이 healthy인 상태에서 `./scripts/rotate-local-secrets.ps1`를 실행한다. 이 스크립트는 두 서비스의 저장된 자격 증명을 먼저 갱신하고 `.env`를 교체한 뒤 PostgreSQL·API·Grafana를 새 설정으로 재생성한다.
