@@ -2,7 +2,7 @@
 
 This root creates the reviewed production application tier on the VPC and private subnets from `production-data`. It runs three private Fargate API tasks and three private web tasks across three Availability Zones. Each API task includes its analytics sidecar, while Cloud Map gives web tasks a private multi-value API endpoint.
 
-Only an HTTPS Application Load Balancer is public, and its ingress is restricted to the AWS-managed CloudFront origin-facing prefix list. Tasks receive no public IP. Three zone-local NAT gateways preserve outbound availability for Cognito and the contracted routing provider; ECR API/Docker, S3 image layers, CloudWatch Logs, and Secrets Manager use private VPC endpoints. Images must be ECR digest URIs.
+Only an HTTPS Application Load Balancer is public, and its ingress is restricted to the AWS-managed CloudFront origin-facing prefix list. The default listener action is a fixed 403; forwarding requires the approved distribution's random secret header name and value. Tasks receive no public IP. Three zone-local NAT gateways preserve outbound availability for Cognito and the contracted routing provider; ECR API/Docker, S3 image layers, CloudWatch Logs, and Secrets Manager use private VPC endpoints. Images must be ECR digest URIs.
 
 The ALB is associated with a regional AWS WAF using the managed common and known-bad-input rule groups; 100 blocked requests within five minutes alert the production topic. Viewer-IP reputation and rate limiting intentionally belong on the future CloudFront distribution rather than this origin WAF, because the ALB sees CloudFront edge addresses. ALB access logs are written only by the AWS log-delivery service to a private, bucket-owner-enforced, versioned, SSE-S3 bucket over TLS and retained for 400 days; noncurrent versions expire after 30 days.
 
@@ -13,6 +13,8 @@ The API declares all ten Kafka topics through `KafkaAdmin` and fails startup if 
 Every API replica enables the daily KPI projection writer. The refresh transaction takes a PostgreSQL transaction-scoped advisory lock before doing any work, so at most one replica performs each refresh while the others record a `logitrack.kpi.projection.refresh.skipped` metric. This avoids making a singleton ECS service an availability dependency while preventing duplicate full-range projection work.
 
 This root is validation-only until the production budget, CloudFront origin configuration, ACM certificate, remote-state migration, data plane, topic creation, database migration, and failover/load drills are approved. Applying creates three NAT gateways and continuously running Fargate/ALB resources with material ongoing charges.
+
+Generate both a random `X-` header name and a value from at least 32 random bytes; encode the value as unpadded base64url. Both are sensitive but necessarily persist in the KMS-encrypted, tightly scoped Terraform state because an ALB listener condition has no write-only field. Configure the identical pair as a CloudFront custom origin header; CloudFront overwrites a viewer-supplied header of that name. For zero-downtime value rotation, first apply `[old, new]` here, update CloudFront to `new`, verify direct requests remain 403 and distribution requests succeed, then apply `[new]`. Rotate the name in a separately rehearsed maintenance because an ALB rule accepts only one header name.
 
 ```bash
 terraform -chdir=infra/aws/production-compute fmt -check

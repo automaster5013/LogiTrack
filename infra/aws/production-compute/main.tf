@@ -257,8 +257,26 @@ resource "aws_lb_listener" "https" {
   certificate_arn   = var.certificate_arn
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
   default_action {
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "Forbidden"
+      status_code  = "403"
+    }
+  }
+}
+resource "aws_lb_listener_rule" "verified_cloudfront" {
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 1
+  action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.web.arn
+  }
+  condition {
+    http_header {
+      http_header_name = var.cloudfront_origin_verify_header_name
+      values           = var.cloudfront_origin_verify_header_values
+    }
   }
 }
 

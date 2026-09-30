@@ -31,6 +31,9 @@ for contract in (
     'AWSManagedRulesCommonRuleSet', 'AWSManagedRulesKnownBadInputsRuleSet',
     'resource "aws_wafv2_web_acl_association" "edge"',
     'metric_name         = "BlockedRequests"', 'namespace           = "AWS/WAFV2"',
+    'resource "aws_lb_listener_rule" "verified_cloudfront"',
+    'http_header_name = var.cloudfront_origin_verify_header_name', 'type = "fixed-response"',
+    'status_code  = "403"', 'values           = var.cloudfront_origin_verify_header_values',
 ):
     if contract not in main:
         raise AssertionError(f"production compute boundary is missing: {contract}")
@@ -43,6 +46,15 @@ for contract in ('logitrack-api@sha256:', 'logitrack-analytics@sha256:', 'logitr
     if contract not in variables:
         raise AssertionError(f"production compute input boundary is missing: {contract}")
 
+for contract in (
+    'variable "cloudfront_origin_verify_header_name"', '^X-[A-Za-z0-9-]{24,64}$',
+    'variable "cloudfront_origin_verify_header_values"', 'sensitive   = true',
+    'length(var.cloudfront_origin_verify_header_values) <= 2',
+    '^[A-Za-z0-9_-]{43,128}$',
+):
+    if contract not in variables:
+        raise AssertionError(f"production origin-verification boundary is missing: {contract}")
+
 for contract in ('production/compute/terraform.tfstate', 'encrypt      = true', 'use_lockfile = true'):
     if contract not in versions:
         raise AssertionError(f"production compute backend is missing: {contract}")
@@ -51,6 +63,7 @@ for warning in (
     'validation-only', 'material ongoing charges', 'failover/load drills',
     'all ten Kafka topics', '90-day DLQ retention', 'retained for 400 days',
     'Viewer-IP reputation and rate limiting intentionally belong on the future CloudFront distribution',
+    'KMS-encrypted, tightly scoped Terraform state', 'For zero-downtime value rotation',
 ):
     if warning not in readme:
         raise AssertionError(f"production compute runbook is missing: {warning}")
