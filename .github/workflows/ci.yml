@@ -170,8 +170,12 @@ jobs:
       - name: Validate Alertmanager routing and inhibition
         run: |
           python scripts/alertmanager-config-smoke.py
+          python scripts/alertmanager-paging-config-smoke.py
+          python scripts/alertmanager-paging-secret-validator-smoke.py
           docker run --rm --entrypoint amtool --volume "$PWD/infra:/etc/alertmanager:ro" prom/alertmanager:v0.28.1@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba check-config /etc/alertmanager/alertmanager.yml
+          docker run --rm --entrypoint amtool --volume "$PWD/infra:/etc/alertmanager:ro" prom/alertmanager:v0.28.1@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba check-config /etc/alertmanager/alertmanager-paging.yml
           python scripts/alertmanager-runtime-smoke.py
+          python scripts/alertmanager-paging-runtime-smoke.py
       - name: Validate provisioned Grafana dashboards
         run: python scripts/grafana-dashboard-smoke.py
       - name: Validate Prometheus alert runbooks

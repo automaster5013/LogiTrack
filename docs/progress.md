@@ -1,5 +1,6 @@
 # 구현 진행 현황
 
+- 외부 critical paging을 저장소 밖 HTTPS 비밀 URL 파일로만 주입하고 복구 알림·redirect 거부·100건 상한을 강제하는 opt-in Alertmanager 배포 경계와 CI 계약을 추가합니다.
 - 격리된 실제 Alertmanager에서 severity receiver, 동일 component inhibition, silence 생성·재시작 영속·정리를 검증하고 임시 container·volume을 항상 회수하는 CI runtime gate를 추가합니다.
 - Alertmanager 자체 health·설정 reload·Prometheus 전달 실패를 별도 scrape와 3개 control-plane 경보로 감시하고 동작 fixture와 runbook으로 회귀 검증합니다.
 - Prometheus를 영속·최소 권한 Alertmanager에 연결해 경보를 이름·component·severity로 그룹화하고 critical/warning 반복 주기 분리, 동일 component의 critical→warning 억제와 silence lifecycle을 자동 검증합니다.

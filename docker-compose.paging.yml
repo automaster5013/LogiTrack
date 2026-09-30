@@ -1,0 +1,6 @@
+services:
+  alertmanager:
+    command: ["--config.file=/etc/alertmanager/alertmanager-paging.yml", "--storage.path=/alertmanager"]
+    volumes:
+      - ./infra/alertmanager-paging.yml:/etc/alertmanager/alertmanager-paging.yml:ro
+      - ${ALERTMANAGER_CRITICAL_WEBHOOK_URL_FILE:?Set an absolute path to the secret HTTPS webhook URL file}:/run/secrets/alertmanager_critical_webhook_url:ro

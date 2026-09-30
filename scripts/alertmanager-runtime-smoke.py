@@ -45,7 +45,7 @@ def wait_ready(base_url: str) -> None:
             with urllib.request.urlopen(f"{base_url}/-/ready", timeout=2) as response:
                 if response.status == 200:
                     return
-        except (urllib.error.URLError, TimeoutError):
+        except (urllib.error.URLError, ConnectionError, TimeoutError):
             pass
         time.sleep(1)
     raise AssertionError("Alertmanager did not become ready")

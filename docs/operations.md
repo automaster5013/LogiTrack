@@ -10,7 +10,7 @@ Prometheus의 모든 경보는 [경보 대응 runbook](alert-runbooks.md)의 개
 
 Grafana의 `LogiTrack Alert Triage` 대시보드는 활성 critical·warning과 pending 경보, 영향받은 component, component별 firing 수, 활성 instance와 최근 6시간 timeline, rule evaluation 실패, Alertmanager readiness와 전달 실패를 한 화면에 제공한다. 모든 경보는 `alerting`, `api`, `demo`, `outbox`, `recovery`, `reporting`, `retention`, `routing`, `telemetry` 중 하나로 분류해 알림 routing에도 같은 taxonomy를 사용한다.
 
-Prometheus는 경보를 내부 `alertmanager:9093`으로 전달한다. Alertmanager는 `alertname`, `component`, `severity`로 중복 경보를 그룹화하고 critical은 30분, warning은 4시간 간격으로 반복 처리한다. 같은 component의 critical이 활성화되면 하위 warning을 억제해 연쇄 장애 노이즈를 줄인다. 상태와 silence UI는 로컬 `http://127.0.0.1:9093`에서만 접근할 수 있고 상태는 전용 volume에 보존된다. 현재 receiver는 lifecycle 검증용 내부 receiver이며 외부 paging destination과 자격 증명은 저장소에 넣지 않는다.
+Prometheus는 경보를 내부 `alertmanager:9093`으로 전달한다. Alertmanager는 `alertname`, `component`, `severity`로 중복 경보를 그룹화하고 critical은 30분, warning은 4시간 간격으로 반복 처리한다. 같은 component의 critical이 활성화되면 하위 warning을 억제해 연쇄 장애 노이즈를 줄인다. 상태와 silence UI는 로컬 `http://127.0.0.1:9093`에서만 접근할 수 있고 상태는 전용 volume에 보존된다. 기본 receiver는 lifecycle 검증용 내부 receiver다. 외부 paging은 저장소 밖의 HTTPS URL 비밀 파일을 `ALERTMANAGER_CRITICAL_WEBHOOK_URL_FILE`로 지정하고 `python scripts/alertmanager-paging-secret-smoke.py <파일>`로 검증한 다음 `docker compose -f docker-compose.yml -f docker-compose.paging.yml up -d alertmanager prometheus`로 명시적으로 활성화한다. 이 경계는 critical만 외부로 보내고 복구 알림도 전송하며 redirect와 100건 초과 payload를 차단한다. 실제 destination과 자격 증명은 저장소에 넣지 않는다.
 
 Prometheus는 Alertmanager `/metrics`도 별도 job으로 수집한다. 2분간 scrape가 끊기면 critical, 마지막 구성 reload가 실패하면 warning, Prometheus에서 Alertmanager로 전달한 경보가 실패하거나 drop되면 warning을 발생시킨다. 이 세 control-plane 경보는 `alerting` component로 분류한다.
 
