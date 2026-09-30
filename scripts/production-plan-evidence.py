@@ -7,7 +7,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-ROOTS = {"alerting", "audit", "certificates", "compute", "data", "edge"}
+ROOTS = {"state", "alerting", "audit", "certificates", "compute", "data", "edge"}
 SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
