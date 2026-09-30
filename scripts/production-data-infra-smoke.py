@@ -13,6 +13,7 @@ required = (
     'private_cidrs      = ["10.40.10.0/24", "10.40.20.0/24", "10.40.30.0/24"]',
     'map_public_ip_on_launch = false',
     'resource "aws_route_table" "data"',
+    'route_table_id = aws_route_table.data[count.index].id',
     'resource "aws_vpc_security_group_ingress_rule" "database_from_application"',
     'referenced_security_group_id = aws_security_group.application.id',
     'from_port                    = 5432',
