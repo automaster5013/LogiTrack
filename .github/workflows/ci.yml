@@ -164,6 +164,10 @@ jobs:
           terraform -chdir=infra/aws/production-alerting fmt -check
           terraform -chdir=infra/aws/production-alerting init -backend=false -input=false
           terraform -chdir=infra/aws/production-alerting validate
+          python scripts/production-audit-infra-smoke.py
+          terraform -chdir=infra/aws/production-audit fmt -check
+          terraform -chdir=infra/aws/production-audit init -backend=false -input=false
+          terraform -chdir=infra/aws/production-audit validate
           python scripts/production-certificates-infra-smoke.py
           terraform -chdir=infra/aws/production-certificates fmt -check
           terraform -chdir=infra/aws/production-certificates init -backend=false -input=false
