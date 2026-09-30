@@ -69,7 +69,9 @@ jobs:
       - name: Validate local demo synchronization cleanup
         run: python scripts/local-demo-sync-smoke.py
       - name: Validate production cutover evidence gate
-        run: python scripts/production-cutover-preflight-smoke.py
+        run: |
+          python scripts/production-cutover-preflight-smoke.py
+          python scripts/production-apply-guard-smoke.py
       - name: Validate production Terraform plan evidence
         run: |
           python scripts/production-plan-evidence-smoke.py

@@ -40,7 +40,7 @@ def https_url(value: object, field: str) -> None:
         raise ValueError(f"{field} must be an HTTPS URL without embedded credentials")
 
 
-def validate(manifest: dict, revision: str, now: datetime) -> None:
+def validate(manifest: dict, revision: str, now: datetime, phase: str = "prepare") -> None:
     if manifest.get("schema_version") != 1:
         raise ValueError("schema_version must be 1")
     if not SHA.fullmatch(revision) or manifest.get("revision") != revision:
@@ -62,8 +62,12 @@ def validate(manifest: dict, revision: str, now: datetime) -> None:
     window = manifest.get("window", {})
     start = timestamp(window.get("start"), "window.start")
     end = timestamp(window.get("end"), "window.end")
-    if start < now or start > now + timedelta(days=30) or end <= start or end - start > timedelta(hours=4):
-        raise ValueError("cutover window must start within 30 days and last no more than four hours")
+    if end <= start or end - start > timedelta(hours=4):
+        raise ValueError("cutover window must last no more than four hours")
+    if phase == "prepare" and (start < now or start > now + timedelta(days=30)):
+        raise ValueError("cutover window must start within 30 days")
+    if phase == "apply" and not start <= now <= end:
+        raise ValueError("current time must be inside the approved cutover window")
 
     plans = manifest.get("terraform_plans")
     if not isinstance(plans, dict) or set(plans) != ROOTS:
@@ -119,13 +123,14 @@ def main() -> int:
     parser.add_argument("manifest", type=Path)
     parser.add_argument("--revision", required=True)
     parser.add_argument("--now", help="RFC3339 clock override for deterministic verification")
+    parser.add_argument("--phase", choices=("prepare", "apply"), default="prepare")
     args = parser.parse_args()
     try:
         payload = json.loads(args.manifest.read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
             raise ValueError("manifest root must be an object")
         now = timestamp(args.now, "--now") if args.now else datetime.now(timezone.utc)
-        validate(payload, args.revision, now)
+        validate(payload, args.revision, now, args.phase)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         print(f"FAIL: {exc}", file=sys.stderr)
         return 1

@@ -19,3 +19,13 @@ Manifest는 `schema_version: 1`과 다음 정보를 포함한다.
 `production-state` bootstrap plan은 승인된 관리자 workstation에서 생성한다. 나머지 여섯 root는 GitHub의 수동 `Production Terraform plan evidence` workflow로 현재 main SHA를 지정해 한 번씩 생성한다. 각 run은 `production-plan` 환경 승인을 거친 뒤 비파괴 plan만 허용하고, plaintext 대신 GPG 암호화 plan과 attested evidence JSON을 7일간 보존한다. evidence의 `root`, `revision`, `planned_at`, `sha256`, `destructive_changes`를 manifest의 해당 항목에 복사하고 실제 apply 직전 복호화한 plan의 SHA-256을 다시 대조한다.
 
 게이트 성공은 apply 권한을 대신하지 않는다. 승인된 plan digest를 다시 확인하고 `production-state → production-alerting → production-audit → production-certificates → production-data → production-compute → production-edge` 순서로 적용한다. 각 단계마다 출력과 실제 AWS 상태를 확인하고 다음 단계로 진행한다. DNS 전환 뒤 외부 헬스·로그·paging test가 실패하거나 manifest의 rollback trigger가 충족되면 즉시 이전 origin/DNS로 되돌리고 변경 티켓에 증적을 보존한다.
+
+## 검증된 plan 적용
+
+GPG private key와 apply 권한은 GitHub 밖의 승인된 관리자 workstation에만 둔다. 암호화 artifact를 내려받아 GitHub attestation을 확인하고 plan을 복호화한 뒤, 저장소 밖의 승인된 ledger 경로를 사용해 먼저 실행 없는 검증을 수행한다.
+
+```powershell
+python scripts/production-apply-guard.py --manifest <manifest.json> --evidence <production-state.evidence.json> --plan-file <production-state.tfplan> --ledger <vault-path/apply-ledger.json> --root state --revision <main-sha>
+```
+
+검증 성공 후 같은 명령에 `--execute --confirmation "APPLY production-state <main-sha>"`를 추가한다. guard는 현재 시간이 승인된 변경 창 안인지 다시 검사하고, manifest·evidence·복호화 plan의 SHA-256과 revision을 대조하며, 깨끗한 `main` checkout인지 확인한다. Terraform이 성공한 뒤에만 ledger를 원자적으로 갱신한다. 이후 root도 ledger가 강제하는 순서대로 같은 절차를 반복한다. plan을 재생성하거나 manifest를 수정했다면 기존 ledger를 재사용하지 말고 전체 승인을 다시 받는다.
