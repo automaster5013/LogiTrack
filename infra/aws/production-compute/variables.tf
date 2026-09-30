@@ -29,6 +29,29 @@ variable "application_security_group_id" {
 variable "certificate_arn" {
   type = string
 }
+variable "cloudfront_origin_verify_header_name" {
+  description = "Random secret header name used only between the approved CloudFront distribution and the ALB."
+  type        = string
+  sensitive   = true
+  validation {
+    condition     = can(regex("^X-[A-Za-z0-9-]{24,64}$", var.cloudfront_origin_verify_header_name))
+    error_message = "Origin verification header name must be a random X- name with 24-64 additional alphanumeric or hyphen characters."
+  }
+}
+variable "cloudfront_origin_verify_header_values" {
+  description = "One active, or two overlapping rotation, base64url values sent only by the approved CloudFront distribution in the secret origin header."
+  type        = list(string)
+  sensitive   = true
+  validation {
+    condition = (
+      length(var.cloudfront_origin_verify_header_values) >= 1 &&
+      length(var.cloudfront_origin_verify_header_values) <= 2 &&
+      length(distinct(var.cloudfront_origin_verify_header_values)) == length(var.cloudfront_origin_verify_header_values) &&
+      alltrue([for value in var.cloudfront_origin_verify_header_values : can(regex("^[A-Za-z0-9_-]{43,128}$", value))])
+    )
+    error_message = "Provide one active or two distinct rotation values, each 43-128 base64url characters."
+  }
+}
 variable "alarm_topic_arn" {
   type = string
 }
