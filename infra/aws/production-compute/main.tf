@@ -582,3 +582,113 @@ resource "aws_cloudwatch_metric_alarm" "alb_unhealthy" {
     LoadBalancer = aws_lb.edge.arn_suffix
   }
 }
+
+resource "aws_cloudwatch_metric_alarm" "alb_target_5xx_rate" {
+  alarm_name          = "logitrack-production-target-5xx-rate"
+  comparison_operator = "GreaterThanThreshold"
+  threshold           = 1
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [var.alarm_topic_arn]
+  ok_actions          = [var.alarm_topic_arn]
+
+  metric_query {
+    id          = "error_rate"
+    expression  = "IF(requests > 0, 100 * errors / requests, 0)"
+    label       = "Target 5xx rate (%)"
+    return_data = true
+  }
+  metric_query {
+    id          = "errors"
+    return_data = false
+    metric {
+      namespace   = "AWS/ApplicationELB"
+      metric_name = "HTTPCode_Target_5XX_Count"
+      period      = 60
+      stat        = "Sum"
+      dimensions = {
+        TargetGroup  = aws_lb_target_group.web.arn_suffix
+        LoadBalancer = aws_lb.edge.arn_suffix
+      }
+    }
+  }
+  metric_query {
+    id          = "requests"
+    return_data = false
+    metric {
+      namespace   = "AWS/ApplicationELB"
+      metric_name = "RequestCount"
+      period      = 60
+      stat        = "Sum"
+      dimensions = {
+        TargetGroup  = aws_lb_target_group.web.arn_suffix
+        LoadBalancer = aws_lb.edge.arn_suffix
+      }
+    }
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
+  alarm_name          = "logitrack-production-load-balancer-5xx"
+  namespace           = "AWS/ApplicationELB"
+  metric_name         = "HTTPCode_ELB_5XX_Count"
+  statistic           = "Sum"
+  period              = 60
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  threshold           = 5
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [var.alarm_topic_arn]
+  ok_actions          = [var.alarm_topic_arn]
+  dimensions = {
+    LoadBalancer = aws_lb.edge.arn_suffix
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "alb_target_latency" {
+  alarm_name          = "logitrack-production-target-p95-latency"
+  namespace           = "AWS/ApplicationELB"
+  metric_name         = "TargetResponseTime"
+  extended_statistic  = "p95"
+  period              = 60
+  evaluation_periods  = 3
+  datapoints_to_alarm = 3
+  comparison_operator = "GreaterThanThreshold"
+  threshold           = 2
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [var.alarm_topic_arn]
+  ok_actions          = [var.alarm_topic_arn]
+  dimensions = {
+    TargetGroup  = aws_lb_target_group.web.arn_suffix
+    LoadBalancer = aws_lb.edge.arn_suffix
+  }
+}
+
+locals {
+  monitored_ecs_services = {
+    api = aws_ecs_service.api.name
+    web = aws_ecs_service.web.name
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "ecs_running_tasks" {
+  for_each            = local.monitored_ecs_services
+  alarm_name          = "logitrack-production-${each.key}-running-tasks"
+  namespace           = "ECS/ContainerInsights"
+  metric_name         = "RunningTaskCount"
+  statistic           = "Minimum"
+  period              = 60
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  comparison_operator = "LessThanThreshold"
+  threshold           = 3
+  treat_missing_data  = "breaching"
+  alarm_actions       = [var.alarm_topic_arn]
+  ok_actions          = [var.alarm_topic_arn]
+  dimensions = {
+    ClusterName = aws_ecs_cluster.production.name
+    ServiceName = each.value
+  }
+}
