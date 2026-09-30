@@ -80,7 +80,7 @@ api/             Spring Boot 제어/API 서비스
 simulator/       Python GPS/상태 이벤트 생성기
 analytics/       Python 경로/ETA 분석 서비스
 web/             Next.js 운영 콘솔
-infra/           Prometheus, OpenTelemetry Collector, Tempo, Grafana 설정
+infra/           Prometheus, Alertmanager, OpenTelemetry Collector, Tempo, Grafana 설정
 docs/            요구사항, ADR, 운영 문서
 scripts/         재현 가능한 smoke test
 ```
@@ -88,6 +88,8 @@ scripts/         재현 가능한 smoke test
 ## 관측 경로
 
 Spring API와 Python analytics는 OTLP/HTTP로 OpenTelemetry Collector에 span을 보낸다. Collector는 batch와 memory limiter를 거쳐 Tempo에 OTLP/gRPC로 전달하고 Grafana Explore가 Tempo를 조회한다. HTTP `traceparent`는 API에서 RestClient를 통해 analytics와 OSRM 호출까지 전파된다.
+
+Prometheus 경보는 내부 Alertmanager로 전달한다. Alertmanager는 alert identity·component·severity로 중복을 그룹화하고 severity별 반복 주기를 적용하며, 같은 component의 critical이 활성화되면 warning을 억제한다. 로컬 UI와 silence API만 loopback에 공개하고 상태는 전용 volume에 보존한다.
 
 ## 확장/격리 전략
 

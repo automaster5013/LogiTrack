@@ -50,6 +50,7 @@ The initial image build and dependency download can take several minutes. A succ
 | Operator console | <http://localhost:3000/console> | Orders, fleet map, warehouse, recovery, and alert policies |
 | API health | <http://localhost:8080/actuator/health> | Expected response includes `"status":"UP"` |
 | Grafana | <http://localhost:3001/> | User `admin`; read `GRAFANA_ADMIN_PASSWORD` from your local `.env` |
+| Alertmanager | <http://localhost:9093/> | Grouped alerts, inhibition state, and local silences |
 | Tempo API | <http://localhost:3200/> | Query traces through Grafana **Explore → Tempo** |
 
 All development ports bind to loopback. The local Compose profile explicitly disables API authentication and is intended only for development on the host machine.
@@ -93,7 +94,7 @@ pwsh ./scripts/smoke.ps1
 
 ## Stop safely
 
-Stop and remove the containers and networks while preserving PostgreSQL, Kafka, Redis, Tempo, Prometheus, and Grafana named volumes:
+Stop and remove the containers and networks while preserving PostgreSQL, Kafka, Redis, Tempo, Prometheus, Alertmanager, and Grafana named volumes:
 
 ```powershell
 docker compose down

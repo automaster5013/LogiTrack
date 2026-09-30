@@ -354,8 +354,33 @@ services:
     ports: ["127.0.0.1:9090:9090"]
     depends_on:
       api: {condition: service_healthy}
+      alertmanager: {condition: service_healthy}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9090/-/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba
+    restart: unless-stopped
+    logging: *default-logging
+    stop_grace_period: 35s
+    mem_limit: 256m
+    cpus: 0.25
+    pids_limit: 128
+    security_opt: *default-security
+    cap_drop: [ALL]
+    read_only: true
+    networks: [observability]
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml", "--storage.path=/alertmanager"]
+    volumes:
+      - ./infra/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    ports: ["127.0.0.1:9093:9093"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9093/-/ready"]
       interval: 10s
       timeout: 5s
       retries: 6
@@ -393,6 +418,7 @@ volumes:
   kafka-data:
   tempo-data:
   prometheus-data:
+  alertmanager-data:
   grafana-data:
 
 networks:
