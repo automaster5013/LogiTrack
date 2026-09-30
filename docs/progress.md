@@ -1,5 +1,6 @@
 # 구현 진행 현황
 
+- 격리된 실제 Alertmanager에서 severity receiver, 동일 component inhibition, silence 생성·재시작 영속·정리를 검증하고 임시 container·volume을 항상 회수하는 CI runtime gate를 추가합니다.
 - Alertmanager 자체 health·설정 reload·Prometheus 전달 실패를 별도 scrape와 3개 control-plane 경보로 감시하고 동작 fixture와 runbook으로 회귀 검증합니다.
 - Prometheus를 영속·최소 권한 Alertmanager에 연결해 경보를 이름·component·severity로 그룹화하고 critical/warning 반복 주기 분리, 동일 component의 critical→warning 억제와 silence lifecycle을 자동 검증합니다.
 - 22개 운영 경보를 9개 component taxonomy로 분류하고 critical·warning·pending, 영향 영역, 활성 instance, 6시간 timeline과 rule evaluation 실패를 묶은 immutable Grafana triage 대시보드를 provisioning합니다.
