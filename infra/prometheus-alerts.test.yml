@@ -4,6 +4,64 @@ rule_files:
 evaluation_interval: 1m
 
 tests:
+  - name: alertmanager remains unavailable
+    interval: 1m
+    input_series:
+      - series: 'up{job="logitrack-alertmanager",instance="alertmanager:9093"}'
+        values: '0+0x5'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: LogiTrackAlertmanagerDown
+        exp_alerts:
+          - exp_labels:
+              instance: alertmanager:9093
+              job: logitrack-alertmanager
+              severity: critical
+              component: alerting
+            exp_annotations:
+              summary: Alertmanager is unavailable to Prometheus
+              description: Prometheus has been unable to scrape Alertmanager for at least two minutes; grouping, inhibition, and silence state may be unavailable.
+              runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackalertmanagerdown
+
+  - name: alertmanager rejects configuration reload
+    interval: 1m
+    input_series:
+      - series: 'alertmanager_config_last_reload_successful{job="logitrack-alertmanager",instance="alertmanager:9093"}'
+        values: '0+0x4'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: LogiTrackAlertmanagerConfigReloadFailing
+        exp_alerts:
+          - exp_labels:
+              instance: alertmanager:9093
+              job: logitrack-alertmanager
+              severity: warning
+              component: alerting
+            exp_annotations:
+              summary: Alertmanager configuration reload failed
+              description: Alertmanager rejected its latest configuration reload and continues running the previous routing policy.
+              runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackalertmanagerconfigreloadfailing
+
+  - name: prometheus alert delivery fails
+    interval: 1m
+    input_series:
+      - series: 'prometheus_notifications_errors_total{alertmanager="http://alertmanager:9093/api/v2/alerts"}'
+        values: '0 1+0x5'
+      - series: 'prometheus_notifications_dropped_total{alertmanager="http://alertmanager:9093/api/v2/alerts"}'
+        values: '0+0x6'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: LogiTrackAlertDeliveryFailing
+        exp_alerts:
+          - exp_labels:
+              alertmanager: http://alertmanager:9093/api/v2/alerts
+              severity: warning
+              component: alerting
+            exp_annotations:
+              summary: Prometheus cannot deliver alerts to Alertmanager
+              description: One or more alert notifications failed or were dropped between Prometheus and Alertmanager during the last five minutes.
+              runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackalertdeliveryfailing
+
   - name: api availability error budget burns rapidly
     interval: 1m
     input_series:

@@ -10,9 +10,9 @@ $names=@($rules.data.groups.rules.name)
 foreach($name in @("logitrack_api:slo_request_error_ratio:rate5m","logitrack_api:slo_request_error_ratio:rate30m","logitrack_api:slo_request_error_ratio:rate1h","logitrack_api:slo_request_error_ratio:rate6h")){
   if($names-notcontains $name){throw "Missing Prometheus SLO recording rule: $name"}
 }
-foreach($name in @("LogiTrackApiErrorBudgetFastBurn","LogiTrackApiErrorBudgetSlowBurn","LogiTrackApiDown","LogiTrackRecoveryMetricRefreshFailing","LogiTrackOutboxFailed","LogiTrackOutboxPublisherFailing","LogiTrackOutboxBacklogGrowing","LogiTrackOutboxOldestPending","LogiTrackDeadLetterBacklog","LogiTrackRouteAnalysisDegraded","LogiTrackPdfRenderingFailing","LogiTrackKpiProjectionStale","LogiTrackApiServerErrors","LogiTrackApiLatencyHigh","LogiTrackTelemetryConsumerLagHigh","LogiTrackTelemetryConsumerMissing","LogiTrackRetentionCleanupFailing","LogiTrackDemoCleanupFailing","LogiTrackDemoFleetBelowTarget")){
+foreach($name in @("LogiTrackAlertmanagerDown","LogiTrackAlertmanagerConfigReloadFailing","LogiTrackAlertDeliveryFailing","LogiTrackApiErrorBudgetFastBurn","LogiTrackApiErrorBudgetSlowBurn","LogiTrackApiDown","LogiTrackRecoveryMetricRefreshFailing","LogiTrackOutboxFailed","LogiTrackOutboxPublisherFailing","LogiTrackOutboxBacklogGrowing","LogiTrackOutboxOldestPending","LogiTrackDeadLetterBacklog","LogiTrackRouteAnalysisDegraded","LogiTrackPdfRenderingFailing","LogiTrackKpiProjectionStale","LogiTrackApiServerErrors","LogiTrackApiLatencyHigh","LogiTrackTelemetryConsumerLagHigh","LogiTrackTelemetryConsumerMissing","LogiTrackRetentionCleanupFailing","LogiTrackDemoCleanupFailing","LogiTrackDemoFleetBelowTarget")){
   if($names-notcontains $name){throw "Missing Prometheus rule: $name"}
 }
 docker run --rm --entrypoint promtool --volume "${prometheusConfig}:/etc/prometheus:ro" prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 test rules /etc/prometheus/prometheus-alerts.test.yml
 if($LASTEXITCODE-ne 0){throw "Prometheus alert behavior tests failed"}
-Write-Host "PASS: operational metrics exposed, 4 SLO recording rules and 19 alert rules loaded, and SLO and cleanup alert behavior verified"
+Write-Host "PASS: operational metrics exposed, 4 SLO recording rules and 22 alert rules loaded, and alerting, SLO, and cleanup behavior verified"

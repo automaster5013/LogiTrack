@@ -1,4 +1,39 @@
 groups:
+  - name: logitrack-alerting-control-plane
+    rules:
+      - alert: LogiTrackAlertmanagerDown
+        expr: up{job="logitrack-alertmanager"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: alerting
+        annotations:
+          summary: Alertmanager is unavailable to Prometheus
+          description: Prometheus has been unable to scrape Alertmanager for at least two minutes; grouping, inhibition, and silence state may be unavailable.
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackalertmanagerdown
+      - alert: LogiTrackAlertmanagerConfigReloadFailing
+        expr: alertmanager_config_last_reload_successful == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: alerting
+        annotations:
+          summary: Alertmanager configuration reload failed
+          description: Alertmanager rejected its latest configuration reload and continues running the previous routing policy.
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackalertmanagerconfigreloadfailing
+      - alert: LogiTrackAlertDeliveryFailing
+        expr: |
+          increase(prometheus_notifications_errors_total[5m]) > 0
+          or increase(prometheus_notifications_dropped_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          component: alerting
+        annotations:
+          summary: Prometheus cannot deliver alerts to Alertmanager
+          description: One or more alert notifications failed or were dropped between Prometheus and Alertmanager during the last five minutes.
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackalertdeliveryfailing
+
   - name: logitrack-api-slo
     rules:
       - record: logitrack_api:slo_request_error_ratio:rate5m
