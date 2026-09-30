@@ -10,11 +10,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class DailyKpiProjectionInitializerTest {
     @Test
     void refreshesTheProjectionBeforeStartupCompletes() throws Exception {
         var service = mock(DailyKpiService.class);
+        when(service.refreshProjection()).thenReturn(true);
         var metrics = new SimpleMeterRegistry();
         var initializer = new DailyKpiProjectionInitializer(service, metrics, 60_000);
 
@@ -28,6 +30,7 @@ class DailyKpiProjectionInitializerTest {
     @Test
     void refreshesPeriodicallyOnlyAfterOneFullInterval() throws Exception {
         var service = mock(DailyKpiService.class);
+        when(service.refreshProjection()).thenReturn(true);
         var initializer = new DailyKpiProjectionInitializer(service, new SimpleMeterRegistry(), 60_000);
 
         initializer.refreshScheduledProjection();
@@ -37,6 +40,18 @@ class DailyKpiProjectionInitializerTest {
             .getDeclaredMethod("refreshScheduledProjection").getAnnotation(Scheduled.class);
         assertThat(scheduled.initialDelayString()).isEqualTo("${logitrack.reports.refresh-ms:60000}");
         assertThat(scheduled.fixedDelayString()).isEqualTo("${logitrack.reports.refresh-ms:60000}");
+    }
+
+    @Test
+    void recordsAReplicaContentionSkipWithoutClaimingSuccess() throws Exception {
+        var service = mock(DailyKpiService.class);
+        var metrics = new SimpleMeterRegistry();
+        var initializer = new DailyKpiProjectionInitializer(service, metrics, 60_000);
+
+        initializer.run(mock(ApplicationArguments.class));
+
+        assertThat(metrics.get("logitrack.kpi.projection.refresh.skipped").counter().count()).isEqualTo(1);
+        assertThat(metrics.get("logitrack.kpi.projection.last.success.timestamp.seconds").gauge().value()).isZero();
     }
 
     @Test

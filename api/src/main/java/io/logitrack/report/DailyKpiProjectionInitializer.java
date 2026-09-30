@@ -2,6 +2,7 @@ package io.logitrack.report;
 
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Counter;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -17,6 +18,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class DailyKpiProjectionInitializer implements ApplicationRunner {
     private final DailyKpiService dailyKpiService;
     private final AtomicLong lastSuccessEpochSeconds = new AtomicLong();
+    private final Counter lockSkipped;
 
     public DailyKpiProjectionInitializer(
         DailyKpiService dailyKpiService,
@@ -30,12 +32,14 @@ public class DailyKpiProjectionInitializer implements ApplicationRunner {
         Gauge.builder("logitrack.kpi.projection.refresh.interval.seconds", () -> refreshMs / 1_000.0)
             .description("Configured daily KPI projection refresh interval")
             .register(metrics);
+        lockSkipped = Counter.builder("logitrack.kpi.projection.refresh.skipped")
+            .description("KPI projection refreshes skipped because another replica holds the database lock")
+            .register(metrics);
     }
 
     @Override
     public void run(ApplicationArguments args) {
-        dailyKpiService.refreshProjection();
-        recordSuccess();
+        refreshIfLeader();
     }
 
     @Scheduled(
@@ -43,8 +47,15 @@ public class DailyKpiProjectionInitializer implements ApplicationRunner {
         fixedDelayString = "${logitrack.reports.refresh-ms:60000}"
     )
     public void refreshScheduledProjection() {
-        dailyKpiService.refreshProjection();
-        recordSuccess();
+        refreshIfLeader();
+    }
+
+    private void refreshIfLeader() {
+        if (dailyKpiService.refreshProjection()) {
+            recordSuccess();
+        } else {
+            lockSkipped.increment();
+        }
     }
 
     private void recordSuccess() {
