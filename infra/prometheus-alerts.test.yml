@@ -4,6 +4,59 @@ rule_files:
 evaluation_interval: 1m
 
 tests:
+  - name: api availability error budget burns rapidly
+    interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{application="logitrack-control-api",status="200",uri="/api/deliveries"}'
+        values: '0+90x25'
+      - series: 'http_server_requests_seconds_count{application="logitrack-control-api",status="500",uri="/api/deliveries"}'
+        values: '0+10x25'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: LogiTrackApiErrorBudgetFastBurn
+        exp_alerts:
+          - exp_labels:
+              application: logitrack-control-api
+              severity: critical
+              slo: availability-99.9
+            exp_annotations:
+              summary: API availability error budget is burning rapidly
+              description: The 99.9% API availability error budget is burning above 14.4x across both five-minute and one-hour windows.
+
+  - name: api availability error budget burns persistently
+    interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{application="logitrack-control-api",status="200",uri="/api/orders"}'
+        values: '0+99x45'
+      - series: 'http_server_requests_seconds_count{application="logitrack-control-api",status="503",uri="/api/orders"}'
+        values: '0+1x45'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: LogiTrackApiErrorBudgetSlowBurn
+        exp_alerts:
+          - exp_labels:
+              application: logitrack-control-api
+              severity: warning
+              slo: availability-99.9
+            exp_annotations:
+              summary: API availability error budget is burning persistently
+              description: The 99.9% API availability error budget is burning above 6x across both thirty-minute and six-hour windows.
+
+  - name: api availability stays within error budget
+    interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{application="logitrack-control-api",status="200",uri="/api/deliveries"}'
+        values: '0+1000x25'
+      - series: 'http_server_requests_seconds_count{application="logitrack-control-api",status="500",uri="/api/deliveries"}'
+        values: '0+0x25'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: LogiTrackApiErrorBudgetFastBurn
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: LogiTrackApiErrorBudgetSlowBurn
+        exp_alerts: []
+
   - name: demo cleanup never started
     interval: 1m
     input_series:
