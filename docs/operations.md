@@ -1,5 +1,9 @@
 # 로컬 운영과 장애 처리
 
+## 프로덕션 데이터 고가용성 기준선
+
+프로덕션 데이터 계층의 비적용 Terraform 기준선은 `infra/aws/production-data`에 있다. 스테이징의 단일 호스트 PostgreSQL volume과 달리 두 Availability Zone의 private subnet에 암호화된 RDS PostgreSQL Multi-AZ를 구성하고 35일 자동 백업/PITR, 삭제 방지, 최종 snapshot, RDS 관리 master secret, TLS 강제와 Performance Insights를 요구한다. 이 root는 비용과 데이터 이전 위험 때문에 CI에서 validate만 하며 자동 apply하지 않는다. 적용 전 원격 state, 예산, 복원 훈련, 애플리케이션 compute, migration/cutover 및 rollback 계획을 별도 승인해야 한다.
+
 ## 로컬 자격 증명
 
 최초 실행 전에 `./scripts/init-env.ps1`로 Git에서 제외된 `.env`를 생성한다. PostgreSQL과 Grafana는 서로 다른 256-bit 난수 비밀번호를 사용하며 빈 값이나 저장소의 공개 기본값으로 기동할 수 없다. 영속 볼륨을 유지하면서 회전할 때는 스택이 healthy인 상태에서 `./scripts/rotate-local-secrets.ps1`를 실행한다. 이 스크립트는 두 서비스의 저장된 자격 증명을 먼저 갱신하고 `.env`를 교체한 뒤 PostgreSQL·API·Grafana를 새 설정으로 재생성한다.

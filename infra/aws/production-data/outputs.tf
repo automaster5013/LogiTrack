@@ -1,0 +1,9 @@
+output "vpc_id" { value = aws_vpc.production.id }
+output "private_subnet_ids" { value = aws_subnet.data[*].id }
+output "application_security_group_id" { value = aws_security_group.application.id }
+output "database_endpoint" { value = aws_db_instance.postgres.address }
+output "database_port" { value = aws_db_instance.postgres.port }
+output "master_user_secret_arn" {
+  value     = aws_db_instance.postgres.master_user_secret[0].secret_arn
+  sensitive = true
+}
