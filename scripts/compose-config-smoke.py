@@ -85,6 +85,7 @@ def main() -> None:
     long_running_services = {
         "postgres", "redis", "kafka", "analytics", "api", "api-replica",
         "simulator", "web", "tempo", "otel-collector", "prometheus", "grafana",
+        "alertmanager",
     }
     for service_name in long_running_services:
         if services[service_name].get("restart") != "unless-stopped":
@@ -111,6 +112,7 @@ def main() -> None:
         "tempo": {"observability"},
         "otel-collector": {"observability"},
         "prometheus": {"observability"},
+        "alertmanager": {"observability"},
         "grafana": {"observability"},
     }
     for service_name, networks in expected_networks.items():
@@ -144,6 +146,7 @@ def main() -> None:
         "kafka": ("kafka-data", "/tmp/kafka-logs"),
         "tempo": ("tempo-data", "/var/tempo"),
         "prometheus": ("prometheus-data", "/prometheus"),
+        "alertmanager": ("alertmanager-data", "/alertmanager"),
         "grafana": ("grafana-data", "/var/lib/grafana"),
     }
     for service_name, (source_suffix, target) in persistent_mounts.items():
@@ -191,7 +194,7 @@ def main() -> None:
 
     readiness_dependencies = {
         "otel-collector": ("tempo",),
-        "prometheus": ("api",),
+        "prometheus": ("api", "alertmanager"),
         "simulator": ("api",),
         "grafana": ("prometheus", "tempo"),
     }
@@ -201,7 +204,7 @@ def main() -> None:
             if condition != "service_healthy":
                 raise AssertionError(f"{service_name} does not wait for healthy {dependency}")
 
-    external_images = ("postgres", "redis", "kafka", "kafka-init", "tempo", "prometheus", "grafana")
+    external_images = ("postgres", "redis", "kafka", "kafka-init", "tempo", "prometheus", "alertmanager", "grafana")
     for service_name in external_images:
         image = services[service_name].get("image", "")
         if not DIGEST_PATTERN.search(image):

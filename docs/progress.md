@@ -1,5 +1,6 @@
 # 구현 진행 현황
 
+- Prometheus를 영속·최소 권한 Alertmanager에 연결해 경보를 이름·component·severity로 그룹화하고 critical/warning 반복 주기 분리, 동일 component의 critical→warning 억제와 silence lifecycle을 자동 검증합니다.
 - 19개 운영 경보를 8개 component taxonomy로 분류하고 critical·warning·pending, 영향 영역, 활성 instance, 6시간 timeline과 rule evaluation 실패를 묶은 immutable Grafana triage 대시보드를 provisioning합니다.
 - Prometheus 경보 19개 모두에 안정적인 HTTPS runbook 링크를 연결하고 영향·즉시 조치·진단·종료 및 에스컬레이션 기준이 누락되지 않도록 CI 계약으로 검증합니다.
 - Grafana에 30일 API 가용성·남은 오류 예산·요청 처리량·SLO 경보 상태와 5분/30분/1시간/6시간 burn rate를 묶은 immutable 운영 대시보드를 자동 provisioning하고 계약을 회귀 검증합니다.
