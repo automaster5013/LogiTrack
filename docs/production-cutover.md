@@ -28,4 +28,12 @@ GPG private key와 apply 권한은 GitHub 밖의 승인된 관리자 workstation
 python scripts/production-apply-guard.py --manifest <manifest.json> --evidence <production-state.evidence.json> --plan-file <production-state.tfplan> --ledger <vault-path/apply-ledger.json> --root state --revision <main-sha>
 ```
 
-검증 성공 후 같은 명령에 `--execute --confirmation "APPLY production-state <main-sha>"`를 추가한다. guard는 현재 시간이 승인된 변경 창 안인지 다시 검사하고, manifest·evidence·복호화 plan의 SHA-256과 revision을 대조하며, 깨끗한 `main` checkout인지 확인한다. Terraform이 성공한 뒤에만 ledger를 원자적으로 갱신한다. 이후 root도 ledger가 강제하는 순서대로 같은 절차를 반복한다. plan을 재생성하거나 manifest를 수정했다면 기존 ledger를 재사용하지 말고 전체 승인을 다시 받는다.
+검증 성공 후 같은 명령에 `--execute --confirmation "APPLY production-state <main-sha>"`를 추가한다. guard는 현재 시간이 승인된 변경 창 안인지 다시 검사하고, manifest·evidence·복호화 plan의 SHA-256과 revision을 대조하며, 깨끗한 `main` checkout인지 확인한다. Terraform이 성공한 뒤에만 ledger를 원자적으로 갱신한다.
+
+각 apply 직후 다음 명령으로 Terraform 출력과 실제 AWS 상태를 대조한다. receipt와 ledger는 모두 저장소 밖의 승인된 증적 경로에 둔다.
+
+```powershell
+python scripts/production-post-apply-verify.py --root state --revision <main-sha> --account-id <12-digit-aws-account-id> --ledger <vault-path/apply-ledger.json> --receipt <vault-path/production-state-verification.json>
+```
+
+검증기는 활성 AWS 계정을 확인하고 root별 핵심 상태를 읽는다. 원격 state 보호, 확인된 paging 구독, CloudTrail·Object Lock, 인증서 만료 여유, RDS·Valkey·MSK 가용성, ECS rollout·target health, CloudFront·WAF 연결이 모두 정상일 때만 receipt SHA-256과 검증 시각을 ledger에 원자적으로 기록한다. apply guard는 직전 root에 이 receipt가 없으면 다음 root 적용을 거부한다. 실패 시 다음 root로 진행하지 말고 원인을 복구하거나 rollback 기준에 따라 중단한다. plan을 재생성하거나 manifest를 수정했다면 기존 ledger를 재사용하지 말고 전체 승인을 다시 받는다.

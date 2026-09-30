@@ -6,6 +6,7 @@ main = (root / "main.tf").read_text(encoding="utf-8")
 variables = (root / "variables.tf").read_text(encoding="utf-8")
 versions = (root / "versions.tf").read_text(encoding="utf-8")
 readme = (root / "README.md").read_text(encoding="utf-8")
+outputs = (root / "outputs.tf").read_text(encoding="utf-8")
 application = Path("api/src/main/resources/application.yml").read_text(encoding="utf-8")
 
 required = (
@@ -124,6 +125,10 @@ if 'version = "~> 6.0"' not in versions or 'backend "s3" {' not in versions:
 for warning in ("not applied automatically", "ongoing AWS charges", "restore drill", "migration/cutover plan"):
     if warning not in readme:
         raise AssertionError(f"production apply guardrail documentation is missing: {warning}")
+
+for contract in ('output "database_identifier"', 'output "cache_replication_group_id"', 'output "kafka_cluster_arn"'):
+    if contract not in outputs:
+        raise AssertionError(f"production data post-apply verification output is missing: {contract}")
 
 for setting in (
     'data.redis.port: ${REDIS_PORT:6379}',

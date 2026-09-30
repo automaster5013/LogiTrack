@@ -1,5 +1,6 @@
 # 구현 진행 현황
 
+- 프로덕션 Terraform root별 apply 직후 실제 AWS 상태와 핵심 출력을 검증해 저장소 밖 receipt를 생성하고, 검증 receipt가 없는 이전 root 뒤에는 다음 apply를 차단하는 단계별 cutover 게이트를 추가합니다.
 - 승인된 변경 창 안에서만 cutover manifest·sanitized evidence·복호화 plan의 revision과 SHA-256을 다시 대조하고, 7개 root 적용 순서·깨끗한 main checkout·명시적 confirmation을 강제하며 Terraform 성공 후에만 외부 ledger를 원자적으로 전진시키는 operator-side apply guard를 추가합니다.
 - 여섯 프로덕션 root의 정확한 state/lock key만 허용하는 bootstrap 정책과 immutable GitHub OIDC plan role을 추가하고, 현재 main SHA·보호 환경 승인·비파괴 plan을 강제해 GPG 암호화 artifact와 attested sanitized evidence만 7일 보존하는 수동 plan workflow를 추가합니다.
 - 프로덕션 cutover 전에 3개 역할의 독립 승인, 동일 revision의 7개 비파괴 Terraform plan digest, 인증서·paging 준비 상태, 최근 복구·failover·부하·rollback 훈련, 제한된 변경 창과 정량 rollback 기준을 강제하는 manifest 검증 게이트를 추가합니다.

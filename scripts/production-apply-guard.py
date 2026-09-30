@@ -56,6 +56,9 @@ def validate_ledger(path: Path, revision: str) -> tuple[dict, str]:
         applied_at = entry.get("applied_at")
         if not isinstance(applied_at, str) or not applied_at.endswith("Z"):
             raise ValueError("apply ledger entry timestamp is malformed")
+        verified_at = entry.get("verified_at")
+        if not isinstance(verified_at, str) or not verified_at.endswith("Z") or not SHA256.fullmatch(str(entry.get("receipt_sha256", ""))):
+            raise ValueError("previously applied root requires a post-apply verification receipt")
     return ledger, ORDER[len(completed)]
 
 
