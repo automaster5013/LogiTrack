@@ -55,6 +55,10 @@ unset postgres_password auth_base issuer client_id
 registry="$account_id.dkr.ecr.$region.amazonaws.com"
 aws ecr get-login-password --region "$region" | docker login --username AWS --password-stdin "$registry"
 docker compose --project-directory "$release" --env-file "$release/.env" -f "$release/compose.yml" config --quiet
+# The runtime host is intentionally small. Reclaim only images that no container
+# references before pulling the next digest-pinned release; named volumes and the
+# images backing the live stack remain untouched.
+docker image prune --all --force >/dev/null
 docker compose --progress quiet --project-directory "$release" --env-file "$release/.env" -f "$release/compose.yml" pull
 
 rollback() {
