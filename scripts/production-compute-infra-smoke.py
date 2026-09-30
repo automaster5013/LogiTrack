@@ -22,6 +22,15 @@ for contract in (
     'metric_name         = "TargetResponseTime"', 'extended_statistic  = "p95"',
     'metric_name         = "RunningTaskCount"', 'namespace           = "ECS/ContainerInsights"',
     'comparison_operator = "LessThanThreshold"', 'threshold           = 3',
+    'resource "aws_s3_bucket" "alb_logs"', 'force_destroy = false',
+    'resource "aws_s3_bucket_public_access_block" "alb_logs"', 'sse_algorithm = "AES256"',
+    'object_ownership = "BucketOwnerEnforced"',
+    'status = "Enabled"', 'days = 400', 'DenyInsecureTransport',
+    'logdelivery.elasticloadbalancing.amazonaws.com', '"aws:SourceArn"',
+    'access_logs {', 'resource "aws_wafv2_web_acl" "edge"',
+    'AWSManagedRulesCommonRuleSet', 'AWSManagedRulesKnownBadInputsRuleSet',
+    'resource "aws_wafv2_web_acl_association" "edge"',
+    'metric_name         = "BlockedRequests"', 'namespace           = "AWS/WAFV2"',
 ):
     if contract not in main:
         raise AssertionError(f"production compute boundary is missing: {contract}")
@@ -38,7 +47,11 @@ for contract in ('production/compute/terraform.tfstate', 'encrypt      = true', 
     if contract not in versions:
         raise AssertionError(f"production compute backend is missing: {contract}")
 
-for warning in ('validation-only', 'material ongoing charges', 'failover/load drills', 'all ten Kafka topics', '90-day DLQ retention'):
+for warning in (
+    'validation-only', 'material ongoing charges', 'failover/load drills',
+    'all ten Kafka topics', '90-day DLQ retention', 'retained for 400 days',
+    'Viewer-IP reputation and rate limiting intentionally belong on the future CloudFront distribution',
+):
     if warning not in readme:
         raise AssertionError(f"production compute runbook is missing: {warning}")
 
