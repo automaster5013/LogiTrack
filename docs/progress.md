@@ -1,5 +1,6 @@
 # 구현 진행 현황
 
+- 서울 서비스 경보와 버지니아 엣지 경보를 분리한 KMS 암호화 SNS 토픽, 계정·리전·이름으로 제한한 CloudWatch 발행 정책, HTTPS 강제 및 두 구독의 확인 완료를 apply 성공 조건으로 둔 프로덕션 알림 Terraform 기준선을 추가합니다.
 - 프로덕션 Redis fan-out을 TLS·AUTH·저장 암호화된 2노드 Valkey Multi-AZ automatic failover로 전환할 Terraform 경계를 추가하고 write-only ephemeral token, 7일 snapshot, 로그와 CPU·eviction 경보를 CI에서 검증합니다.
 - 프로덕션 데이터 계층을 2개 AZ의 사설 subnet과 암호화된 PostgreSQL RDS Multi-AZ로 분리하고 35일 PITR, RDS 관리 비밀, TLS 강제, 삭제 방지, 최종 snapshot과 성능·로그 관측을 Terraform·CI 계약으로 고정합니다.
 - 외부 critical paging을 저장소 밖 HTTPS 비밀 URL 파일로만 주입하고 복구 알림·redirect 거부·100건 상한을 강제하는 opt-in Alertmanager 배포 경계와 CI 계약을 추가합니다.
