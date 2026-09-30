@@ -14,6 +14,7 @@ import java.util.Locale;
 @Service
 public class DailyKpiService {
     private static final int MAX_DAYS = 90;
+    private static final long PROJECTION_REFRESH_LOCK = 4_838_055_117_311_801_409L;
     private final JdbcTemplate jdbc;
 
     public DailyKpiService(JdbcTemplate jdbc) {
@@ -21,8 +22,17 @@ public class DailyKpiService {
     }
 
     @Transactional
-    public void refreshProjection() {
+    public boolean refreshProjection() {
+        var acquired = jdbc.queryForObject(
+            "SELECT pg_try_advisory_xact_lock(?)",
+            Boolean.class,
+            PROJECTION_REFRESH_LOCK
+        );
+        if (!Boolean.TRUE.equals(acquired)) {
+            return false;
+        }
         refresh(MAX_DAYS);
+        return true;
     }
 
     @Transactional(readOnly = true)

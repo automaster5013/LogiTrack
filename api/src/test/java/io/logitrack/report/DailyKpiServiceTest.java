@@ -23,11 +23,18 @@ class DailyKpiServiceTest {
     }
     @Test void scheduledRefreshCoversTheFullPublicReportRange(){
         var jdbc=mock(org.springframework.jdbc.core.JdbcTemplate.class);var service=new DailyKpiService(jdbc);
-        service.refreshProjection();
+        when(jdbc.queryForObject(anyString(),eq(Boolean.class),anyLong())).thenReturn(true);
+        assertThat(service.refreshProjection()).isTrue();
         var sql=ArgumentCaptor.forClass(String.class);
         verify(jdbc).update(sql.capture(),eq(90),eq(90));
         assertThat(sql.getValue()).contains("d.created_at >=", "LEFT JOIN LATERAL", "WHERE delivery_id = d.id");
         assertThat(sql.getValue()).doesNotContain("DISTINCT ON (delivery_id)");
+    }
+    @Test void skipsRefreshWhenAnotherReplicaOwnsTheTransactionLock(){
+        var jdbc=mock(org.springframework.jdbc.core.JdbcTemplate.class);var service=new DailyKpiService(jdbc);
+        when(jdbc.queryForObject(anyString(),eq(Boolean.class),anyLong())).thenReturn(false);
+        assertThat(service.refreshProjection()).isFalse();
+        verify(jdbc,never()).update(anyString(),any(Object[].class));
     }
     @Test
     void rendersStableUtf8CsvReport() {
