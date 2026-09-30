@@ -1,0 +1,32 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: default-operations
+  group_by: [alertname, component, severity]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - receiver: critical-paging
+      matchers: [severity="critical"]
+      repeat_interval: 30m
+    - receiver: warning-operations
+      matchers: [severity="warning"]
+      repeat_interval: 4h
+
+inhibit_rules:
+  - source_matchers: [severity="critical"]
+    target_matchers: [severity="warning"]
+    equal: [component]
+
+receivers:
+  - name: default-operations
+  - name: critical-paging
+    webhook_configs:
+      - url_file: /run/secrets/alertmanager_critical_webhook_url
+        send_resolved: true
+        max_alerts: 100
+        http_config:
+          follow_redirects: false
+  - name: warning-operations
