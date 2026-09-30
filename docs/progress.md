@@ -1,5 +1,6 @@
 # 구현 진행 현황
 
+- 프로덕션 Redis fan-out을 TLS·AUTH·저장 암호화된 2노드 Valkey Multi-AZ automatic failover로 전환할 Terraform 경계를 추가하고 write-only ephemeral token, 7일 snapshot, 로그와 CPU·eviction 경보를 CI에서 검증합니다.
 - 프로덕션 데이터 계층을 2개 AZ의 사설 subnet과 암호화된 PostgreSQL RDS Multi-AZ로 분리하고 35일 PITR, RDS 관리 비밀, TLS 강제, 삭제 방지, 최종 snapshot과 성능·로그 관측을 Terraform·CI 계약으로 고정합니다.
 - 외부 critical paging을 저장소 밖 HTTPS 비밀 URL 파일로만 주입하고 복구 알림·redirect 거부·100건 상한을 강제하는 opt-in Alertmanager 배포 경계와 CI 계약을 추가합니다.
 - 격리된 실제 Alertmanager에서 severity receiver, 동일 component inhibition, silence 생성·재시작 영속·정리를 검증하고 임시 container·volume을 항상 회수하는 CI runtime gate를 추가합니다.

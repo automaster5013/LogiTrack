@@ -62,3 +62,43 @@ variable "alarm_topic_arn" {
     error_message = "alarm_topic_arn must identify an ap-northeast-2 SNS topic."
   }
 }
+
+variable "cache_node_type" {
+  description = "Reviewed production Valkey node class."
+  type        = string
+  default     = "cache.t4g.small"
+
+  validation {
+    condition     = contains(["cache.t4g.small", "cache.t4g.medium"], var.cache_node_type)
+    error_message = "Only reviewed Graviton cache node classes are allowed."
+  }
+}
+
+variable "cache_auth_token" {
+  description = "ElastiCache AUTH token supplied only during an approved apply; never stored in state."
+  type        = string
+  sensitive   = true
+  ephemeral   = true
+
+  validation {
+    condition = (
+      can(regex("^[A-Za-z0-9!&#$^<>-]{32,128}$", var.cache_auth_token)) &&
+      can(regex("[A-Z]", var.cache_auth_token)) &&
+      can(regex("[a-z]", var.cache_auth_token)) &&
+      can(regex("[0-9]", var.cache_auth_token)) &&
+      can(regex("[!&#$^<>-]", var.cache_auth_token))
+    )
+    error_message = "cache_auth_token must be 32-128 allowed characters and include upper, lower, digit, and symbol classes."
+  }
+}
+
+variable "cache_auth_token_version" {
+  description = "Increment to send an approved write-only AUTH token rotation."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.cache_auth_token_version >= 1 && floor(var.cache_auth_token_version) == var.cache_auth_token_version
+    error_message = "cache_auth_token_version must be a positive integer."
+  }
+}

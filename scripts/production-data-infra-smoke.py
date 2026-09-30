@@ -6,6 +6,7 @@ main = (root / "main.tf").read_text(encoding="utf-8")
 variables = (root / "variables.tf").read_text(encoding="utf-8")
 versions = (root / "versions.tf").read_text(encoding="utf-8")
 readme = (root / "README.md").read_text(encoding="utf-8")
+application = Path("api/src/main/resources/application.yml").read_text(encoding="utf-8")
 
 required = (
     'count = 2',
@@ -36,6 +37,22 @@ required = (
     'resource "aws_cloudwatch_metric_alarm" "database_storage_low"',
     'treat_missing_data  = "breaching"',
     'alarm_actions       = [var.alarm_topic_arn]',
+    'resource "aws_elasticache_replication_group" "cache"',
+    'engine         = "valkey"',
+    'num_cache_clusters         = 2',
+    'multi_az_enabled           = true',
+    'automatic_failover_enabled = true',
+    'at_rest_encryption_enabled = true',
+    'transit_encryption_enabled = true',
+    'transit_encryption_mode    = "required"',
+    'auth_token_wo              = var.cache_auth_token',
+    'auth_token_wo_version      = var.cache_auth_token_version',
+    'snapshot_retention_limit = 7',
+    'resource "aws_cloudwatch_metric_alarm" "cache_cpu_high"',
+    'resource "aws_cloudwatch_metric_alarm" "cache_evictions"',
+    'metric_name         = "Evictions"',
+    'log_type         = "slow-log"',
+    'log_type         = "engine-log"',
     'name  = "rds.force_ssl"',
     'enable_key_rotation     = true',
     'deletion_window_in_days = 30',
@@ -44,8 +61,8 @@ for contract in required:
     if contract not in main:
         raise AssertionError(f"production data boundary is missing: {contract}")
 
-if main.count("prevent_destroy = true") < 2:
-    raise AssertionError("both the database and its KMS key require Terraform destroy protection")
+if main.count("prevent_destroy = true") < 5:
+    raise AssertionError("database, cache, KMS keys, and cache logs require Terraform destroy protection")
 for forbidden in (
     'resource "aws_internet_gateway"',
     'resource "aws_nat_gateway"',
@@ -53,6 +70,7 @@ for forbidden in (
     'password =',
     'cidr_ipv4',
     '0.0.0.0/0',
+    'auth_token              =',
 ):
     if forbidden in main:
         raise AssertionError(f"production data boundary contains forbidden public or secret configuration: {forbidden}")
@@ -62,6 +80,8 @@ for contract in (
     'var.vpc_cidr == "10.40.0.0/16"',
     'contains(["db.t4g.medium", "db.t4g.large"], var.db_instance_class)',
     'arn:aws:sns:ap-northeast-2:',
+    'contains(["cache.t4g.small", "cache.t4g.medium"], var.cache_node_type)',
+    'ephemeral   = true',
 ):
     if contract not in variables:
         raise AssertionError(f"production input boundary is missing: {contract}")
@@ -71,4 +91,12 @@ for warning in ("not applied automatically", "ongoing AWS charges", "restore dri
     if warning not in readme:
         raise AssertionError(f"production apply guardrail documentation is missing: {warning}")
 
-print("PASS: production PostgreSQL is private, Multi-AZ, encrypted, recoverable, and destroy-protected")
+for setting in (
+    'data.redis.port: ${REDIS_PORT:6379}',
+    'data.redis.password: ${REDIS_PASSWORD:}',
+    'data.redis.ssl.enabled: ${REDIS_SSL_ENABLED:false}',
+):
+    if setting not in application:
+        raise AssertionError(f"application cannot consume the production cache contract: {setting}")
+
+print("PASS: production PostgreSQL and Valkey are private, Multi-AZ, encrypted, observable, and destroy-protected")
