@@ -34,6 +34,10 @@ in_window = run(manifest, phase="apply", clock="2026-10-02T01:00:00Z")
 assert in_window.returncode == 0, in_window.stderr
 before_window = run(manifest, phase="apply", clock="2026-10-01T23:00:00Z")
 assert before_window.returncode == 1 and "inside the approved cutover window" in before_window.stderr
+after_window_rollback = run(manifest, phase="rollback", clock="2026-10-02T03:00:00Z")
+assert after_window_rollback.returncode == 0, after_window_rollback.stderr
+stale_rollback = run(manifest, phase="rollback", clock="2026-10-03T03:00:00Z")
+assert stale_rollback.returncode == 1 and "24 hours" in stale_rollback.stderr
 for mutate in ("destructive", "unconfirmed", "stale"):
     invalid = deepcopy(manifest)
     if mutate == "destructive": invalid["terraform_plans"]["production-data"]["destructive_changes"] = True

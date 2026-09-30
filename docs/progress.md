@@ -1,5 +1,6 @@
 # 구현 진행 현황
 
+- 승인 manifest의 정량 trigger·운영자·HTTPS 증적에 결속된 불변 rollback receipt를 만들고, 선언 즉시 추가 Terraform apply·post-apply 검증·cutover 완료 경로를 모두 차단하는 rollback fence를 추가합니다.
 - 일곱 프로덕션 Terraform root의 ledger와 개별 검증 receipt 무결성을 공개 production runtime revision·TLS·보안 헤더 상태와 결합해 저장소 밖의 불변 cutover completion receipt로 확정하는 종단 게이트를 추가합니다.
 - 프로덕션 Terraform root별 apply 직후 실제 AWS 상태와 핵심 출력을 검증해 저장소 밖 receipt를 생성하고, 검증 receipt가 없는 이전 root 뒤에는 다음 apply를 차단하는 단계별 cutover 게이트를 추가합니다.
 - 승인된 변경 창 안에서만 cutover manifest·sanitized evidence·복호화 plan의 revision과 SHA-256을 다시 대조하고, 7개 root 적용 순서·깨끗한 main checkout·명시적 confirmation을 강제하며 Terraform 성공 후에만 외부 ledger를 원자적으로 전진시키는 operator-side apply guard를 추가합니다.

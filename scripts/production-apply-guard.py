@@ -40,6 +40,8 @@ def validate_ledger(path: Path, revision: str) -> tuple[dict, str]:
     if not path.exists():
         return {"schema_version": 1, "revision": revision, "completed": []}, ORDER[0]
     ledger = load_object(path, "apply ledger")
+    if ledger.get("rollback"):
+        raise ValueError("rollback fence is active; no further production apply is allowed")
     if ledger.get("schema_version") != 1 or ledger.get("revision") != revision:
         raise ValueError("apply ledger schema or revision does not match")
     completed = ledger.get("completed")

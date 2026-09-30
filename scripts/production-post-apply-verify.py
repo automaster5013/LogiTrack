@@ -191,6 +191,8 @@ def main() -> int:
         if args.snapshot and (args.revision != "a" * 40 or args.account_id != "123456789012"):
             raise ValueError("test snapshots are restricted to the fixed smoke-test identity")
         ledger = load(args.ledger, "apply ledger")
+        if ledger.get("rollback"):
+            raise ValueError("rollback fence is active; post-apply verification cannot advance the cutover")
         completed = ledger.get("completed")
         if ledger.get("schema_version") != 1 or ledger.get("revision") != args.revision or not isinstance(completed, list) or not completed:
             raise ValueError("apply ledger schema, revision, or entries are invalid")

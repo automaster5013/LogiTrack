@@ -68,6 +68,8 @@ def validate(manifest: dict, revision: str, now: datetime, phase: str = "prepare
         raise ValueError("cutover window must start within 30 days")
     if phase == "apply" and not start <= now <= end:
         raise ValueError("current time must be inside the approved cutover window")
+    if phase == "rollback" and not start <= now <= end + timedelta(hours=24):
+        raise ValueError("rollback declaration must occur by 24 hours after the approved cutover window")
 
     plans = manifest.get("terraform_plans")
     if not isinstance(plans, dict) or set(plans) != ROOTS:
@@ -78,7 +80,8 @@ def validate(manifest: dict, revision: str, now: datetime, phase: str = "prepare
         if plan.get("destructive_changes") is not False:
             raise ValueError(f"{root} plan contains or does not explicitly exclude destructive changes")
         planned_at = timestamp(plan.get("planned_at"), f"{root}.planned_at")
-        if planned_at > now or now - planned_at > timedelta(hours=24):
+        plan_reference = end if phase == "rollback" else now
+        if planned_at > plan_reference or plan_reference - planned_at > timedelta(hours=24):
             raise ValueError(f"{root} plan must be generated within 24 hours")
 
     readiness = manifest.get("readiness", {})
@@ -123,7 +126,7 @@ def main() -> int:
     parser.add_argument("manifest", type=Path)
     parser.add_argument("--revision", required=True)
     parser.add_argument("--now", help="RFC3339 clock override for deterministic verification")
-    parser.add_argument("--phase", choices=("prepare", "apply"), default="prepare")
+    parser.add_argument("--phase", choices=("prepare", "apply", "rollback"), default="prepare")
     args = parser.parse_args()
     try:
         payload = json.loads(args.manifest.read_text(encoding="utf-8"))
