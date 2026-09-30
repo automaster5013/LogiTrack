@@ -27,8 +27,13 @@ for contract in (
     'values   = ["false"]',
     'actions   = ["s3:GetObject", "s3:PutObject"]',
     'actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]',
-    'resources = [local.lock_object_arn]',
+    'resources = local.state_object_arns',
+    'resources = local.lock_object_arns',
     'resource "aws_iam_policy" "backend_access"',
+    'resource "aws_iam_role" "production_plan"',
+    'policy_arn = "arn:aws:iam::aws:policy/job-function/ViewOnlyAccess"',
+    'actions = ["sts:AssumeRoleWithWebIdentity"]',
+    ':environment:production-plan',
 ):
     if contract not in main:
         raise AssertionError(f"production state boundary is missing: {contract}")
@@ -40,14 +45,11 @@ for forbidden in ('acl = "public', '0.0.0.0/0', 'dynamodb_table'):
     if forbidden in main or forbidden in data_versions:
         raise AssertionError(f"production state boundary contains forbidden configuration: {forbidden}")
 
-for contract in (
-    'var.aws_region == "ap-northeast-2"',
-    'var.state_key == "production/data/terraform.tfstate"',
-):
+for contract in ('var.aws_region == "ap-northeast-2"',):
     if contract not in variables:
         raise AssertionError(f"production state input boundary is missing: {contract}")
 
-for contract in ('kms_key_id', 'use_lockfile = true', 'backend_access_policy_arn'):
+for contract in ('kms_key_id', 'use_lockfile = true', 'backend_access_policy_arn', 'backend_configs', 'production_plan_role_arn'):
     if contract not in outputs and contract not in data_versions:
         raise AssertionError(f"backend handoff is missing: {contract}")
 
@@ -59,6 +61,20 @@ for contract in (
 ):
     if contract not in data_versions:
         raise AssertionError(f"production data backend is missing: {contract}")
+
+state_keys = {
+    "production/alerting/terraform.tfstate",
+    "production/audit/terraform.tfstate",
+    "production/certificates/terraform.tfstate",
+    "production/compute/terraform.tfstate",
+    "production/data/terraform.tfstate",
+    "production/edge/terraform.tfstate",
+}
+for key in state_keys:
+    if f'"{key}"' not in main:
+        raise AssertionError(f"production state policy is missing exact root key: {key}")
+if 'terraform.tfstate*' in main or 'production/*' in main:
+    raise AssertionError("production state access must not use prefix-wide wildcards")
 
 for warning in ("billable AWS resources", "Never use", "Verify a state version"):
     if warning not in readme:

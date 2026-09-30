@@ -1,10 +1,19 @@
 data "aws_caller_identity" "current" {}
+data "aws_iam_openid_connect_provider" "github" { url = "https://token.actions.githubusercontent.com" }
 
 locals {
   state_bucket_name = "logitrack-production-tfstate-${data.aws_caller_identity.current.account_id}"
   audit_bucket_name = "logitrack-production-tfstate-audit-${data.aws_caller_identity.current.account_id}"
-  state_object_arn  = "arn:aws:s3:::${local.state_bucket_name}/${var.state_key}"
-  lock_object_arn   = "${local.state_object_arn}.tflock"
+  state_keys = toset([
+    "production/alerting/terraform.tfstate",
+    "production/audit/terraform.tfstate",
+    "production/certificates/terraform.tfstate",
+    "production/compute/terraform.tfstate",
+    "production/data/terraform.tfstate",
+    "production/edge/terraform.tfstate",
+  ])
+  state_object_arns = [for key in local.state_keys : "arn:aws:s3:::${local.state_bucket_name}/${key}"]
+  lock_object_arns  = [for arn in local.state_object_arns : "${arn}.tflock"]
 }
 
 resource "aws_kms_key" "state" {
@@ -187,20 +196,20 @@ data "aws_iam_policy_document" "backend_access" {
     condition {
       test     = "StringEquals"
       variable = "s3:prefix"
-      values   = [var.state_key, "${var.state_key}.tflock"]
+      values   = concat(tolist(local.state_keys), [for key in local.state_keys : "${key}.tflock"])
     }
   }
 
   statement {
     sid       = "ReadWriteState"
     actions   = ["s3:GetObject", "s3:PutObject"]
-    resources = [local.state_object_arn]
+    resources = local.state_object_arns
   }
 
   statement {
     sid       = "ManageLockFile"
     actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
-    resources = [local.lock_object_arn]
+    resources = local.lock_object_arns
   }
 
   statement {
@@ -219,4 +228,41 @@ resource "aws_iam_policy" "backend_access" {
   name        = "LogiTrackProductionTerraformStateAccess"
   description = "Least-privilege access to the LogiTrack production Terraform state and lock file"
   policy      = data.aws_iam_policy_document.backend_access.json
+}
+
+data "aws_iam_policy_document" "production_plan_assume" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    principals {
+      type        = "Federated"
+      identifiers = [data.aws_iam_openid_connect_provider.github.arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${var.github_owner}@${var.github_owner_id}/${var.github_repository}@${var.github_repository_id}:environment:production-plan"]
+    }
+  }
+}
+
+resource "aws_iam_role" "production_plan" {
+  name                 = "logitrack-production-terraform-plan"
+  description          = "Read-only production planning from the protected GitHub environment"
+  assume_role_policy   = data.aws_iam_policy_document.production_plan_assume.json
+  max_session_duration = 3600
+}
+
+resource "aws_iam_role_policy_attachment" "production_plan_view_only" {
+  role       = aws_iam_role.production_plan.name
+  policy_arn = "arn:aws:iam::aws:policy/job-function/ViewOnlyAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "production_plan_state" {
+  role       = aws_iam_role.production_plan.name
+  policy_arn = aws_iam_policy.backend_access.arn
 }
