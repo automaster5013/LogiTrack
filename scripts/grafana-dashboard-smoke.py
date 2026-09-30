@@ -79,15 +79,15 @@ if not any(link.get("url", "").endswith("docs/alert-runbooks.md") for link in tr
     raise AssertionError("alert triage dashboard does not link to the incident runbooks")
 
 triage_panels = triage_dashboard.get("panels", [])
-if len(triage_panels) != 8 or len({panel.get("id") for panel in triage_panels}) != len(triage_panels):
-    raise AssertionError("alert triage dashboard must contain eight uniquely identified panels")
+if len(triage_panels) != 10 or len({panel.get("id") for panel in triage_panels}) != len(triage_panels):
+    raise AssertionError("alert triage dashboard must contain ten uniquely identified panels")
 triage_expressions = {
     target["expr"]
     for panel in triage_panels
     for target in panel.get("targets", [])
     if "expr" in target
 }
-for required in ('severity="critical"', 'severity="warning"', "component", 'alertstate="pending"', 'alertstate="firing"', "prometheus_rule_evaluation_failures_total"):
+for required in ('severity="critical"', 'severity="warning"', "component", 'alertstate="pending"', 'alertstate="firing"', "prometheus_rule_evaluation_failures_total", 'job="logitrack-alertmanager"', "prometheus_notifications_errors_total", "prometheus_notifications_dropped_total"):
     if not any(required in expression for expression in triage_expressions):
         raise AssertionError(f"alert triage dashboard does not query {required}")
 for panel in triage_panels:

@@ -15,10 +15,10 @@ alerts = [
     for rule in group.get("rules", [])
     if "alert" in rule
 ]
-if len(alerts) != 19 or len({rule["alert"] for rule in alerts}) != len(alerts):
-    raise AssertionError("expected 19 uniquely named Prometheus alerts")
+if len(alerts) != 22 or len({rule["alert"] for rule in alerts}) != len(alerts):
+    raise AssertionError("expected 22 uniquely named Prometheus alerts")
 
-expected_components = {"api", "demo", "outbox", "recovery", "reporting", "retention", "routing", "telemetry"}
+expected_components = {"alerting", "api", "demo", "outbox", "recovery", "reporting", "retention", "routing", "telemetry"}
 actual_components = {rule.get("labels", {}).get("component") for rule in alerts}
 if actual_components != expected_components:
     raise AssertionError(f"alert component taxonomy drifted: {sorted(actual_components)}")
@@ -49,4 +49,4 @@ for rule in alerts:
         if required_step not in section:
             raise AssertionError(f"{name} runbook is missing {required_step}")
 
-print("PASS: all 19 Prometheus alerts have routable components and complete, stable incident runbooks")
+print("PASS: all 22 Prometheus alerts have routable components and complete, stable incident runbooks")

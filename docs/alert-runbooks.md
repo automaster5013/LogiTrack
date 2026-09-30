@@ -14,6 +14,27 @@ docker compose logs --since 15m api
 
 공개 staging 장애에서는 `https://www.logitrack.kr/api/runtime-version`의 revision을 GitHub `main` 및 최근 배포 SHA와 먼저 대조한다. 경보가 복구돼도 원인을 확인하지 못했거나 반복되면 사건을 종료하지 않는다.
 
+## LogiTrackAlertmanagerDown
+
+- 영향: 경보 그룹화, inhibition, silence와 후속 receiver 처리가 중단되거나 상태를 확인할 수 없다.
+- 즉시 조치: Alertmanager container health, 로그, volume mount와 `/-/ready`를 확인한다. Prometheus의 active Alertmanager 목록도 대조한다.
+- 진단: OOM·disk pressure, 손상된 silence state, 설정 parse 오류와 observability network 연결을 확인한다.
+- 종료 기준: Alertmanager readiness와 Prometheus scrape가 연속 성공하고 active Alertmanager가 정확히 한 개다. 5분 안에 복구되지 않으면 critical incident로 에스컬레이션한다.
+
+## LogiTrackAlertmanagerConfigReloadFailing
+
+- 영향: 실행 중인 routing 정책이 저장소의 기대 구성보다 오래되어 새 분류·억제 규칙이 적용되지 않는다.
+- 즉시 조치: `amtool check-config infra/alertmanager.yml`을 실행하고 Alertmanager reload 로그를 보존한다.
+- 진단: YAML 문법, matcher, receiver 이름, interval과 mounted file 권한을 확인한다.
+- 종료 기준: 검증된 구성을 적용한 뒤 `alertmanager_config_last_reload_successful`이 1이며 실제 route API가 기대 정책을 반환한다.
+
+## LogiTrackAlertDeliveryFailing
+
+- 영향: Prometheus에서 발생한 경보가 Alertmanager에 도달하지 않아 triage와 silence lifecycle에서 누락될 수 있다.
+- 즉시 조치: Prometheus와 Alertmanager readiness, active endpoint 목록, notification error·dropped counter를 확인한다.
+- 진단: observability network, Alertmanager API 응답, queue capacity, 재시작과 timeout 로그를 확인한다.
+- 종료 기준: 테스트 경보가 Alertmanager에 나타나고 error·dropped counter 증가가 멈춘다. critical 경보가 전달되지 않으면 즉시 별도 채널로 에스컬레이션한다.
+
 ## LogiTrackApiErrorBudgetFastBurn
 
 - 영향: 99.9% 가용성 오류 예산이 빠르게 소진되어 약 2일 안에 월간 예산을 모두 사용할 위험이 있다.
