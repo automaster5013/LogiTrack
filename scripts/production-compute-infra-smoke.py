@@ -15,6 +15,8 @@ for contract in (
     'deployment_minimum_healthy_percent = 100', 'rollback = true', 'assign_public_ip = false',
     'readonlyRootFilesystem = true', 'var.api_image', 'var.analytics_image', 'var.web_image',
     ':username::', ':password::', ':jaas_config::', 'min_capacity', 'max_capacity',
+    'name  = "KAFKA_TOPIC_REPLICATION_FACTOR"', 'value = "3"',
+    'name  = "KAFKA_TOPIC_MIN_IN_SYNC_REPLICAS"', 'value = "2"',
     'metric_name         = "UnHealthyHostCount"', 'treat_missing_data  = "breaching"',
 ):
     if contract not in main:
@@ -32,7 +34,7 @@ for contract in ('production/compute/terraform.tfstate', 'encrypt      = true', 
     if contract not in versions:
         raise AssertionError(f"production compute backend is missing: {contract}")
 
-for warning in ('validation-only', 'material ongoing charges', 'failover/load drills'):
+for warning in ('validation-only', 'material ongoing charges', 'failover/load drills', 'all ten Kafka topics', '90-day DLQ retention'):
     if warning not in readme:
         raise AssertionError(f"production compute runbook is missing: {warning}")
 
