@@ -2,9 +2,11 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
+data "aws_caller_identity" "current" {}
+
 locals {
-  availability_zones = slice(data.aws_availability_zones.available.names, 0, 2)
-  private_cidrs      = ["10.40.10.0/24", "10.40.20.0/24"]
+  availability_zones = slice(data.aws_availability_zones.available.names, 0, 3)
+  private_cidrs      = ["10.40.10.0/24", "10.40.20.0/24", "10.40.30.0/24"]
 }
 
 resource "aws_vpc" "production" {
@@ -16,7 +18,7 @@ resource "aws_vpc" "production" {
 }
 
 resource "aws_subnet" "data" {
-  count = 2
+  count = 3
 
   vpc_id                  = aws_vpc.production.id
   availability_zone       = local.availability_zones[count.index]
@@ -32,7 +34,7 @@ resource "aws_route_table" "data" {
 }
 
 resource "aws_route_table_association" "data" {
-  count = 2
+  count = 3
 
   subnet_id      = aws_subnet.data[count.index].id
   route_table_id = aws_route_table.data.id
@@ -97,6 +99,31 @@ resource "aws_vpc_security_group_ingress_rule" "cache_from_application" {
   ip_protocol                  = "tcp"
 }
 
+resource "aws_security_group" "kafka" {
+  name        = "${var.name}-kafka"
+  description = "MSK TLS and SCRAM only from the production application tier"
+  vpc_id      = aws_vpc.production.id
+  tags        = { Name = "${var.name}-kafka" }
+}
+
+resource "aws_vpc_security_group_egress_rule" "application_to_kafka" {
+  security_group_id            = aws_security_group.application.id
+  referenced_security_group_id = aws_security_group.kafka.id
+  description                  = "MSK SASL SCRAM over TLS only"
+  from_port                    = 9096
+  to_port                      = 9096
+  ip_protocol                  = "tcp"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "kafka_from_application" {
+  security_group_id            = aws_security_group.kafka.id
+  referenced_security_group_id = aws_security_group.application.id
+  description                  = "MSK SASL SCRAM over TLS from application security group"
+  from_port                    = 9096
+  to_port                      = 9096
+  ip_protocol                  = "tcp"
+}
+
 resource "aws_db_subnet_group" "production" {
   name       = var.name
   subnet_ids = aws_subnet.data[*].id
@@ -127,6 +154,208 @@ resource "aws_kms_key" "cache" {
 resource "aws_kms_alias" "cache" {
   name          = "alias/${var.name}-cache"
   target_key_id = aws_kms_key.cache.key_id
+}
+
+data "aws_iam_policy_document" "kafka_kms" {
+  statement {
+    sid       = "AccountAdministration"
+    actions   = ["kms:*"]
+    resources = ["*"]
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+  }
+
+  statement {
+    sid = "CloudWatchLogsEncryption"
+    actions = [
+      "kms:Decrypt",
+      "kms:DescribeKey",
+      "kms:Encrypt",
+      "kms:GenerateDataKey*",
+      "kms:ReEncrypt*",
+    ]
+    resources = ["*"]
+    principals {
+      type        = "Service"
+      identifiers = ["logs.${var.aws_region}.amazonaws.com"]
+    }
+    condition {
+      test     = "ArnLike"
+      variable = "kms:EncryptionContext:aws:logs:arn"
+      values   = ["arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/msk/${var.name}/*"]
+    }
+  }
+}
+
+resource "aws_kms_key" "kafka" {
+  description             = "LogiTrack production MSK data, logs, and SCRAM secret"
+  enable_key_rotation     = true
+  deletion_window_in_days = 30
+  policy                  = data.aws_iam_policy_document.kafka_kms.json
+
+  lifecycle { prevent_destroy = true }
+}
+
+resource "aws_kms_alias" "kafka" {
+  name          = "alias/${var.name}-kafka"
+  target_key_id = aws_kms_key.kafka.key_id
+}
+
+resource "aws_cloudwatch_log_group" "kafka" {
+  name              = "/aws/msk/${var.name}/broker"
+  retention_in_days = 30
+  kms_key_id        = aws_kms_key.kafka.arn
+
+  lifecycle { prevent_destroy = true }
+}
+
+resource "aws_msk_configuration" "kafka" {
+  name              = "${var.name}-durability"
+  kafka_versions    = [var.kafka_version]
+  server_properties = <<-PROPERTIES
+    auto.create.topics.enable=false
+    default.replication.factor=3
+    min.insync.replicas=2
+    num.partitions=3
+    unclean.leader.election.enable=false
+  PROPERTIES
+}
+
+resource "aws_secretsmanager_secret" "kafka_scram" {
+  name                    = "AmazonMSK_${replace(var.name, "-", "_")}_scram"
+  description             = "LogiTrack production MSK SCRAM credential"
+  kms_key_id              = aws_kms_key.kafka.arn
+  recovery_window_in_days = 30
+
+  lifecycle { prevent_destroy = true }
+}
+
+resource "aws_secretsmanager_secret_version" "kafka_scram" {
+  secret_id                = aws_secretsmanager_secret.kafka_scram.id
+  secret_string_wo         = jsonencode({ username = var.kafka_scram_username, password = var.kafka_scram_password })
+  secret_string_wo_version = var.kafka_scram_secret_version
+}
+
+resource "aws_msk_cluster" "kafka" {
+  cluster_name           = "${var.name}-events"
+  kafka_version          = var.kafka_version
+  number_of_broker_nodes = 3
+
+  broker_node_group_info {
+    client_subnets  = aws_subnet.data[*].id
+    instance_type   = var.kafka_instance_type
+    security_groups = [aws_security_group.kafka.id]
+
+    connectivity_info {
+      public_access { type = "DISABLED" }
+    }
+
+    storage_info {
+      ebs_storage_info { volume_size = 100 }
+    }
+  }
+
+  client_authentication {
+    sasl { scram = true }
+    unauthenticated = false
+  }
+
+  encryption_info {
+    encryption_at_rest_kms_key_arn = aws_kms_key.kafka.arn
+    encryption_in_transit {
+      client_broker = "TLS"
+      in_cluster    = true
+    }
+  }
+
+  configuration_info {
+    arn      = aws_msk_configuration.kafka.arn
+    revision = aws_msk_configuration.kafka.latest_revision
+  }
+
+  enhanced_monitoring = "PER_BROKER"
+
+  open_monitoring {
+    prometheus {
+      jmx_exporter { enabled_in_broker = true }
+      node_exporter { enabled_in_broker = true }
+    }
+  }
+
+  logging_info {
+    broker_logs {
+      cloudwatch_logs {
+        enabled   = true
+        log_group = aws_cloudwatch_log_group.kafka.name
+      }
+    }
+  }
+
+  lifecycle { prevent_destroy = true }
+}
+
+resource "aws_msk_scram_secret_association" "kafka" {
+  cluster_arn     = aws_msk_cluster.kafka.arn
+  secret_arn_list = [aws_secretsmanager_secret.kafka_scram.arn]
+}
+
+resource "aws_cloudwatch_metric_alarm" "kafka_under_replicated" {
+  for_each = toset(["1", "2", "3"])
+
+  alarm_name          = "${var.name}-kafka-${each.value}-under-min-isr"
+  namespace           = "AWS/Kafka"
+  metric_name         = "UnderMinIsrPartitionCount"
+  statistic           = "Average"
+  period              = 60
+  evaluation_periods  = 3
+  datapoints_to_alarm = 3
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  threshold           = 1
+  treat_missing_data  = "breaching"
+  alarm_actions       = [var.alarm_topic_arn]
+  ok_actions          = [var.alarm_topic_arn]
+  dimensions = {
+    "Cluster Name" = aws_msk_cluster.kafka.cluster_name
+    "Broker ID"    = each.value
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "kafka_offline_partitions" {
+  alarm_name          = "${var.name}-kafka-offline-partitions"
+  namespace           = "AWS/Kafka"
+  metric_name         = "OfflinePartitionsCount"
+  statistic           = "Maximum"
+  period              = 60
+  evaluation_periods  = 1
+  comparison_operator = "GreaterThanThreshold"
+  threshold           = 0
+  treat_missing_data  = "breaching"
+  alarm_actions       = [var.alarm_topic_arn]
+  ok_actions          = [var.alarm_topic_arn]
+  dimensions          = { "Cluster Name" = aws_msk_cluster.kafka.cluster_name }
+}
+
+resource "aws_cloudwatch_metric_alarm" "kafka_disk_high" {
+  for_each = toset(["1", "2", "3"])
+
+  alarm_name          = "${var.name}-kafka-${each.value}-disk-high"
+  namespace           = "AWS/Kafka"
+  metric_name         = "KafkaDataLogsDiskUsed"
+  statistic           = "Maximum"
+  period              = 300
+  evaluation_periods  = 3
+  datapoints_to_alarm = 2
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  threshold           = 80
+  treat_missing_data  = "breaching"
+  alarm_actions       = [var.alarm_topic_arn]
+  ok_actions          = [var.alarm_topic_arn]
+  dimensions = {
+    "Cluster Name" = aws_msk_cluster.kafka.cluster_name
+    "Broker ID"    = each.value
+  }
 }
 
 resource "aws_elasticache_subnet_group" "production" {

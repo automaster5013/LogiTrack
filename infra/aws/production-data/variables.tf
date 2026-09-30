@@ -102,3 +102,66 @@ variable "cache_auth_token_version" {
     error_message = "cache_auth_token_version must be a positive integer."
   }
 }
+
+variable "kafka_instance_type" {
+  description = "Reviewed production MSK broker class."
+  type        = string
+  default     = "kafka.m7g.large"
+
+  validation {
+    condition     = contains(["kafka.m7g.large", "kafka.m7g.xlarge"], var.kafka_instance_type)
+    error_message = "Only reviewed Graviton MSK broker classes are allowed."
+  }
+}
+
+variable "kafka_version" {
+  description = "Reviewed Amazon MSK Kafka version."
+  type        = string
+  default     = "3.9.x"
+
+  validation {
+    condition     = var.kafka_version == "3.9.x"
+    error_message = "Production must remain on the reviewed MSK Kafka 3.9 release line."
+  }
+}
+
+variable "kafka_scram_username" {
+  description = "MSK SCRAM username supplied only during an approved apply."
+  type        = string
+  sensitive   = true
+  ephemeral   = true
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9._-]{3,64}$", var.kafka_scram_username))
+    error_message = "kafka_scram_username must be 3-64 safe identifier characters."
+  }
+}
+
+variable "kafka_scram_password" {
+  description = "MSK SCRAM password supplied only during an approved apply; never stored in state."
+  type        = string
+  sensitive   = true
+  ephemeral   = true
+
+  validation {
+    condition = (
+      can(regex("^[A-Za-z0-9!#$%&*+,-./:;<=>?@^_`{|}~]{32,128}$", var.kafka_scram_password)) &&
+      can(regex("[A-Z]", var.kafka_scram_password)) &&
+      can(regex("[a-z]", var.kafka_scram_password)) &&
+      can(regex("[0-9]", var.kafka_scram_password)) &&
+      can(regex("[!#$%&*+,-./:;<=>?@^_`{|}~]", var.kafka_scram_password))
+    )
+    error_message = "kafka_scram_password must be 32-128 allowed characters and include upper, lower, digit, and symbol classes."
+  }
+}
+
+variable "kafka_scram_secret_version" {
+  description = "Increment to send an approved write-only MSK SCRAM credential rotation."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.kafka_scram_secret_version >= 1 && floor(var.kafka_scram_secret_version) == var.kafka_scram_secret_version
+    error_message = "kafka_scram_secret_version must be a positive integer."
+  }
+}
