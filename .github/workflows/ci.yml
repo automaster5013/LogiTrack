@@ -168,6 +168,10 @@ jobs:
           terraform -chdir=infra/aws/production-compute fmt -check
           terraform -chdir=infra/aws/production-compute init -backend=false -input=false
           terraform -chdir=infra/aws/production-compute validate
+          python scripts/production-edge-infra-smoke.py
+          terraform -chdir=infra/aws/production-edge fmt -check
+          terraform -chdir=infra/aws/production-edge init -backend=false -input=false
+          terraform -chdir=infra/aws/production-edge validate
       - name: Validate Docker build contexts
         run: python scripts/docker-context-smoke.py
       - name: Verify PostgreSQL backup and restore round trip
