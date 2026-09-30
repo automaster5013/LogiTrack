@@ -37,3 +37,13 @@ python scripts/production-post-apply-verify.py --root state --revision <main-sha
 ```
 
 검증기는 활성 AWS 계정을 확인하고 root별 핵심 상태를 읽는다. 원격 state 보호, 확인된 paging 구독, CloudTrail·Object Lock, 인증서 만료 여유, RDS·Valkey·MSK 가용성, ECS rollout·target health, CloudFront·WAF 연결이 모두 정상일 때만 receipt SHA-256과 검증 시각을 ledger에 원자적으로 기록한다. apply guard는 직전 root에 이 receipt가 없으면 다음 root 적용을 거부한다. 실패 시 다음 root로 진행하지 말고 원인을 복구하거나 rollback 기준에 따라 중단한다. plan을 재생성하거나 manifest를 수정했다면 기존 ledger를 재사용하지 말고 전체 승인을 다시 받는다.
+
+## Cutover 완료 증적
+
+일곱 root가 모두 적용·검증되고 DNS 전환이 끝난 뒤 최종 완료 게이트를 실행한다. `--receipt-dir`에는 앞 단계에서 만든 `production-<root>-verification.json` 일곱 개가 있어야 하며 완료 receipt도 저장소 밖에 보존한다.
+
+```powershell
+python scripts/production-cutover-complete.py --manifest <manifest.json> --ledger <vault-path/apply-ledger.json> --receipt-dir <vault-path/root-receipts> --completion-receipt <vault-path/cutover-completion.json> --revision <main-sha> --account-id <12-digit-aws-account-id>
+```
+
+게이트는 승인 변경 창이 아직 유효하고 manifest digest가 ledger와 일치하는지, ledger가 정확한 순서로 완결됐는지, 모든 root receipt의 SHA-256·revision·AWS 계정·plan·manifest·검증 시각이 ledger와 일치하는지 확인한다. 이어서 TLS 1.2 이상의 공개 `www.logitrack.kr`에서 production runtime revision, 최근 build, 비캐시 JSON metadata, 브랜드 응답과 HSTS·CSP를 확인한 뒤에만 불변 completion receipt를 만든다. 이 명령이 성공하기 전에는 변경 티켓을 완료 처리하지 않는다.
