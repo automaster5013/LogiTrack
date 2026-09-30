@@ -60,6 +60,8 @@ HTTP 요청은 100ms, 250ms, 500ms, 1s, 2s, 5s SLO bucket으로 집계한다. �
 
 외부 API 가용성 SLO는 30일 기준 99.9%로 정의하며 actuator 자체 점검 요청은 계산에서 제외한다. Prometheus는 5분·30분·1시간·6시간의 5xx 비율을 recording rule로 계산한다. 5분과 1시간 창이 동시에 오류 예산의 14.4배 속도로 소진되면 `LogiTrackApiErrorBudgetFastBurn` critical, 30분과 6시간 창이 동시에 6배 속도로 소진되면 `LogiTrackApiErrorBudgetSlowBurn` warning을 발생시킨다. 짧은 일시 오류와 장기 저강도 회귀를 분리하면서 단일 창의 순간 노이즈만으로 호출하지 않는다.
 
+Grafana의 `LogiTrack API Availability SLO` 대시보드는 30일 가용성, 남은 오류 예산, 비점검 요청 처리량, 빠른·느린 소진 경보 상태와 네 시간창의 burn rate를 함께 제공한다. 파일 provisioning으로 읽기 전용 배포되며 30초마다 갱신된다.
+
 배송·주문·텔레메트리 좌표는 위도 -90~90, 경도 -180~180 범위의 유한 실수만 허용하고 텔레메트리 진행률은 0~1로 제한한다. `NaN`, 무한대, 범위 밖 값은 도메인 검증에서 거부하며 PostgreSQL CHECK 제약이 저장 경로도 이중 방어한다.
 
 Kafka 텔레메트리는 `eventType=vehicle.telemetry.v1`, 정수 `schemaVersion=1`, 배송과 일치하는 `vehicleId`, JSON number 좌표·진행률, 발생 시각을 요구한다. 문자열 숫자나 지원하지 않는 계약 버전은 정상 이벤트로 강제 변환하지 않고 재시도 후 DLQ로 격리한다. 발생 시각의 미래 허용 오차는 기본 5분이며 `TELEMETRY_MAX_FUTURE_SKEW`로 조정한다.

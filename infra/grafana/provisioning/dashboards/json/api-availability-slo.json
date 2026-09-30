@@ -1,0 +1,86 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "orange", "value": 99}, {"color": "green", "value": 99.9}]}, "unit": "percent"}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showPercentChange": false, "textMode": "auto", "wideLayout": true},
+      "targets": [{"editorMode": "code", "expr": "100 * (1 - sum(increase(http_server_requests_seconds_count{application=\"logitrack-control-api\",status=~\"5..\",uri!~\"/actuator.*\"}[30d])) / clamp_min(sum(increase(http_server_requests_seconds_count{application=\"logitrack-control-api\",uri!~\"/actuator.*\"}[30d])), 1))", "legendFormat": "availability", "range": true, "refId": "A"}],
+      "title": "30일 API 가용성",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [], "max": 100, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "orange", "value": 25}, {"color": "green", "value": 50}]}, "unit": "percent"}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showPercentChange": false, "textMode": "auto", "wideLayout": true},
+      "targets": [{"editorMode": "code", "expr": "clamp_max(clamp_min(100 * (0.001 - sum(increase(http_server_requests_seconds_count{application=\"logitrack-control-api\",status=~\"5..\",uri!~\"/actuator.*\"}[30d])) / clamp_min(sum(increase(http_server_requests_seconds_count{application=\"logitrack-control-api\",uri!~\"/actuator.*\"}[30d])), 1)) / 0.001, 100), 0)", "legendFormat": "remaining", "range": true, "refId": "A"}],
+      "title": "남은 30일 오류 예산",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 0},
+      "id": 3,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showPercentChange": false, "textMode": "auto", "wideLayout": true},
+      "targets": [{"editorMode": "code", "expr": "sum(rate(http_server_requests_seconds_count{application=\"logitrack-control-api\",uri!~\"/actuator.*\"}[5m]))", "legendFormat": "requests", "range": true, "refId": "A"}],
+      "title": "최근 요청 처리량",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [{"options": {"0": {"color": "green", "index": 0, "text": "정상"}, "1": {"color": "red", "index": 1, "text": "오류 예산 소진"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 0},
+      "id": 4,
+      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showPercentChange": false, "textMode": "auto", "wideLayout": true},
+      "targets": [{"editorMode": "code", "expr": "max(ALERTS{alertname=~\"LogiTrackApiErrorBudget(Fast|Slow)Burn\",alertstate=\"firing\"}) or vector(0)", "legendFormat": "alert", "range": true, "refId": "A"}],
+      "title": "SLO 경보 상태",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "오류 예산 소진 배수", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 12, "gradientMode": "none", "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": {"type": "log", "log": 2}, "showPoints": "never", "spanNulls": false, "stacking": {"group": "A", "mode": "none"}, "thresholdsStyle": {"mode": "line"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 6}, {"color": "red", "value": 14.4}]}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 9, "w": 16, "x": 0, "y": 5},
+      "id": 5,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"hideZeros": false, "mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"editorMode": "code", "expr": "logitrack_api:slo_request_error_ratio:rate5m / 0.001", "legendFormat": "5분", "range": true, "refId": "A"},
+        {"editorMode": "code", "expr": "logitrack_api:slo_request_error_ratio:rate30m / 0.001", "legendFormat": "30분", "range": true, "refId": "B"},
+        {"editorMode": "code", "expr": "logitrack_api:slo_request_error_ratio:rate1h / 0.001", "legendFormat": "1시간", "range": true, "refId": "C"},
+        {"editorMode": "code", "expr": "logitrack_api:slo_request_error_ratio:rate6h / 0.001", "legendFormat": "6시간", "range": true, "refId": "D"}
+      ],
+      "title": "API 오류 예산 Burn Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "오류율", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 12, "gradientMode": "none", "hideFrom": {"legend": false, "tooltip": false, "viz": false}, "insertNulls": false, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "spanNulls": false, "stacking": {"group": "A", "mode": "none"}, "thresholdsStyle": {"mode": "line"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 0.001}]}, "unit": "percentunit"}, "overrides": []},
+      "gridPos": {"h": 9, "w": 8, "x": 16, "y": 5},
+      "id": 6,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"hideZeros": false, "mode": "multi", "sort": "desc"}},
+      "targets": [{"editorMode": "code", "expr": "logitrack_api:slo_request_error_ratio:rate5m", "legendFormat": "5분 오류율", "range": true, "refId": "A"}],
+      "title": "단기 API 오류율",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["logitrack", "operations", "slo", "availability"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "LogiTrack API Availability SLO",
+  "uid": "logitrack-api-availability-slo",
+  "version": 1,
+  "weekStart": ""
+}
