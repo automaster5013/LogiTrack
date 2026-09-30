@@ -18,6 +18,10 @@ for contract in (
     'name  = "KAFKA_TOPIC_REPLICATION_FACTOR"', 'value = "3"',
     'name  = "KAFKA_TOPIC_MIN_IN_SYNC_REPLICAS"', 'value = "2"',
     'metric_name         = "UnHealthyHostCount"', 'treat_missing_data  = "breaching"',
+    'metric_name = "HTTPCode_Target_5XX_Count"', 'metric_name         = "HTTPCode_ELB_5XX_Count"',
+    'metric_name         = "TargetResponseTime"', 'extended_statistic  = "p95"',
+    'metric_name         = "RunningTaskCount"', 'namespace           = "ECS/ContainerInsights"',
+    'comparison_operator = "LessThanThreshold"', 'threshold           = 3',
 ):
     if contract not in main:
         raise AssertionError(f"production compute boundary is missing: {contract}")
