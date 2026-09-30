@@ -33,6 +33,7 @@ groups:
         annotations:
           summary: API availability error budget is burning rapidly
           description: The 99.9% API availability error budget is burning above 14.4x across both five-minute and one-hour windows.
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackapierrorbudgetfastburn
       - alert: LogiTrackApiErrorBudgetSlowBurn
         expr: |
           logitrack_api:slo_request_error_ratio:rate30m > 6 * 0.001
@@ -45,6 +46,7 @@ groups:
         annotations:
           summary: API availability error budget is burning persistently
           description: The 99.9% API availability error budget is burning above 6x across both thirty-minute and six-hour windows.
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackapierrorbudgetslowburn
 
   - name: logitrack-recovery
     rules:
@@ -56,6 +58,7 @@ groups:
         annotations:
           summary: LogiTrack API is unavailable to Prometheus
           description: The API metrics endpoint has been unreachable for at least one minute.
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackapidown
       - alert: LogiTrackRecoveryMetricRefreshFailing
         expr: increase(logitrack_recovery_metrics_refresh_failures_total[5m]) > 0
         for: 1m
@@ -64,6 +67,7 @@ groups:
         annotations:
           summary: Recovery queue metrics are stale
           description: The API could not refresh recovery queue gauges from PostgreSQL.
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackrecoverymetricrefreshfailing
       - alert: LogiTrackOutboxFailed
         expr: logitrack_outbox_backlog{status="failed"} > 0
         for: 2m
@@ -72,6 +76,7 @@ groups:
         annotations:
           summary: Transactional outbox contains failed events
           description: "{{ $value }} outbox event(s) exhausted retries and require operator recovery."
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackoutboxfailed
       - alert: LogiTrackOutboxPublisherFailing
         expr: increase(logitrack_outbox_publish_failures_total[5m]) > 0
         for: 1m
@@ -80,6 +85,7 @@ groups:
         annotations:
           summary: Transactional outbox publisher is failing
           description: "{{ $value }} outbox polling attempt(s) failed during the last five minutes."
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackoutboxpublisherfailing
       - alert: LogiTrackOutboxBacklogGrowing
         expr: logitrack_outbox_backlog{status="pending"} > 100
         for: 5m
@@ -88,6 +94,7 @@ groups:
         annotations:
           summary: Transactional outbox backlog is elevated
           description: "{{ $value }} outbox event(s) are waiting to be published."
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackoutboxbackloggrowing
       - alert: LogiTrackOutboxOldestPending
         expr: logitrack_outbox_oldest_age_seconds > 300
         for: 5m
@@ -96,6 +103,7 @@ groups:
         annotations:
           summary: An outbox event has been pending too long
           description: "The oldest pending outbox event is {{ $value }} seconds old."
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackoutboxoldestpending
       - alert: LogiTrackDeadLetterBacklog
         expr: logitrack_dlq_backlog > 0
         for: 5m
@@ -104,6 +112,7 @@ groups:
         annotations:
           summary: Telemetry dead-letter events require attention
           description: "{{ $value }} telemetry event(s) are waiting for replay."
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackdeadletterbacklog
       - alert: LogiTrackRouteAnalysisDegraded
         expr: increase(logitrack_route_analysis_total{outcome="fallback"}[5m]) > 5
         for: 1m
@@ -112,6 +121,7 @@ groups:
         annotations:
           summary: Route analysis is repeatedly using the local fallback
           description: "{{ $value }} route requests used the fallback during the last five minutes."
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackrouteanalysisdegraded
       - alert: LogiTrackPdfRenderingFailing
         expr: increase(logitrack_report_pdf_total{outcome="failure"}[10m]) > 2
         for: 1m
@@ -120,6 +130,7 @@ groups:
         annotations:
           summary: KPI PDF rendering is repeatedly failing
           description: "{{ $value }} KPI PDF requests failed during the last ten minutes."
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackpdfrenderingfailing
       - alert: LogiTrackKpiProjectionStale
         expr: |
           logitrack_kpi_projection_last_success_timestamp_seconds > 0
@@ -132,6 +143,7 @@ groups:
         annotations:
           summary: Daily KPI projection is stale
           description: The KPI projection has not completed successfully within three configured refresh intervals.
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackkpiprojectionstale
       - alert: LogiTrackApiServerErrors
         expr: sum(increase(http_server_requests_seconds_count{application="logitrack-control-api",status=~"5.."}[5m])) > 5
         for: 1m
@@ -140,6 +152,7 @@ groups:
         annotations:
           summary: LogiTrack API is returning repeated server errors
           description: "{{ $value }} API requests returned 5xx during the last five minutes."
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackapiservererrors
       - alert: LogiTrackApiLatencyHigh
         expr: histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{application="logitrack-control-api"}[5m]))) > 2
         for: 5m
@@ -148,6 +161,7 @@ groups:
         annotations:
           summary: LogiTrack API p95 latency is elevated
           description: "API p95 latency has exceeded two seconds for five minutes."
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackapilatencyhigh
       - alert: LogiTrackTelemetryConsumerLagHigh
         expr: sum(kafka_consumer_fetch_manager_records_lag{application="logitrack-control-api",topic="vehicle_telemetry_v1"}) > 100
         for: 5m
@@ -156,6 +170,7 @@ groups:
         annotations:
           summary: Telemetry consumer lag is elevated
           description: "{{ $value }} telemetry event(s) are waiting across assigned Kafka partitions."
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitracktelemetryconsumerlaghigh
       - alert: LogiTrackTelemetryConsumerMissing
         expr: absent(kafka_consumer_coordinator_assigned_partitions{application="logitrack-control-api",client_id=~"consumer-control-api-telemetry-v1-.+"})
         for: 2m
@@ -164,6 +179,7 @@ groups:
         annotations:
           summary: Telemetry consumer metrics are missing
           description: The API is reachable but telemetry consumer assignment metrics are not being exported.
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitracktelemetryconsumermissing
       - alert: LogiTrackRetentionCleanupFailing
         expr: increase(logitrack_retention_failures_total[15m]) > 0
         for: 1m
@@ -172,6 +188,7 @@ groups:
         annotations:
           summary: Retention cleanup is failing
           description: A scheduled operational data cleanup transaction failed during the last 15 minutes.
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackretentioncleanupfailing
       - alert: LogiTrackDemoCleanupFailing
         expr: |
           increase(logitrack_demo_cleanup_failures_total[15m]) > 0
@@ -191,6 +208,7 @@ groups:
         annotations:
           summary: Completed demo delivery cleanup is failing or stale
           description: The demo cleanup failed, never started, or has not completed successfully during the last 15 minutes.
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackdemocleanupfailing
       - alert: LogiTrackDemoFleetBelowTarget
         expr: |
           logitrack_demo_active_deliveries < logitrack_demo_target_deliveries
@@ -201,3 +219,4 @@ groups:
         annotations:
           summary: Live demo fleet is below its configured target
           description: Active demo vehicles remain below target or replenishment attempts are failing.
+          runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackdemofleetbelowtarget
