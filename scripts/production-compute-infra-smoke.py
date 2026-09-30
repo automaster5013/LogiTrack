@@ -5,6 +5,7 @@ main = (root / "main.tf").read_text(encoding="utf-8")
 variables = (root / "variables.tf").read_text(encoding="utf-8")
 versions = (root / "versions.tf").read_text(encoding="utf-8")
 readme = (root / "README.md").read_text(encoding="utf-8")
+outputs = (root / "outputs.tf").read_text(encoding="utf-8")
 
 for contract in (
     'count = 3', 'resource "aws_nat_gateway" "az"', 'resource "aws_vpc_endpoint" "interface"',
@@ -58,6 +59,10 @@ for contract in (
 for contract in ('production/compute/terraform.tfstate', 'encrypt      = true', 'use_lockfile = true'):
     if contract not in versions:
         raise AssertionError(f"production compute backend is missing: {contract}")
+
+for contract in ('output "load_balancer_arn"', 'output "web_target_group_arn"'):
+    if contract not in outputs:
+        raise AssertionError(f"production compute post-apply verification output is missing: {contract}")
 
 for warning in (
     'validation-only', 'material ongoing charges', 'failover/load drills',

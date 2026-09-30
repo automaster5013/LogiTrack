@@ -69,8 +69,14 @@ with tempfile.TemporaryDirectory() as directory:
     rejected_evidence = invoke("state", mismatched)
     assert rejected_evidence.returncode == 1 and "planned_at" in rejected_evidence.stderr
 
-    ledger_path.write_text(json.dumps({"schema_version": 1, "revision": revision, "completed": [{"root": "state", "revision": revision, "sha256": digest, "manifest_sha256": "b" * 64, "applied_at": "2026-10-02T00:30:00Z"}]}), encoding="utf-8")
+    ledger = {"schema_version": 1, "revision": revision, "completed": [{"root": "state", "revision": revision, "sha256": digest, "manifest_sha256": "b" * 64, "applied_at": "2026-10-02T00:30:00Z"}]}
+    ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
     alerting_evidence = {"schema_version": 1, "root": "production-alerting", **plans["production-alerting"]}
+    rejected_unverified = invoke("alerting", alerting_evidence)
+    assert rejected_unverified.returncode == 1 and "post-apply verification receipt" in rejected_unverified.stderr
+
+    ledger["completed"][0].update({"verified_at": "2026-10-02T00:40:00Z", "receipt_sha256": "c" * 64})
+    ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
     accepted_next = invoke("alerting", alerting_evidence)
     assert accepted_next.returncode == 0, accepted_next.stderr
 
@@ -81,4 +87,4 @@ assert source.index("if completed.returncode != 0:") < source.index('ledger["com
 assert '"apply", "-input=false", str(args.plan_file.resolve())' in source
 assert "write_ledger(args.ledger, ledger)" in source
 
-print("PASS: production apply guard binds manifest, evidence, plan digest, revision, window, and root order before execution")
+print("PASS: production apply guard binds evidence and order, and blocks the next root until live verification is receipted")

@@ -72,6 +72,7 @@ jobs:
         run: |
           python scripts/production-cutover-preflight-smoke.py
           python scripts/production-apply-guard-smoke.py
+          python scripts/production-post-apply-verify-smoke.py
       - name: Validate production Terraform plan evidence
         run: |
           python scripts/production-plan-evidence-smoke.py
