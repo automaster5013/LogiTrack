@@ -144,6 +144,83 @@ resource "aws_vpc_security_group_egress_rule" "app_https" {
   description       = "Cognito and contracted routing provider through per-AZ NAT"
 }
 
+resource "aws_s3_bucket" "alb_logs" {
+  bucket        = "logitrack-production-alb-logs-${data.aws_caller_identity.current.account_id}"
+  force_destroy = false
+}
+resource "aws_s3_bucket_public_access_block" "alb_logs" {
+  bucket                  = aws_s3_bucket.alb_logs.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+resource "aws_s3_bucket_ownership_controls" "alb_logs" {
+  bucket = aws_s3_bucket.alb_logs.id
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+}
+resource "aws_s3_bucket_server_side_encryption_configuration" "alb_logs" {
+  bucket = aws_s3_bucket.alb_logs.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+resource "aws_s3_bucket_versioning" "alb_logs" {
+  bucket = aws_s3_bucket.alb_logs.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+resource "aws_s3_bucket_lifecycle_configuration" "alb_logs" {
+  bucket = aws_s3_bucket.alb_logs.id
+  rule {
+    id     = "retain-audit-logs"
+    status = "Enabled"
+    filter {}
+    expiration {
+      days = 400
+    }
+    noncurrent_version_expiration {
+      noncurrent_days = 30
+    }
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
+  }
+}
+resource "aws_s3_bucket_policy" "alb_logs" {
+  bucket = aws_s3_bucket.alb_logs.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "DenyInsecureTransport"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource  = [aws_s3_bucket.alb_logs.arn, "${aws_s3_bucket.alb_logs.arn}/*"]
+        Condition = { Bool = { "aws:SecureTransport" = "false" } }
+      },
+      {
+        Sid       = "AllowAlbLogDelivery"
+        Effect    = "Allow"
+        Principal = { Service = "logdelivery.elasticloadbalancing.amazonaws.com" }
+        Action    = "s3:PutObject"
+        Resource  = "${aws_s3_bucket.alb_logs.arn}/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
+        Condition = {
+          ArnLike = {
+            "aws:SourceArn" = "arn:aws:elasticloadbalancing:${var.aws_region}:${data.aws_caller_identity.current.account_id}:loadbalancer/*"
+          }
+        }
+      }
+    ]
+  })
+}
+
 resource "aws_lb" "edge" {
   name                       = "logitrack-production"
   internal                   = false
@@ -152,6 +229,11 @@ resource "aws_lb" "edge" {
   subnets                    = aws_subnet.public[*].id
   enable_deletion_protection = true
   drop_invalid_header_fields = true
+  access_logs {
+    bucket  = aws_s3_bucket.alb_logs.id
+    enabled = true
+  }
+  depends_on = [aws_s3_bucket_policy.alb_logs]
 }
 resource "aws_lb_target_group" "web" {
   name                 = "logitrack-production-web"
@@ -177,6 +259,77 @@ resource "aws_lb_listener" "https" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.web.arn
+  }
+}
+
+resource "aws_wafv2_web_acl" "edge" {
+  name  = "logitrack-production-edge"
+  scope = "REGIONAL"
+  default_action {
+    allow {}
+  }
+  rule {
+    name     = "aws-common-protections"
+    priority = 10
+    override_action {
+      none {}
+    }
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesCommonRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "logitrack-common-protections"
+      sampled_requests_enabled   = true
+    }
+  }
+  rule {
+    name     = "aws-known-bad-inputs"
+    priority = 20
+    override_action {
+      none {}
+    }
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesKnownBadInputsRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "logitrack-known-bad-inputs"
+      sampled_requests_enabled   = true
+    }
+  }
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "logitrack-production-edge"
+    sampled_requests_enabled   = true
+  }
+}
+resource "aws_wafv2_web_acl_association" "edge" {
+  resource_arn = aws_lb.edge.arn
+  web_acl_arn  = aws_wafv2_web_acl.edge.arn
+}
+
+resource "aws_cloudwatch_metric_alarm" "waf_blocked_requests" {
+  alarm_name          = "logitrack-production-waf-blocked-requests"
+  namespace           = "AWS/WAFV2"
+  metric_name         = "BlockedRequests"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  threshold           = 100
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [var.alarm_topic_arn]
+  ok_actions          = [var.alarm_topic_arn]
+  dimensions = {
+    WebACL = aws_wafv2_web_acl.edge.name
+    Region = var.aws_region
   }
 }
 
