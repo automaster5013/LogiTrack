@@ -156,6 +156,21 @@ resource "aws_kms_alias" "cache" {
   target_key_id = aws_kms_key.cache.key_id
 }
 
+resource "aws_secretsmanager_secret" "cache_auth" {
+  name                    = "${var.name}/cache-auth"
+  description             = "LogiTrack production Valkey runtime credential"
+  kms_key_id              = aws_kms_key.cache.arn
+  recovery_window_in_days = 30
+
+  lifecycle { prevent_destroy = true }
+}
+
+resource "aws_secretsmanager_secret_version" "cache_auth" {
+  secret_id                = aws_secretsmanager_secret.cache_auth.id
+  secret_string_wo         = jsonencode({ password = var.cache_auth_token })
+  secret_string_wo_version = var.cache_auth_token_version
+}
+
 data "aws_iam_policy_document" "kafka_kms" {
   statement {
     sid       = "AccountAdministration"
@@ -233,8 +248,12 @@ resource "aws_secretsmanager_secret" "kafka_scram" {
 }
 
 resource "aws_secretsmanager_secret_version" "kafka_scram" {
-  secret_id                = aws_secretsmanager_secret.kafka_scram.id
-  secret_string_wo         = jsonencode({ username = var.kafka_scram_username, password = var.kafka_scram_password })
+  secret_id = aws_secretsmanager_secret.kafka_scram.id
+  secret_string_wo = jsonencode({
+    username    = var.kafka_scram_username
+    password    = var.kafka_scram_password
+    jaas_config = "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"${var.kafka_scram_username}\" password=\"${var.kafka_scram_password}\";"
+  })
   secret_string_wo_version = var.kafka_scram_secret_version
 }
 
