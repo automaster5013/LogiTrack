@@ -18,6 +18,14 @@ alerts = [
 if len(alerts) != 19 or len({rule["alert"] for rule in alerts}) != len(alerts):
     raise AssertionError("expected 19 uniquely named Prometheus alerts")
 
+expected_components = {"api", "demo", "outbox", "recovery", "reporting", "retention", "routing", "telemetry"}
+actual_components = {rule.get("labels", {}).get("component") for rule in alerts}
+if actual_components != expected_components:
+    raise AssertionError(f"alert component taxonomy drifted: {sorted(actual_components)}")
+for rule in alerts:
+    if rule.get("labels", {}).get("severity") not in {"critical", "warning"}:
+        raise AssertionError(f"{rule['alert']} has an unsupported severity")
+
 runbooks = runbooks_path.read_text(encoding="utf-8")
 for rule in alerts:
     name = rule["alert"]
@@ -41,4 +49,4 @@ for rule in alerts:
         if required_step not in section:
             raise AssertionError(f"{name} runbook is missing {required_step}")
 
-print("PASS: all 19 Prometheus alerts link to complete, stable incident runbooks")
+print("PASS: all 19 Prometheus alerts have routable components and complete, stable incident runbooks")

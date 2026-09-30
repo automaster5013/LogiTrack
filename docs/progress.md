@@ -1,5 +1,6 @@
 # 구현 진행 현황
 
+- 19개 운영 경보를 8개 component taxonomy로 분류하고 critical·warning·pending, 영향 영역, 활성 instance, 6시간 timeline과 rule evaluation 실패를 묶은 immutable Grafana triage 대시보드를 provisioning합니다.
 - Prometheus 경보 19개 모두에 안정적인 HTTPS runbook 링크를 연결하고 영향·즉시 조치·진단·종료 및 에스컬레이션 기준이 누락되지 않도록 CI 계약으로 검증합니다.
 - Grafana에 30일 API 가용성·남은 오류 예산·요청 처리량·SLO 경보 상태와 5분/30분/1시간/6시간 burn rate를 묶은 immutable 운영 대시보드를 자동 provisioning하고 계약을 회귀 검증합니다.
 - 외부 API에 30일 99.9% 가용성 SLO를 정의하고 5분·1시간의 14.4배 빠른 소진과 30분·6시간의 6배 지속 소진을 다중 시간창으로 감지하며 정상·빠른·느린 소진 동작을 `promtool`로 검증합니다.

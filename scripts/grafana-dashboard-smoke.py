@@ -4,6 +4,7 @@ from pathlib import Path
 
 dashboard_path = Path("infra/grafana/provisioning/dashboards/json/demo-cleanup-health.json")
 slo_dashboard_path = Path("infra/grafana/provisioning/dashboards/json/api-availability-slo.json")
+triage_dashboard_path = Path("infra/grafana/provisioning/dashboards/json/alert-triage.json")
 provider_path = Path("infra/grafana/provisioning/dashboards/empty.yml")
 datasource_path = Path("infra/grafana/provisioning/datasources/prometheus.yml")
 
@@ -69,10 +70,34 @@ for panel in slo_panels:
     if panel.get("datasource") != "Prometheus":
         raise AssertionError("SLO dashboard panel does not use the provisioned Prometheus datasource name")
 
+triage_dashboard = json.loads(triage_dashboard_path.read_text(encoding="utf-8"))
+if triage_dashboard.get("uid") != "logitrack-alert-triage" or triage_dashboard.get("title") != "LogiTrack Alert Triage":
+    raise AssertionError("alert triage dashboard identity drifted")
+if triage_dashboard.get("refresh") != "30s" or triage_dashboard.get("editable") is not False:
+    raise AssertionError("alert triage dashboard refresh or immutability drifted")
+if not any(link.get("url", "").endswith("docs/alert-runbooks.md") for link in triage_dashboard.get("links", [])):
+    raise AssertionError("alert triage dashboard does not link to the incident runbooks")
+
+triage_panels = triage_dashboard.get("panels", [])
+if len(triage_panels) != 8 or len({panel.get("id") for panel in triage_panels}) != len(triage_panels):
+    raise AssertionError("alert triage dashboard must contain eight uniquely identified panels")
+triage_expressions = {
+    target["expr"]
+    for panel in triage_panels
+    for target in panel.get("targets", [])
+    if "expr" in target
+}
+for required in ('severity="critical"', 'severity="warning"', "component", 'alertstate="pending"', 'alertstate="firing"', "prometheus_rule_evaluation_failures_total"):
+    if not any(required in expression for expression in triage_expressions):
+        raise AssertionError(f"alert triage dashboard does not query {required}")
+for panel in triage_panels:
+    if panel.get("datasource") != "Prometheus":
+        raise AssertionError("alert triage dashboard panel does not use the provisioned Prometheus datasource name")
+
 provider = provider_path.read_text(encoding="utf-8")
 if "path: /etc/grafana/provisioning/dashboards/json" not in provider or "editable: false" not in provider:
     raise AssertionError("Grafana file provider does not load immutable LogiTrack dashboards")
 if "name: Prometheus" not in datasource_path.read_text(encoding="utf-8"):
     raise AssertionError("Prometheus datasource name is not stable")
 
-print("PASS: immutable Grafana dashboards cover demo cleanup health and API availability SLO operations")
+print("PASS: immutable Grafana dashboards cover demo cleanup, API availability SLO, and alert triage operations")
