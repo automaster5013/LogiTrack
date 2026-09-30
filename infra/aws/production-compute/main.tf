@@ -302,6 +302,12 @@ resource "aws_ecs_task_definition" "api" {
           name  = "KAFKA_SASL_MECHANISM"
           value = "SCRAM-SHA-512"
           }, {
+          name  = "KAFKA_TOPIC_REPLICATION_FACTOR"
+          value = "3"
+          }, {
+          name  = "KAFKA_TOPIC_MIN_IN_SYNC_REPLICAS"
+          value = "2"
+          }, {
           name  = "REDIS_HOST"
           value = var.cache_endpoint
         },

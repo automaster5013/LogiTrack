@@ -18,6 +18,7 @@ spring:
     open-in-view: false
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    admin.fail-fast: ${KAFKA_ADMIN_FAIL_FAST:true}
     properties:
       security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
       sasl.mechanism: ${KAFKA_SASL_MECHANISM:GSSAPI}
@@ -71,6 +72,10 @@ server:
       max: ${SERVER_MAX_THREADS:128}
       min-spare: ${SERVER_MIN_SPARE_THREADS:10}
 logitrack:
+  kafka.topics:
+    partitions: ${KAFKA_TOPIC_PARTITIONS:3}
+    replication-factor: ${KAFKA_TOPIC_REPLICATION_FACTOR:1}
+    minimum-in-sync-replicas: ${KAFKA_TOPIC_MIN_IN_SYNC_REPLICAS:1}
   security.enabled: ${SECURITY_ENABLED:true}
   security.client-id: ${SECURITY_CLIENT_ID}
   json.max-nesting-depth: ${JSON_MAX_NESTING_DEPTH:100}
