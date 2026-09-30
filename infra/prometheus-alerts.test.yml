@@ -22,6 +22,7 @@ tests:
             exp_annotations:
               summary: API availability error budget is burning rapidly
               description: The 99.9% API availability error budget is burning above 14.4x across both five-minute and one-hour windows.
+              runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackapierrorbudgetfastburn
 
   - name: api availability error budget burns persistently
     interval: 1m
@@ -41,6 +42,7 @@ tests:
             exp_annotations:
               summary: API availability error budget is burning persistently
               description: The 99.9% API availability error budget is burning above 6x across both thirty-minute and six-hour windows.
+              runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackapierrorbudgetslowburn
 
   - name: api availability stays within error budget
     interval: 1m
@@ -79,6 +81,7 @@ tests:
             exp_annotations: &demo_cleanup_annotations
               summary: Completed demo delivery cleanup is failing or stale
               description: The demo cleanup failed, never started, or has not completed successfully during the last 15 minutes.
+              runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackdemocleanupfailing
 
   - name: demo cleanup recently succeeded
     interval: 1m
@@ -145,6 +148,7 @@ tests:
             exp_annotations:
               summary: Live demo fleet is below its configured target
               description: Active demo vehicles remain below target or replenishment attempts are failing.
+              runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackdemofleetbelowtarget
 
   - name: demo fleet meets target
     interval: 1m
@@ -179,3 +183,4 @@ tests:
             exp_annotations:
               summary: Live demo fleet is below its configured target
               description: Active demo vehicles remain below target or replenishment attempts are failing.
+              runbook_url: https://github.com/automaster5013/LogiTrack/blob/main/docs/alert-runbooks.md#logitrackdemofleetbelowtarget

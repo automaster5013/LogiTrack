@@ -6,6 +6,8 @@
 
 ## Health와 관측성
 
+Prometheus의 모든 경보는 [경보 대응 runbook](alert-runbooks.md)의 개별 절차로 연결된다. 운영자는 경보 annotation의 `runbook_url`에서 영향, 즉시 조치, 진단, 종료 및 에스컬레이션 기준을 바로 확인한다.
+
 - API liveness/readiness: `/actuator/health/liveness`, `/actuator/health/readiness`. Readiness는 애플리케이션 상태와 PostgreSQL을 포함하며 Redis는 로컬 SSE fallback이 있으므로 제외한다.
 - HTTP 요청에서 생성한 outbox 이벤트는 원래 W3C trace context를 함께 저장하고 비동기 Kafka producer span의 parent로 복원한다. `./scripts/outbox-trace-smoke.ps1`는 PostgreSQL 저장, 발행 완료, Tempo의 동일 trace 연결을 왕복 검증하고 fixture를 정리한다.
 - CORS는 `CORS_ALLOWED_ORIGINS`의 exact HTTP(S) origin과 `Authorization`, `Content-Type`, `Idempotency-Key`, `X-Trace-Id`, `X-Operator`, `X-Replay-Approval`, `X-Discard-Approval` 요청 헤더만 허용한다. 기본 origin은 `http://localhost:3000,http://127.0.0.1:3000`이며 와일드카드·경로·자격 증명·쿼리·fragment가 포함된 값은 시작 시 거부한다. 허용 preflight는 1시간 캐시하며 그 밖의 임의 사용자 정의 헤더는 거부한다. 브라우저 BFF와 로그아웃은 POST·DELETE에서 일치하는 `Origin` 또는 same-origin/none `Sec-Fetch-Site`를 요구하며, 교차 출처뿐 아니라 두 출처 신호가 모두 누락된 요청도 API 전달이나 쿠키 변경 전에 403으로 거부한다.

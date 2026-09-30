@@ -125,6 +125,7 @@ curl -X POST http://localhost:8080/api/orders/{orderId}/dispatch \
 - [KPI PDF 보고서 ADR](docs/adr/0009-kpi-pdf-reporting.md)
 - [주문·배송 aggregate 분리 ADR](docs/adr/0010-order-delivery-boundary.md)
 - [운영 및 장애 처리](docs/operations.md)
+- [Prometheus 경보 대응 runbook](docs/alert-runbooks.md)
 - [장애 주입 및 복구 runbook](docs/failure-recovery-runbook.md)
 - [로컬 성능 기준선](docs/performance.md)
 - [테스트 품질 기준선](docs/quality.md)
