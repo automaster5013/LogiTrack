@@ -29,15 +29,16 @@ resource "aws_subnet" "data" {
 }
 
 resource "aws_route_table" "data" {
+  count  = 3
   vpc_id = aws_vpc.production.id
-  tags   = { Name = "${var.name}-data-private" }
+  tags   = { Name = "${var.name}-data-private-${count.index + 1}" }
 }
 
 resource "aws_route_table_association" "data" {
   count = 3
 
   subnet_id      = aws_subnet.data[count.index].id
-  route_table_id = aws_route_table.data.id
+  route_table_id = aws_route_table.data[count.index].id
 }
 
 resource "aws_security_group" "application" {

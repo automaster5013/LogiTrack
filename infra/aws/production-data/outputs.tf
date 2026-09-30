@@ -1,5 +1,6 @@
 output "vpc_id" { value = aws_vpc.production.id }
 output "private_subnet_ids" { value = aws_subnet.data[*].id }
+output "private_route_table_ids" { value = aws_route_table.data[*].id }
 output "application_security_group_id" { value = aws_security_group.application.id }
 output "database_endpoint" { value = aws_db_instance.postgres.address }
 output "database_port" { value = aws_db_instance.postgres.port }

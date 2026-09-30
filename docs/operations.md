@@ -2,7 +2,7 @@
 
 ## 프로덕션 데이터 고가용성 기준선
 
-프로덕션 데이터 계층의 비적용 Terraform 기준선은 `infra/aws/production-data`에 있다. 스테이징의 단일 호스트 PostgreSQL·Redis volume과 달리 두 Availability Zone의 private subnet에 암호화된 RDS PostgreSQL Multi-AZ와 2노드 Valkey Multi-AZ automatic failover를 구성한다. PostgreSQL은 35일 자동 백업/PITR, 삭제 방지, 최종 snapshot, RDS 관리 master secret, TLS 강제와 Performance Insights를 요구한다. Valkey는 TLS·AUTH·저장 암호화, 7일 snapshot, slow/engine log와 CPU·eviction 경보를 요구하며 AUTH 값은 write-only ephemeral Terraform 입력으로만 전달한다. 이 root는 비용과 데이터 이전 위험 때문에 CI에서 validate만 하며 자동 apply하지 않는다. 적용 전 원격 state, 예산, 복원 훈련, 애플리케이션 compute, migration/cutover 및 rollback 계획을 별도 승인해야 한다.
+프로덕션 인프라의 비적용 Terraform 기준선은 `infra/aws/production-state`, `infra/aws/production-data`, `infra/aws/production-compute`에 분리되어 있다. 데이터 계층은 세 Availability Zone의 private subnet에 암호화된 RDS PostgreSQL Multi-AZ, 2노드 Valkey Multi-AZ automatic failover와 3브로커 MSK를 구성한다. 컴퓨트 계층은 같은 세 AZ에 API/analytics와 web Fargate task를 최소 3개씩 배치하고, CloudFront origin 전용 ALB, AZ별 NAT, PrivateLink endpoint, secret JSON-key 주입, 자동 rollback과 autoscaling을 적용한다. 이 root들은 비용과 데이터 이전 위험 때문에 CI에서 validate만 하며 자동 apply하지 않는다. 적용 전 보호된 원격 state bootstrap, 예산, 복원·failover·부하 훈련, CloudFront/ACM, migration/cutover 및 rollback 계획을 별도 승인해야 한다.
 
 ## 로컬 자격 증명
 
