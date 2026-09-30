@@ -3,6 +3,7 @@ from pathlib import Path
 
 
 dashboard_path = Path("infra/grafana/provisioning/dashboards/json/demo-cleanup-health.json")
+slo_dashboard_path = Path("infra/grafana/provisioning/dashboards/json/api-availability-slo.json")
 provider_path = Path("infra/grafana/provisioning/dashboards/empty.yml")
 datasource_path = Path("infra/grafana/provisioning/datasources/prometheus.yml")
 
@@ -39,10 +40,39 @@ for panel in panels:
     if panel.get("datasource") != "Prometheus":
         raise AssertionError("dashboard panel does not use the provisioned Prometheus datasource name")
 
+slo_dashboard = json.loads(slo_dashboard_path.read_text(encoding="utf-8"))
+if slo_dashboard.get("uid") != "logitrack-api-availability-slo" or slo_dashboard.get("title") != "LogiTrack API Availability SLO":
+    raise AssertionError("API availability SLO dashboard identity drifted")
+if slo_dashboard.get("refresh") != "30s" or slo_dashboard.get("editable") is not False:
+    raise AssertionError("API availability SLO dashboard refresh or immutability drifted")
+
+slo_panels = slo_dashboard.get("panels", [])
+if len(slo_panels) != 6 or len({panel.get("id") for panel in slo_panels}) != len(slo_panels):
+    raise AssertionError("API availability SLO dashboard must contain six uniquely identified panels")
+slo_expressions = {
+    target["expr"]
+    for panel in slo_panels
+    for target in panel.get("targets", [])
+    if "expr" in target
+}
+for required in (
+    "logitrack_api:slo_request_error_ratio:rate5m",
+    "logitrack_api:slo_request_error_ratio:rate30m",
+    "logitrack_api:slo_request_error_ratio:rate1h",
+    "logitrack_api:slo_request_error_ratio:rate6h",
+    "LogiTrackApiErrorBudget(Fast|Slow)Burn",
+    "[30d]",
+):
+    if not any(required in expression for expression in slo_expressions):
+        raise AssertionError(f"SLO dashboard does not query {required}")
+for panel in slo_panels:
+    if panel.get("datasource") != "Prometheus":
+        raise AssertionError("SLO dashboard panel does not use the provisioned Prometheus datasource name")
+
 provider = provider_path.read_text(encoding="utf-8")
 if "path: /etc/grafana/provisioning/dashboards/json" not in provider or "editable: false" not in provider:
     raise AssertionError("Grafana file provider does not load immutable LogiTrack dashboards")
 if "name: Prometheus" not in datasource_path.read_text(encoding="utf-8"):
     raise AssertionError("Prometheus datasource name is not stable")
 
-print("PASS: immutable demo cleanup dashboard covers health, throughput, failure, and alert state")
+print("PASS: immutable Grafana dashboards cover demo cleanup health and API availability SLO operations")
