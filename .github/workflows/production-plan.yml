@@ -1,0 +1,126 @@
+name: Production Terraform plan evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      root:
+        description: Production Terraform root to plan
+        required: true
+        type: choice
+        options: [alerting, audit, certificates, data, compute, edge]
+      revision:
+        description: Full main commit SHA to plan
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: production-plan-${{ inputs.root }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Approved production-${{ inputs.root }} plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production-plan
+    env:
+      TF_IN_AUTOMATION: "true"
+      AWS_ACCOUNT_ID: ${{ vars.PRODUCTION_AWS_ACCOUNT_ID }}
+      PLAN_GPG_PUBLIC_KEY_B64: ${{ vars.PRODUCTION_PLAN_GPG_PUBLIC_KEY_B64 }}
+      PLAN_GPG_FINGERPRINT: ${{ vars.PRODUCTION_PLAN_GPG_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.revision }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Require the current main revision
+        shell: bash
+        env:
+          REQUESTED_REVISION: ${{ inputs.revision }}
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED_REVISION" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$REQUESTED_REVISION"
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse origin/main)" = "$REQUESTED_REVISION"
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.PRODUCTION_TERRAFORM_PLAN_ROLE_ARN }}
+          aws-region: ap-northeast-2
+          role-session-name: logitrack-production-plan-${{ github.run_id }}
+          allowed-account-ids: ${{ vars.PRODUCTION_AWS_ACCOUNT_ID }}
+          mask-aws-account-id: true
+          unset-current-credentials: true
+          translate-env-variables: false
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: "1.16.3"
+          terraform_wrapper: false
+      - name: Prepare protected backend, variables, and encryption recipient
+        shell: bash
+        env:
+          ROOT: ${{ inputs.root }}
+          TFVARS_BY_ROOT: ${{ secrets.PRODUCTION_TFVARS_BY_ROOT }}
+        run: |
+          set -euo pipefail
+          test -n "$AWS_ACCOUNT_ID"
+          test -n "$TFVARS_BY_ROOT"
+          test -n "$PLAN_GPG_PUBLIC_KEY_B64"
+          test -n "$PLAN_GPG_FINGERPRINT"
+          case "$ROOT" in
+            alerting|audit|certificates|data|compute|edge) ;;
+            *) exit 1 ;;
+          esac
+          jq -e --arg root "$ROOT" '.[$root] | objects' <<<"$TFVARS_BY_ROOT" > "$RUNNER_TEMP/root.tfvars.json"
+          printf 'bucket = "logitrack-production-tfstate-%s"\nkey = "production/%s/terraform.tfstate"\nregion = "ap-northeast-2"\nencrypt = true\nuse_lockfile = true\n' "$AWS_ACCOUNT_ID" "$ROOT" > "$RUNNER_TEMP/backend.hcl"
+          printf '%s' "$PLAN_GPG_PUBLIC_KEY_B64" | base64 --decode > "$RUNNER_TEMP/plan-public-key.asc"
+          mkdir -m 700 "$RUNNER_TEMP/gnupg"
+          fingerprint="$(gpg --homedir "$RUNNER_TEMP/gnupg" --batch --with-colons --import-options show-only --import "$RUNNER_TEMP/plan-public-key.asc" | awk -F: '$1 == "fpr" {print $10; exit}')"
+          test "$fingerprint" = "$PLAN_GPG_FINGERPRINT"
+          gpg --homedir "$RUNNER_TEMP/gnupg" --batch --import "$RUNNER_TEMP/plan-public-key.asc"
+      - name: Create and reject destructive plan
+        shell: bash
+        env:
+          ROOT: ${{ inputs.root }}
+          REVISION: ${{ inputs.revision }}
+        run: |
+          set -euo pipefail
+          terraform -chdir="infra/aws/production-$ROOT" init -input=false -backend-config="$RUNNER_TEMP/backend.hcl"
+          set +e
+          terraform -chdir="infra/aws/production-$ROOT" plan -input=false -detailed-exitcode -lock-timeout=5m -var-file="$RUNNER_TEMP/root.tfvars.json" -out="$RUNNER_TEMP/production.tfplan" > "$RUNNER_TEMP/plan.log" 2>&1
+          exit_code=$?
+          set -e
+          if [[ "$exit_code" != 0 && "$exit_code" != 2 ]]; then
+            echo "::error::Terraform plan failed; inspect the protected runner log through an authorized operator."
+            exit 1
+          fi
+          terraform -chdir="infra/aws/production-$ROOT" show -json "$RUNNER_TEMP/production.tfplan" > "$RUNNER_TEMP/production-plan.json"
+          python scripts/production-plan-evidence.py --plan-json "$RUNNER_TEMP/production-plan.json" --plan-file "$RUNNER_TEMP/production.tfplan" --root "$ROOT" --revision "$REVISION" --output "$RUNNER_TEMP/plan-evidence.json"
+          gpg --homedir "$RUNNER_TEMP/gnupg" --batch --yes --trust-model always --recipient "$PLAN_GPG_FINGERPRINT" --output "$RUNNER_TEMP/production-$ROOT-$REVISION.tfplan.gpg" --encrypt "$RUNNER_TEMP/production.tfplan"
+          cp "$RUNNER_TEMP/plan-evidence.json" "$RUNNER_TEMP/production-$ROOT-$REVISION.evidence.json"
+          rm -f "$RUNNER_TEMP/production.tfplan" "$RUNNER_TEMP/production-plan.json" "$RUNNER_TEMP/plan.log" "$RUNNER_TEMP/root.tfvars.json" "$RUNNER_TEMP/backend.hcl" "$RUNNER_TEMP/plan-public-key.asc"
+      - name: Attest encrypted plan and sanitized evidence
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            ${{ runner.temp }}/production-${{ inputs.root }}-${{ inputs.revision }}.tfplan.gpg
+            ${{ runner.temp }}/production-${{ inputs.root }}-${{ inputs.revision }}.evidence.json
+      - name: Upload short-lived encrypted plan evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: production-${{ inputs.root }}-${{ inputs.revision }}-plan
+          path: |
+            ${{ runner.temp }}/production-${{ inputs.root }}-${{ inputs.revision }}.tfplan.gpg
+            ${{ runner.temp }}/production-${{ inputs.root }}-${{ inputs.revision }}.evidence.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Remove plaintext plan material
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/production.tfplan" "$RUNNER_TEMP/production-plan.json" "$RUNNER_TEMP/plan.log" "$RUNNER_TEMP/root.tfvars.json" "$RUNNER_TEMP/backend.hcl" "$RUNNER_TEMP/plan-public-key.asc"

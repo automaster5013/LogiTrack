@@ -9,13 +9,32 @@ variable "aws_region" {
   }
 }
 
-variable "state_key" {
-  description = "Exact S3 object key used by the production data-plane root."
+variable "github_owner" {
+  description = "GitHub owner name embedded with its immutable ID in the customized OIDC subject."
   type        = string
-  default     = "production/data/terraform.tfstate"
+  default     = "automaster5013"
+}
 
+variable "github_owner_id" {
+  description = "Immutable numeric GitHub owner ID used in the customized OIDC subject."
+  type        = number
   validation {
-    condition     = var.state_key == "production/data/terraform.tfstate"
-    error_message = "The state access policy is reviewed only for the production data-plane key."
+    condition     = var.github_owner_id > 0 && floor(var.github_owner_id) == var.github_owner_id
+    error_message = "github_owner_id must be a positive integer."
+  }
+}
+
+variable "github_repository" {
+  description = "GitHub repository name embedded with its immutable ID in the customized OIDC subject."
+  type        = string
+  default     = "LogiTrack"
+}
+
+variable "github_repository_id" {
+  description = "Immutable numeric GitHub repository ID used in the customized OIDC subject."
+  type        = number
+  validation {
+    condition     = var.github_repository_id > 0 && floor(var.github_repository_id) == var.github_repository_id
+    error_message = "github_repository_id must be a positive integer."
   }
 }

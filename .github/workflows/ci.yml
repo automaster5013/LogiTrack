@@ -70,6 +70,10 @@ jobs:
         run: python scripts/local-demo-sync-smoke.py
       - name: Validate production cutover evidence gate
         run: python scripts/production-cutover-preflight-smoke.py
+      - name: Validate production Terraform plan evidence
+        run: |
+          python scripts/production-plan-evidence-smoke.py
+          python scripts/production-plan-workflow-smoke.py
       - name: Validate local secret generation
         run: python scripts/local-secrets-smoke.py
       - name: Validate runtime DB integrity contract
