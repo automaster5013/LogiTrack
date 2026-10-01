@@ -7,14 +7,12 @@ const formatOrderTime=(value:string)=>new Date(value).toLocaleString("ko-KR",{mo
 
 type Props = {
   orders: CustomerOrder[];
-  createBusy: boolean;
   dispatchBusyIds: ReadonlySet<string>;
-  onCreate: () => void;
   onDispatch: (id: string) => void;
   onSelectDelivery: (id: string) => void;
 };
 
-export default function OrderFlowPanel({ orders, createBusy, dispatchBusyIds, onCreate, onDispatch, onSelectDelivery }: Props) {
+export default function OrderFlowPanel({ orders, dispatchBusyIds, onDispatch, onSelectDelivery }: Props) {
   const [scope, setScope] = useState<"ALL"|CustomerOrder["status"]>("ALL");
   const [query, setQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(8);
@@ -37,11 +35,7 @@ export default function OrderFlowPanel({ orders, createBusy, dispatchBusyIds, on
   }, [orders.length]);
 
   return <section className="orderBoard">
-    <div className="orderHeader">
-      <div><p className="eyebrow">주문 처리</p><h2>주문 → 배송 흐름</h2></div>
-      <button disabled={createBusy} onClick={onCreate}>{createBusy?"주문 생성 중…":"+ 새 주문"}</button>
-    </div>
-    <div className="orderStats"><span><b>{ready}</b> 배차 대기</span><span><b>{dispatched}</b> 운송 중</span><span><b>{fulfilled}</b> 배송 완료</span><small>등록 주문 {orders.length}건 기준 · 차량 현황은 전체 배송 기준</small></div>
+    <div className="orderHeader"><div><p className="eyebrow">주문 처리</p><h2>주문 → 배송 흐름</h2></div></div>
     <div className="orderToolbar">
       <div className="orderScope" aria-label="주문 표시 범위">
         <button type="button" aria-pressed={scope==="ALL"} onClick={()=>setScope("ALL")}>전체 {orders.length}</button>
