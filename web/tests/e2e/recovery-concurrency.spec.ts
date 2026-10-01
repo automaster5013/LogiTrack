@@ -141,6 +141,35 @@ test("keeps each concurrent outbox retry disabled until its own request finishes
   expect(outboxRetryRequests).toEqual([outboxFailures[0].id, outboxFailures[1].id]);
 });
 
+test("pauses recovery mutations while offline and restores them online", async ({ page, context }) => {
+  const { replayRequests, discardRequests, discardPlanRequests, outboxRetryRequests } = await mockRecovery(page);
+  page.on("dialog", dialog => dialog.accept("offline recovery test"));
+  await page.goto("/console#recovery");
+
+  const replay = page.getByRole("button", { name: "trace-recovery-101 재처리" });
+  const discard = page.getByRole("button", { name: "trace-recovery-101 영구 폐기" });
+  const retry = page.getByRole("button", { name: "DeliveryUpdated failure1 재발행" });
+  await expect(replay).toBeVisible();
+  await page.getByRole("checkbox", { name:"trace-recovery-101 일괄 폐기 선택" }).check();
+  await page.getByPlaceholder("폐기 사유를 입력하세요").fill("offline recovery test");
+
+  await context.setOffline(true);
+  await expect(page.locator(".headerStatus")).toContainText("오프라인");
+  await expect(replay).toBeDisabled();
+  await expect(discard).toBeDisabled();
+  await expect(retry).toBeDisabled();
+  await expect(page.getByRole("button", { name:"네트워크 연결 대기 중…" }).last()).toBeDisabled();
+  expect(replayRequests).toEqual([]);
+  expect(discardRequests).toEqual([]);
+  expect(discardPlanRequests).toEqual([]);
+  expect(outboxRetryRequests).toEqual([]);
+
+  await context.setOffline(false);
+  await expect(replay).toBeEnabled();
+  await replay.click();
+  await expect.poll(() => replayRequests).toEqual([events[0].id]);
+});
+
 test("keeps a failed DLQ replay error until that event recovers", async ({ page }) => {
   const { replayRequests } = await mockRecovery(page, { replayFailuresBeforeSuccessById: { [events[0].id]: 1 } });
   page.on("dialog", dialog => dialog.accept());
