@@ -130,6 +130,24 @@ test("sends one create request for immediate repeated input", async ({ page }) =
   expect(fixture.createRequests()).toBe(1);
 });
 
+test("pauses order creation while offline and restores it online", async ({ page, context }) => {
+  const fixture = await mockOrders(page);
+  await page.goto("/console#orders");
+
+  const createButton = page.locator(".workspacePrimaryActions > .primary");
+  await context.setOffline(true);
+  await expect(createButton).toHaveText("네트워크 연결 대기 중…");
+  await expect(createButton).toBeDisabled();
+  expect(fixture.createRequests()).toBe(0);
+
+  await context.setOffline(false);
+  await expect(createButton).toHaveText("+ 새 주문");
+  await expect(createButton).toBeEnabled();
+  await createButton.click();
+  await expect(createButton).toBeEnabled({ timeout: 1_500 });
+  expect(fixture.createRequests()).toBe(1);
+});
+
 test("keeps an order creation error visible until retry succeeds", async ({ page }) => {
   const fixture = await mockOrders(page, { createFailuresBeforeSuccess: 1 });
   await page.goto("/console#orders");
