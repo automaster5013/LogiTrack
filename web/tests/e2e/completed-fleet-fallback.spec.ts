@@ -182,6 +182,37 @@ test("keeps the dense fleet map inside the narrow desktop viewport", async ({ pa
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(851);
 });
 
+test("keeps the global header geometry identical across workspaces", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await mockOverview(page, deliveries);
+  await page.goto("/console#overview");
+
+  const readHeaderGeometry = () => page.evaluate(() => {
+    const main = document.querySelector("main")!;
+    const header = document.querySelector(".appHeader")!.getBoundingClientRect();
+    const logo = document.querySelector(".brand > span")!.getBoundingClientRect();
+    const title = document.querySelector(".brand h1")!;
+    const nav = document.querySelector(".workspaceNav")!.getBoundingClientRect();
+    return {
+      mainPaddingTop: getComputedStyle(main).paddingTop,
+      headerY: header.y,
+      headerHeight: header.height,
+      logoWidth: logo.width,
+      logoHeight: logo.height,
+      titleFontSize: getComputedStyle(title).fontSize,
+      navY: nav.y,
+      navHeight: nav.height,
+    };
+  });
+  const overviewGeometry = await readHeaderGeometry();
+
+  for (let index = 1; index < 5; index += 1) {
+    await page.locator(".workspaceNav a").nth(index).click();
+    await expect(page.locator(".workspaceNav a").nth(index)).toHaveAttribute("aria-current", "page");
+    expect(await readHeaderGeometry()).toEqual(overviewGeometry);
+  }
+});
+
 for (const viewport of [
   { width: 1023, height: 680, minimumMapHeight: 280 },
   { width: 1023, height: 759, minimumMapHeight: 280 },
