@@ -35,7 +35,7 @@ with tempfile.TemporaryDirectory() as directory:
         "terraform_plans": plans,
         "readiness": {"regional_paging_subscription": "confirmed", "global_paging_subscription": "confirmed", "origin_certificate": "issued", "viewer_certificate": "issued", "dns_ttl_seconds": 60},
         "drills": {name: {"status": "passed", "completed_at": "2026-09-20T00:00:00Z", "evidence_url": f"https://evidence.example.test/{name}"} for name in ["backup_restore", "regional_failover", "load", "rollback"]},
-        "rollback": {"owner": "incident-commander", "deadline_minutes": 15, "triggers": ["error rate above 2%", "p95 latency above 2s"], "tested_at": "2026-09-20T00:00:00Z"},
+        "rollback": {"owner": "incident-commander", "deadline_minutes": 15, "target_revision": "b" * 40, "triggers": ["error rate above 2%", "p95 latency above 2s"], "tested_at": "2026-09-20T00:00:00Z"},
     }
     manifest_path = work / "manifest.json"
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")

@@ -19,7 +19,7 @@ manifest = {
     "terraform_plans": {name: {"revision": revision, "sha256": str(index) * 64, "destructive_changes": False, "planned_at": "2026-10-01T12:00:00Z"} for index, name in enumerate(roots, 1)},
     "readiness": {"regional_paging_subscription": "confirmed", "global_paging_subscription": "confirmed", "origin_certificate": "issued", "viewer_certificate": "issued", "dns_ttl_seconds": 60},
     "drills": {name: {"status": "passed", "completed_at": "2026-09-20T00:00:00Z", "evidence_url": f"https://evidence.example.test/{name}"} for name in ["backup_restore", "regional_failover", "load", "rollback"]},
-    "rollback": {"owner": "incident-commander", "deadline_minutes": 15, "triggers": ["error rate above 2%", "p95 latency above 2s"], "tested_at": "2026-09-20T00:00:00Z"},
+    "rollback": {"owner": "incident-commander", "deadline_minutes": 15, "target_revision": "b" * 40, "triggers": ["error rate above 2%", "p95 latency above 2s"], "tested_at": "2026-09-20T00:00:00Z"},
 }
 
 def run(payload, phase="prepare", clock=now):
@@ -38,11 +38,12 @@ after_window_rollback = run(manifest, phase="rollback", clock="2026-10-02T03:00:
 assert after_window_rollback.returncode == 0, after_window_rollback.stderr
 stale_rollback = run(manifest, phase="rollback", clock="2026-10-03T03:00:00Z")
 assert stale_rollback.returncode == 1 and "24 hours" in stale_rollback.stderr
-for mutate in ("destructive", "unconfirmed", "stale"):
+for mutate in ("destructive", "unconfirmed", "stale", "same_target"):
     invalid = deepcopy(manifest)
     if mutate == "destructive": invalid["terraform_plans"]["production-data"]["destructive_changes"] = True
     if mutate == "unconfirmed": invalid["readiness"]["global_paging_subscription"] = "pending"
     if mutate == "stale": invalid["drills"]["load"]["completed_at"] = "2026-08-01T00:00:00Z"
+    if mutate == "same_target": invalid["rollback"]["target_revision"] = revision
     result = run(invalid)
     assert result.returncode == 1 and result.stderr.startswith("FAIL:"), (mutate, result.stdout, result.stderr)
 

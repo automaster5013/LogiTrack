@@ -115,6 +115,9 @@ def validate(manifest: dict, revision: str, now: datetime, phase: str = "prepare
     triggers = rollback.get("triggers")
     if not rollback.get("owner") or not isinstance(deadline, int) or isinstance(deadline, bool) or not 1 <= deadline <= 30:
         raise ValueError("rollback owner and a deadline of 1..30 minutes are required")
+    target_revision = rollback.get("target_revision")
+    if not SHA.fullmatch(str(target_revision or "")) or target_revision == revision:
+        raise ValueError("rollback target_revision must be a different full commit SHA")
     if not isinstance(triggers, list) or len(triggers) < 2 or any(not str(item).strip() for item in triggers):
         raise ValueError("at least two explicit rollback triggers are required")
     if tested_at > now or now - tested_at > timedelta(days=30):

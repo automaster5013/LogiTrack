@@ -14,7 +14,7 @@ Manifest는 `schema_version: 1`과 다음 정보를 포함한다.
 - `terraform_plans`: state, alerting, audit, certificates, data, compute, edge 7개 root 각각의 동일 revision, plan SHA-256, 최근 24시간 생성 시각, `destructive_changes: false`
 - `readiness`: regional/global paging 구독 `confirmed`, origin/viewer 인증서 `issued`, 30~300초 DNS TTL
 - `drills`: 최근 30일 안에 통과한 backup/restore, regional failover, load, rollback 훈련과 HTTPS 증적
-- `rollback`: 담당자, 30분 이하 실행 기한, 두 개 이상의 정량 trigger, 최근 30일 이내 테스트 시각
+- `rollback`: 담당자, 30분 이하 실행 기한, 현재 revision과 다른 사전 승인 `target_revision`, 두 개 이상의 정량 trigger, 최근 30일 이내 테스트 시각
 
 `production-state` bootstrap plan은 승인된 관리자 workstation에서 생성한다. 나머지 여섯 root는 GitHub의 수동 `Production Terraform plan evidence` workflow로 현재 main SHA를 지정해 한 번씩 생성한다. 각 run은 `production-plan` 환경 승인을 거친 뒤 비파괴 plan만 허용하고, plaintext 대신 GPG 암호화 plan과 attested evidence JSON을 7일간 보존한다. evidence의 `root`, `revision`, `planned_at`, `sha256`, `destructive_changes`를 manifest의 해당 항목에 복사하고 실제 apply 직전 복호화한 plan의 SHA-256을 다시 대조한다.
 
@@ -57,3 +57,11 @@ python scripts/production-cutover-rollback.py --manifest <manifest.json> --ledge
 ```
 
 명령은 manifest·ledger 결속을 다시 확인하고 승인 변경 창 시작부터 종료 후 24시간 안에서만 rollback receipt SHA-256을 ledger에 기록한다. fence가 기록된 뒤 apply guard, post-apply 검증기와 cutover 완료 게이트는 모두 전진을 거부한다. 이것은 rollback 실행 자체를 대신하지 않는다. 즉시 manifest에 지정된 owner에게 에스컬레이션하고 승인된 기한 안에 이전 origin/DNS 복구 절차를 실행한 뒤 변경 티켓에 receipt와 복구 결과를 첨부한다. 기존 ledger나 receipt에서 fence를 삭제해 cutover를 재개하지 말고 새 revision·plan·승인으로 다시 시작한다.
+
+이전 origin/DNS와 digest 고정 이미지를 복원한 직후, manifest의 rollback 기한 안에 공개 복구 상태를 검증한다.
+
+```powershell
+python scripts/production-cutover-rollback-complete.py --manifest <manifest.json> --ledger <vault-path/apply-ledger.json> --rollback-receipt <vault-path/rollback.json> --completion-receipt <vault-path/rollback-completion.json> --revision <failed-main-sha> --account-id <12-digit-aws-account-id>
+```
+
+복구 완료 게이트는 활성 fence와 원본 rollback receipt의 digest·trigger·actor·owner·기한·target revision을 다시 대조한다. TLS 1.2 이상의 canonical 공개 주소가 사전 승인된 production target revision을 제공하고 비캐시 runtime metadata, 브랜드 응답, HSTS·CSP를 유지할 때만 불변 completion receipt를 만들고 ledger에 digest를 기록한다. 복구 완료 뒤에도 fence는 해제되지 않으며 새로운 cutover는 반드시 새 revision·plan·승인·ledger로 시작한다.

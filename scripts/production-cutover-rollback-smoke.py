@@ -3,6 +3,7 @@ import json
 import subprocess
 import sys
 import tempfile
+from copy import deepcopy
 from pathlib import Path
 
 
@@ -11,6 +12,7 @@ rollback = repo / "scripts/production-cutover-rollback.py"
 apply_guard = repo / "scripts/production-apply-guard.py"
 post_verify = repo / "scripts/production-post-apply-verify.py"
 complete = repo / "scripts/production-cutover-complete.py"
+rollback_complete = repo / "scripts/production-cutover-rollback-complete.py"
 revision = "a" * 40
 now = "2026-10-02T01:00:00Z"
 account_id = "123456789012"
@@ -33,7 +35,7 @@ with tempfile.TemporaryDirectory() as directory:
         "terraform_plans": plans,
         "readiness": {"regional_paging_subscription": "confirmed", "global_paging_subscription": "confirmed", "origin_certificate": "issued", "viewer_certificate": "issued", "dns_ttl_seconds": 60},
         "drills": {name: {"status": "passed", "completed_at": "2026-09-20T00:00:00Z", "evidence_url": f"https://evidence.example.test/{name}"} for name in ("backup_restore", "regional_failover", "load", "rollback")},
-        "rollback": {"owner": "incident-commander", "deadline_minutes": 15, "triggers": triggers, "tested_at": "2026-09-20T00:00:00Z"},
+        "rollback": {"owner": "incident-commander", "deadline_minutes": 15, "target_revision": "b" * 40, "triggers": triggers, "tested_at": "2026-09-20T00:00:00Z"},
     }
     manifest_path = work / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
@@ -57,6 +59,7 @@ with tempfile.TemporaryDirectory() as directory:
     assert fenced["rollback"]["receipt_sha256"] == hashlib.sha256(receipt_path.read_bytes()).hexdigest()
     assert receipt["ledger_sha256_before_fence"] == hashlib.sha256(json.dumps(ledger, sort_keys=True).encode("utf-8")).hexdigest()
     assert receipt["trigger"] == triggers[0] and receipt["rollback_deadline_minutes"] == 15
+    assert receipt["target_revision"] == "b" * 40
 
     duplicate = subprocess.run(command, capture_output=True, text=True)
     assert duplicate.returncode == 1 and "already exists" in duplicate.stderr
@@ -74,4 +77,41 @@ with tempfile.TemporaryDirectory() as directory:
     blocked_completion = subprocess.run([sys.executable, str(complete), "--manifest", str(manifest_path), "--ledger", str(ledger_path), "--receipt-dir", str(work), "--completion-receipt", str(work / "completion.json"), "--revision", revision, "--account-id", account_id, "--snapshot", str(snapshot_path), "--now", now], capture_output=True, text=True)
     assert blocked_completion.returncode == 1 and "rollback fence is active" in blocked_completion.stderr
 
-print("PASS: rollback declaration creates immutable evidence and fences apply, verification, and completion paths")
+    recovery_snapshot = {
+        "runtime": {"version": "123e4567-e89b-42d3-a456-426614174000", "revision": "b" * 40, "builtAt": "2026-09-20T00:00:00Z", "environment": "production"},
+        "runtime_headers": {"content-type": "application/json", "cache-control": "private, no-store"},
+        "runtime_url": "https://www.logitrack.kr/api/runtime-version",
+        "home_contains_brand": True,
+        "home_headers": {"strict-transport-security": "max-age=31536000; includeSubDomains", "content-security-policy": "default-src 'self'; frame-ancestors 'none'"},
+        "home_url": "https://www.logitrack.kr/",
+    }
+    recovery_snapshot_path = work / "recovery-snapshot.json"
+    recovery_snapshot_path.write_text(json.dumps(recovery_snapshot), encoding="utf-8")
+    rollback_completion_path = work / "rollback-completion.json"
+    completion_command = [sys.executable, str(rollback_complete), "--manifest", str(manifest_path), "--ledger", str(ledger_path), "--rollback-receipt", str(receipt_path), "--completion-receipt", str(rollback_completion_path), "--revision", revision, "--account-id", account_id, "--snapshot", str(recovery_snapshot_path), "--now", now]
+
+    wrong_recovery = deepcopy(recovery_snapshot)
+    wrong_recovery["runtime"]["revision"] = "c" * 40
+    recovery_snapshot_path.write_text(json.dumps(wrong_recovery), encoding="utf-8")
+    rejected_recovery = subprocess.run(completion_command, capture_output=True, text=True)
+    assert rejected_recovery.returncode == 1 and "approved production target revision" in rejected_recovery.stderr
+    assert not rollback_completion_path.exists()
+
+    late_command = completion_command.copy()
+    late_command[late_command.index(str(rollback_completion_path))] = str(work / "late-completion.json")
+    late_command[late_command.index(now)] = "2026-10-02T01:16:00Z"
+    recovery_snapshot_path.write_text(json.dumps(recovery_snapshot), encoding="utf-8")
+    rejected_late = subprocess.run(late_command, capture_output=True, text=True)
+    assert rejected_late.returncode == 1 and "approved deadline" in rejected_late.stderr
+
+    recovery_snapshot_path.write_text(json.dumps(recovery_snapshot), encoding="utf-8")
+    recovered = subprocess.run(completion_command, capture_output=True, text=True)
+    assert recovered.returncode == 0, recovered.stderr
+    completed_ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    assert completed_ledger["rollback"]["target_revision"] == "b" * 40
+    assert completed_ledger["rollback"]["completion_receipt_sha256"] == hashlib.sha256(rollback_completion_path.read_bytes()).hexdigest()
+
+    duplicate_completion = subprocess.run(completion_command, capture_output=True, text=True)
+    assert duplicate_completion.returncode == 1 and "already exists" in duplicate_completion.stderr
+
+print("PASS: rollback declaration fences forward paths and completion verifies recovery to the pre-approved runtime revision")

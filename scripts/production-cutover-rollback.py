@@ -111,6 +111,7 @@ def main() -> int:
             "initiated_at": initiated_at,
             "rollback_deadline_minutes": manifest["rollback"]["deadline_minutes"],
             "rollback_owner": manifest["rollback"]["owner"],
+            "target_revision": manifest["rollback"]["target_revision"],
         }
         atomic_json(args.receipt, receipt)
         ledger["rollback"] = {
