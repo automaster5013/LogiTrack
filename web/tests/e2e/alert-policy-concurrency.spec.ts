@@ -61,6 +61,33 @@ test("sends one policy save request for immediate repeated input",async({page})=
   expect(saveRequests).toEqual(["*"]);
 });
 
+test("pauses policy mutations while offline and restores them online",async({page,context})=>{
+  const {saveRequests,resetRequests,restoreRequests}=await mockPolicies(page);
+  await page.goto("/console#settings");
+  await page.getByLabel("적용 범위").selectOption("TRUCK-01");
+  const save=page.locator(".policyActions button").first();
+  const reset=page.getByRole("button",{name:"TRUCK-01 전용 정책을 전체 차량 기본값으로 전환"});
+  const restore=page.getByRole("button",{name:"TRUCK-01 정책 이력 복원"});
+
+  await context.setOffline(true);
+  for(const action of [save,reset,restore]){
+    await expect(action).toHaveText("네트워크 연결 대기 중…");
+    await expect(action).toBeDisabled();
+  }
+  expect(saveRequests).toHaveLength(0);
+  expect(resetRequests).toHaveLength(0);
+  expect(restoreRequests).toHaveLength(0);
+
+  await context.setOffline(false);
+  await expect(save).toHaveText("변경 이력과 함께 저장");
+  await expect(save).toBeEnabled();
+  await expect(reset).toBeEnabled();
+  await expect(restore).toBeEnabled();
+  await save.click();
+  await expect(save).toBeEnabled({timeout:1_500});
+  expect(saveRequests).toEqual(["TRUCK-01"]);
+});
+
 test("keeps a policy save error visible until retry succeeds",async({page})=>{
   const {saveRequests}=await mockPolicies(page,{saveFailuresBeforeSuccess:1});
   await page.goto("/console#settings");

@@ -2,12 +2,12 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { AlertPolicy, AlertPolicyAudit, Delivery } from "../types";
 
-type Props = { policies:AlertPolicy[]; audits:AlertPolicyAudit[]; deliveries:Delivery[]; busy:boolean; onSave:(policy:PolicyInput)=>Promise<void>; onReset:(vehicleId:string)=>Promise<void>; onRestore:(auditId:string)=>Promise<void> };
+type Props = { policies:AlertPolicy[]; audits:AlertPolicyAudit[]; deliveries:Delivery[]; busy:boolean; online:boolean; onSave:(policy:PolicyInput)=>Promise<void>; onReset:(vehicleId:string)=>Promise<void>; onRestore:(auditId:string)=>Promise<void> };
 export type PolicyInput = Pick<AlertPolicy,"vehicleId"|"deviationOpenMeters"|"deviationCloseMeters"|"criticalDeviationMeters"|"delayOpenSeconds"|"delayCloseSeconds"|"criticalDelaySeconds">;
 
 const auditActionLabel: Record<AlertPolicyAudit["action"],string> = {UPSERT:"저장",RESET:"기본값 전환",RESTORE:"이력 복원"};
 
-export default function AlertPolicyPanel({policies,audits,deliveries,busy,onSave,onReset,onRestore}:Props){
+export default function AlertPolicyPanel({policies,audits,deliveries,busy,online,onSave,onReset,onRestore}:Props){
   const vehicles=useMemo(()=>Array.from(new Set(deliveries.map(item=>item.vehicleId))).sort(),[deliveries]);
   const [vehicleId,setVehicleId]=useState("*");
   const [vehicleQuery,setVehicleQuery]=useState("");
@@ -57,10 +57,10 @@ export default function AlertPolicyPanel({policies,audits,deliveries,busy,onSave
         <label>긴급<input type="number" min="1" required value={draft.criticalDelaySeconds} onChange={event=>setNumber("criticalDelaySeconds",event.target.value)}/></label>
       </fieldset>
       <p className="policyRule">임계값 순서: 해제 &lt; 경고 ≤ 긴급. 변경 사항은 다음 차량 위치 정보부터 적용됩니다. 기본값 전환과 이력 복원은 영향 확인 후 실행됩니다.</p>
-      <div className="policyActions"><button disabled={busy||!selected}>{busy?"정책 저장 중…":"변경 이력과 함께 저장"}</button>
-        {vehicleId!=="*"&&overridden&&<button type="button" className="policyReset" disabled={busy} onClick={resetPolicy} aria-label={`${vehicleId} 전용 정책을 전체 차량 기본값으로 전환`}>전체 차량 기본값 사용</button>}</div>
+      <div className="policyActions"><button disabled={!online||busy||!selected}>{!online?"네트워크 연결 대기 중…":busy?"정책 저장 중…":"변경 이력과 함께 저장"}</button>
+        {vehicleId!=="*"&&overridden&&<button type="button" className="policyReset" disabled={!online||busy} onClick={resetPolicy} aria-label={`${vehicleId} 전용 정책을 전체 차량 기본값으로 전환`}>{!online?"네트워크 연결 대기 중…":"전체 차량 기본값 사용"}</button>}</div>
     </form><aside><div className="policyAuditHeader"><h4>최근 정책 변경 이력</h4><label htmlFor="policyAuditSearch"><span>이력 검색</span><input id="policyAuditSearch" type="search" value={auditQuery} onChange={event=>setAuditQuery(event.target.value)} placeholder="차량 · 작업자 · 작업"/></label>{auditQuery&&<button type="button" onClick={()=>setAuditQuery("")}>초기화</button>}</div>{audits.length===0?<p className="policyEmpty">아직 운영자가 변경한 정책이 없습니다.</p>:filteredAudits.length===0?<p className="policyEmpty">검색 조건에 맞는 정책 변경 이력이 없습니다.</p>:shownAudits.map(audit=><div className="policyAudit" key={audit.id}>
       <span>{audit.vehicleId==="*"?"전체 차량":audit.vehicleId}</span><div><b>{auditActionLabel[audit.action]} · {audit.actor}</b><small>{new Date(audit.occurredAt).toLocaleString("ko-KR",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}</small><em>경고 {audit.deviationOpenMeters}m · {Math.round(audit.delayOpenSeconds/60)}분</em></div>
-      <button type="button" className="policyRestore" disabled={busy} onClick={()=>restorePolicy(audit)} aria-label={`${audit.vehicleId==="*"?"전체 차량":audit.vehicleId} 정책 이력 복원`}>이 값으로 복원</button></div>)}{filteredAudits.length>6&&<div className="policyAuditFooter"><span aria-live="polite">이력 {shownAudits.length} / {filteredAudits.length}건 표시</span>{shownAudits.length<filteredAudits.length?<button type="button" onClick={()=>setVisibleAudits(current=>Math.min(current+6,filteredAudits.length))}>다음 {Math.min(6,filteredAudits.length-shownAudits.length)}건 보기</button>:<button type="button" onClick={()=>setVisibleAudits(6)}>최근 6건만 보기</button>}</div>}</aside></div>
+      <button type="button" className="policyRestore" disabled={!online||busy} onClick={()=>restorePolicy(audit)} aria-label={`${audit.vehicleId==="*"?"전체 차량":audit.vehicleId} 정책 이력 복원`}>{!online?"네트워크 연결 대기 중…":"이 값으로 복원"}</button></div>)}{filteredAudits.length>6&&<div className="policyAuditFooter"><span aria-live="polite">이력 {shownAudits.length} / {filteredAudits.length}건 표시</span>{shownAudits.length<filteredAudits.length?<button type="button" onClick={()=>setVisibleAudits(current=>Math.min(current+6,filteredAudits.length))}>다음 {Math.min(6,filteredAudits.length-shownAudits.length)}건 보기</button>:<button type="button" onClick={()=>setVisibleAudits(6)}>최근 6건만 보기</button>}</div>}</aside></div>
   </section>;
 }
