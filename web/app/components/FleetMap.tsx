@@ -135,7 +135,7 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
     if(!mapError||mapRecovering)return;
     const handleOnline=()=>retryMap(false);
     window.addEventListener("online",handleOnline);
-    const retryTimer=navigator.onLine?window.setTimeout(()=>retryMap(false),mapRetryDelay):undefined;
+    const retryTimer=navigator.onLine?window.setTimeout(()=>{if(navigator.onLine)retryMap(false)},mapRetryDelay):undefined;
     return()=>{window.removeEventListener("online",handleOnline);if(retryTimer!==undefined)window.clearTimeout(retryTimer)};
   },[mapError,mapRecovering,mapRetryDelay]);
 
