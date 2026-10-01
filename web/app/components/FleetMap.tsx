@@ -10,6 +10,7 @@ setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
 const STYLE = process.env.NEXT_PUBLIC_MAP_STYLE_URL || "https://tiles.openfreemap.org/styles/liberty";
 const MAP_RETRY_DELAY_MS=5_000;
 const MAP_RETRY_MAX_DELAY_MS=60_000;
+const jitteredMapRetryDelay=(delay:number)=>Math.min(MAP_RETRY_MAX_DELAY_MS,Math.round(delay*(0.8+Math.random()*0.4)));
 const MAP_LOCALE={
   "AttributionControl.ToggleAttribution":"지도 정보 표시",
   "Map.Title":"운송 차량 지도",
@@ -138,7 +139,7 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
     const handleOffline=()=>setBrowserOnline(false);
     window.addEventListener("online",handleOnline);
     window.addEventListener("offline",handleOffline);
-    const retryTimer=navigator.onLine?window.setTimeout(()=>{if(navigator.onLine)retryMap(false)},mapRetryDelay):undefined;
+    const retryTimer=navigator.onLine?window.setTimeout(()=>{if(navigator.onLine)retryMap(false)},jitteredMapRetryDelay(mapRetryDelay)):undefined;
     return()=>{window.removeEventListener("online",handleOnline);window.removeEventListener("offline",handleOffline);if(retryTimer!==undefined)window.clearTimeout(retryTimer)};
   },[mapError,mapRecovering,mapRetryDelay]);
 
