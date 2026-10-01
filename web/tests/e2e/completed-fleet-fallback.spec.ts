@@ -731,7 +731,7 @@ test("shows completed vehicles automatically when no delivery is active", async 
   expect(tabletMapShellBox!.height).toBeGreaterThanOrEqual(280);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1024);
 
-  await expect(page.locator(".hero>div").first()).toContainText("실시간 운행00진행 중 전체 0건 · 위치 지연 0건모든 위치 최신");
+  await expect(page.locator(".workspaceMetric").first()).toContainText("실시간 운행00진행 중 0건 · 위치 지연 0건모든 위치 최신");
   await expect(page.getByRole("button", { name: "전체 6", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "진행 중 0", exact: true })).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByLabel("선택한 차량")).toHaveValue(deliveries[0].id);
@@ -901,7 +901,7 @@ test("keeps the live scope when an active delivery exists", async ({ page }) => 
   await mockOverview(page, activeDeliveries);
   await page.goto("/console#overview");
 
-  await expect(page.locator(".hero>div").first()).toContainText("실시간 운행00진행 중 전체 1건 · 위치 지연 1건지연 차량 확인 →");
+  await expect(page.locator(".workspaceMetric").first()).toContainText("실시간 운행00진행 중 1건 · 위치 지연 1건지연 차량 확인 →");
   await expect(page.getByRole("button", { name: "진행 중 1", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "전체 6", exact: true })).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByLabel("선택한 차량")).toHaveValue(activeDeliveries[0].id);
@@ -924,8 +924,8 @@ test("defaults to recently reporting vehicles while keeping stale active deliver
 
   await expect(page.getByRole("button", { name: "실시간 1", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "진행 중 2", exact: true })).toHaveAttribute("aria-pressed", "false");
-  await expect(page.locator(".hero>div").first()).toContainText("실시간 운행01진행 중 전체 2건 · 위치 지연 1건지연 차량 확인 →");
-  await expect(page.locator(".hero>div").nth(2)).toContainText("평균 진행률25%최근 위치 수신 차량 기준");
+  await expect(page.locator(".workspaceMetric").first()).toContainText("실시간 운행01진행 중 2건 · 위치 지연 1건지연 차량 확인 →");
+  await expect(page.locator(".workspaceMetric").nth(2)).toContainText("평균 진행률25%최근 위치 수신 차량 기준");
   await expect(page.getByLabel("선택한 차량")).toHaveValue(activeDeliveries[0].id);
   await expect(page.getByLabel("선택한 차량").locator("option")).toHaveCount(1);
 

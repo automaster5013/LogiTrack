@@ -117,7 +117,7 @@ test("sends one create request for immediate repeated input", async ({ page }) =
   const fixture = await mockOrders(page);
   await page.goto("/console#orders");
 
-  const createButton = page.locator(".orderHeader > button");
+  const createButton = page.locator(".workspacePrimaryActions > .primary");
   await expect(createButton).toHaveText("+ 새 주문");
   await createButton.evaluate(button => {
     const orderButton = button as HTMLButtonElement;
@@ -134,7 +134,7 @@ test("keeps an order creation error visible until retry succeeds", async ({ page
   const fixture = await mockOrders(page, { createFailuresBeforeSuccess: 1 });
   await page.goto("/console#orders");
 
-  const createButton = page.locator(".orderHeader > button");
+  const createButton = page.locator(".workspacePrimaryActions > .primary");
   const createError = page.getByText("주문 생성에 실패했습니다.");
   await createButton.click();
   await expect(createError).toBeVisible({ timeout: 1_500 });
