@@ -885,6 +885,29 @@ test("retries the failed map once when browser connectivity returns", async ({ p
   expect(styleRequests).toBe(2);
 });
 
+test("automatically retries a transient map failure while the browser remains online", async ({ page }) => {
+  let styleRequests=0;
+  await page.route("**/styles/liberty",async route=>{
+    styleRequests+=1;
+    if(styleRequests===1){await route.fulfill({status:503,contentType:"text/plain",body:"temporarily unavailable"});return}
+    await new Promise(resolve=>setTimeout(resolve,300));
+    await route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({version:8,sources:{},layers:[]})});
+  });
+  await mockOverview(page,deliveries);
+  await page.goto("/console#overview");
+
+  const search=page.getByRole("searchbox",{name:"검색",exact:true});
+  await search.fill("TRUCK-05");
+  await expect(page.locator(".mapError")).toContainText("온라인 상태에서는 잠시 후 지도만 자동 복구합니다.");
+
+  await expect(page.getByRole("button",{name:"지도 연결 중…"})).toBeDisabled({timeout:10_000});
+  await expect(page.locator(".mapShell")).toHaveClass(/ready/);
+  await expect(search).toBeFocused();
+  await expect(search).toHaveValue("TRUCK-05");
+  await expect(page.locator(".focusStats")).toContainText("TRUCK-05");
+  expect(styleRequests).toBe(2);
+});
+
 test("prioritizes a searched vehicle beyond the fifty vehicle map limit", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   const denseDeliveries = createDenseDeliveries();
