@@ -60,6 +60,31 @@ test("sends one warehouse receipt for immediate repeated input",async({page})=>{
   expect(receiptRequests).toHaveLength(1);
 });
 
+test("pauses warehouse mutations while offline and restores them online",async({page,context})=>{
+  const {receiptRequests,outboundRequests,dispatchRequests}=await mockWarehouse(page);
+  await page.goto("/console#warehouse");
+  const receive=page.getByRole("button",{name:"시연 재고 10개 입고"});
+  const dispatch=page.getByRole("button",{name:"재고 4개 피킹 및 출고"});
+
+  await context.setOffline(true);
+  await expect(receive).toHaveText("네트워크 연결 대기 중…");
+  await expect(receive).toBeDisabled();
+  await expect(dispatch).toHaveText("네트워크 연결 대기 중…");
+  await expect(dispatch).toBeDisabled();
+  expect(receiptRequests).toHaveLength(0);
+  expect(outboundRequests).toHaveLength(0);
+  expect(dispatchRequests).toHaveLength(0);
+
+  await context.setOffline(false);
+  await expect(receive).toHaveText("+ 재고 10개 입고");
+  await expect(receive).toBeEnabled();
+  await expect(dispatch).toHaveText("4개 피킹·출고");
+  await expect(dispatch).toBeEnabled();
+  await receive.click();
+  await expect(receive).toBeEnabled({timeout:1_500});
+  expect(receiptRequests).toHaveLength(1);
+});
+
 test("keeps a receipt error visible until receipt retry succeeds",async({page})=>{
   const {receiptRequests}=await mockWarehouse(page,{receiptFailuresBeforeSuccess:1});
   await page.goto("/console#warehouse");
