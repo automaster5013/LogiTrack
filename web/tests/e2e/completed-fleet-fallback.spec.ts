@@ -948,13 +948,17 @@ test("pauses scheduled map recovery while offline and resumes when connectivity 
   await expect(page.locator(".mapError")).toContainText("약 5초 후");
   await context.setOffline(true);
   await expect(page.locator(".mapError")).toContainText("네트워크 연결을 기다리고 있습니다. 배송 데이터 화면은 그대로 유지됩니다.");
-  await expect(page.getByRole("button",{name:"네트워크 연결 대기 중…"})).toBeDisabled();
+  await expect(page.locator(".mapError").getByRole("button",{name:"네트워크 연결 대기 중…"})).toBeDisabled();
+  await expect(page.locator(".headerStatus")).toContainText("오프라인");
+  await expect(page.locator(".streamNotice")).toContainText("온라인 복귀 후 자동으로 최신 상태를 확인합니다.");
+  await expect(page.locator(".streamNotice").getByRole("button",{name:"네트워크 연결 대기 중…"})).toBeDisabled();
   await page.waitForTimeout(5_500);
   expect(styleRequests).toBe(1);
 
   await context.setOffline(false);
   await expect.poll(()=>styleRequests,{timeout:10_000}).toBe(2);
   await expect(page.locator(".mapShell")).toHaveClass(/ready/);
+  await expect(page.locator(".headerStatus")).toContainText(/실시간 연결|재연결 중/);
   await expect(search).toBeFocused();
   await expect(search).toHaveValue("TRUCK-02");
 });
