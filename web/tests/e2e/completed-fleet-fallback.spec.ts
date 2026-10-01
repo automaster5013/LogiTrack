@@ -800,6 +800,20 @@ test("shows completed vehicles automatically when no delivery is active", async 
   const expandedMap=page.getByRole("dialog",{name:/6대의 차량 운행 지도/});
   await expect(expandedMap).toHaveClass(/mapExpanded/);
   await expect(expandedMap).toHaveAttribute("aria-modal","true");
+  const modalBackground=page.locator(".mapShell.mapExpanded").evaluate(element=>{
+    const states:Array<{inert:boolean;ariaHidden:string|null}>=[];
+    let branch=element as HTMLElement|null;
+    while(branch?.parentElement&&branch!==document.body){
+      for(const sibling of branch.parentElement.children){
+        if(sibling===branch||!(sibling instanceof HTMLElement))continue;
+        states.push({inert:sibling.inert,ariaHidden:sibling.getAttribute("aria-hidden")});
+      }
+      branch=branch.parentElement;
+    }
+    return states;
+  });
+  await expect(modalBackground).resolves.toEqual(expect.arrayContaining([expect.objectContaining({inert:true,ariaHidden:"true"})]));
+  await expect(modalBackground).resolves.not.toEqual(expect.arrayContaining([expect.objectContaining({inert:false})]));
   const collapseMap=page.getByRole("button",{name:"지도 원래 크기로"});
   await expect(collapseMap).toHaveAttribute("aria-expanded","true");
   await expect(collapseMap).toBeFocused();
@@ -816,6 +830,7 @@ test("shows completed vehicles automatically when no delivery is active", async 
   await expect(page.locator(".mapShell")).not.toHaveClass(/mapExpanded/);
   await expect(page.getByRole("region",{name:/6대의 차량 운행 지도/})).toBeVisible();
   await expect(expandMap).toBeFocused();
+  await expect(page.locator('[inert][aria-hidden="true"]')).toHaveCount(0);
   await page.setViewportSize({width:390,height:844});
   await expect(runtimeBadge.getByText("TEST",{exact:true})).toBeVisible();
 });
