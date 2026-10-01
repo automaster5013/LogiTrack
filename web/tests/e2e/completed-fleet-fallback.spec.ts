@@ -794,9 +794,17 @@ test("shows completed vehicles automatically when no delivery is active", async 
   await expect(page.getByText("실제 이동", { exact: true })).toBeVisible();
   await expect(page.getByText("차량을 선택하면 상세 경로와 거점이 강조됩니다.")).toBeVisible();
   const expandMap=page.getByRole("button",{name:"지도 확대 보기"});
+  await expect(expandMap).toHaveAttribute("aria-expanded","false");
+  await expect(expandMap).toHaveAttribute("aria-controls","fleet-map-panel");
   await expandMap.click();
-  await expect(page.locator(".mapShell")).toHaveClass(/mapExpanded/);
-  await expect(page.getByRole("button",{name:"지도 원래 크기로"})).toHaveAttribute("aria-pressed","true");
+  const expandedMap=page.getByRole("dialog",{name:/6대의 차량 운행 지도/});
+  await expect(expandedMap).toHaveClass(/mapExpanded/);
+  await expect(expandedMap).toHaveAttribute("aria-modal","true");
+  const collapseMap=page.getByRole("button",{name:"지도 원래 크기로"});
+  await expect(collapseMap).toHaveAttribute("aria-expanded","true");
+  await expect(collapseMap).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect.poll(()=>page.evaluate(()=>document.activeElement?.closest("#fleet-map-panel")?.id)).toBe("fleet-map-panel");
   const expandedHud=page.getByRole("complementary",{name:"확대 지도 선택 차량 정보"});
   await expect(expandedHud).toContainText("TRUCK-01");
   await expect(expandedHud).toContainText("배송 완료");
@@ -806,6 +814,8 @@ test("shows completed vehicles automatically when no delivery is active", async 
   await page.keyboard.press("Escape");
   await expect(expandedHud).toBeHidden();
   await expect(page.locator(".mapShell")).not.toHaveClass(/mapExpanded/);
+  await expect(page.getByRole("region",{name:/6대의 차량 운행 지도/})).toBeVisible();
+  await expect(expandMap).toBeFocused();
   await page.setViewportSize({width:390,height:844});
   await expect(runtimeBadge.getByText("TEST",{exact:true})).toBeVisible();
 });
