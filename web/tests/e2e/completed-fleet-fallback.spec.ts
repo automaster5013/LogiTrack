@@ -885,8 +885,9 @@ test("retries the failed map once when browser connectivity returns", async ({ p
   expect(styleRequests).toBe(2);
 });
 
-test("automatically retries a transient map failure while the browser remains online", async ({ page }) => {
+test("jitters and automatically retries a transient map failure while the browser remains online", async ({ page }) => {
   let styleRequests=0;
+  await page.addInitScript(()=>{Math.random=()=>1});
   await page.route("**/styles/liberty",async route=>{
     styleRequests+=1;
     if(styleRequests===1){await route.fulfill({status:503,contentType:"text/plain",body:"temporarily unavailable"});return}
@@ -900,6 +901,8 @@ test("automatically retries a transient map failure while the browser remains on
   await search.fill("TRUCK-05");
   await expect(page.locator(".mapError")).toContainText("온라인 상태에서는 약 5초 후 지도만 자동 복구합니다.");
 
+  await page.waitForTimeout(5_500);
+  expect(styleRequests).toBe(1);
   await expect.poll(()=>styleRequests,{timeout:15_000}).toBe(2);
   await expect(page.locator(".mapShell")).toHaveClass(/ready/);
   await expect(search).toBeFocused();
