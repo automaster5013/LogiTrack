@@ -900,7 +900,7 @@ test("automatically retries a transient map failure while the browser remains on
   await search.fill("TRUCK-05");
   await expect(page.locator(".mapError")).toContainText("온라인 상태에서는 잠시 후 지도만 자동 복구합니다.");
 
-  await expect(page.getByRole("button",{name:"지도 연결 중…"})).toBeDisabled({timeout:10_000});
+  await expect.poll(()=>styleRequests,{timeout:15_000}).toBe(2);
   await expect(page.locator(".mapShell")).toHaveClass(/ready/);
   await expect(search).toBeFocused();
   await expect(search).toHaveValue("TRUCK-05");
