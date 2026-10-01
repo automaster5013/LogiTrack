@@ -13,13 +13,13 @@ LogiTrack is an event-driven logistics control tower that simulates order, wareh
 
 ## 화면 미리보기
 
-![LogiTrack 프로젝트 소개 화면에서 서울 물류 관제 흐름과 핵심 기능을 설명하는 모습](docs/images/project-overview.png)
+![주문부터 창고, 배차, 실시간 운송, 이상 감지와 복구까지 하나의 흐름으로 소개하는 LogiTrack 프로젝트 화면](docs/images/project-overview.png)
 
-*프로젝트 소개 화면 — 로컬 Docker Compose 환경, 1440×900 데스크톱 뷰포트.*
+*프로젝트 소개 화면 — 최신 `main` 로컬 Docker Compose 환경, 1440×900 데스크톱 뷰포트.*
 
-![합성 배송 데이터로 차량 진행률과 서울·인천 간 실시간 경로를 표시하는 LogiTrack 운영 콘솔](docs/images/operator-console-active-delivery.jpg)
+![15대 실시간 차량과 선택 차량의 진행률, 최근 위치, 계획 및 실제 경로를 표시하는 LogiTrack 운영 상황판](docs/images/operator-console-active-delivery.jpg)
 
-*운영 콘솔 — `DEMO-README-001` 합성 주문을 사용한 로컬 Docker Compose 환경, 1440×900 데스크톱 뷰포트.*
+*운영 상황판 — 최신 `main`의 자동 보충 데모 차량 15대, 상태 command center, 높이 최적화 지도와 접이식 범례를 표시한 로컬 Docker Compose 환경, 1440×900 데스크톱 뷰포트. 지도는 대형 화면의 남은 높이를 채우며 접근 가능한 확대 보기와 키보드 포커스 복귀를 지원합니다.*
 
 ## 핵심 기능
 
@@ -106,7 +106,7 @@ curl -X POST http://localhost:8080/api/orders/{orderId}/dispatch \
 
 경로 스냅샷 조회는 `GET /api/routes`입니다. 개발 환경은 OSRM 호환 endpoint를 사용하며 2.5초 안에 응답하지 않거나 오류가 발생하면 로컬 geodesic 계산으로 자동 전환합니다. 공개 demo는 개발용이므로 운영에서는 `.env`의 `OSRM_BASE_URL`을 자체 호스팅 또는 계약된 공급자로 교체하세요. 완전한 오프라인 실행은 `ROUTING_PROVIDER=geodesic`으로 설정합니다.
 
-운영 콘솔은 MapLibre 기반 벡터 지도에서 계획 경로, PostgreSQL에 저장된 실제 GPS 주행 궤적, 차량 상태와 ETA를 실시간으로 표시합니다. 지도와 telemetry 목록은 운행 중 차량만 표시하는 통합 `LIVE` 범위를 기본으로 사용해 누적 이력의 중첩을 피하고, `ALL`로 완료 배송까지 전환할 수 있습니다. 지도 헤더의 즉시 검색으로 차량·주문·출발지·도착지를 좁히면 지도와 목록이 동시에 반영되고, 검색 결과가 없을 때 복구 방법을 지도 위에 안내하며 선택 차량은 밝은 halo로 강조합니다. 기본 OpenFreeMap 스타일은 별도 API key 없이 동작하며, 운영용 지도 공급자는 `.env`의 `NEXT_PUBLIC_MAP_STYLE_URL`로 교체할 수 있습니다.
+운영 콘솔은 MapLibre 기반 벡터 지도에서 계획 경로, PostgreSQL에 저장된 실제 GPS 주행 궤적, 차량 상태와 ETA를 실시간으로 표시합니다. 공통 command center는 실시간 운행·확인 필요·평균 진행률과 대표 작업을 첫 화면에 배치하고, 지도는 화면 높이에 맞춰 남은 공간을 사용합니다. 지도와 telemetry 목록은 최근 위치를 수신한 운행 차량을 보여주는 `LIVE` 범위를 기본으로 사용하며 진행 중 전체·확인 필요·위치 지연·`ALL` 범위로 전환할 수 있습니다. 즉시 검색으로 차량·주문·출발지·도착지를 좁히면 지도와 목록이 함께 갱신되고, 선택 차량은 계획·실제 경로와 거점까지 고대비로 강조됩니다. 접이식 범례와 전체 차량 맞춤, 키보드 포커스를 가두고 `Esc` 종료 후 원래 조작으로 복귀하는 접근 가능한 확대 보기를 제공합니다. 기본 OpenFreeMap 스타일은 별도 API key 없이 동작하며, 운영용 지도 공급자는 `.env`의 `NEXT_PUBLIC_MAP_STYLE_URL`로 교체할 수 있습니다.
 
 ## 문서
 
