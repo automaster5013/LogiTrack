@@ -879,7 +879,7 @@ test("retries the failed map once when browser connectivity returns", async ({ p
 
   await expect(page.getByRole("button",{name:"지도 연결 중…"})).toBeDisabled();
   await expect(page.locator(".mapShell")).toHaveClass(/ready/);
-  await expect(page.locator(".maplibregl-canvas")).toBeFocused();
+  await expect(search).toBeFocused();
   await expect(search).toHaveValue("TRUCK-04");
   await expect(page.locator(".focusStats")).toContainText("TRUCK-04");
   expect(styleRequests).toBe(2);
