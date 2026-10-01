@@ -8,11 +8,12 @@ const formatOrderTime=(value:string)=>new Date(value).toLocaleString("ko-KR",{mo
 type Props = {
   orders: CustomerOrder[];
   dispatchBusyIds: ReadonlySet<string>;
+  online: boolean;
   onDispatch: (id: string) => void;
   onSelectDelivery: (id: string) => void;
 };
 
-export default function OrderFlowPanel({ orders, dispatchBusyIds, onDispatch, onSelectDelivery }: Props) {
+export default function OrderFlowPanel({ orders, dispatchBusyIds, online, onDispatch, onSelectDelivery }: Props) {
   const [scope, setScope] = useState<"ALL"|CustomerOrder["status"]>("ALL");
   const [query, setQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(8);
@@ -51,7 +52,7 @@ export default function OrderFlowPanel({ orders, dispatchBusyIds, onDispatch, on
         <span className={`orderState ${order.status.toLowerCase()}`}>{orderStatusLabel[order.status]}</span>
         <span className="orderIdentity"><b>{order.orderNumber}</b><small>{order.originName} → {order.destinationName}</small><small><time dateTime={order.createdAt}>접수 {formatOrderTime(order.createdAt)}</time> · <time dateTime={order.updatedAt}>최근 변경 {formatOrderTime(order.updatedAt)}</time></small></span>
         <span className="orderLink">{order.deliveryId?<><b>{order.vehicleId}</b><small>배차 차량</small></>:<><b>미배차</b><small>차량 배차 대기</small></>}</span>
-        {order.status==="READY"?<button disabled={dispatchBusyIds.has(order.id)} onClick={()=>onDispatch(order.id)} aria-label={`${order.orderNumber} 차량 배차`}>{dispatchBusyIds.has(order.id)?"배차 중…":"차량 배차"}</button>:<span className="orderDeliveryActions"><span className="orderProgress"><i className={(order.deliveryStatus||order.status).toLowerCase()}/>{deliveryStatusLabel[order.deliveryStatus||""]||orderStatusLabel[order.status]}</span>{order.deliveryId&&<button type="button" className="orderFleetLink" onClick={()=>onSelectDelivery(order.deliveryId!)} aria-label={`${order.orderNumber} 배차 차량 현황 보기`}>차량 현황 보기 ↓</button>}</span>}
+        {order.status==="READY"?<button disabled={!online||dispatchBusyIds.has(order.id)} onClick={()=>onDispatch(order.id)} aria-label={`${order.orderNumber} 차량 배차`}>{!online?"네트워크 연결 대기 중…":dispatchBusyIds.has(order.id)?"배차 중…":"차량 배차"}</button>:<span className="orderDeliveryActions"><span className="orderProgress"><i className={(order.deliveryStatus||order.status).toLowerCase()}/>{deliveryStatusLabel[order.deliveryStatus||""]||orderStatusLabel[order.status]}</span>{order.deliveryId&&<button type="button" className="orderFleetLink" onClick={()=>onSelectDelivery(order.deliveryId!)} aria-label={`${order.orderNumber} 배차 차량 현황 보기`}>차량 현황 보기 ↓</button>}</span>}
       </div>)}
       {filteredOrders.length>8?<div className="orderListFooter">
         <span aria-live="polite">주문 {visibleOrders.length} / {filteredOrders.length}건 표시</span>

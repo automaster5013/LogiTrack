@@ -127,7 +127,7 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
       map.on("click","vehicles",event=>{popupRef.current?.remove();popupRef.current=null;const id=event.features?.[0]?.properties?.id;if(id)onSelect(id)});
       const selected=deliveriesRef.current.find(x=>x.id===selectedRef.current);
       if(selected)fitDelivery(map,selected,routesRef.current,telemetryRef.current);
-      map.once("idle",()=>{setMapReady(true);if(focusMapAfterRecovery.current)map.getCanvas().focus();focusMapAfterRecovery.current=false});
+      setMapReady(true);if(focusMapAfterRecovery.current)map.getCanvas().focus();focusMapAfterRecovery.current=false;
     });
     return()=>{window.clearTimeout(loadTimeout);popupRef.current?.remove();popupRef.current=null;map.remove();mapRef.current=null;loaded.current=false};
   },[mapRetry]);

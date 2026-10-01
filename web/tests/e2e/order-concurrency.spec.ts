@@ -91,6 +91,24 @@ test("sends one dispatch request for immediate repeated input", async ({ page })
   expect(dispatchRequests).toEqual([orders[0].id]);
 });
 
+test("pauses order dispatch while offline and restores it online", async ({ page, context }) => {
+  const { dispatchRequests } = await mockOrders(page);
+  await page.goto("/console#orders");
+  const dispatch = page.getByRole("button", { name: "ORD-E2E-201 차량 배차" });
+
+  await context.setOffline(true);
+  await expect(dispatch).toHaveText("네트워크 연결 대기 중…");
+  await expect(dispatch).toBeDisabled();
+  expect(dispatchRequests).toHaveLength(0);
+
+  await context.setOffline(false);
+  await expect(dispatch).toHaveText("차량 배차");
+  await expect(dispatch).toBeEnabled();
+  await dispatch.click();
+  await expect(dispatch).toBeEnabled({ timeout: 1_500 });
+  expect(dispatchRequests).toEqual([orders[0].id]);
+});
+
 test("keeps a failed dispatch error until that order recovers", async ({ page }) => {
   const { dispatchRequests } = await mockOrders(page, { dispatchFailuresBeforeSuccessById: { [orders[0].id]: 1 } });
   await page.goto("/console#orders");
