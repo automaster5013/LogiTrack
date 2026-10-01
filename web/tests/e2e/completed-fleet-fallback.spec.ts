@@ -732,6 +732,7 @@ for (const viewport of [
   { width: 1280, height: 720, minimumMapHeight: 280 },
   { width: 1366, height: 768, minimumMapHeight: 300 },
   { width: 1600, height: 900, minimumMapHeight: 360 },
+  { width: 1920, height: 1080, minimumMapHeight: 580 },
 ]) {
   test(`keeps the live map inside a ${viewport.width}x${viewport.height} initial viewport`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
