@@ -861,6 +861,30 @@ test("retries only the failed map while preserving the operator workspace", asyn
   expect(styleRequests).toBe(2);
 });
 
+test("retries the failed map once when browser connectivity returns", async ({ page }) => {
+  let styleRequests=0;
+  await page.route("**/styles/liberty",async route=>{
+    styleRequests+=1;
+    if(styleRequests===1){await route.fulfill({status:503,contentType:"text/plain",body:"offline"});return}
+    await new Promise(resolve=>setTimeout(resolve,300));
+    await route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({version:8,sources:{},layers:[]})});
+  });
+  await mockOverview(page,deliveries);
+  await page.goto("/console#overview");
+
+  const search=page.getByRole("searchbox",{name:"검색",exact:true});
+  await search.fill("TRUCK-04");
+  await expect(page.locator(".mapError")).toContainText("지도를 불러오지 못했습니다");
+  await page.evaluate(()=>{window.dispatchEvent(new Event("online"));window.dispatchEvent(new Event("online"))});
+
+  await expect(page.getByRole("button",{name:"지도 연결 중…"})).toBeDisabled();
+  await expect(page.locator(".mapShell")).toHaveClass(/ready/);
+  await expect(page.locator(".maplibregl-canvas")).toBeFocused();
+  await expect(search).toHaveValue("TRUCK-04");
+  await expect(page.locator(".focusStats")).toContainText("TRUCK-04");
+  expect(styleRequests).toBe(2);
+});
+
 test("prioritizes a searched vehicle beyond the fifty vehicle map limit", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   const denseDeliveries = createDenseDeliveries();
