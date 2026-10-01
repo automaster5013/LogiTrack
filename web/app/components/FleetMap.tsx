@@ -68,10 +68,11 @@ function features(deliveries: Delivery[], routes: RouteSnapshot[], telemetry: Te
 }
 
 export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelect,emptyMessage}:Props){
-  const shellRef=useRef<HTMLDivElement>(null); const host=useRef<HTMLDivElement>(null); const expandButtonRef=useRef<HTMLButtonElement>(null); const mapRef=useRef<Map|null>(null); const popupRef=useRef<Popup|null>(null); const loaded=useRef(false);
+  const shellRef=useRef<HTMLDivElement>(null); const host=useRef<HTMLDivElement>(null); const expandButtonRef=useRef<HTMLButtonElement>(null); const mapRef=useRef<Map|null>(null); const popupRef=useRef<Popup|null>(null); const loaded=useRef(false); const retryingRef=useRef(false);
   const deliveriesRef=useRef(deliveries); const routesRef=useRef(routes); const telemetryRef=useRef(telemetry); const selectedRef=useRef(selectedId);
   deliveriesRef.current=deliveries; routesRef.current=routes; telemetryRef.current=telemetry; selectedRef.current=selectedId;
   const [mapError,setMapError]=useState(false); const [mapReady,setMapReady]=useState(false); const [mapRetry,setMapRetry]=useState(0); const [mapRecovering,setMapRecovering]=useState(false); const [legendExpanded,setLegendExpanded]=useState(false); const [mapExpanded,setMapExpanded]=useState(false);
+  const retryMap=()=>{if(retryingRef.current)return;retryingRef.current=true;setMapRecovering(true);setMapRetry(value=>value+1)};
 
   useEffect(()=>{
     if(!host.current||mapRef.current)return;
@@ -82,11 +83,11 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
     map.addControl(new NavigationControl({visualizePitch:true}),"top-right");
     map.addControl(new ScaleControl({unit:"metric"}),"bottom-left");
     map.addControl(new AttributionControl({compact:true}),"bottom-right");
-    const failLoad=()=>{if(!loaded.current){setMapError(true);setMapRecovering(false)}};
+    const failLoad=()=>{if(!loaded.current){retryingRef.current=false;setMapError(true);setMapRecovering(false)}};
     const loadTimeout=window.setTimeout(failLoad,12000);
     map.on("error",failLoad);
     map.on("load",()=>{
-      window.clearTimeout(loadTimeout); loaded.current=true; setMapError(false); setMapRecovering(false);
+      window.clearTimeout(loadTimeout); loaded.current=true; retryingRef.current=false; setMapError(false); setMapRecovering(false);
       map.addSource("fleet",{type:"geojson",data:features(deliveriesRef.current,routesRef.current,telemetryRef.current)});
       const selectedFilter=(kind:string)=>["all",["==",["get","kind"],kind],["==",["get","id"],selectedRef.current||""]] as FilterSpecification;
       map.addLayer({id:"planned-shadow",type:"line",source:"fleet",filter:["==",["get","kind"],"route"],paint:{"line-color":"#ffffff","line-width":5,"line-opacity":0.28}});
@@ -126,6 +127,13 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
     });
     return()=>{window.clearTimeout(loadTimeout);popupRef.current?.remove();popupRef.current=null;map.remove();mapRef.current=null;loaded.current=false};
   },[mapRetry]);
+
+  useEffect(()=>{
+    if(!mapError||mapRecovering)return;
+    const handleOnline=()=>retryMap();
+    window.addEventListener("online",handleOnline);
+    return()=>window.removeEventListener("online",handleOnline);
+  },[mapError,mapRecovering]);
 
   useEffect(()=>{
     const map=mapRef.current;if(!map||!loaded.current)return;
@@ -186,7 +194,7 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
 
   return <div ref={shellRef} id="fleet-map-panel" className={`mapShell ${mapReady?"ready":""} ${mapExpanded?"mapExpanded":""}`} role={mapExpanded?"dialog":"region"} aria-modal={mapExpanded||undefined} aria-label={mapLabel}>
     <div ref={host} className="mapCanvas"/>
-    {mapError&&<div className="mapError" role="alert"><b>{mapRecovering?"지도를 다시 연결하고 있습니다":"지도를 불러오지 못했습니다"}</b><span>{mapRecovering?"현재 차량 검색과 선택을 유지한 채 지도만 복구합니다.":"지도 타일 연결을 확인하세요. 배송 데이터 스트림은 계속 동작합니다."}</span><button type="button" disabled={mapRecovering} onClick={()=>{setMapRecovering(true);setMapRetry(value=>value+1)}}>{mapRecovering?"지도 연결 중…":"지도 다시 불러오기"}</button></div>}
+    {mapError&&<div className="mapError" role="alert"><b>{mapRecovering?"지도를 다시 연결하고 있습니다":"지도를 불러오지 못했습니다"}</b><span>{mapRecovering?"현재 차량 검색과 선택을 유지한 채 지도만 복구합니다.":"지도 타일 연결을 확인하세요. 배송 데이터 스트림은 계속 동작합니다."}</span><button type="button" disabled={mapRecovering} onClick={retryMap}>{mapRecovering?"지도 연결 중…":"지도 다시 불러오기"}</button></div>}
     {!mapError&&deliveries.length===0&&<div className="mapEmpty"><b>표시할 차량이 없습니다</b><span>{emptyMessage||"범위를 전환하거나 새 배송을 생성해 주세요."}</span></div>}
     <div className={`mapLegend ${legendExpanded?"expanded":"compact"}`} aria-label="지도 범례"><button type="button" className="mapLegendToggle" aria-expanded={legendExpanded} aria-controls="fleet-map-legend-items" onClick={()=>setLegendExpanded(value=>!value)}><span><i className="mapReadyDot"/> 지도 범례</span><small>{deliveries.length}대 표시</small><b>{legendExpanded?"접기":"보기"}</b></button><div id="fleet-map-legend-items" className="mapLegendItems" hidden={!legendExpanded}><span><i className="liveDot"/> 운송 차량</span><span><i className="overdueDot"/> 예정 초과</span><span><i className="delayedDot"/> 지연 차량</span><span><i className="selectedDot"/> 선택 차량</span><span><i className="travelDot"/> 실제 이동</span><span><i className="routeDot"/> 계획 경로</span><p>차량을 선택하면 상세 경로와 거점이 강조됩니다.</p></div></div>
     <button ref={expandButtonRef} type="button" className="mapExpand" aria-expanded={mapExpanded} aria-controls="fleet-map-panel" aria-label={mapExpanded?"지도 원래 크기로":"지도 확대 보기"} onClick={()=>setMapExpanded(value=>!value)}>{mapExpanded?"축소":"확대"}</button>
