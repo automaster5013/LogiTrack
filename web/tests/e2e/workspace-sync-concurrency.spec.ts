@@ -50,12 +50,22 @@ test("sends one workspace refresh for immediate repeated input",async({page})=>{
   expect(requests.kpiRequests).toHaveLength(1);
 });
 
-test("keeps a workspace error visible until refresh succeeds",async({page})=>{
+test("keeps a workspace error visible and pauses retries while offline",async({page,context})=>{
   const {deliveryRequests}=await mockOverview(page,{deliveryFailuresBeforeSuccess:1});
   await page.goto("/console#overview");
   const error=page.getByText("API에 연결할 수 없습니다.");
   await expect(error).toBeVisible();
+  await context.setOffline(true);
   const retry=page.locator(".errorActions button").first();
+  const refresh=page.locator(".workspaceTools button").first();
+  await expect(retry).toHaveText("네트워크 연결 대기 중…");
+  await expect(retry).toBeDisabled();
+  await expect(refresh).toHaveText("네트워크 연결 대기 중…");
+  await expect(refresh).toBeDisabled();
+  expect(deliveryRequests).toHaveLength(1);
+  await context.setOffline(false);
+  await expect(retry).toHaveText("다시 시도");
+  await expect(retry).toBeEnabled();
   await retry.click();
   await expect(error).toBeVisible();
   await expect(error).toBeHidden({timeout:3_000});
