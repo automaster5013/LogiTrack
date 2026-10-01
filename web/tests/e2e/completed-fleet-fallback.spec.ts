@@ -930,6 +930,30 @@ test("backs off repeated automatic map recovery failures", async ({ page }) => {
   expect(styleRequests).toBe(3);
 });
 
+test("pauses scheduled map recovery while offline and resumes when connectivity returns", async ({ page, context }) => {
+  let styleRequests=0;
+  await page.route("**/styles/liberty",async route=>{
+    styleRequests+=1;
+    if(styleRequests===1){await route.fulfill({status:503,contentType:"text/plain",body:"temporarily unavailable"});return}
+    await route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({version:8,sources:{},layers:[]})});
+  });
+  await mockOverview(page,deliveries);
+  await page.goto("/console#overview");
+
+  const search=page.getByRole("searchbox",{name:"검색",exact:true});
+  await search.fill("TRUCK-02");
+  await expect(page.locator(".mapError")).toContainText("약 5초 후");
+  await context.setOffline(true);
+  await page.waitForTimeout(5_500);
+  expect(styleRequests).toBe(1);
+
+  await context.setOffline(false);
+  await expect.poll(()=>styleRequests,{timeout:10_000}).toBe(2);
+  await expect(page.locator(".mapShell")).toHaveClass(/ready/);
+  await expect(search).toBeFocused();
+  await expect(search).toHaveValue("TRUCK-02");
+});
+
 test("prioritizes a searched vehicle beyond the fifty vehicle map limit", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   const denseDeliveries = createDenseDeliveries();
