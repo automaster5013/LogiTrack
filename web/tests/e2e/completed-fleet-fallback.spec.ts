@@ -1269,7 +1269,7 @@ test("resolves an active alert from a later stream update", async ({ page }) => 
   await expect(page.getByText(/해결됨/)).toBeVisible();
 });
 
-test("acknowledges an active alert with operator trace context", async ({ page }) => {
+test("pauses alert acknowledgement offline and sends one traced request online", async ({ page, context }) => {
   const occurredAt = new Date().toISOString();
   const activeDeliveries = deliveries.map((delivery, index) => index === 0 ? {
     ...delivery,
@@ -1311,6 +1311,13 @@ test("acknowledges an active alert with operator trace context", async ({ page }
   await expect(page.locator(".alertHeaderStats")).toContainText("1미확인");
   await expect.poll(() => requests.alertRequestCount(), { timeout: 15_000 }).toBeGreaterThan(1);
   const acknowledgementButton = page.getByRole("button", { name: "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리" });
+  await context.setOffline(true);
+  await expect(acknowledgementButton).toHaveText("네트워크 연결 대기 중…");
+  await expect(acknowledgementButton).toBeDisabled();
+  expect(requests.acknowledgementRequestCount()).toBe(0);
+  await context.setOffline(false);
+  await expect(acknowledgementButton).toHaveText("확인 완료");
+  await expect(acknowledgementButton).toBeEnabled();
   await acknowledgementButton.evaluate(button => { (button as HTMLButtonElement).click(); (button as HTMLButtonElement).click(); });
 
   await expect(page.locator(".alertHeaderStats")).toContainText("0미확인");
