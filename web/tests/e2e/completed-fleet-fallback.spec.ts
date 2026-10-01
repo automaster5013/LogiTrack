@@ -945,6 +945,7 @@ test("pauses scheduled map recovery while offline and resumes when connectivity 
   await expect(page.locator(".mapError")).toContainText("약 5초 후");
   await context.setOffline(true);
   await expect(page.locator(".mapError")).toContainText("네트워크 연결을 기다리고 있습니다. 배송 데이터 화면은 그대로 유지됩니다.");
+  await expect(page.getByRole("button",{name:"네트워크 연결 대기 중…"})).toBeDisabled();
   await page.waitForTimeout(5_500);
   expect(styleRequests).toBe(1);
 
