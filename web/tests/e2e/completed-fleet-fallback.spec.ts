@@ -738,6 +738,7 @@ for (const viewport of [
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await mockOverview(page, deliveries);
     await page.goto("/console#overview");
+    await page.evaluate(() => window.scrollTo(0, 0));
 
     const mapBoardBox = await page.locator(".mapBoard").boundingBox();
     const mapShellBox = await page.locator(".mapShell").boundingBox();
@@ -745,6 +746,9 @@ for (const viewport of [
     expect(mapShellBox).not.toBeNull();
     expect(mapBoardBox!.y + mapBoardBox!.height).toBeLessThanOrEqual(viewport.height);
     expect(mapShellBox!.height).toBeGreaterThanOrEqual(viewport.minimumMapHeight);
+    if (viewport.width >= 1600 && viewport.height >= 900) {
+      expect(viewport.height - (mapBoardBox!.y + mapBoardBox!.height)).toBeLessThanOrEqual(12);
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
   });
 }
