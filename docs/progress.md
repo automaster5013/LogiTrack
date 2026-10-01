@@ -1,5 +1,6 @@
 # 구현 진행 현황
 
+- 프로덕션 cutover 최종 완료 게이트를 서울 21개·버지니아 3개 CloudWatch 경보의 존재와 연속 10분 `OK` 상태에 결속해 경보 발화·데이터 부족·누락·최근 전환 중에는 완료 receipt 생성을 차단합니다.
 - rollback target revision을 cutover 전에 manifest에 고정하고, 활성 fence·원본 rollback receipt·공개 production runtime 복구 상태를 승인 기한 안에 재검증해 불변 rollback completion receipt로 확정합니다.
 - 승인 manifest의 정량 trigger·운영자·HTTPS 증적에 결속된 불변 rollback receipt를 만들고, 선언 즉시 추가 Terraform apply·post-apply 검증·cutover 완료 경로를 모두 차단하는 rollback fence를 추가합니다.
 - 일곱 프로덕션 Terraform root의 ledger와 개별 검증 receipt 무결성을 공개 production runtime revision·TLS·보안 헤더 상태와 결합해 저장소 밖의 불변 cutover completion receipt로 확정하는 종단 게이트를 추가합니다.
