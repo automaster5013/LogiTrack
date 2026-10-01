@@ -282,7 +282,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 }
 @media(min-width:851px) and (max-width:1023px) and (min-height:760px) and (max-height:840px){
  .consoleMain.workspace-overview{padding-top:0}
- .workspace-overview .mapShell:not(.mapExpanded){height:278px}
+ .workspace-overview .mapBoard{margin-top:-2px}
 }
 @media(min-width:851px) and (max-width:1023px) and (min-height:841px) and (max-height:1023px){
  .consoleMain.workspace-overview{padding-top:0}
