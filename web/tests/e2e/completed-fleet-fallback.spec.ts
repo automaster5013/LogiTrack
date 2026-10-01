@@ -898,7 +898,7 @@ test("automatically retries a transient map failure while the browser remains on
 
   const search=page.getByRole("searchbox",{name:"검색",exact:true});
   await search.fill("TRUCK-05");
-  await expect(page.locator(".mapError")).toContainText("온라인 상태에서는 잠시 후 지도만 자동 복구합니다.");
+  await expect(page.locator(".mapError")).toContainText("온라인 상태에서는 약 5초 후 지도만 자동 복구합니다.");
 
   await expect.poll(()=>styleRequests,{timeout:15_000}).toBe(2);
   await expect(page.locator(".mapShell")).toHaveClass(/ready/);
@@ -906,6 +906,28 @@ test("automatically retries a transient map failure while the browser remains on
   await expect(search).toHaveValue("TRUCK-05");
   await expect(page.locator(".focusStats")).toContainText("TRUCK-05");
   expect(styleRequests).toBe(2);
+});
+
+test("backs off repeated automatic map recovery failures", async ({ page }) => {
+  let styleRequests=0;
+  await page.route("**/styles/liberty",async route=>{
+    styleRequests+=1;
+    if(styleRequests<3){await route.fulfill({status:503,contentType:"text/plain",body:"temporarily unavailable"});return}
+    await route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({version:8,sources:{},layers:[]})});
+  });
+  await mockOverview(page,deliveries);
+  await page.goto("/console#overview");
+
+  const search=page.getByRole("searchbox",{name:"검색",exact:true});
+  await search.fill("TRUCK-06");
+  await expect(page.locator(".mapError")).toContainText("약 5초 후");
+  await expect.poll(()=>styleRequests,{timeout:15_000}).toBe(2);
+  await expect(page.locator(".mapError")).toContainText("약 10초 후");
+
+  await page.getByRole("button",{name:"지도 다시 불러오기"}).click();
+  await expect(page.locator(".mapShell")).toHaveClass(/ready/);
+  await expect(search).toHaveValue("TRUCK-06");
+  expect(styleRequests).toBe(3);
 });
 
 test("prioritizes a searched vehicle beyond the fifty vehicle map limit", async ({ page }) => {
