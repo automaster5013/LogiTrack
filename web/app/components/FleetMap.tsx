@@ -21,6 +21,7 @@ const MAP_LOCALE={
 
 type Props = { deliveries: Delivery[]; routes: RouteSnapshot[]; telemetry: TelemetryPoint[]; selectedId?: string; onSelect: (id: string) => void; emptyMessage?: string };
 const STATUS_COPY:Record<Delivery["status"],string>={CREATED:"배송 준비",IN_TRANSIT:"운송 중",DELAYED:"지연",DELIVERED:"배송 완료"};
+const mapMotionDuration=()=>window.matchMedia("(prefers-reduced-motion: reduce)").matches?0:900;
 
 function routeIndex(routes: RouteSnapshot[]) {
   const indexed=new globalThis.Map<string,[number,number][]>();
@@ -191,7 +192,7 @@ function fitFleet(map:Map,deliveries:Delivery[]) {
     [delivery.currentLon??delivery.originLon,delivery.currentLat??delivery.originLat]
   ] as [number,number][]);
   const lons=coordinates.map(point=>point[0]); const lats=coordinates.map(point=>point[1]);
-  map.fitBounds([[Math.min(...lons),Math.min(...lats)],[Math.max(...lons),Math.max(...lats)]],{padding:70,duration:900,maxZoom:10.5});
+  map.fitBounds([[Math.min(...lons),Math.min(...lats)],[Math.max(...lons),Math.max(...lats)]],{padding:70,duration:mapMotionDuration(),maxZoom:10.5});
 }
 
 function fitDelivery(map:Map,delivery:Delivery,routes:RouteSnapshot[],telemetry:TelemetryPoint[]) {
@@ -199,5 +200,5 @@ function fitDelivery(map:Map,delivery:Delivery,routes:RouteSnapshot[],telemetry:
   const actual=telemetry.filter(point=>point.deliveryId===delivery.id).map(point=>[point.longitude,point.latitude] as [number,number]);
   const coordinates=[...route,...actual];
   const lons=coordinates.map(point=>point[0]); const lats=coordinates.map(point=>point[1]);
-  map.fitBounds([[Math.min(...lons),Math.min(...lats)],[Math.max(...lons),Math.max(...lats)]],{padding:90,duration:900,maxZoom:12.5});
+  map.fitBounds([[Math.min(...lons),Math.min(...lats)],[Math.max(...lons),Math.max(...lats)]],{padding:90,duration:mapMotionDuration(),maxZoom:12.5});
 }
