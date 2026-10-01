@@ -840,6 +840,7 @@ test("retries only the failed map while preserving the operator workspace", asyn
   await page.route("**/styles/liberty",async route=>{
     styleRequests+=1;
     if(styleRequests===1){await route.fulfill({status:503,contentType:"text/plain",body:"temporarily unavailable"});return}
+    await new Promise(resolve=>setTimeout(resolve,300));
     await route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({version:8,sources:{},layers:[]})});
   });
   await mockOverview(page,deliveries);
@@ -849,8 +850,12 @@ test("retries only the failed map while preserving the operator workspace", asyn
   await search.fill("TRUCK-03");
   await expect(page.locator(".mapError")).toContainText("지도를 불러오지 못했습니다");
   await page.getByRole("button",{name:"지도 다시 불러오기"}).click();
+  const recovering=page.getByRole("button",{name:"지도 연결 중…"});
+  await expect(recovering).toBeDisabled();
+  await expect(page.locator(".mapError")).toContainText("현재 차량 검색과 선택을 유지한 채 지도만 복구합니다.");
 
   await expect(page.locator(".mapShell")).toHaveClass(/ready/);
+  await expect(page.locator(".maplibregl-canvas")).toBeFocused();
   await expect(search).toHaveValue("TRUCK-03");
   await expect(page.locator(".focusStats")).toContainText("TRUCK-03");
   expect(styleRequests).toBe(2);
