@@ -835,6 +835,27 @@ test("shows completed vehicles automatically when no delivery is active", async 
   await expect(runtimeBadge.getByText("TEST",{exact:true})).toBeVisible();
 });
 
+test("retries only the failed map while preserving the operator workspace", async ({ page }) => {
+  let styleRequests=0;
+  await page.route("**/styles/liberty",async route=>{
+    styleRequests+=1;
+    if(styleRequests===1){await route.fulfill({status:503,contentType:"text/plain",body:"temporarily unavailable"});return}
+    await route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({version:8,sources:{},layers:[]})});
+  });
+  await mockOverview(page,deliveries);
+  await page.goto("/console#overview");
+
+  const search=page.getByRole("searchbox",{name:"검색",exact:true});
+  await search.fill("TRUCK-03");
+  await expect(page.locator(".mapError")).toContainText("지도를 불러오지 못했습니다");
+  await page.getByRole("button",{name:"지도 다시 불러오기"}).click();
+
+  await expect(page.locator(".mapShell")).toHaveClass(/ready/);
+  await expect(search).toHaveValue("TRUCK-03");
+  await expect(page.locator(".focusStats")).toContainText("TRUCK-03");
+  expect(styleRequests).toBe(2);
+});
+
 test("prioritizes a searched vehicle beyond the fifty vehicle map limit", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   const denseDeliveries = createDenseDeliveries();
