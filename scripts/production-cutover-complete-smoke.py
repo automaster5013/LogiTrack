@@ -13,6 +13,30 @@ revision = "a" * 40
 account_id = "123456789012"
 now = "2026-10-02T01:00:00Z"
 roots = ["state", "alerting", "audit", "certificates", "data", "compute", "edge"]
+regional_alarms = [
+    "logitrack-production-audit-root-usage",
+    "logitrack-production-audit-access-denied-spike",
+    "logitrack-production-origin-certificate-expiry",
+    *[f"logitrack-production-kafka-{broker}-under-min-isr" for broker in (1, 2, 3)],
+    "logitrack-production-kafka-offline-partitions",
+    *[f"logitrack-production-kafka-{broker}-disk-high" for broker in (1, 2, 3)],
+    "logitrack-production-cache-engine-cpu-high",
+    "logitrack-production-cache-evictions",
+    "logitrack-production-database-cpu-high",
+    "logitrack-production-database-storage-low",
+    "logitrack-production-waf-blocked-requests",
+    "logitrack-production-web-unhealthy",
+    "logitrack-production-target-5xx-rate",
+    "logitrack-production-load-balancer-5xx",
+    "logitrack-production-target-p95-latency",
+    "logitrack-production-api-running-tasks",
+    "logitrack-production-web-running-tasks",
+]
+global_alarms = [
+    "logitrack-production-viewer-certificate-expiry",
+    "logitrack-production-cloudfront-5xx-rate",
+    "logitrack-production-viewer-waf-blocks",
+]
 
 
 with tempfile.TemporaryDirectory() as directory:
@@ -68,6 +92,10 @@ with tempfile.TemporaryDirectory() as directory:
         "home_contains_brand": True,
         "home_headers": {"strict-transport-security": "max-age=31536000; includeSubDomains", "content-security-policy": "default-src 'self'; frame-ancestors 'none'"},
         "home_url": "https://www.logitrack.kr/",
+        "alarms": {
+            "ap-northeast-2": [{"name": name, "state": "OK", "state_updated_at": "2026-10-02T00:40:00Z"} for name in regional_alarms],
+            "us-east-1": [{"name": name, "state": "OK", "state_updated_at": "2026-10-02T00:40:00+00:00"} for name in global_alarms],
+        },
     }
     ledger_path = work / "ledger.json"
     snapshot_path = work / "snapshot.json"
@@ -89,6 +117,9 @@ with tempfile.TemporaryDirectory() as directory:
     assert completion["manifest_sha256"] == manifest_sha
     assert [item["root"] for item in completion["root_receipts"]] == roots
     assert completion["public_verification"]["revision"] == revision
+    assert completion["alarm_verification"]["required_alarm_count"] == 24
+    assert completion["alarm_verification"]["minimum_ok_minutes"] == 10
+    assert completion["alarm_verification"]["region_counts"] == {"ap-northeast-2": 21, "us-east-1": 3}
 
     rejected_overwrite = invoke(deepcopy(ledger), deepcopy(snapshot), completion_path)
     assert rejected_overwrite.returncode == 1 and "already exists" in rejected_overwrite.stderr
@@ -103,6 +134,26 @@ with tempfile.TemporaryDirectory() as directory:
     rejected_runtime = invoke(ledger, wrong_runtime, work / "wrong-runtime.json")
     assert rejected_runtime.returncode == 1 and "runtime revision" in rejected_runtime.stderr
 
+    missing_alarm = deepcopy(snapshot)
+    missing_alarm["alarms"]["us-east-1"].pop()
+    rejected_missing_alarm = invoke(ledger, missing_alarm, work / "missing-alarm.json")
+    assert rejected_missing_alarm.returncode == 1 and "alarms are missing" in rejected_missing_alarm.stderr
+
+    firing_alarm = deepcopy(snapshot)
+    firing_alarm["alarms"]["ap-northeast-2"][0]["state"] = "ALARM"
+    rejected_firing_alarm = invoke(ledger, firing_alarm, work / "firing-alarm.json")
+    assert rejected_firing_alarm.returncode == 1 and "is not OK" in rejected_firing_alarm.stderr
+
+    insufficient_alarm = deepcopy(snapshot)
+    insufficient_alarm["alarms"]["ap-northeast-2"][1]["state"] = "INSUFFICIENT_DATA"
+    rejected_insufficient_alarm = invoke(ledger, insufficient_alarm, work / "insufficient-alarm.json")
+    assert rejected_insufficient_alarm.returncode == 1 and "INSUFFICIENT_DATA" in rejected_insufficient_alarm.stderr
+
+    recent_alarm = deepcopy(snapshot)
+    recent_alarm["alarms"]["us-east-1"][0]["state_updated_at"] = "2026-10-02T00:55:00Z"
+    rejected_recent_alarm = invoke(ledger, recent_alarm, work / "recent-alarm.json")
+    assert rejected_recent_alarm.returncode == 1 and "remained OK for 10 minutes" in rejected_recent_alarm.stderr
+
     state_path = receipts / "production-state-verification.json"
     original = state_path.read_text(encoding="utf-8")
     state_path.write_text(original + " ", encoding="utf-8")
@@ -110,7 +161,7 @@ with tempfile.TemporaryDirectory() as directory:
     assert rejected_tamper.returncode == 1 and "digest" in rejected_tamper.stderr
 
 source = validator.read_text(encoding="utf-8")
-for contract in ("get-caller-identity", "TLSv1_2", "www.logitrack.kr/api/runtime-version", "completion receipt already exists", "receipt_sha256"):
+for contract in ("get-caller-identity", "describe-alarms", "MINIMUM_ALARM_OK_AGE", "TLSv1_2", "www.logitrack.kr/api/runtime-version", "completion receipt already exists", "receipt_sha256"):
     assert contract in source, f"completion gate is missing: {contract}"
 
-print("PASS: production cutover completion binds all seven receipts to the ledger and verified public runtime state")
+print("PASS: production cutover completion binds all receipts, public runtime, and a ten-minute CloudWatch alarm soak")

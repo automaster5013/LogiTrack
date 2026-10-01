@@ -18,6 +18,38 @@ ORDER = ["state", "alerting", "audit", "certificates", "data", "compute", "edge"
 SHA = re.compile(r"^[0-9a-f]{40}$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 ACCOUNT = re.compile(r"^[0-9]{12}$")
+ALARM_PREFIX = "logitrack-production"
+MINIMUM_ALARM_OK_AGE = timedelta(minutes=10)
+EXPECTED_ALARMS = {
+    "ap-northeast-2": {
+        "logitrack-production-audit-root-usage",
+        "logitrack-production-audit-access-denied-spike",
+        "logitrack-production-origin-certificate-expiry",
+        "logitrack-production-kafka-1-under-min-isr",
+        "logitrack-production-kafka-2-under-min-isr",
+        "logitrack-production-kafka-3-under-min-isr",
+        "logitrack-production-kafka-offline-partitions",
+        "logitrack-production-kafka-1-disk-high",
+        "logitrack-production-kafka-2-disk-high",
+        "logitrack-production-kafka-3-disk-high",
+        "logitrack-production-cache-engine-cpu-high",
+        "logitrack-production-cache-evictions",
+        "logitrack-production-database-cpu-high",
+        "logitrack-production-database-storage-low",
+        "logitrack-production-waf-blocked-requests",
+        "logitrack-production-web-unhealthy",
+        "logitrack-production-target-5xx-rate",
+        "logitrack-production-load-balancer-5xx",
+        "logitrack-production-target-p95-latency",
+        "logitrack-production-api-running-tasks",
+        "logitrack-production-web-running-tasks",
+    },
+    "us-east-1": {
+        "logitrack-production-viewer-certificate-expiry",
+        "logitrack-production-cloudfront-5xx-rate",
+        "logitrack-production-viewer-waf-blocks",
+    },
+}
 
 
 def load(path: Path, label: str) -> dict:
@@ -38,12 +70,14 @@ def digest(path: Path) -> str:
 
 
 def timestamp(value: object, label: str) -> datetime:
-    if not isinstance(value, str) or not value.endswith("Z"):
+    if not isinstance(value, str):
         raise ValueError(f"{label} must be an RFC3339 UTC timestamp")
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
         raise ValueError(f"{label} must be an RFC3339 UTC timestamp") from exc
+    if parsed.utcoffset() != timedelta(0):
+        raise ValueError(f"{label} must be an RFC3339 UTC timestamp")
     return parsed.astimezone(timezone.utc)
 
 
@@ -56,21 +90,52 @@ def atomic_json(path: Path, value: dict) -> None:
     temporary.replace(path)
 
 
-def live_observations(account_id: str, url: str) -> dict:
-    identity = subprocess.run(
-        ["aws", "--region", "ap-northeast-2", "sts", "get-caller-identity", "--output", "json"],
+def aws_json(region: str, *arguments: str) -> dict:
+    result = subprocess.run(
+        ["aws", "--region", region, *arguments, "--output", "json"],
         check=False,
         capture_output=True,
         text=True,
     )
-    if identity.returncode != 0:
-        raise ValueError("AWS caller identity lookup failed")
+    if result.returncode != 0:
+        raise ValueError(f"AWS {' '.join(arguments[:2])} failed in {region}")
     try:
-        caller = json.loads(identity.stdout)
+        value = json.loads(result.stdout)
     except json.JSONDecodeError as exc:
-        raise ValueError("AWS caller identity response is invalid") from exc
+        raise ValueError(f"AWS {' '.join(arguments[:2])} response is invalid in {region}") from exc
+    if not isinstance(value, dict):
+        raise ValueError(f"AWS {' '.join(arguments[:2])} response is invalid in {region}")
+    return value
+
+
+def live_observations(account_id: str, url: str) -> dict:
+    caller = aws_json("ap-northeast-2", "sts", "get-caller-identity")
     if caller.get("Account") != account_id:
         raise ValueError("active AWS account does not match --account-id")
+
+    alarms = {}
+    for region in EXPECTED_ALARMS:
+        response = aws_json(
+            region,
+            "cloudwatch",
+            "describe-alarms",
+            "--alarm-name-prefix",
+            ALARM_PREFIX,
+            "--alarm-types",
+            "MetricAlarm",
+        )
+        metric_alarms = response.get("MetricAlarms")
+        if not isinstance(metric_alarms, list):
+            raise ValueError(f"CloudWatch alarm response is malformed in {region}")
+        alarms[region] = [
+            {
+                "name": alarm.get("AlarmName"),
+                "state": alarm.get("StateValue"),
+                "state_updated_at": alarm.get("StateUpdatedTimestamp"),
+            }
+            for alarm in metric_alarms
+            if isinstance(alarm, dict)
+        ]
 
     context = ssl.create_default_context()
     context.minimum_version = ssl.TLSVersion.TLSv1_2
@@ -87,7 +152,46 @@ def live_observations(account_id: str, url: str) -> dict:
             home_url = response.geturl()
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"public HTTPS verification failed: {exc}") from exc
-    return {"runtime": runtime, "runtime_headers": runtime_headers, "runtime_url": runtime_url, "home_contains_brand": "LIVE LOGISTICS INTELLIGENCE" in home, "home_headers": home_headers, "home_url": home_url}
+    return {"runtime": runtime, "runtime_headers": runtime_headers, "runtime_url": runtime_url, "home_contains_brand": "LIVE LOGISTICS INTELLIGENCE" in home, "home_headers": home_headers, "home_url": home_url, "alarms": alarms}
+
+
+def validate_alarms(observations: dict, now: datetime) -> dict:
+    alarm_regions = observations.get("alarms")
+    if not isinstance(alarm_regions, dict):
+        raise ValueError("CloudWatch alarm observations are missing")
+    verified = []
+    region_counts = {}
+    for region, expected_names in EXPECTED_ALARMS.items():
+        alarms = alarm_regions.get(region)
+        if not isinstance(alarms, list):
+            raise ValueError(f"CloudWatch alarm observations are missing for {region}")
+        by_name = {}
+        for alarm in alarms:
+            if not isinstance(alarm, dict) or not isinstance(alarm.get("name"), str):
+                raise ValueError(f"CloudWatch alarm observation is malformed in {region}")
+            name = alarm["name"]
+            if not name.startswith(ALARM_PREFIX):
+                continue
+            if name in by_name:
+                raise ValueError(f"duplicate CloudWatch alarm observation: {name}")
+            by_name[name] = alarm
+        missing = sorted(expected_names - by_name.keys())
+        if missing:
+            raise ValueError(f"required CloudWatch alarms are missing in {region}: {', '.join(missing)}")
+        for name, alarm in sorted(by_name.items()):
+            if alarm.get("state") != "OK":
+                raise ValueError(f"CloudWatch alarm is not OK in {region}: {name} ({alarm.get('state')})")
+            updated_at = timestamp(alarm.get("state_updated_at"), f"CloudWatch alarm {name} state_updated_at")
+            if updated_at > now or now - updated_at < MINIMUM_ALARM_OK_AGE:
+                raise ValueError(f"CloudWatch alarm has not remained OK for 10 minutes in {region}: {name}")
+            verified.append(updated_at)
+        region_counts[region] = len(expected_names)
+    return {
+        "minimum_ok_minutes": 10,
+        "required_alarm_count": sum(region_counts.values()),
+        "region_counts": region_counts,
+        "latest_state_updated_at": max(verified).isoformat().replace("+00:00", "Z"),
+    }
 
 
 def validate_public(observations: dict, revision: str, environment: str, now: datetime) -> dict:
@@ -179,7 +283,8 @@ def main() -> int:
 
         observations = load(args.snapshot, "public verification snapshot") if args.snapshot else live_observations(args.account_id, args.url)
         public = validate_public(observations, args.revision, args.expected_environment, now)
-        completion = {"schema_version": 1, "revision": args.revision, "account_id": args.account_id, "completed_at": now.isoformat().replace("+00:00", "Z"), "manifest_sha256": manifest_sha, "ledger_sha256": digest(args.ledger), "root_receipts": receipts, "public_verification": public}
+        alarms = validate_alarms(observations, now)
+        completion = {"schema_version": 1, "revision": args.revision, "account_id": args.account_id, "completed_at": now.isoformat().replace("+00:00", "Z"), "manifest_sha256": manifest_sha, "ledger_sha256": digest(args.ledger), "root_receipts": receipts, "public_verification": public, "alarm_verification": alarms}
         atomic_json(args.completion_receipt, completion)
         print(f"PASS: production cutover completion receipt recorded ({digest(args.completion_receipt)})")
         return 0

@@ -46,7 +46,7 @@ python scripts/production-post-apply-verify.py --root state --revision <main-sha
 python scripts/production-cutover-complete.py --manifest <manifest.json> --ledger <vault-path/apply-ledger.json> --receipt-dir <vault-path/root-receipts> --completion-receipt <vault-path/cutover-completion.json> --revision <main-sha> --account-id <12-digit-aws-account-id>
 ```
 
-게이트는 승인 변경 창이 아직 유효하고 manifest digest가 ledger와 일치하는지, ledger가 정확한 순서로 완결됐는지, 모든 root receipt의 SHA-256·revision·AWS 계정·plan·manifest·검증 시각이 ledger와 일치하는지 확인한다. 이어서 TLS 1.2 이상의 공개 `www.logitrack.kr`에서 production runtime revision, 최근 build, 비캐시 JSON metadata, 브랜드 응답과 HSTS·CSP를 확인한 뒤에만 불변 completion receipt를 만든다. 이 명령이 성공하기 전에는 변경 티켓을 완료 처리하지 않는다.
+게이트는 승인 변경 창이 아직 유효하고 manifest digest가 ledger와 일치하는지, ledger가 정확한 순서로 완결됐는지, 모든 root receipt의 SHA-256·revision·AWS 계정·plan·manifest·검증 시각이 ledger와 일치하는지 확인한다. 이어서 TLS 1.2 이상의 공개 `www.logitrack.kr`에서 production runtime revision, 최근 build, 비캐시 JSON metadata, 브랜드 응답과 HSTS·CSP를 확인한다. 마지막으로 서울 리전의 감사·인증서·데이터·컴퓨트 경보 21개와 버지니아 리전의 viewer 인증서·CloudFront·WAF 경보 3개가 모두 존재하고 `OK` 상태를 연속 10분 이상 유지한 경우에만 불변 completion receipt를 만든다. 경보 누락, `ALARM`, `INSUFFICIENT_DATA`, 미래 시각 또는 10분 미만의 최근 상태 전환은 완료를 차단한다. 이 명령이 성공하기 전에는 변경 티켓을 완료 처리하지 않는다.
 
 ## Rollback fence
 
