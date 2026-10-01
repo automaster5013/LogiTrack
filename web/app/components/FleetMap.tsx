@@ -71,10 +71,11 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
   const shellRef=useRef<HTMLDivElement>(null); const host=useRef<HTMLDivElement>(null); const expandButtonRef=useRef<HTMLButtonElement>(null); const mapRef=useRef<Map|null>(null); const popupRef=useRef<Popup|null>(null); const loaded=useRef(false);
   const deliveriesRef=useRef(deliveries); const routesRef=useRef(routes); const telemetryRef=useRef(telemetry); const selectedRef=useRef(selectedId);
   deliveriesRef.current=deliveries; routesRef.current=routes; telemetryRef.current=telemetry; selectedRef.current=selectedId;
-  const [mapError,setMapError]=useState(false); const [mapReady,setMapReady]=useState(false); const [legendExpanded,setLegendExpanded]=useState(false); const [mapExpanded,setMapExpanded]=useState(false);
+  const [mapError,setMapError]=useState(false); const [mapReady,setMapReady]=useState(false); const [mapRetry,setMapRetry]=useState(0); const [legendExpanded,setLegendExpanded]=useState(false); const [mapExpanded,setMapExpanded]=useState(false);
 
   useEffect(()=>{
     if(!host.current||mapRef.current)return;
+    setMapError(false);setMapReady(false);loaded.current=false;
     const map=new Map({container:host.current,style:STYLE,center:[126.84,37.51],zoom:9.6,pitch:36,bearing:-6,locale:MAP_LOCALE,
       attributionControl:false,maxPitch:65,cooperativeGestures:true});
     mapRef.current=map;
@@ -82,6 +83,7 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
     map.addControl(new ScaleControl({unit:"metric"}),"bottom-left");
     map.addControl(new AttributionControl({compact:true}),"bottom-right");
     const loadTimeout=window.setTimeout(()=>{if(!loaded.current)setMapError(true)},12000);
+    map.on("error",()=>{if(!loaded.current)setMapError(true)});
     map.on("load",()=>{
       window.clearTimeout(loadTimeout); loaded.current=true; setMapError(false);
       map.addSource("fleet",{type:"geojson",data:features(deliveriesRef.current,routesRef.current,telemetryRef.current)});
@@ -122,7 +124,7 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
       map.once("idle",()=>setMapReady(true));
     });
     return()=>{window.clearTimeout(loadTimeout);popupRef.current?.remove();popupRef.current=null;map.remove();mapRef.current=null;loaded.current=false};
-  },[]);
+  },[mapRetry]);
 
   useEffect(()=>{
     const map=mapRef.current;if(!map||!loaded.current)return;
@@ -183,7 +185,7 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
 
   return <div ref={shellRef} id="fleet-map-panel" className={`mapShell ${mapReady?"ready":""} ${mapExpanded?"mapExpanded":""}`} role={mapExpanded?"dialog":"region"} aria-modal={mapExpanded||undefined} aria-label={mapLabel}>
     <div ref={host} className="mapCanvas"/>
-    {mapError&&<div className="mapError" role="alert"><b>지도를 불러오지 못했습니다</b><span>지도 타일 연결을 확인하세요. 배송 데이터 스트림은 계속 동작합니다.</span><button type="button" onClick={()=>window.location.reload()}>지도 다시 불러오기</button></div>}
+    {mapError&&<div className="mapError" role="alert"><b>지도를 불러오지 못했습니다</b><span>지도 타일 연결을 확인하세요. 배송 데이터 스트림은 계속 동작합니다.</span><button type="button" onClick={()=>setMapRetry(value=>value+1)}>지도 다시 불러오기</button></div>}
     {!mapError&&deliveries.length===0&&<div className="mapEmpty"><b>표시할 차량이 없습니다</b><span>{emptyMessage||"범위를 전환하거나 새 배송을 생성해 주세요."}</span></div>}
     <div className={`mapLegend ${legendExpanded?"expanded":"compact"}`} aria-label="지도 범례"><button type="button" className="mapLegendToggle" aria-expanded={legendExpanded} aria-controls="fleet-map-legend-items" onClick={()=>setLegendExpanded(value=>!value)}><span><i className="mapReadyDot"/> 지도 범례</span><small>{deliveries.length}대 표시</small><b>{legendExpanded?"접기":"보기"}</b></button><div id="fleet-map-legend-items" className="mapLegendItems" hidden={!legendExpanded}><span><i className="liveDot"/> 운송 차량</span><span><i className="overdueDot"/> 예정 초과</span><span><i className="delayedDot"/> 지연 차량</span><span><i className="selectedDot"/> 선택 차량</span><span><i className="travelDot"/> 실제 이동</span><span><i className="routeDot"/> 계획 경로</span><p>차량을 선택하면 상세 경로와 거점이 강조됩니다.</p></div></div>
     <button ref={expandButtonRef} type="button" className="mapExpand" aria-expanded={mapExpanded} aria-controls="fleet-map-panel" aria-label={mapExpanded?"지도 원래 크기로":"지도 확대 보기"} onClick={()=>setMapExpanded(value=>!value)}>{mapExpanded?"축소":"확대"}</button>
