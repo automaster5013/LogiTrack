@@ -145,6 +145,17 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
     if(!mapExpanded)return()=>window.cancelAnimationFrame(frame);
     const previousOverflow=document.body.style.overflow;
     const previousFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
+    const disabledBackground:Array<{element:HTMLElement;inert:boolean;ariaHidden:string|null}>=[];
+    let modalBranch:HTMLElement|null=shellRef.current;
+    while(modalBranch?.parentElement&&modalBranch!==document.body){
+      for(const sibling of modalBranch.parentElement.children){
+        if(!(sibling instanceof HTMLElement)||sibling===modalBranch)continue;
+        disabledBackground.push({element:sibling,inert:sibling.inert,ariaHidden:sibling.getAttribute("aria-hidden")});
+        sibling.inert=true;
+        sibling.setAttribute("aria-hidden","true");
+      }
+      modalBranch=modalBranch.parentElement;
+    }
     document.body.style.overflow="hidden";
     expandButtonRef.current?.focus();
     const handleModalKey=(event:KeyboardEvent)=>{
@@ -158,7 +169,7 @@ export default function FleetMap({deliveries,routes,telemetry,selectedId,onSelec
       else if(!event.shiftKey&&(active===last||!shellRef.current?.contains(active))){event.preventDefault();first.focus()}
     };
     document.addEventListener("keydown",handleModalKey);
-    return()=>{window.cancelAnimationFrame(frame);document.body.style.overflow=previousOverflow;document.removeEventListener("keydown",handleModalKey);previousFocus?.focus()};
+    return()=>{window.cancelAnimationFrame(frame);document.body.style.overflow=previousOverflow;document.removeEventListener("keydown",handleModalKey);for(const {element,inert,ariaHidden} of disabledBackground){element.inert=inert;if(ariaHidden===null)element.removeAttribute("aria-hidden");else element.setAttribute("aria-hidden",ariaHidden)}previousFocus?.focus()};
   },[mapExpanded]);
 
   const selected=deliveries.find(delivery=>delivery.id===selectedId);
