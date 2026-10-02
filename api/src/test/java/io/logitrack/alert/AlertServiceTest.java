@@ -33,6 +33,32 @@ class AlertServiceTest {
         verify(stream,times(1)).publishAlert(alert);
     }
 
+    @Test void keyedAcknowledgementReturnsOnlyTheMatchingStoredRequest() {
+        var alert=new DeliveryAlert(UUID.randomUUID(),DeliveryAlert.Type.ROUTE_DEVIATION,
+            DeliveryAlert.Severity.CRITICAL,"off route",1800,500);
+        when(alerts.findByAcknowledgementRequestKey("request-key")).thenReturn(Optional.empty(),Optional.of(alert));
+        when(alerts.findByIdForUpdate(alert.getId())).thenReturn(Optional.of(alert));
+
+        assertSame(alert,service.acknowledge(alert.getId(),"operator-a","trace-a","request-key"));
+        assertSame(alert,service.acknowledge(alert.getId(),"operator-a","trace-b","request-key"));
+        assertEquals("request-key",alert.getAcknowledgementRequestKey());
+        assertFalse(new ObjectMapper().findAndRegisterModules().valueToTree(alert).has("acknowledgementRequestKey"));
+        verify(alerts,times(2)).lockAcknowledgementRequestKey("request-key");
+        verify(outbox,times(1)).save(any());
+        assertThrows(IllegalStateException.class,()->service.acknowledge(UUID.randomUUID(),"operator-a","trace","request-key"));
+        assertThrows(IllegalStateException.class,()->service.acknowledge(alert.getId(),"operator-b","trace","request-key"));
+    }
+
+    @Test void newKeyCannotClaimAnAlreadyAcknowledgedAlert() {
+        var alert=new DeliveryAlert(UUID.randomUUID(),DeliveryAlert.Type.DELAY,
+            DeliveryAlert.Severity.WARNING,"late",700,600);
+        alert.acknowledge("operator-a");
+        when(alerts.findByAcknowledgementRequestKey("new-key")).thenReturn(Optional.empty());
+        when(alerts.findByIdForUpdate(alert.getId())).thenReturn(Optional.of(alert));
+        assertThrows(IllegalStateException.class,()->service.acknowledge(alert.getId(),"operator-a","trace","new-key"));
+        verifyNoInteractions(outbox);
+    }
+
     @Test void missingAlertReturnsNotFoundSignal() {
         var id=UUID.randomUUID();when(alerts.findByIdForUpdate(id)).thenReturn(Optional.empty());
         assertThrows(NoSuchElementException.class,()->service.acknowledge(id,"operator","trace"));

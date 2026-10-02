@@ -20,6 +20,7 @@ public class DeliveryAlert {
     @Column(name="resolved_at") private Instant resolvedAt;
     @Column(name="acknowledged_at") private Instant acknowledgedAt;
     @Column(name="acknowledged_by",length=120) private String acknowledgedBy;
+    @Column(name="acknowledgement_request_key",length=160,unique=true) private String acknowledgementRequestKey;
 
     protected DeliveryAlert() {}
     public DeliveryAlert(UUID deliveryId,Type type,Severity severity,String message,double observedValue,double thresholdValue){
@@ -31,17 +32,20 @@ public class DeliveryAlert {
     }
     public void resolve(double value){status=Status.RESOLVED;observedValue=value;lastObservedAt=Instant.now();resolvedAt=lastObservedAt;}
     public boolean acknowledge(String actor){
+        return acknowledge(actor,null);
+    }
+    public boolean acknowledge(String actor,String requestKey){
         if(status!=Status.ACTIVE)throw new IllegalStateException("Only active alerts can be acknowledged");
         if(acknowledgedAt!=null)return false;
         var normalized=actor==null?"":actor.trim();
         if(normalized.isBlank()||normalized.length()>120)throw new IllegalArgumentException("X-Operator must be 1-120 characters");
-        acknowledgedBy=normalized;acknowledgedAt=Instant.now();return true;
+        acknowledgedBy=normalized;acknowledgementRequestKey=requestKey;acknowledgedAt=Instant.now();return true;
     }
     public UUID getId(){return id;} public UUID getDeliveryId(){return deliveryId;} public Type getAlertType(){return alertType;}
     public Severity getSeverity(){return severity;} public Status getStatus(){return status;} public String getMessage(){return message;}
     public double getObservedValue(){return observedValue;} public double getThresholdValue(){return thresholdValue;} public int getOccurrenceCount(){return occurrenceCount;}
     public Instant getFirstObservedAt(){return firstObservedAt;} public Instant getLastObservedAt(){return lastObservedAt;} public Instant getResolvedAt(){return resolvedAt;}
-    public Instant getAcknowledgedAt(){return acknowledgedAt;} public String getAcknowledgedBy(){return acknowledgedBy;}
+    public Instant getAcknowledgedAt(){return acknowledgedAt;} public String getAcknowledgedBy(){return acknowledgedBy;} @com.fasterxml.jackson.annotation.JsonIgnore public String getAcknowledgementRequestKey(){return acknowledgementRequestKey;}
     public enum Type { DELAY, ROUTE_DEVIATION }
     public enum Severity { WARNING, CRITICAL }
     public enum Status { ACTIVE, RESOLVED }
