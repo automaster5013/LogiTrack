@@ -15,8 +15,8 @@ INSERT INTO processed_events(event_id,consumer_name,processed_at) VALUES
 INSERT INTO outbox_events(id,aggregate_type,aggregate_id,event_type,topic,event_key,payload,status,attempts,created_at,published_at,next_attempt_at) VALUES
 ('$oldOutbox','SMOKE','$aggregate','retention.smoke.v1','retention.smoke.v1','$aggregate','{}','PUBLISHED',0,now()-interval '8 days',now()-interval '8 days',now()-interval '8 days'),
 ('$recentOutbox','SMOKE','$aggregate','retention.smoke.v1','retention.smoke.v1','$aggregate','{}','PUBLISHED',0,now(),now(),now());
-INSERT INTO outbox_retry_audits(id,outbox_event_id,actor,occurred_at) VALUES
-('$oldOutboxAudit','$oldOutbox','retention-smoke',now()-interval '8 days');
+INSERT INTO outbox_retry_audits(id,outbox_event_id,actor,request_key,occurred_at) VALUES
+('$oldOutboxAudit','$oldOutbox','retention-smoke','retention:$oldOutboxAudit',now()-interval '8 days');
 INSERT INTO telemetry_points(event_id,delivery_id,vehicle_id,latitude,longitude,progress,occurred_at) VALUES
 ('$oldTelemetry','$deliveryId','$vehicleSql',37.5,127.0,0.5,now()-interval '31 days'),
 ('$recentTelemetry','$deliveryId','$vehicleSql',37.5,127.0,0.5,now());

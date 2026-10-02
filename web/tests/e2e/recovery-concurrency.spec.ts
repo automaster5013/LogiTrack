@@ -42,6 +42,7 @@ async function mockRecovery(page: Page, fixture: RecoveryFixture = {}) {
   const discardPlanRequestKeys: string[] = [];
   const discardPlanExecutionRequests: string[] = [];
   const outboxRetryRequests: string[] = [];
+  const outboxRetryRequestKeys: string[] = [];
   const discardPlan: DiscardPlan = { id:"00000000-0000-4000-8000-000000000201", actor:"control-tower", reason:"invalid telemetry payloads", eventIds:[events[0].id], status:"PREPARED", createdAt:failedAt, expiresAt:"2026-09-28T02:00:00Z", succeededCount:0, failedCount:0 };
   await page.route("**/api/**", async route => {
     const request = route.request();
@@ -80,6 +81,7 @@ async function mockRecovery(page: Page, fixture: RecoveryFixture = {}) {
     const outboxRetryMatch = url.pathname.match(/^\/api\/operations\/outbox\/failures\/([^/]+)\/retry$/);
     if (outboxRetryMatch && request.method() === "POST") {
       outboxRetryRequests.push(outboxRetryMatch[1]);
+      outboxRetryRequestKeys.push(request.headers()["idempotency-key"]||"");
       await new Promise(resolve => setTimeout(resolve, outboxRetryMatch[1] === outboxFailures[0].id ? 1_000 : 2_500));
       const requestCount = outboxRetryRequests.filter(id => id === outboxRetryMatch[1]).length;
       if (requestCount <= (fixture.outboxFailuresBeforeSuccessById?.[outboxRetryMatch[1]] || 0)) return route.fulfill({ status: 503, ...common, json: { error: "temporarily_unavailable" } });
@@ -102,7 +104,7 @@ async function mockRecovery(page: Page, fixture: RecoveryFixture = {}) {
     }
     return route.fulfill({ status: 404, ...common, json: { error: "not_found" } });
   });
-  return { replayRequests, discardRequests, discardPlanRequests, discardPlanRequestKeys, discardPlanExecutionRequests, outboxRetryRequests };
+  return { replayRequests, discardRequests, discardPlanRequests, discardPlanRequestKeys, discardPlanExecutionRequests, outboxRetryRequests, outboxRetryRequestKeys };
 }
 
 test("keeps each concurrent DLQ replay disabled until its own request finishes", async ({ page }) => {
@@ -217,8 +219,8 @@ test("keeps a failed DLQ replay error until that event recovers", async ({ page 
   expect(replayRequests).toEqual([events[0].id,events[1].id,events[0].id]);
 });
 
-test("keeps a failed outbox retry error until that event recovers", async ({ page }) => {
-  const { outboxRetryRequests } = await mockRecovery(page, { outboxFailuresBeforeSuccessById: { [outboxFailures[0].id]: 1 } });
+test("keeps a failed outbox retry error and request identity until that event recovers", async ({ page }) => {
+  const { outboxRetryRequests, outboxRetryRequestKeys } = await mockRecovery(page, { outboxFailuresBeforeSuccessById: { [outboxFailures[0].id]: 1 } });
   page.on("dialog", dialog => dialog.accept());
   await page.goto("/console#recovery");
 
@@ -236,6 +238,9 @@ test("keeps a failed outbox retry error until that event recovers", async ({ pag
   await expect(firstRetry).toBeEnabled({ timeout: 1_500 });
   await expect(retryError).toBeHidden();
   expect(outboxRetryRequests).toEqual([outboxFailures[0].id,outboxFailures[1].id,outboxFailures[0].id]);
+  expect(outboxRetryRequestKeys[0]).not.toBe("");
+  expect(outboxRetryRequestKeys[2]).toBe(outboxRetryRequestKeys[0]);
+  expect(outboxRetryRequestKeys[1]).not.toBe(outboxRetryRequestKeys[0]);
 });
 
 test("sends one DLQ replay request for immediate repeated input", async ({ page }) => {
