@@ -58,6 +58,7 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
   let streamRequestCount = 0;
   let acknowledgementRequestCount = 0;
   let acknowledgementCompletedCount = 0;
+  const acknowledgementTraceIds: string[] = [];
   const routes = deliveryRows.map((delivery, index) => ({
     id: `10000000-0000-4000-8000-00000000000${index + 1}`,
     deliveryId: delivery.id,
@@ -84,6 +85,7 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
         return route.fulfill({ status: 400, ...common, json: { error: "invalid_acknowledgement" } });
       }
       acknowledgementRequestCount += 1;
+      acknowledgementTraceIds.push(traceId);
       const acknowledgementDelayMs = streamFixture.acknowledgementDelayMsById?.[alertId] || streamFixture.acknowledgementDelayMs;
       if (acknowledgementDelayMs) await new Promise(resolve => setTimeout(resolve, acknowledgementDelayMs));
       if (acknowledgementRequestCount <= (streamFixture.acknowledgementFailuresBeforeSuccess || 0)) {
@@ -144,6 +146,7 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
   return {
     acknowledgementRequestCount: () => acknowledgementRequestCount,
     acknowledgementCompletedCount: () => acknowledgementCompletedCount,
+    acknowledgementTraceIds,
     alertRequestCount: () => alertRequestCount,
     routeRequestCount: () => routeRequestCount,
     telemetryRequestCount: () => telemetryRequestCount,
@@ -1381,7 +1384,7 @@ test("recovers when alert acknowledgement initially fails", async ({ page }) => 
   };
   const acknowledgementButton = "TRUCK-01 주문 ORD-DEMO-1 출발지 1에서 도착지 1 경고 확인 처리";
 
-  await mockOverview(page, activeDeliveries, [activeAlert], {
+  const requests = await mockOverview(page, activeDeliveries, [activeAlert], {
     body: "event: connected\ndata: {}\n\n",
     delayMs: 10_000,
     acknowledgementResponse: acknowledgedAlert,
@@ -1400,6 +1403,8 @@ test("recovers when alert acknowledgement initially fails", async ({ page }) => 
   await expect(page.locator(".errorPanel")).toHaveCount(0);
   await expect(page.locator(".alertHeaderStats")).toContainText("0미확인");
   await expect(page.getByText(/확인 · control-tower/)).toBeVisible();
+  expect(requests.acknowledgementTraceIds).toHaveLength(2);
+  expect(new Set(requests.acknowledgementTraceIds).size).toBe(1);
 });
 
 test("accepts a streamed acknowledgement when the request later fails", async ({ page }) => {
