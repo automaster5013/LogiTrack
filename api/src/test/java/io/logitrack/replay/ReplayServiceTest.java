@@ -41,6 +41,11 @@ class ReplayServiceTest {
         var event=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,1);event.markReplayed("operator");when(events.lockById(event.getId())).thenReturn(Optional.of(event));
         assertSame(event,service.replay(event.getId(),"operator"));verifyNoInteractions(kafka,audits);assertEquals(0,metrics.get("logitrack.dlq.replays").counter().count());
     }
+    @Test void repeatedReplayByDifferentOperatorRemainsRejected(){
+        var events=mock(DeadLetterEventRepository.class);var service=new ReplayService(events,mock(ReplayAuditRepository.class),mock(KafkaTemplate.class),new SimpleMeterRegistry());
+        var event=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,1);event.markReplayed("operator");when(events.lockById(event.getId())).thenReturn(Optional.of(event));
+        assertThrows(IllegalStateException.class,()->service.replay(event.getId(),"another-operator"));
+    }
     @Test void discardsPendingEventWithAuditAndMetric(){
         var events=mock(DeadLetterEventRepository.class);var audits=mock(ReplayAuditRepository.class);var metrics=new SimpleMeterRegistry();var service=new ReplayService(events,audits,mock(KafkaTemplate.class),metrics);
         var event=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,2);when(events.lockById(event.getId())).thenReturn(Optional.of(event));
