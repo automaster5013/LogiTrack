@@ -144,3 +144,22 @@ test("loads one next DLQ page for immediate repeated input",async({page})=>{
   expect(requestedPages).toEqual([1]);
   await expect(page.getByText("trace-page-2")).toBeVisible();
 });
+
+test("pauses loading older DLQ events offline and restores it online",async({page,context})=>{
+  const requestedPages=await mockRecoveryPages(page);
+  await page.goto("/console#recovery");
+  const loadMore=page.locator(".loadMoreDlq");
+  await expect(loadMore).toBeVisible();
+  requestedPages.length=0;
+
+  await context.setOffline(true);
+  await expect(loadMore).toHaveText("네트워크 연결 대기 중…");
+  await expect(loadMore).toBeDisabled();
+  expect(requestedPages).toEqual([]);
+
+  await context.setOffline(false);
+  await expect(loadMore).toBeEnabled();
+  await loadMore.click();
+  await expect(loadMore).toBeHidden({timeout:1_500});
+  expect(requestedPages).toEqual([0,1]);
+});
