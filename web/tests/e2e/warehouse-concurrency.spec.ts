@@ -118,7 +118,7 @@ test("keeps a receipt error visible until receipt retry succeeds",async({page})=
   await receive.click();
   await expect(receive).toBeEnabled({timeout:1_500});
   expect(receiptRequests).toHaveLength(3);
-  expect(receiptRequests[2]).toMatch(/^ASN-[0-9A-F]{12}$/);
+  expect(receiptRequests[2]).toMatch(/^ASN-[0-9A-F]{20}$/);
   expect(receiptRequests[2]).not.toBe(receiptRequests[1]);
   expect(receiptIdempotencyKeys[2]).not.toBe(receiptIdempotencyKeys[1]);
   expect(receiptTraceIds[2]).not.toBe(receiptTraceIds[1]);
@@ -157,7 +157,7 @@ test("reuses the pick identity after an ambiguous failure and resets it after su
   await dispatch.click();
   await expect(dispatch).toBeEnabled({timeout:2_000});
   expect(outboundRequests).toHaveLength(3);
-  expect(outboundRequests[2]).toMatch(/^OUT-[0-9A-F]{12}$/);
+  expect(outboundRequests[2]).toMatch(/^OUT-[0-9A-F]{20}$/);
   expect(outboundRequests[2]).not.toBe(outboundRequests[1]);
   expect(outboundIdempotencyKeys[2]).not.toBe(outboundIdempotencyKeys[1]);
   expect(outboundTraceIds[2]).not.toBe(outboundTraceIds[1]);
