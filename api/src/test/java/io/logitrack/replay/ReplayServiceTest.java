@@ -36,6 +36,11 @@ class ReplayServiceTest {
         var event=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,1);when(events.lockById(event.getId())).thenReturn(Optional.of(event));when(kafka.send(anyString(),any(),any())).thenReturn(CompletableFuture.failedFuture(new IllegalStateException("secret broker-1.internal:9092")));
         var error=assertThrows(IllegalStateException.class,()->service.replay(event.getId(),"operator"));assertEquals("Could not publish replay event",error.getMessage());assertFalse(error.getMessage().contains("broker"));
     }
+    @Test void repeatedReplayReturnsCurrentEventWithoutRepublishingOrDuplicatingEvidence(){
+        var events=mock(DeadLetterEventRepository.class);var audits=mock(ReplayAuditRepository.class);var kafka=mock(KafkaTemplate.class);var metrics=new SimpleMeterRegistry();var service=new ReplayService(events,audits,kafka,metrics);
+        var event=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,1);event.markReplayed("operator");when(events.lockById(event.getId())).thenReturn(Optional.of(event));
+        assertSame(event,service.replay(event.getId(),"operator"));verifyNoInteractions(kafka,audits);assertEquals(0,metrics.get("logitrack.dlq.replays").counter().count());
+    }
     @Test void discardsPendingEventWithAuditAndMetric(){
         var events=mock(DeadLetterEventRepository.class);var audits=mock(ReplayAuditRepository.class);var metrics=new SimpleMeterRegistry();var service=new ReplayService(events,audits,mock(KafkaTemplate.class),metrics);
         var event=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,2);when(events.lockById(event.getId())).thenReturn(Optional.of(event));
@@ -46,5 +51,21 @@ class ReplayServiceTest {
     @Test void validatesDiscardReasonBeforeLocking(){
         var events=mock(DeadLetterEventRepository.class);var service=new ReplayService(events,mock(ReplayAuditRepository.class),mock(KafkaTemplate.class),new SimpleMeterRegistry());
         assertThrows(IllegalArgumentException.class,()->service.discard(UUID.randomUUID(),"operator","   "));verifyNoInteractions(events);
+    }
+    @Test void repeatedIdenticalDiscardReturnsCurrentEventWithoutDuplicatingEvidence(){
+        var events=mock(DeadLetterEventRepository.class);var audits=mock(ReplayAuditRepository.class);var metrics=new SimpleMeterRegistry();var service=new ReplayService(events,audits,mock(KafkaTemplate.class),metrics);
+        var event=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,2);event.discard("operator","invalid fixture");when(events.lockById(event.getId())).thenReturn(Optional.of(event));
+        assertSame(event,service.discard(event.getId()," operator "," invalid fixture "));verifyNoInteractions(audits);assertEquals(0,metrics.get("logitrack.dlq.discards").counter().count());
+    }
+    @Test void repeatedDiscardWithDifferentIntentRemainsRejected(){
+        var events=mock(DeadLetterEventRepository.class);var service=new ReplayService(events,mock(ReplayAuditRepository.class),mock(KafkaTemplate.class),new SimpleMeterRegistry());
+        var event=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,2);event.discard("operator","invalid fixture");when(events.lockById(event.getId())).thenReturn(Optional.of(event));
+        assertThrows(IllegalStateException.class,()->service.discard(event.getId(),"another-operator","different reason"));
+    }
+    @Test void conflictingTerminalRecoveryRemainsRejected(){
+        var events=mock(DeadLetterEventRepository.class);var service=new ReplayService(events,mock(ReplayAuditRepository.class),mock(KafkaTemplate.class),new SimpleMeterRegistry());
+        var discarded=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,2);discarded.discard("operator","invalid fixture");when(events.lockById(discarded.getId())).thenReturn(Optional.of(discarded));
+        var replayed=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,3);replayed.markReplayed("operator");when(events.lockById(replayed.getId())).thenReturn(Optional.of(replayed));
+        assertThrows(IllegalStateException.class,()->service.replay(discarded.getId(),"operator"));assertThrows(IllegalStateException.class,()->service.discard(replayed.getId(),"operator","invalid fixture"));
     }
 }
