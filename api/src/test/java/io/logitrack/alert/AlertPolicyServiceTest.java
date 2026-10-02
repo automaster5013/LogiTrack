@@ -28,22 +28,36 @@ class AlertPolicyServiceTest {
     }
     @Test void createsPolicyAndImmutableAuditSnapshot() {
         when(policies.findByVehicleId("TRUCK-03")).thenReturn(Optional.empty());when(policies.save(any())).thenAnswer(invocation->invocation.getArgument(0));
-        var policy=service.upsert(request(" TRUCK-03 ")," operator-a ");
+        var policy=service.upsert(request(" TRUCK-03 ")," operator-a ","request-1");
         assertEquals("TRUCK-03",policy.getVehicleId());assertEquals("operator-a",policy.getUpdatedBy());
         var audit=ArgumentCaptor.forClass(AlertPolicyAudit.class);verify(audits).save(audit.capture());
-        assertEquals(policy.getId(),audit.getValue().getPolicyId());assertEquals("operator-a",audit.getValue().getActor());assertEquals(AlertPolicyAudit.Action.UPSERT,audit.getValue().getAction());
+        assertEquals(policy.getId(),audit.getValue().getPolicyId());assertEquals("operator-a",audit.getValue().getActor());assertEquals(AlertPolicyAudit.Action.UPSERT,audit.getValue().getAction());assertEquals("request-1",audit.getValue().getRequestKey());assertEquals(policy.getUpdatedAt(),audit.getValue().getPolicyUpdatedAt());
+        verify(audits).lockRequestKey("request-1");
     }
     @Test void updatesExistingPolicyAndRejectsInvalidIdentity() {
         var policy=new AlertPolicy("TRUCK-04",500,300,1500,600,300,1800,"old");
         when(policies.findByVehicleId("TRUCK-04")).thenReturn(Optional.of(policy));when(policies.save(any())).thenAnswer(invocation->invocation.getArgument(0));
-        service.upsert(new UpsertAlertPolicyRequest("TRUCK-04",800,400,1800,900,400,2200),"new");
+        service.upsert(new UpsertAlertPolicyRequest("TRUCK-04",800,400,1800,900,400,2200),"new","request-2");
         assertEquals(800,policy.getDeviationOpenMeters());assertEquals("new",policy.getUpdatedBy());
-        assertThrows(IllegalArgumentException.class,()->service.upsert(request(" "),"op"));
-        assertThrows(IllegalArgumentException.class,()->service.upsert(request("TRUCK-05")," "));
+        assertThrows(IllegalArgumentException.class,()->service.upsert(request(" "),"op","request-3"));
+        assertThrows(IllegalArgumentException.class,()->service.upsert(request("TRUCK-05")," ","request-4"));
+        assertThrows(IllegalArgumentException.class,()->service.upsert(request("TRUCK-05"),"op"," "));
     }
     @Test void rejectsNullPolicyRequestBeforeRepositoryAccess(){
-        assertThrows(IllegalArgumentException.class,()->service.upsert(null,"operator"));
+        assertThrows(IllegalArgumentException.class,()->service.upsert(null,"operator","request"));
         verifyNoInteractions(policies,audits);
+    }
+    @Test void repeatedUpsertReturnsCurrentPolicyWithoutDuplicateAudit(){
+        var current=new AlertPolicy("TRUCK-13",500,300,1500,600,300,1800,"operator");var prior=new AlertPolicyAudit(current,"operator","request-5");
+        when(audits.findByRequestKey("request-5")).thenReturn(Optional.of(prior));when(policies.findByVehicleId("TRUCK-13")).thenReturn(Optional.of(current));
+        assertSame(current,service.upsert(request("TRUCK-13"),"operator","request-5"));verify(policies,never()).save(any());verify(audits,never()).save(any());
+    }
+    @Test void repeatedUpsertRejectsChangedPolicyOrDifferentRequest(){
+        var current=new AlertPolicy("TRUCK-14",500,300,1500,600,300,1800,"operator");var prior=new AlertPolicyAudit(current,"operator","request-6");current.update(700,350,1700,800,400,2000,"another");
+        when(audits.findByRequestKey("request-6")).thenReturn(Optional.of(prior));when(policies.findByVehicleId("TRUCK-14")).thenReturn(Optional.of(current));
+        assertThrows(IllegalStateException.class,()->service.upsert(request("TRUCK-14"),"operator","request-6"));
+        assertThrows(IllegalStateException.class,()->service.upsert(new UpsertAlertPolicyRequest("TRUCK-14",600,300,1500,600,300,1800),"operator","request-6"));
+        verify(policies,never()).save(any());verify(audits,never()).save(any());
     }
     @Test void resetsVehicleOverrideWithAuditedSnapshot() {
         var policy=new AlertPolicy("TRUCK-06",500,300,1500,600,300,1800,"old");
