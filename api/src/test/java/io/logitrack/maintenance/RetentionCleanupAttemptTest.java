@@ -9,12 +9,20 @@ import java.time.Instant;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 class RetentionCleanupAttemptTest {
     @Test void returnsEachCommittedDeletionCount(){
         var processed=mock(ProcessedEventRepository.class);var outbox=mock(OutboxRepository.class);var telemetry=mock(TelemetryPointRepository.class);var deadLetters=mock(DeadLetterEventRepository.class);
         when(processed.deleteBatchBefore(any(),eq(50))).thenReturn(2);when(outbox.deletePublishedBatchBefore(any(),eq(50))).thenReturn(3);when(telemetry.deleteBatchBefore(any(),eq(50))).thenReturn(4);when(deadLetters.deleteTerminalBatchBefore(any(),eq(50))).thenReturn(5);
-        var result=new RetentionCleanupAttempt(processed,outbox,telemetry,deadLetters).cleanup(Instant.EPOCH,Instant.EPOCH,Instant.EPOCH,Instant.EPOCH,50);
-        assertEquals(new RetentionCleanupAttempt.Result(2,3,4,5),result);
+        var jdbc=mock(JdbcTemplate.class);when(jdbc.queryForObject(anyString(),eq(Boolean.class))).thenReturn(true);
+        var result=new RetentionCleanupAttempt(processed,outbox,telemetry,deadLetters,jdbc).cleanup(Instant.EPOCH,Instant.EPOCH,Instant.EPOCH,Instant.EPOCH,50);
+        assertEquals(new RetentionCleanupAttempt.Result(2,3,4,5),result.orElseThrow());
+    }
+    @Test void skipsEveryDeleteWhenAnotherReplicaOwnsTheLeaderLock(){
+        var processed=mock(ProcessedEventRepository.class);var outbox=mock(OutboxRepository.class);var telemetry=mock(TelemetryPointRepository.class);var deadLetters=mock(DeadLetterEventRepository.class);var jdbc=mock(JdbcTemplate.class);
+        when(jdbc.queryForObject(anyString(),eq(Boolean.class))).thenReturn(false);
+        var result=new RetentionCleanupAttempt(processed,outbox,telemetry,deadLetters,jdbc).cleanup(Instant.EPOCH,Instant.EPOCH,Instant.EPOCH,Instant.EPOCH,50);
+        assertTrue(result.isEmpty());verifyNoInteractions(processed,outbox,telemetry,deadLetters);
     }
 }
