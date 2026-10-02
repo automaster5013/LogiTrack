@@ -11,7 +11,7 @@ type OrderFixture = { dispatchFailuresBeforeSuccessById?: Record<string, number>
 
 async function mockOrders(page: Page, fixture: OrderFixture = {}) {
   const dispatchRequests: string[] = [];
-  let createRequests = 0;
+  const createRequests: { orderNumber: string; idempotencyKey: string | undefined }[] = [];
   await page.route("**/api/**", async route => {
     const request = route.request();
     const url = new URL(request.url());
@@ -29,9 +29,9 @@ async function mockOrders(page: Page, fixture: OrderFixture = {}) {
       return route.fulfill({ ...common, json: { ...order, status: "DISPATCHED", deliveryId: `delivery-${order.id.slice(-3)}`, vehicleId: "TRUCK-01", deliveryStatus: "CREATED", updatedAt: timestamp } });
     }
     if (url.pathname === "/api/orders" && request.method() === "POST") {
-      createRequests += 1;
+      createRequests.push({ orderNumber: request.postDataJSON().orderNumber, idempotencyKey: request.headers()["idempotency-key"] });
       await new Promise(resolve => setTimeout(resolve, 1_000));
-      if (createRequests <= (fixture.createFailuresBeforeSuccess || 0)) {
+      if (createRequests.length <= (fixture.createFailuresBeforeSuccess || 0)) {
         return route.fulfill({ status: 503, ...common, json: { error: "temporarily_unavailable" } });
       }
       return route.fulfill({ status: 201, ...common, json: { ...orders[0], id: "00000000-0000-4000-8000-000000000203", orderNumber: "ORD-E2E-203" } });
@@ -53,7 +53,7 @@ async function mockOrders(page: Page, fixture: OrderFixture = {}) {
     }
     return route.fulfill({ status: 404, ...common, json: { error: "not_found" } });
   });
-  return { dispatchRequests, createRequests: () => createRequests };
+  return { dispatchRequests, createRequests };
 }
 
 test("tracks concurrent order dispatches independently", async ({ page }) => {
@@ -146,7 +146,7 @@ test("sends one create request for immediate repeated input", async ({ page }) =
 
   await expect(createButton).toBeDisabled();
   await expect(createButton).toBeEnabled({ timeout: 1_500 });
-  expect(fixture.createRequests()).toBe(1);
+  expect(fixture.createRequests).toHaveLength(1);
 });
 
 test("pauses order creation while offline and restores it online", async ({ page, context }) => {
@@ -157,14 +157,14 @@ test("pauses order creation while offline and restores it online", async ({ page
   await context.setOffline(true);
   await expect(createButton).toHaveText("네트워크 연결 대기 중…");
   await expect(createButton).toBeDisabled();
-  expect(fixture.createRequests()).toBe(0);
+  expect(fixture.createRequests).toHaveLength(0);
 
   await context.setOffline(false);
   await expect(createButton).toHaveText("+ 새 주문");
   await expect(createButton).toBeEnabled();
   await createButton.click();
   await expect(createButton).toBeEnabled({ timeout: 1_500 });
-  expect(fixture.createRequests()).toBe(1);
+  expect(fixture.createRequests).toHaveLength(1);
 });
 
 test("keeps an order creation error visible until retry succeeds", async ({ page }) => {
@@ -180,5 +180,13 @@ test("keeps an order creation error visible until retry succeeds", async ({ page
   await expect(createError).toBeVisible();
   await expect(createButton).toBeEnabled({ timeout: 1_500 });
   await expect(createError).toBeHidden();
-  expect(fixture.createRequests()).toBe(2);
+  expect(fixture.createRequests).toHaveLength(2);
+  expect(new Set(fixture.createRequests.map(request => request.orderNumber)).size).toBe(1);
+  expect(new Set(fixture.createRequests.map(request => request.idempotencyKey)).size).toBe(1);
+
+  await createButton.click();
+  await expect(createButton).toBeEnabled({ timeout: 1_500 });
+  expect(fixture.createRequests).toHaveLength(3);
+  expect(fixture.createRequests[2].orderNumber).not.toBe(fixture.createRequests[1].orderNumber);
+  expect(fixture.createRequests[2].idempotencyKey).not.toBe(fixture.createRequests[1].idempotencyKey);
 });
