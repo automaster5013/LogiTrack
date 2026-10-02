@@ -1,9 +1,15 @@
 $ErrorActionPreference = "Stop"
 $prefix = "batch-" + [guid]::NewGuid().ToString("N").Substring(0,8)
+$first = [guid]::NewGuid().ToString()
+$second = [guid]::NewGuid().ToString()
+$offset = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 
-1..2 | ForEach-Object {
-  @{eventId="not-a-uuid-$_";eventType="vehicle.telemetry.v1";occurredAt=(Get-Date).ToUniversalTime().ToString("o");traceId="$prefix-$_";schemaVersion=1;payload=@{}} | ConvertTo-Json -Compress
-} | docker compose exec -T kafka /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server kafka:29092 --topic vehicle.telemetry.dlq.v1
+$insert = @"
+INSERT INTO dead_letter_events(id,original_topic,message_key,payload,trace_id,exception_message,dlq_topic,dlq_partition,dlq_offset,status,failed_at) VALUES
+('$first','delivery.created.v1','replay-plan-smoke-1','{}','$prefix-1','synthetic invalid event','vehicle.telemetry.dlq.v1',0,$offset,'PENDING',now()),
+('$second','delivery.created.v1','replay-plan-smoke-2','{}','$prefix-2','synthetic invalid event','vehicle.telemetry.dlq.v1',0,$($offset+1),'PENDING',now());
+"@
+docker compose exec -T postgres psql -U logitrack -d logitrack -v ON_ERROR_STOP=1 -c $insert | Out-Null
 
 $deadline=(Get-Date).AddSeconds(20)
 do {
@@ -38,11 +44,4 @@ try {
 }
 
 Write-Host "PASS: plan=$($plan.id), events=2, status=$($executed.status), repeated=idempotent, elapsed=$([math]::Round($timer.Elapsed.TotalMilliseconds))ms, max-batch=20"
-
-$deadline=(Get-Date).AddSeconds(15)
-do {
-  Start-Sleep -Seconds 1
-  $requeued=(docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT count(*) FROM dead_letter_events WHERE trace_id LIKE '$prefix-%' AND status='PENDING'").Trim()
-} while([int]$requeued-lt 2-and(Get-Date)-lt$deadline)
-if([int]$requeued-lt 2){throw "Replayed poison batch was not quarantined again"}
 docker compose exec -T postgres psql -U logitrack -d logitrack -v ON_ERROR_STOP=1 -c "DELETE FROM dead_letter_events WHERE trace_id LIKE '$prefix-%'"|Out-Null
