@@ -7,18 +7,23 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.springframework.data.domain.*;
 class OutboxRecoveryServiceTest {
     private final OutboxRepository events=mock(OutboxRepository.class);private final OutboxRetryAuditRepository audits=mock(OutboxRetryAuditRepository.class);private final SimpleMeterRegistry metrics=new SimpleMeterRegistry();private final OutboxRecoveryService service=new OutboxRecoveryService(events,audits,metrics);
-    @Test void retryRequiresOperator(){assertThrows(IllegalArgumentException.class,()->service.retry(UUID.randomUUID()," "));verifyNoInteractions(events,audits);}
+    @Test void retryRequiresOperator(){assertThrows(IllegalArgumentException.class,()->service.retry(UUID.randomUUID()," ","request-key"));verifyNoInteractions(events,audits);}
+    @Test void retryRequiresRequestKey(){assertThrows(IllegalArgumentException.class,()->service.retry(UUID.randomUUID(),"operator"," "));verifyNoInteractions(events,audits);}
     @Test void retryLocksEventAndWritesAudit(){
         var id=UUID.randomUUID();var event=new OutboxEvent(id,"DELIVERY",UUID.randomUUID(),"test","topic","key","{}");for(int i=0;i<20;i++)event.failed(new RuntimeException("offline"));when(events.lockById(id)).thenReturn(Optional.of(event));
-        var result=service.retry(id," operator ");assertEquals(OutboxEvent.Status.PENDING,result.status());verify(audits).save(argThat(audit->audit.getOutboxEventId().equals(id)&&audit.getActor().equals("operator")));assertEquals(1,metrics.get("logitrack.outbox.retries").counter().count());
+        var result=service.retry(id," operator ","request-key");assertEquals(OutboxEvent.Status.PENDING,result.status());verify(audits).lockRequestKey("request-key");verify(audits).save(argThat(audit->audit.getOutboxEventId().equals(id)&&audit.getActor().equals("operator")&&audit.getRequestKey().equals("request-key")));assertEquals(1,metrics.get("logitrack.outbox.retries").counter().count());
     }
-    @Test void retryReturnsPendingEventWithoutDuplicatingAuditOrMetric(){
+    @Test void identicalRetryReturnsCurrentEventWithoutDuplicatingAuditOrMetric(){
+        var id=UUID.randomUUID();var event=new OutboxEvent(id,"DELIVERY",UUID.randomUUID(),"test","topic","key","{}");var audit=new OutboxRetryAudit(id,"operator","request-key");when(audits.findByRequestKey("request-key")).thenReturn(Optional.of(audit));when(events.lockById(id)).thenReturn(Optional.of(event));
+        var result=service.retry(id,"operator","request-key");assertEquals(OutboxEvent.Status.PENDING,result.status());verify(audits,never()).save(any());assertEquals(0,metrics.get("logitrack.outbox.retries").counter().count());
+    }
+    @Test void retryKeyCannotBeReusedForDifferentIntent(){
+        var id=UUID.randomUUID();var audit=new OutboxRetryAudit(id,"operator","request-key");when(audits.findByRequestKey("request-key")).thenReturn(Optional.of(audit));
+        assertThrows(IllegalStateException.class,()->service.retry(UUID.randomUUID(),"operator","request-key"));assertThrows(IllegalStateException.class,()->service.retry(id,"another-operator","request-key"));verifyNoInteractions(events);
+    }
+    @Test void newRetryRequestRejectsAnEventThatIsNotFailed(){
         var id=UUID.randomUUID();var event=new OutboxEvent(id,"DELIVERY",UUID.randomUUID(),"test","topic","key","{}");when(events.lockById(id)).thenReturn(Optional.of(event));
-        var result=service.retry(id,"operator");assertEquals(OutboxEvent.Status.PENDING,result.status());verifyNoInteractions(audits);assertEquals(0,metrics.get("logitrack.outbox.retries").counter().count());
-    }
-    @Test void retryReturnsPublishedEventWithoutDuplicatingAuditOrMetric(){
-        var id=UUID.randomUUID();var event=new OutboxEvent(id,"DELIVERY",UUID.randomUUID(),"test","topic","key","{}");event.published();when(events.lockById(id)).thenReturn(Optional.of(event));
-        var result=service.retry(id,"operator");assertEquals(OutboxEvent.Status.PUBLISHED,result.status());verifyNoInteractions(audits);assertEquals(0,metrics.get("logitrack.outbox.retries").counter().count());
+        assertThrows(IllegalStateException.class,()->service.retry(id,"operator","new-request-key"));verify(audits,never()).save(any());assertEquals(0,metrics.get("logitrack.outbox.retries").counter().count());
     }
     @Test void pagesFailuresAndAuditsWithStableNewestFirstOrdering(){
         var event=new OutboxEvent(UUID.randomUUID(),"DELIVERY",UUID.randomUUID(),"test","topic","key","{}");

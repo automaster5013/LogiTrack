@@ -3,6 +3,7 @@ package io.logitrack.outbox;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import io.micrometer.core.instrument.*;
+import io.logitrack.config.InputLimits;
 import org.springframework.data.domain.*;
 import java.util.*;
 
@@ -14,10 +15,17 @@ public class OutboxRecoveryService {
     public List<OutboxRetryAudit> audits(){return audits.findTop50ByOrderByOccurredAtDesc();}
     @Transactional(readOnly=true) public FailurePage failurePage(int page,int size){var result=events.findByStatus(OutboxEvent.Status.FAILED,PageRequest.of(page,size,Sort.by(Sort.Direction.DESC,"createdAt").and(Sort.by(Sort.Direction.DESC,"id"))));return new FailurePage(result.getContent().stream().map(FailureView::from).toList(),result.getNumber(),result.getSize(),result.getTotalElements(),result.hasNext());}
     @Transactional(readOnly=true) public AuditPage auditPage(int page,int size){var result=audits.findAll(PageRequest.of(page,size,Sort.by(Sort.Direction.DESC,"occurredAt").and(Sort.by(Sort.Direction.DESC,"id"))));return new AuditPage(result.getContent(),result.getNumber(),result.getSize(),result.getTotalElements(),result.hasNext());}
-    @Transactional public FailureView retry(UUID id,String actor){
-        var normalized=normalize(actor);var event=events.lockById(id).orElseThrow();
-        if(event.getStatus()!=OutboxEvent.Status.FAILED)return FailureView.from(event);
-        event.retry();audits.save(new OutboxRetryAudit(id,normalized));retryCounter.increment();return FailureView.from(event);
+    @Transactional public FailureView retry(UUID id,String actor,String requestKey){
+        var normalized=normalize(actor);InputLimits.required(requestKey,"Idempotency-Key",160);audits.lockRequestKey(requestKey);
+        var prior=audits.findByRequestKey(requestKey);
+        if(prior.isPresent()){
+            var completed=prior.get();
+            if(!completed.getOutboxEventId().equals(id)||!completed.getActor().equals(normalized))throw new IllegalStateException("Idempotency key was used with a different outbox retry request");
+            return FailureView.from(events.lockById(id).orElseThrow());
+        }
+        var event=events.lockById(id).orElseThrow();
+        if(event.getStatus()!=OutboxEvent.Status.FAILED)throw new IllegalStateException("Only FAILED outbox events can be retried");
+        event.retry();audits.save(new OutboxRetryAudit(id,normalized,requestKey));retryCounter.increment();return FailureView.from(event);
     }
     private String normalize(String actor){var value=actor==null?"":actor.trim();if(value.isEmpty()||value.length()>120)throw new IllegalArgumentException("X-Operator must be 1-120 characters");return value;}
     public record FailureView(UUID id,String aggregateType,UUID aggregateId,String eventType,String topic,int attempts,String lastError,java.time.Instant createdAt,OutboxEvent.Status status){
