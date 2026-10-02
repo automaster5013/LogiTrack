@@ -11,6 +11,7 @@ type OrderFixture = { dispatchFailuresBeforeSuccessById?: Record<string, number>
 
 async function mockOrders(page: Page, fixture: OrderFixture = {}) {
   const dispatchRequests: string[] = [];
+  const dispatchRequestDetails: { orderId: string; vehicleId: string; idempotencyKey: string | undefined }[] = [];
   const createRequests: { orderNumber: string; idempotencyKey: string | undefined }[] = [];
   await page.route("**/api/**", async route => {
     const request = route.request();
@@ -21,6 +22,7 @@ async function mockOrders(page: Page, fixture: OrderFixture = {}) {
       const order = orders.find(candidate => candidate.id === dispatchMatch[1]);
       if (!order) return route.fulfill({ status: 404, ...common, json: { error: "not_found" } });
       dispatchRequests.push(order.id);
+      dispatchRequestDetails.push({ orderId: order.id, vehicleId: request.postDataJSON().vehicleId, idempotencyKey: request.headers()["idempotency-key"] });
       await new Promise(resolve => setTimeout(resolve, order.id === orders[0].id ? 1_000 : 2_500));
       const requestCount = dispatchRequests.filter(id => id === order.id).length;
       if (requestCount <= (fixture.dispatchFailuresBeforeSuccessById?.[order.id] || 0)) {
@@ -53,7 +55,7 @@ async function mockOrders(page: Page, fixture: OrderFixture = {}) {
     }
     return route.fulfill({ status: 404, ...common, json: { error: "not_found" } });
   });
-  return { dispatchRequests, createRequests };
+  return { dispatchRequests, dispatchRequestDetails, createRequests };
 }
 
 test("tracks concurrent order dispatches independently", async ({ page }) => {
@@ -110,8 +112,8 @@ test("pauses order dispatch while offline and restores it online", async ({ page
   expect(dispatchRequests).toEqual([orders[0].id]);
 });
 
-test("keeps a failed dispatch error until that order recovers", async ({ page }) => {
-  const { dispatchRequests } = await mockOrders(page, { dispatchFailuresBeforeSuccessById: { [orders[0].id]: 1 } });
+test("keeps a failed dispatch error and request identity until that order recovers", async ({ page }) => {
+  const { dispatchRequests, dispatchRequestDetails } = await mockOrders(page, { dispatchFailuresBeforeSuccessById: { [orders[0].id]: 1 } });
   await page.goto("/console#orders");
 
   const firstDispatch = page.getByRole("button", { name: "ORD-E2E-201 차량 배차" });
@@ -130,6 +132,13 @@ test("keeps a failed dispatch error until that order recovers", async ({ page })
   await expect(firstDispatch).toBeEnabled({ timeout: 1_500 });
   await expect(dispatchError).toBeHidden();
   expect(dispatchRequests).toEqual([orders[0].id, orders[1].id, orders[0].id]);
+  expect(dispatchRequestDetails[2].vehicleId).toBe(dispatchRequestDetails[0].vehicleId);
+  expect(dispatchRequestDetails[2].idempotencyKey).toBe(dispatchRequestDetails[0].idempotencyKey);
+
+  await firstDispatch.click();
+  await expect(firstDispatch).toBeEnabled({ timeout: 1_500 });
+  expect(dispatchRequestDetails).toHaveLength(4);
+  expect(dispatchRequestDetails[3].idempotencyKey).not.toBe(dispatchRequestDetails[2].idempotencyKey);
 });
 
 test("sends one create request for immediate repeated input", async ({ page }) => {
