@@ -8,6 +8,7 @@ async function mockOverview(page:Page,fixture:OverviewFixture={}){
   const alertRequests:number[]=[];
   const kpiRequests:number[]=[];
   const orderRequests:number[]=[];
+  const streamRequests:number[]=[];
   await page.route("**/api/**",async route=>{
     const request=route.request();
     const url=new URL(request.url());
@@ -33,10 +34,13 @@ async function mockOverview(page:Page,fixture:OverviewFixture={}){
       return route.fulfill({...common,json:{items:[],page:0,size:100,totalElements:0,hasMore:false}});
     }
     if(["/api/routes","/api/telemetry/points"].includes(url.pathname))return route.fulfill({...common,json:[]});
-    if(url.pathname==="/api/stream/deliveries")return route.fulfill({status:200,contentType:"text/event-stream",body:"event: connected\ndata: {}\n\n",headers:{"Access-Control-Allow-Origin":"*"}});
+    if(url.pathname==="/api/stream/deliveries"){
+      streamRequests.push(streamRequests.length+1);
+      return route.fulfill({status:200,contentType:"text/event-stream",body:"event: connected\ndata: {}\n\n",headers:{"Access-Control-Allow-Origin":"*"}});
+    }
     return route.fulfill({status:404,...common,json:{error:"not_found"}});
   });
-  return {deliveryRequests,alertRequests,kpiRequests,orderRequests};
+  return {deliveryRequests,alertRequests,kpiRequests,orderRequests,streamRequests};
 }
 
 test("sends one workspace refresh for immediate repeated input",async({page})=>{
@@ -69,9 +73,6 @@ test("keeps a workspace error visible and pauses retries while offline",async({p
   await expect(refresh).toBeDisabled();
   expect(deliveryRequests).toHaveLength(1);
   await context.setOffline(false);
-  await expect(retry).toHaveText("다시 시도");
-  await expect(retry).toBeEnabled();
-  await retry.click();
   await expect(error).toBeVisible();
   await expect(error).toBeHidden({timeout:3_000});
   expect(deliveryRequests).toHaveLength(2);
@@ -89,6 +90,22 @@ test("pauses workspace polling offline and refreshes immediately after reconnect
 
   await context.setOffline(false);
   await expect.poll(()=>orderRequests.length).toBe(2);
+});
+
+test("closes the live stream offline and performs one snapshot refresh on reconnect",async({page,context})=>{
+  const {deliveryRequests,streamRequests}=await mockOverview(page);
+  await page.goto("/console#overview");
+  await expect.poll(()=>deliveryRequests.length).toBe(1);
+  await expect.poll(()=>streamRequests.length).toBe(1);
+
+  await context.setOffline(true);
+  await expect(page.locator(".headerStatus")).toContainText("오프라인");
+  expect(deliveryRequests).toHaveLength(1);
+  expect(streamRequests).toHaveLength(1);
+
+  await context.setOffline(false);
+  await expect.poll(()=>deliveryRequests.length).toBe(2);
+  await expect.poll(()=>streamRequests.length).toBe(2);
 });
 
 const failedAt="2026-09-28T05:00:00Z";

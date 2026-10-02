@@ -38,7 +38,6 @@ export default function Home(){
  const [workspaceUpdatedAt,setWorkspaceUpdatedAt]=useState<Map<Workspace,Date>>(()=>new Map());
  const workspaceRef=useRef<Workspace>("overview");
  const workspaceNavRef=useRef<HTMLElement>(null);
- const streamConnectedOnce=useRef(false);
  const streamResyncing=useRef(false);
  const deliveryStreamVersion=useRef(0);
  const alertStreamVersion=useRef(0);
@@ -91,11 +90,11 @@ export default function Home(){
  const loadPolicyWorkspace=()=>loadPolicies().finally(()=>markLoaded("settings"));
  useEffect(()=>{const sync=()=>{const next=workspaceFromHash(window.location.hash);if(next){workspaceRef.current=next;setWorkspace(next)}};sync();if(!window.location.hash)window.history.replaceState(null,"",`${window.location.pathname}${window.location.search}#overview`);setWorkspaceReady(true);window.addEventListener("popstate",sync);window.addEventListener("hashchange",sync);return()=>{window.removeEventListener("popstate",sync);window.removeEventListener("hashchange",sync)}},[]);
  useEffect(()=>{const online=()=>setBrowserOnline(true);const offline=()=>setBrowserOnline(false);setBrowserOnline(navigator.onLine);window.addEventListener("online",online);window.addEventListener("offline",offline);return()=>{window.removeEventListener("online",online);window.removeEventListener("offline",offline)}},[]);
- useEffect(()=>{if(!workspaceReady)return;load(); const source=new EventSource(`${API}/api/stream/deliveries`); source.onopen=()=>setConnected(true); source.onerror=()=>setConnected(false);
-  source.addEventListener("connected",()=>{setConnected(true);if(!streamConnectedOnce.current){streamConnectedOnce.current=true;return}if(streamResyncing.current)return;streamResyncing.current=true;requestedMapIds.current.clear();load().finally(()=>{streamResyncing.current=false})});
+ useEffect(()=>{if(!workspaceReady||!browserOnline||!navigator.onLine){setConnected(false);return}load();let sourceConnectedOnce=false;const source=new EventSource(`${API}/api/stream/deliveries`); source.onopen=()=>setConnected(true); source.onerror=()=>setConnected(false);
+  source.addEventListener("connected",()=>{setConnected(true);if(!sourceConnectedOnce){sourceConnectedOnce=true;return}if(streamResyncing.current)return;streamResyncing.current=true;requestedMapIds.current.clear();load().finally(()=>{streamResyncing.current=false})});
   source.addEventListener("delivery-update",e=>{const next:Delivery=JSON.parse((e as MessageEvent).data);deliveryStreamVersion.current+=1;if(!knownDeliveryIds.current.has(next.id)){knownDeliveryIds.current.add(next.id);if(workspaceRef.current==="overview"||workspaceRef.current==="orders")loadMapData([next.id]).catch(()=>{})}setItems(old=>[next,...old.filter(x=>x.id!==next.id)])});
   source.addEventListener("telemetry-point",e=>{const next:TelemetryPoint=JSON.parse((e as MessageEvent).data);setTelemetry(old=>old.some(point=>point.eventId===next.eventId)?old:[next,...old].slice(0,5000))});
-  source.addEventListener("alert-update",e=>{const next:DeliveryAlert=JSON.parse((e as MessageEvent).data);alertStreamVersion.current+=1;if(next.acknowledgedAt&&alertAcknowledgementFailureIdsRef.current.delete(next.id)&&alertAcknowledgementFailureIdsRef.current.size===0)clearWorkspaceError("overview","경고 확인 처리에 실패했습니다.");setAlerts(old=>{const merged=[next,...old.filter(x=>x.id!==next.id)];alertsRef.current=merged;return merged})});return()=>source.close()},[workspaceReady]);
+  source.addEventListener("alert-update",e=>{const next:DeliveryAlert=JSON.parse((e as MessageEvent).data);alertStreamVersion.current+=1;if(next.acknowledgedAt&&alertAcknowledgementFailureIdsRef.current.delete(next.id)&&alertAcknowledgementFailureIdsRef.current.size===0)clearWorkspaceError("overview","경고 확인 처리에 실패했습니다.");setAlerts(old=>{const merged=[next,...old.filter(x=>x.id!==next.id)];alertsRef.current=merged;return merged})});return()=>source.close()},[browserOnline,workspaceReady]);
  useEffect(()=>{if(!browserOnline){setStreamWarning(true);return}if(connected){setStreamWarning(false);return}if(!workspaceReady)return;const timer=window.setTimeout(()=>setStreamWarning(true),5000);return()=>window.clearTimeout(timer)},[browserOnline,connected,workspaceReady]);
  useEffect(()=>{const timer=window.setInterval(()=>setFreshnessNow(Date.now()),30000);return()=>window.clearInterval(timer)},[]);
  const liveItems=useMemo(()=>items.filter(item=>item.status!=="DELIVERED"),[items]);

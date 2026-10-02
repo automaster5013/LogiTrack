@@ -95,6 +95,7 @@ test("pauses order dispatch while offline and restores it online", async ({ page
   const { dispatchRequests } = await mockOrders(page);
   await page.goto("/console#orders");
   const dispatch = page.getByRole("button", { name: "ORD-E2E-201 차량 배차" });
+  await expect(dispatch).toBeVisible();
 
   await context.setOffline(true);
   await expect(dispatch).toHaveText("네트워크 연결 대기 중…");
