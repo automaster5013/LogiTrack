@@ -28,9 +28,14 @@ $audits = Invoke-RestMethod "http://localhost:8080/api/operations/replay-audits"
 $audit = $audits.Where({$_.deadLetterEventId -eq $event.id}) | Select-Object -First 1
 if (-not $audit -or $audit.actor -ne "smoke-operator") { throw "Replay audit was not recorded" }
 
+$repeated = Invoke-RestMethod "http://localhost:8080/api/operations/dlq/$($event.id)/replay" -Method Post -Headers @{"X-Operator"="smoke-operator"}
+if ($repeated.status -ne "REPLAYED" -or $repeated.replayedBy -ne "smoke-operator") { throw "Identical replay retry did not return the stored result" }
+$repeatedAudits = @((Invoke-RestMethod "http://localhost:8080/api/operations/replay-audits") | Where-Object {$_.deadLetterEventId -eq $event.id})
+if ($repeatedAudits.Count -ne 1) { throw "Identical replay retry duplicated audit evidence" }
+
 try {
-  Invoke-RestMethod "http://localhost:8080/api/operations/dlq/$($event.id)/replay" -Method Post -Headers @{"X-Operator"="smoke-operator"}
-  throw "Duplicate replay unexpectedly succeeded"
+  Invoke-RestMethod "http://localhost:8080/api/operations/dlq/$($event.id)/replay" -Method Post -Headers @{"X-Operator"="another-operator"}
+  throw "Replay by a different operator unexpectedly succeeded"
 } catch {
   if ($_.Exception.Response.StatusCode.value__ -ne 409) { throw }
 }
@@ -41,7 +46,7 @@ do {
   $requeued = (docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT count(*) FROM dead_letter_events WHERE trace_id='$trace' AND status='PENDING'").Trim()
 } while ([int]$requeued -lt 1 -and (Get-Date) -lt $deadline)
 if ([int]$requeued -lt 1) { throw "Replayed poison event was not quarantined again" }
-Write-Host "PASS: event=$($event.id), trace=$trace, quarantined=$([math]::Round($quarantineSeconds, 2))s, status=$($replayed.status), audit=$($audit.id), duplicate=409, requarantined=$requeued"
+Write-Host "PASS: event=$($event.id), trace=$trace, quarantined=$([math]::Round($quarantineSeconds, 2))s, status=$($replayed.status), identical-retry=200, different-operator=409, audit=$($audit.id), requarantined=$requeued"
 } finally {
   docker compose exec -T postgres psql -U logitrack -d logitrack -v ON_ERROR_STOP=1 -c "DELETE FROM dead_letter_events WHERE trace_id='$trace'" | Out-Null
 }
