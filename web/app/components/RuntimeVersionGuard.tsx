@@ -14,7 +14,7 @@ export default function RuntimeVersionGuard() {
     let currentVersion: string | undefined;
 
     async function checkVersion() {
-      if (!active || checking) return;
+      if (!active || checking || !navigator.onLine) return;
       checking = true;
       try {
         const response = await fetch("/api/runtime-version", { cache: "no-store" });
@@ -36,15 +36,21 @@ export default function RuntimeVersionGuard() {
 
     async function poll() {
       await checkVersion();
-      if (active) timer = window.setTimeout(poll, CHECK_INTERVAL_MS);
+      if (active && navigator.onLine) timer = window.setTimeout(poll, CHECK_INTERVAL_MS);
     }
-    void poll();
-    const onVisible = () => { if (document.visibilityState === "visible") void checkVersion(); };
+    const onOnline = () => { if (timer !== undefined) window.clearTimeout(timer);timer=undefined;void poll(); };
+    const onOffline = () => { if (timer !== undefined) window.clearTimeout(timer);timer=undefined; };
+    if (navigator.onLine) void poll();
+    const onVisible = () => { if (document.visibilityState === "visible" && navigator.onLine) void checkVersion(); };
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
     return () => {
       active = false;
       if (timer !== undefined) window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
     };
   }, []);
 
