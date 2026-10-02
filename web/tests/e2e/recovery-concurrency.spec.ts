@@ -170,6 +170,30 @@ test("pauses recovery mutations while offline and restores them online", async (
   await expect.poll(() => replayRequests).toEqual([events[0].id]);
 });
 
+test("cancels a confirmed recovery mutation when connectivity drops during confirmation", async ({ page }) => {
+  const { replayRequests } = await mockRecovery(page);
+  await page.goto("/console#recovery");
+  await page.evaluate(() => {
+    let online = true;
+    Object.defineProperty(navigator, "onLine", { configurable:true, get:() => online });
+    window.confirm = () => {
+      online = false;
+      window.dispatchEvent(new Event("offline"));
+      return true;
+    };
+  });
+
+  const replay = page.getByRole("button", { name: "trace-recovery-101 재처리" });
+  await expect(replay).toBeVisible();
+  await replay.click();
+
+  await expect(page.locator(".headerStatus")).toContainText("오프라인");
+  await expect(replay).toBeDisabled();
+  expect(replayRequests).toEqual([]);
+  await expect(page.getByText("DLQ 이벤트 재처리에 실패했습니다.")).toBeHidden();
+
+});
+
 test("keeps a failed DLQ replay error until that event recovers", async ({ page }) => {
   const { replayRequests } = await mockRecovery(page, { replayFailuresBeforeSuccessById: { [events[0].id]: 1 } });
   page.on("dialog", dialog => dialog.accept());
