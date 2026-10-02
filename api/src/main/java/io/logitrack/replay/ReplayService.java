@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Propagation;
 import io.micrometer.core.instrument.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import io.logitrack.config.InputLimits;
 
 import java.util.List;
 import java.util.UUID;
@@ -42,10 +43,24 @@ public class ReplayService {
 
     @Transactional(propagation=Propagation.REQUIRES_NEW)
     public DeadLetterEvent replay(UUID id, String actor) {
+        return replay(id,actor,null);
+    }
+
+    @Transactional(propagation=Propagation.REQUIRES_NEW)
+    public DeadLetterEvent replay(UUID id, String actor,String requestKey) {
         var normalizedActor = actor == null ? "unknown" : actor.trim();
         if (normalizedActor.isBlank() || normalizedActor.length() > 120) throw new IllegalArgumentException("X-Operator must be 1-120 characters");
+        if(requestKey!=null){
+            InputLimits.required(requestKey,"Idempotency-Key",160);audits.lockRequestKey(requestKey);
+            var prior=audits.findByRequestKey(requestKey);
+            if(prior.isPresent()){
+                var completed=prior.get();
+                if(!completed.getDeadLetterEventId().equals(id)||!completed.getAction().equals("REPLAY")||!completed.getActor().equals(normalizedActor))throw new IllegalStateException("Idempotency key was used with a different DLQ recovery request");
+                return events.lockById(id).orElseThrow(()->new java.util.NoSuchElementException("DLQ event not found"));
+            }
+        }
         var event = events.lockById(id).orElseThrow(() -> new java.util.NoSuchElementException("DLQ event not found"));
-        if (event.getStatus() == DeadLetterEvent.Status.REPLAYED
+        if (requestKey == null && event.getStatus() == DeadLetterEvent.Status.REPLAYED
             && normalizedActor.equals(event.getReplayedBy())) return event;
         if (event.getStatus() != DeadLetterEvent.Status.PENDING) throw new IllegalStateException("DLQ event has already been replayed");
         try {
@@ -58,22 +73,36 @@ public class ReplayService {
             throw new IllegalStateException("Could not publish replay event");
         }
         event.markReplayed(normalizedActor);
-        audits.save(new ReplayAudit(event.getId(), normalizedActor));
+        audits.save(new ReplayAudit(event.getId(), "REPLAY",normalizedActor,null,requestKey));
         replayCounter.increment();
         return event;
     }
 
     @Transactional(propagation=Propagation.REQUIRES_NEW)
     public DeadLetterEvent discard(UUID id, String actor, String reason) {
+        return discard(id,actor,reason,null);
+    }
+
+    @Transactional(propagation=Propagation.REQUIRES_NEW)
+    public DeadLetterEvent discard(UUID id, String actor, String reason,String requestKey) {
         var normalizedActor = actor == null ? "" : actor.trim();
         var normalizedReason = reason == null ? "" : reason.trim();
         if (normalizedActor.isBlank() || normalizedActor.length() > 120) throw new IllegalArgumentException("X-Operator must be 1-120 characters");
         if (normalizedReason.isBlank() || normalizedReason.length() > 500) throw new IllegalArgumentException("reason must be 1-500 characters");
+        if(requestKey!=null){
+            InputLimits.required(requestKey,"Idempotency-Key",160);audits.lockRequestKey(requestKey);
+            var prior=audits.findByRequestKey(requestKey);
+            if(prior.isPresent()){
+                var completed=prior.get();
+                if(!completed.getDeadLetterEventId().equals(id)||!completed.getAction().equals("DISCARD")||!completed.getActor().equals(normalizedActor)||!normalizedReason.equals(completed.getReason()))throw new IllegalStateException("Idempotency key was used with a different DLQ recovery request");
+                return events.lockById(id).orElseThrow(()->new java.util.NoSuchElementException("DLQ event not found"));
+            }
+        }
         var event = events.lockById(id).orElseThrow(() -> new java.util.NoSuchElementException("DLQ event not found"));
-        if (event.getStatus() == DeadLetterEvent.Status.DISCARDED
+        if (requestKey == null && event.getStatus() == DeadLetterEvent.Status.DISCARDED
             && normalizedActor.equals(event.getDiscardedBy()) && normalizedReason.equals(event.getDiscardReason())) return event;
         event.discard(normalizedActor, normalizedReason);
-        audits.save(new ReplayAudit(event.getId(), "DISCARD", normalizedActor, normalizedReason));
+        audits.save(new ReplayAudit(event.getId(), "DISCARD", normalizedActor, normalizedReason,requestKey));
         discardCounter.increment();
         return event;
     }

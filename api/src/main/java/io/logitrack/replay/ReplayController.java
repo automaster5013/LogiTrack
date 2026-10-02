@@ -23,10 +23,10 @@ public class ReplayController {
     }
 
     @PostMapping("/dlq/{id}/replay")
-    public DeadLetterEvent replay(@PathVariable UUID id, @RequestHeader("X-Operator") String actor){return service.replay(id,actor);}
+    public DeadLetterEvent replay(@PathVariable UUID id, @RequestHeader("X-Operator") String actor,@RequestHeader("Idempotency-Key") String requestKey){return service.replay(id,actor,requestKey);}
 
     @PostMapping("/dlq/{id}/discard")
-    public DeadLetterEvent discard(@PathVariable UUID id, @RequestHeader("X-Operator") String actor, @RequestBody DiscardRequest request){return service.discard(id,actor,request.reason());}
+    public DeadLetterEvent discard(@PathVariable UUID id, @RequestHeader("X-Operator") String actor,@RequestHeader("Idempotency-Key") String requestKey, @RequestBody DiscardRequest request){return service.discard(id,actor,request.reason(),requestKey);}
 
     @GetMapping("/replay-audits")
     public List<ReplayAudit> audits(){return service.audits();}

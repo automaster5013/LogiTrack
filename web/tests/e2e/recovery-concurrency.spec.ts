@@ -37,7 +37,9 @@ type RecoveryFixture = { replayFailuresBeforeSuccessById?: Record<string,number>
 
 async function mockRecovery(page: Page, fixture: RecoveryFixture = {}) {
   const replayRequests: string[] = [];
+  const replayRequestKeys: string[] = [];
   const discardRequests: string[] = [];
+  const discardRequestKeys: string[] = [];
   const discardPlanRequests: string[][] = [];
   const discardPlanRequestKeys: string[] = [];
   const discardPlanExecutionRequests: string[] = [];
@@ -51,6 +53,7 @@ async function mockRecovery(page: Page, fixture: RecoveryFixture = {}) {
     const replayMatch = url.pathname.match(/^\/api\/operations\/dlq\/([^/]+)\/replay$/);
     if (replayMatch && request.method() === "POST") {
       replayRequests.push(replayMatch[1]);
+      replayRequestKeys.push(request.headers()["idempotency-key"]||"");
       await new Promise(resolve => setTimeout(resolve, replayMatch[1] === events[0].id ? 1_000 : 2_500));
       const requestCount = replayRequests.filter(id => id === replayMatch[1]).length;
       if (requestCount <= (fixture.replayFailuresBeforeSuccessById?.[replayMatch[1]] || 0)) return route.fulfill({ status: 503, ...common, json: { error: "temporarily_unavailable" } });
@@ -59,6 +62,7 @@ async function mockRecovery(page: Page, fixture: RecoveryFixture = {}) {
     const discardMatch = url.pathname.match(/^\/api\/operations\/dlq\/([^/]+)\/discard$/);
     if (discardMatch && request.method() === "POST") {
       discardRequests.push(discardMatch[1]);
+      discardRequestKeys.push(request.headers()["idempotency-key"]||"");
       await new Promise(resolve => setTimeout(resolve, 1_000));
       const requestCount = discardRequests.filter(id => id === discardMatch[1]).length;
       if (requestCount <= (fixture.discardFailuresBeforeSuccessById?.[discardMatch[1]] || 0)) return route.fulfill({ status: 503, ...common, json: { error: "temporarily_unavailable" } });
@@ -104,7 +108,7 @@ async function mockRecovery(page: Page, fixture: RecoveryFixture = {}) {
     }
     return route.fulfill({ status: 404, ...common, json: { error: "not_found" } });
   });
-  return { replayRequests, discardRequests, discardPlanRequests, discardPlanRequestKeys, discardPlanExecutionRequests, outboxRetryRequests, outboxRetryRequestKeys };
+  return { replayRequests, replayRequestKeys, discardRequests, discardRequestKeys, discardPlanRequests, discardPlanRequestKeys, discardPlanExecutionRequests, outboxRetryRequests, outboxRetryRequestKeys };
 }
 
 test("keeps each concurrent DLQ replay disabled until its own request finishes", async ({ page }) => {
@@ -198,8 +202,8 @@ test("cancels a confirmed recovery mutation when connectivity drops during confi
 
 });
 
-test("keeps a failed DLQ replay error until that event recovers", async ({ page }) => {
-  const { replayRequests } = await mockRecovery(page, { replayFailuresBeforeSuccessById: { [events[0].id]: 1 } });
+test("keeps a failed DLQ replay error and request identity until that event recovers", async ({ page }) => {
+  const { replayRequests, replayRequestKeys } = await mockRecovery(page, { replayFailuresBeforeSuccessById: { [events[0].id]: 1 } });
   page.on("dialog", dialog => dialog.accept());
   await page.goto("/console#recovery");
 
@@ -217,6 +221,9 @@ test("keeps a failed DLQ replay error until that event recovers", async ({ page 
   await expect(firstReplay).toBeEnabled({ timeout: 1_500 });
   await expect(replayError).toBeHidden();
   expect(replayRequests).toEqual([events[0].id,events[1].id,events[0].id]);
+  expect(replayRequestKeys[0]).not.toBe("");
+  expect(replayRequestKeys[2]).toBe(replayRequestKeys[0]);
+  expect(replayRequestKeys[1]).not.toBe(replayRequestKeys[0]);
 });
 
 test("keeps a failed outbox retry error and request identity until that event recovers", async ({ page }) => {
@@ -303,8 +310,8 @@ test("sends one DLQ discard request for immediate repeated input", async ({ page
   expect(dialogs).toEqual(["confirm","prompt"]);
 });
 
-test("keeps a DLQ discard error visible until retry succeeds", async ({ page }) => {
-  const { discardRequests } = await mockRecovery(page, { discardFailuresBeforeSuccessById: { [events[0].id]: 1 } });
+test("keeps a DLQ discard error and request identity visible until retry succeeds", async ({ page }) => {
+  const { discardRequests, discardRequestKeys } = await mockRecovery(page, { discardFailuresBeforeSuccessById: { [events[0].id]: 1 } });
   page.on("dialog", dialog => dialog.type()==="prompt"?dialog.accept("invalid telemetry payload"):dialog.accept());
   await page.goto("/console#recovery");
 
@@ -318,6 +325,8 @@ test("keeps a DLQ discard error visible until retry succeeds", async ({ page }) 
   await expect(discard).toBeEnabled({ timeout: 1_500 });
   await expect(discardError).toBeHidden();
   expect(discardRequests).toEqual([events[0].id,events[0].id]);
+  expect(discardRequestKeys[0]).not.toBe("");
+  expect(discardRequestKeys[1]).toBe(discardRequestKeys[0]);
 });
 
 test("sends one bulk discard plan request for immediate repeated input", async ({ page }) => {

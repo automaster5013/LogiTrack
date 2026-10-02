@@ -203,7 +203,7 @@ PostgreSQL 일별 KPI projection과 CSV 보고서는 `./scripts/kpi-smoke.ps1`�
 
 멱등 배송 생성 API의 20 RPS 기준선은 `./scripts/load-smoke.ps1`로 재현합니다. 99% 성공률과 p95 500ms 기준을 넘지 못하면 스크립트가 실패합니다.
 
-DLQ 격리, 선택 replay, 감사 기록과 중복 방지는 `./scripts/replay-smoke.ps1`로 검증합니다. 영구 poison event는 replay 뒤 새 DLQ 항목으로 다시 격리되는 것이 정상입니다.
+DLQ 격리, 선택 replay, 요청 키에 결속된 감사 기록과 중복 방지는 `./scripts/replay-smoke.ps1`로 검증합니다. 단건 replay/discard에는 `X-Operator`와 `Idempotency-Key`가 필수이며 영구 poison event는 replay 뒤 새 DLQ 항목으로 다시 격리되는 것이 정상입니다.
 
 재처리할 수 없는 DLQ 이벤트는 Control Tower의 `DISCARD` 작업으로 필수 사유와 운영자를 기록해 backlog에서 제외할 수 있습니다. 상태 전이는 단방향이며 실제 폐기·감사·중복 요청 거부는 `./scripts/dlq-discard-smoke.ps1`로 검증합니다.
 
