@@ -58,6 +58,8 @@ try {
   if (-not $upsertAudit) { throw "Original policy snapshot was not found" }
   $restored = Invoke-RestMethod "http://localhost:8080/api/alert-policies/audits/$($upsertAudit.id)/restore" -Method Post -Headers @{"X-Operator"="policy-smoke"}
   if ($restored.vehicleId -ne $vehicle -or $restored.deviationOpenMeters -ne 200000 -or $restored.delayOpenSeconds -ne 200000) { throw "Restored policy did not match the audited snapshot" }
+  $repeatedRestore = Invoke-RestMethod "http://localhost:8080/api/alert-policies/audits/$($upsertAudit.id)/restore" -Method Post -Headers @{"X-Operator"="policy-smoke"}
+  if ($repeatedRestore.id -ne $restored.id -or $repeatedRestore.updatedAt -ne $restored.updatedAt) { throw "Repeated restore did not return the existing policy state" }
 
   $event.eventId=[guid]::NewGuid().ToString();$event.traceId=[guid]::NewGuid().ToString();$event.occurredAt=(Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
   Send-Telemetry $event
@@ -66,7 +68,7 @@ try {
   if ($afterRestore.Count -ne 0) { throw "Restored vehicle policy did not suppress alerts" }
   $audits = @((Invoke-RestMethod http://localhost:8080/api/alert-policies/audits) | Where-Object vehicleId -eq $vehicle)
   if ($audits.Count -ne 3 -or @($audits | Where-Object action -eq "RESTORE").Count -ne 1) { throw "Policy restore audit history was not persisted" }
-  Write-Host "PASS: vehicle=$vehicle, override/idempotent-reset/restore behavior verified, audits=3"
+  Write-Host "PASS: vehicle=$vehicle, override/idempotent-reset/idempotent-restore behavior verified, audits=3"
 }
 finally {
   docker compose start simulator | Out-Null
