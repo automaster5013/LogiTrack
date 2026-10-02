@@ -32,10 +32,11 @@ try {
   $suppressed = @((Invoke-RestMethod http://localhost:8080/api/alerts) | Where-Object {$_.deliveryId -eq $created.id})
   if ($suppressed.Count -ne 0) { throw "Vehicle override did not suppress alerts" }
 
-  Invoke-RestMethod "http://localhost:8080/api/alert-policies/$vehicle" -Method Delete -Headers @{"X-Operator"="policy-smoke"} | Out-Null
-  Invoke-RestMethod "http://localhost:8080/api/alert-policies/$vehicle" -Method Delete -Headers @{"X-Operator"="policy-smoke"} | Out-Null
+  $resetKey = [guid]::NewGuid().ToString()
+  Invoke-RestMethod "http://localhost:8080/api/alert-policies/$vehicle" -Method Delete -Headers @{"X-Operator"="policy-smoke";"Idempotency-Key"=$resetKey} | Out-Null
+  Invoke-RestMethod "http://localhost:8080/api/alert-policies/$vehicle" -Method Delete -Headers @{"X-Operator"="policy-smoke";"Idempotency-Key"=$resetKey} | Out-Null
   try {
-    Invoke-RestMethod "http://localhost:8080/api/alert-policies/$vehicle" -Method Delete -Headers @{"X-Operator"="another-operator"} | Out-Null
+    Invoke-RestMethod "http://localhost:8080/api/alert-policies/$vehicle" -Method Delete -Headers @{"X-Operator"="another-operator";"Idempotency-Key"=$resetKey} | Out-Null
     throw "Reset by a different operator unexpectedly succeeded"
   } catch {
     if ($_.Exception.Response.StatusCode.value__ -ne 409) { throw }
@@ -60,9 +61,10 @@ try {
 
   $upsertAudit = @($audits | Where-Object action -eq "UPSERT")[0]
   if (-not $upsertAudit) { throw "Original policy snapshot was not found" }
-  $restored = Invoke-RestMethod "http://localhost:8080/api/alert-policies/audits/$($upsertAudit.id)/restore" -Method Post -Headers @{"X-Operator"="policy-smoke"}
+  $restoreKey = [guid]::NewGuid().ToString()
+  $restored = Invoke-RestMethod "http://localhost:8080/api/alert-policies/audits/$($upsertAudit.id)/restore" -Method Post -Headers @{"X-Operator"="policy-smoke";"Idempotency-Key"=$restoreKey}
   if ($restored.vehicleId -ne $vehicle -or $restored.deviationOpenMeters -ne 200000 -or $restored.delayOpenSeconds -ne 200000) { throw "Restored policy did not match the audited snapshot" }
-  $repeatedRestore = Invoke-RestMethod "http://localhost:8080/api/alert-policies/audits/$($upsertAudit.id)/restore" -Method Post -Headers @{"X-Operator"="policy-smoke"}
+  $repeatedRestore = Invoke-RestMethod "http://localhost:8080/api/alert-policies/audits/$($upsertAudit.id)/restore" -Method Post -Headers @{"X-Operator"="policy-smoke";"Idempotency-Key"=$restoreKey}
   if ($repeatedRestore.id -ne $restored.id -or $repeatedRestore.updatedAt -ne $restored.updatedAt) { throw "Repeated restore did not return the existing policy state" }
 
   $event.eventId=[guid]::NewGuid().ToString();$event.traceId=[guid]::NewGuid().ToString();$event.occurredAt=(Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")

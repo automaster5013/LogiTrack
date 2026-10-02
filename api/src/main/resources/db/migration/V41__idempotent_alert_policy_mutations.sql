@@ -1,0 +1,1 @@
+ALTER TABLE alert_policy_audits DROP CONSTRAINT alert_policy_upsert_request_key;

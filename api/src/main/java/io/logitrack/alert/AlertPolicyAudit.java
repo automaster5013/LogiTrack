@@ -25,12 +25,14 @@ public class AlertPolicyAudit {
     @Column(name="occurred_at",nullable=false) private Instant occurredAt;
     protected AlertPolicyAudit() {}
     public AlertPolicyAudit(AlertPolicy policy,String actor){this(policy,actor,Action.UPSERT);}
-    public AlertPolicyAudit(AlertPolicy policy,String actor,Action action){id=UUID.randomUUID();policyId=policy.getId();vehicleId=policy.getVehicleId();
+    public AlertPolicyAudit(AlertPolicy policy,String actor,Action action){this(policy,actor,action,null);}
+    public AlertPolicyAudit(AlertPolicy policy,String actor,Action action,String requestKey){id=UUID.randomUUID();policyId=policy.getId();vehicleId=policy.getVehicleId();
         deviationOpenMeters=policy.getDeviationOpenMeters();deviationCloseMeters=policy.getDeviationCloseMeters();criticalDeviationMeters=policy.getCriticalDeviationMeters();
         delayOpenSeconds=policy.getDelayOpenSeconds();delayCloseSeconds=policy.getDelayCloseSeconds();criticalDelaySeconds=policy.getCriticalDelaySeconds();
-        this.action=action;this.actor=actor;policyUpdatedAt=policy.getUpdatedAt();occurredAt=Instant.now();}
+        this.action=action;this.actor=actor;this.requestKey=requestKey;policyUpdatedAt=policy.getUpdatedAt();occurredAt=Instant.now();}
     public AlertPolicyAudit(AlertPolicy policy,String actor,String requestKey){this(policy,actor,Action.UPSERT);this.requestKey=Objects.requireNonNull(requestKey);}
-    public AlertPolicyAudit(AlertPolicy policy,String actor,UUID restoredFromAuditId){this(policy,actor,Action.RESTORE);this.restoredFromAuditId=Objects.requireNonNull(restoredFromAuditId);}
+    public AlertPolicyAudit(AlertPolicy policy,String actor,UUID restoredFromAuditId){this(policy,actor,restoredFromAuditId,null);}
+    public AlertPolicyAudit(AlertPolicy policy,String actor,UUID restoredFromAuditId,String requestKey){this(policy,actor,Action.RESTORE,requestKey);this.restoredFromAuditId=Objects.requireNonNull(restoredFromAuditId);}
     public UUID getId(){return id;} public UUID getPolicyId(){return policyId;} public String getVehicleId(){return vehicleId;}
     public double getDeviationOpenMeters(){return deviationOpenMeters;} public double getDeviationCloseMeters(){return deviationCloseMeters;}
     public double getCriticalDeviationMeters(){return criticalDeviationMeters;} public long getDelayOpenSeconds(){return delayOpenSeconds;}

@@ -62,8 +62,8 @@ class AlertPolicyServiceTest {
     @Test void resetsVehicleOverrideWithAuditedSnapshot() {
         var policy=new AlertPolicy("TRUCK-06",500,300,1500,600,300,1800,"old");
         when(policies.findByVehicleId("TRUCK-06")).thenReturn(Optional.of(policy));when(policies.save(policy)).thenReturn(policy);
-        assertSame(policy,service.reset(" TRUCK-06 "," operator-r "));assertFalse(policy.isActive());assertEquals("operator-r",policy.getUpdatedBy());
-        var audit=ArgumentCaptor.forClass(AlertPolicyAudit.class);verify(audits).save(audit.capture());assertEquals(AlertPolicyAudit.Action.RESET,audit.getValue().getAction());
+        assertSame(policy,service.reset(" TRUCK-06 "," operator-r ","reset-key"));assertFalse(policy.isActive());assertEquals("operator-r",policy.getUpdatedBy());
+        var audit=ArgumentCaptor.forClass(AlertPolicyAudit.class);verify(audits).save(audit.capture());assertEquals(AlertPolicyAudit.Action.RESET,audit.getValue().getAction());assertEquals("reset-key",audit.getValue().getRequestKey());verify(audits).lockRequestKey("reset-key");
         assertThrows(IllegalArgumentException.class,()->service.reset(AlertPolicy.DEFAULT_VEHICLE,"operator"));
         assertThrows(NoSuchElementException.class,()->service.reset("TRUCK-MISSING","operator"));
     }
@@ -77,17 +77,26 @@ class AlertPolicyServiceTest {
         when(policies.findByVehicleId("TRUCK-10")).thenReturn(Optional.of(policy));
         assertThrows(IllegalStateException.class,()->service.reset("TRUCK-10","another-operator"));verify(policies,never()).save(any());verifyNoInteractions(audits);
     }
+    @Test void keyedResetReturnsOnlyTheMatchingUnchangedResult(){
+        var policy=new AlertPolicy("TRUCK-15",500,300,1500,600,300,1800,"old");policy.deactivate("operator-r");
+        var prior=new AlertPolicyAudit(policy,"operator-r",AlertPolicyAudit.Action.RESET,"reset-key");
+        when(audits.findByRequestKey("reset-key")).thenReturn(Optional.of(prior));when(policies.findByVehicleId("TRUCK-15")).thenReturn(Optional.of(policy));
+        assertSame(policy,service.reset("TRUCK-15","operator-r","reset-key"));verify(policies,never()).save(any());verify(audits,never()).save(any());
+        assertThrows(IllegalStateException.class,()->service.reset("TRUCK-OTHER","operator-r","reset-key"));
+        assertThrows(IllegalStateException.class,()->service.reset("TRUCK-15","another","reset-key"));
+        assertThrows(IllegalStateException.class,()->service.upsert(request("TRUCK-15"),"operator-r","reset-key"));
+    }
     @Test void restoresPolicyFromImmutableAuditSnapshot() {
         var source=new AlertPolicy("TRUCK-07",200000,150000,250000,200000,150000,250000,"old");
         var snapshot=new AlertPolicyAudit(source,"original");
         var current=new AlertPolicy("TRUCK-07",500,300,1500,600,300,1800,"new");current.deactivate("new");
         when(audits.findByIdForUpdate(snapshot.getId())).thenReturn(Optional.of(snapshot));when(policies.findByVehicleId("TRUCK-07")).thenReturn(Optional.of(current));
         when(policies.save(current)).thenReturn(current);
-        assertSame(current,service.restore(snapshot.getId()," operator-restore "));
+        assertSame(current,service.restore(snapshot.getId()," operator-restore ","restore-key"));
         assertTrue(current.isActive());assertEquals(200000,current.getDeviationOpenMeters());assertEquals(200000,current.getDelayOpenSeconds());
         assertEquals("operator-restore",current.getUpdatedBy());
         var restored=ArgumentCaptor.forClass(AlertPolicyAudit.class);verify(audits).save(restored.capture());
-        assertEquals(AlertPolicyAudit.Action.RESTORE,restored.getValue().getAction());assertEquals("operator-restore",restored.getValue().getActor());assertEquals(snapshot.getId(),restored.getValue().getRestoredFromAuditId());
+        assertEquals(AlertPolicyAudit.Action.RESTORE,restored.getValue().getAction());assertEquals("operator-restore",restored.getValue().getActor());assertEquals(snapshot.getId(),restored.getValue().getRestoredFromAuditId());assertEquals("restore-key",restored.getValue().getRequestKey());verify(audits).lockRequestKey("restore-key");
     }
     @Test void restoresMissingPolicyAndRejectsMissingSnapshotOrActor() {
         var source=new AlertPolicy("TRUCK-08",800,400,1800,900,400,2200,"old");var snapshot=new AlertPolicyAudit(source,"original");
@@ -109,6 +118,14 @@ class AlertPolicyServiceTest {
         var restored=new AlertPolicy("TRUCK-12",800,400,1800,900,400,2200,"restorer");var prior=new AlertPolicyAudit(restored,"restorer",snapshot.getId());restored.update(900,450,1900,1000,500,2300,"another-operator");
         when(audits.findByIdForUpdate(snapshot.getId())).thenReturn(Optional.of(snapshot));when(audits.findByRestoredFromAuditIdAndActor(snapshot.getId(),"restorer")).thenReturn(Optional.of(prior));when(policies.findByVehicleId("TRUCK-12")).thenReturn(Optional.of(restored));
         assertThrows(IllegalStateException.class,()->service.restore(snapshot.getId(),"restorer"));verify(policies,never()).save(any());verify(audits,never()).save(any());
+    }
+    @Test void keyedRestoreReturnsOnlyTheMatchingUnchangedResult(){
+        var source=new AlertPolicy("TRUCK-16",800,400,1800,900,400,2200,"old");var snapshot=new AlertPolicyAudit(source,"original");
+        var current=new AlertPolicy("TRUCK-16",800,400,1800,900,400,2200,"restorer");var prior=new AlertPolicyAudit(current,"restorer",snapshot.getId(),"restore-key");
+        when(audits.findByRequestKey("restore-key")).thenReturn(Optional.of(prior));when(policies.findByVehicleId("TRUCK-16")).thenReturn(Optional.of(current));
+        assertSame(current,service.restore(snapshot.getId(),"restorer","restore-key"));verify(audits,never()).findByIdForUpdate(any());verify(audits,never()).save(any());
+        assertThrows(IllegalStateException.class,()->service.restore(UUID.randomUUID(),"restorer","restore-key"));
+        assertThrows(IllegalStateException.class,()->service.restore(snapshot.getId(),"another","restore-key"));
     }
     @Test void delegatesLists() {
         when(policies.findAllByActiveTrueOrderByVehicleIdAsc()).thenReturn(List.of());when(audits.findTop50ByOrderByOccurredAtDesc()).thenReturn(List.of());

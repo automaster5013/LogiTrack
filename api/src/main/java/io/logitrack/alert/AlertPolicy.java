@@ -2,6 +2,7 @@ package io.logitrack.alert;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @Entity
@@ -32,10 +33,10 @@ public class AlertPolicy {
         validate(deviationOpenMeters,deviationCloseMeters,criticalDeviationMeters,delayOpenSeconds,delayCloseSeconds,criticalDelaySeconds);
         this.deviationOpenMeters=deviationOpenMeters;this.deviationCloseMeters=deviationCloseMeters;this.criticalDeviationMeters=criticalDeviationMeters;
         this.delayOpenSeconds=delayOpenSeconds;this.delayCloseSeconds=delayCloseSeconds;this.criticalDelaySeconds=criticalDelaySeconds;
-        updatedAt=Instant.now();updatedBy=actor;active=true;
+        updatedAt=Instant.now().truncatedTo(ChronoUnit.MICROS);updatedBy=actor;active=true;
     }
     public void deactivate(String actor){if(DEFAULT_VEHICLE.equals(vehicleId))throw new IllegalArgumentException("Global default policy cannot be reset");
-        active=false;updatedAt=Instant.now();updatedBy=actor;}
+        active=false;updatedAt=Instant.now().truncatedTo(ChronoUnit.MICROS);updatedBy=actor;}
     static void validate(double deviationOpenMeters,double deviationCloseMeters,double criticalDeviationMeters,
         long delayOpenSeconds,long delayCloseSeconds,long criticalDelaySeconds){
         if(!Double.isFinite(deviationOpenMeters)||!Double.isFinite(deviationCloseMeters)||!Double.isFinite(criticalDeviationMeters)
