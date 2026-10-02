@@ -12,6 +12,14 @@ class OutboxRecoveryServiceTest {
         var id=UUID.randomUUID();var event=new OutboxEvent(id,"DELIVERY",UUID.randomUUID(),"test","topic","key","{}");for(int i=0;i<20;i++)event.failed(new RuntimeException("offline"));when(events.lockById(id)).thenReturn(Optional.of(event));
         var result=service.retry(id," operator ");assertEquals(OutboxEvent.Status.PENDING,result.status());verify(audits).save(argThat(audit->audit.getOutboxEventId().equals(id)&&audit.getActor().equals("operator")));assertEquals(1,metrics.get("logitrack.outbox.retries").counter().count());
     }
+    @Test void retryReturnsPendingEventWithoutDuplicatingAuditOrMetric(){
+        var id=UUID.randomUUID();var event=new OutboxEvent(id,"DELIVERY",UUID.randomUUID(),"test","topic","key","{}");when(events.lockById(id)).thenReturn(Optional.of(event));
+        var result=service.retry(id,"operator");assertEquals(OutboxEvent.Status.PENDING,result.status());verifyNoInteractions(audits);assertEquals(0,metrics.get("logitrack.outbox.retries").counter().count());
+    }
+    @Test void retryReturnsPublishedEventWithoutDuplicatingAuditOrMetric(){
+        var id=UUID.randomUUID();var event=new OutboxEvent(id,"DELIVERY",UUID.randomUUID(),"test","topic","key","{}");event.published();when(events.lockById(id)).thenReturn(Optional.of(event));
+        var result=service.retry(id,"operator");assertEquals(OutboxEvent.Status.PUBLISHED,result.status());verifyNoInteractions(audits);assertEquals(0,metrics.get("logitrack.outbox.retries").counter().count());
+    }
     @Test void pagesFailuresAndAuditsWithStableNewestFirstOrdering(){
         var event=new OutboxEvent(UUID.randomUUID(),"DELIVERY",UUID.randomUUID(),"test","topic","key","{}");
         when(events.findByStatus(eq(OutboxEvent.Status.FAILED),any(Pageable.class))).thenReturn(new PageImpl<>(List.of(event),PageRequest.of(1,20),41));

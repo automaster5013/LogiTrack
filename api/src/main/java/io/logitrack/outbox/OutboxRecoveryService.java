@@ -15,7 +15,9 @@ public class OutboxRecoveryService {
     @Transactional(readOnly=true) public FailurePage failurePage(int page,int size){var result=events.findByStatus(OutboxEvent.Status.FAILED,PageRequest.of(page,size,Sort.by(Sort.Direction.DESC,"createdAt").and(Sort.by(Sort.Direction.DESC,"id"))));return new FailurePage(result.getContent().stream().map(FailureView::from).toList(),result.getNumber(),result.getSize(),result.getTotalElements(),result.hasNext());}
     @Transactional(readOnly=true) public AuditPage auditPage(int page,int size){var result=audits.findAll(PageRequest.of(page,size,Sort.by(Sort.Direction.DESC,"occurredAt").and(Sort.by(Sort.Direction.DESC,"id"))));return new AuditPage(result.getContent(),result.getNumber(),result.getSize(),result.getTotalElements(),result.hasNext());}
     @Transactional public FailureView retry(UUID id,String actor){
-        var normalized=normalize(actor);var event=events.lockById(id).orElseThrow();event.retry();audits.save(new OutboxRetryAudit(id,normalized));retryCounter.increment();return FailureView.from(event);
+        var normalized=normalize(actor);var event=events.lockById(id).orElseThrow();
+        if(event.getStatus()!=OutboxEvent.Status.FAILED)return FailureView.from(event);
+        event.retry();audits.save(new OutboxRetryAudit(id,normalized));retryCounter.increment();return FailureView.from(event);
     }
     private String normalize(String actor){var value=actor==null?"":actor.trim();if(value.isEmpty()||value.length()>120)throw new IllegalArgumentException("X-Operator must be 1-120 characters");return value;}
     public record FailureView(UUID id,String aggregateType,UUID aggregateId,String eventType,String topic,int attempts,String lastError,java.time.Instant createdAt,OutboxEvent.Status status){
