@@ -62,6 +62,7 @@ export default function Home(){
  const [outboxFailures,setOutboxFailures]=useState<OutboxFailure[]>([]); const [outboxAudits,setOutboxAudits]=useState<OutboxRetryAudit[]>([]); const outboxBusyIdsRef=useRef(new Set<string>()); const outboxFailureIdsRef=useRef(new Set<string>()); const [outboxBusyIds,setOutboxBusyIds]=useState<Set<string>>(()=>new Set());
  const [stocks,setStocks]=useState<WarehouseStock[]>([]); const [tasks,setTasks]=useState<WarehouseTask[]>([]); const [ledger,setLedger]=useState<LedgerEntry[]>([]); const warehouseBusyRef=useRef(false); const warehouseFailureMessagesRef=useRef(new Map<"receive"|"outbound",string>()); const warehouseDispatchRetryTaskRef=useRef<WarehouseTask|undefined>(undefined); const [warehouseBusy,setWarehouseBusy]=useState(false);
  const loadMapData=async(deliveryIds:string[])=>{
+  if(!navigator.onLine)return;
   const ids=[...new Set(deliveryIds)].filter(id=>!requestedMapIds.current.has(id));if(!ids.length)return;
   ids.forEach(id=>requestedMapIds.current.add(id));
   try{const nextRoutes:RouteSnapshot[]=[];const nextTelemetry:TelemetryPoint[]=[];
@@ -114,7 +115,7 @@ export default function Home(){
  useEffect(()=>{if(visibleItems.length&&!visibleItems.some(item=>item.id===selected))setSelected(visibleItems.find(item=>routes.some(route=>route.deliveryId===item.id))?.id||visibleItems[0].id)},[visibleItems,routes,selected]);
  useEffect(()=>{workspaceRef.current=workspace},[workspace]);
  useEffect(()=>{const active=workspaceNavRef.current?.querySelector<HTMLElement>('[aria-current="page"]');active?.scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"nearest",inline:"center"})},[workspace]);
- useEffect(()=>{if(workspace==="overview"||workspace==="orders")loadMapData(mapItems.map(item=>item.id)).catch(()=>setWorkspaceError(workspace,"지도 경로를 불러올 수 없습니다."))},[mapItems,workspace]);
+ useEffect(()=>{if(browserOnline&&(workspace==="overview"||workspace==="orders"))loadMapData(mapItems.map(item=>item.id)).catch(()=>setWorkspaceError(workspace,"지도 경로를 불러올 수 없습니다."))},[browserOnline,mapItems,workspace]);
  function focusDelivery(id:string){if(items.find(item=>item.id===id)?.status==="DELIVERED")setFleetScope("ALL");setFleetQuery("");setSelected(id)}
  function focusOrderDelivery(id:string){focusDelivery(id);window.requestAnimationFrame(()=>document.querySelector(".fleetBoardHeader")?.scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"}))}
  function showAttention(){setFleetScope("ATTENTION");setFleetQuery("");window.requestAnimationFrame(()=>document.querySelector(".mapBoard")?.scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"}))}

@@ -145,6 +145,8 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
     acknowledgementRequestCount: () => acknowledgementRequestCount,
     acknowledgementCompletedCount: () => acknowledgementCompletedCount,
     alertRequestCount: () => alertRequestCount,
+    routeRequestCount: () => routeRequestCount,
+    telemetryRequestCount: () => telemetryRequestCount,
   };
 }
 
@@ -180,6 +182,25 @@ test("keeps the dense fleet map inside the narrow desktop viewport", async ({ pa
   expect(mapBoardBox!.y + mapBoardBox!.height).toBeLessThanOrEqual(768);
   expect(mapShellBox!.height).toBeGreaterThanOrEqual(280);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(851);
+});
+
+test("pauses lazy map snapshots offline and loads them after reconnecting", async ({ page, context }) => {
+  const denseDeliveries=createDenseDeliveries();
+  const requests=await mockOverview(page,denseDeliveries);
+  await page.goto("/console#overview");
+  await expect(page.getByText("최근 50건을 지도에 표시합니다 · 검색하면 결과를 우선 표시합니다")).toBeVisible();
+  await expect.poll(()=>requests.routeRequestCount()).toBe(1);
+  await expect.poll(()=>requests.telemetryRequestCount()).toBe(1);
+
+  await context.setOffline(true);
+  await page.locator(".mapSearch input").fill("TRUCK-51");
+  await expect(page.locator(".mapSearchResult")).toHaveText("1건");
+  expect(requests.routeRequestCount()).toBe(1);
+  expect(requests.telemetryRequestCount()).toBe(1);
+
+  await context.setOffline(false);
+  await expect.poll(()=>requests.routeRequestCount()).toBe(2);
+  await expect.poll(()=>requests.telemetryRequestCount()).toBe(2);
 });
 
 test("keeps the global header geometry identical across workspaces", async ({ page }) => {
