@@ -47,11 +47,21 @@ class AlertPolicyServiceTest {
     }
     @Test void resetsVehicleOverrideWithAuditedSnapshot() {
         var policy=new AlertPolicy("TRUCK-06",500,300,1500,600,300,1800,"old");
-        when(policies.findByVehicleIdAndActiveTrue("TRUCK-06")).thenReturn(Optional.of(policy));when(policies.save(policy)).thenReturn(policy);
+        when(policies.findByVehicleId("TRUCK-06")).thenReturn(Optional.of(policy));when(policies.save(policy)).thenReturn(policy);
         assertSame(policy,service.reset(" TRUCK-06 "," operator-r "));assertFalse(policy.isActive());assertEquals("operator-r",policy.getUpdatedBy());
         var audit=ArgumentCaptor.forClass(AlertPolicyAudit.class);verify(audits).save(audit.capture());assertEquals(AlertPolicyAudit.Action.RESET,audit.getValue().getAction());
         assertThrows(IllegalArgumentException.class,()->service.reset(AlertPolicy.DEFAULT_VEHICLE,"operator"));
         assertThrows(NoSuchElementException.class,()->service.reset("TRUCK-MISSING","operator"));
+    }
+    @Test void repeatedResetBySameOperatorReturnsCurrentPolicyWithoutDuplicateAudit(){
+        var policy=new AlertPolicy("TRUCK-09",500,300,1500,600,300,1800,"old");policy.deactivate("operator-r");
+        when(policies.findByVehicleId("TRUCK-09")).thenReturn(Optional.of(policy));
+        assertSame(policy,service.reset("TRUCK-09"," operator-r "));verify(policies,never()).save(any());verifyNoInteractions(audits);
+    }
+    @Test void resetByDifferentOperatorAfterCompletionRemainsRejected(){
+        var policy=new AlertPolicy("TRUCK-10",500,300,1500,600,300,1800,"old");policy.deactivate("operator-r");
+        when(policies.findByVehicleId("TRUCK-10")).thenReturn(Optional.of(policy));
+        assertThrows(IllegalStateException.class,()->service.reset("TRUCK-10","another-operator"));verify(policies,never()).save(any());verifyNoInteractions(audits);
     }
     @Test void restoresPolicyFromImmutableAuditSnapshot() {
         var source=new AlertPolicy("TRUCK-07",200000,150000,250000,200000,150000,250000,"old");
