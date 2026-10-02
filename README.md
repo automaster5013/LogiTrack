@@ -163,7 +163,7 @@ GitHub Actions의 `CI` workflow는 main push와 pull request마다 API 테스트
 
 ECR repository 5개, Terraform destroy 차단, 최신 image 30개·미태그 7일 기본 보존 정책, Terraform caller와 OIDC provider 계정 일치 검증, 최소 권한 publisher role의 사전 구성은 `infra/aws/bootstrap` Terraform root에 정의되어 있습니다. CI는 format·provider 초기화·validate와 별도 trust-boundary smoke를 실행하지만, AWS 비용·리전·원격 state가 승인되기 전에는 plan/apply하지 않습니다.
 
-차량별 경고 정책은 관제 화면의 `Vehicle threshold policies`에서 설정합니다. `GLOBAL DEFAULT`를 기준으로 차량별 경로 이탈(m)과 ETA 지연(s)의 `CLOSE < OPEN ≤ CRITICAL` 값을 재정의하며, `RESET TO GLOBAL`로 안전하게 상속 상태로 되돌릴 수 있습니다. 저장과 reset은 PostgreSQL 불변 감사 이력에 운영자와 함께 남고, `GET /api/alert-policies/audits/page`에서 누적 전체를 조회하며 각 감사 snapshot의 `RESTORE`로 과거 임계값을 다시 적용할 수 있습니다. 복원 자체도 `RESTORE` 감사 기록을 생성합니다. 종단 간 검증은 `./scripts/alert-policy-smoke.ps1`로 수행합니다.
+차량별 경고 정책은 관제 화면의 `Vehicle threshold policies`에서 설정합니다. `GLOBAL DEFAULT`를 기준으로 차량별 경로 이탈(m)과 ETA 지연(s)의 `CLOSE < OPEN ≤ CRITICAL` 값을 재정의하며, `RESET TO GLOBAL`로 안전하게 상속 상태로 되돌릴 수 있습니다. 저장·reset·restore는 `Idempotency-Key`에 결속된 PostgreSQL 불변 감사 이력을 남기고, `GET /api/alert-policies/audits/page`에서 누적 전체를 조회하며 각 감사 snapshot의 `RESTORE`로 과거 임계값을 다시 적용할 수 있습니다. 종단 간 검증은 `./scripts/alert-policy-smoke.ps1`로 수행합니다.
 
 production image 다섯 개의 CycloneDX SBOM 생성과 CRITICAL 취약점 0건 검증은 image build 후 `./scripts/container-security.ps1`로 재현합니다. SBOM은 CycloneDX 1.7 구조, 서비스별 image tag·digest, 구성요소 식별자와 현재 Git SHA provenance까지 검사한 뒤에만 업로드되며 CI artifact는 commit SHA별로 30일 보관됩니다.
 

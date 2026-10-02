@@ -15,7 +15,9 @@ async function mockPolicies(page:Page,fixture:PolicyFixture={}){
   const saveRequests:string[]=[];
   const saveRequestKeys:string[]=[];
   const resetRequests:string[]=[];
+  const resetRequestKeys:string[]=[];
   const restoreRequests:string[]=[];
+  const restoreRequestKeys:string[]=[];
   await page.route("**/api/**",async route=>{
     const request=route.request();
     const url=new URL(request.url());
@@ -30,6 +32,7 @@ async function mockPolicies(page:Page,fixture:PolicyFixture={}){
     const restoreMatch=url.pathname.match(/^\/api\/alert-policies\/audits\/([^/]+)\/restore$/);
     if(restoreMatch&&request.method()==="POST"){
       restoreRequests.push(restoreMatch[1]);
+      restoreRequestKeys.push(request.headers()["idempotency-key"]||"");
       await new Promise(resolve=>setTimeout(resolve,1_000));
       if(restoreRequests.length<=(fixture.restoreFailuresBeforeSuccess||0))return route.fulfill({status:503,...common,json:{error:"temporarily_unavailable"}});
       return route.fulfill({...common,json:policies[1]});
@@ -37,6 +40,7 @@ async function mockPolicies(page:Page,fixture:PolicyFixture={}){
     const resetMatch=url.pathname.match(/^\/api\/alert-policies\/([^/]+)$/);
     if(resetMatch&&request.method()==="DELETE"){
       resetRequests.push(decodeURIComponent(resetMatch[1]));
+      resetRequestKeys.push(request.headers()["idempotency-key"]||"");
       await new Promise(resolve=>setTimeout(resolve,1_000));
       if(resetRequests.length<=(fixture.resetFailuresBeforeSuccess||0))return route.fulfill({status:503,...common,json:{error:"temporarily_unavailable"}});
       return route.fulfill({status:204,...common});
@@ -49,7 +53,7 @@ async function mockPolicies(page:Page,fixture:PolicyFixture={}){
     if(url.pathname==="/api/stream/deliveries")return route.fulfill({status:200,contentType:"text/event-stream",body:"event: connected\ndata: {}\n\n",headers:{"Access-Control-Allow-Origin":"*"}});
     return route.fulfill({status:404,...common,json:{error:"not_found"}});
   });
-  return {saveRequests,saveRequestKeys,resetRequests,restoreRequests};
+  return {saveRequests,saveRequestKeys,resetRequests,resetRequestKeys,restoreRequests,restoreRequestKeys};
 }
 
 test("sends one policy save request for immediate repeated input",async({page})=>{
@@ -119,7 +123,7 @@ test("sends one policy reset request for immediate repeated input",async({page})
 });
 
 test("keeps a policy reset error visible until retry succeeds",async({page})=>{
-  const {resetRequests}=await mockPolicies(page,{resetFailuresBeforeSuccess:1});
+  const {resetRequests,resetRequestKeys}=await mockPolicies(page,{resetFailuresBeforeSuccess:1});
   page.on("dialog",dialog=>dialog.accept());
   await page.goto("/console#settings");
   await page.getByLabel("적용 범위").selectOption("TRUCK-01");
@@ -132,6 +136,8 @@ test("keeps a policy reset error visible until retry succeeds",async({page})=>{
   await expect(reset).toBeEnabled({timeout:1_500});
   await expect(error).toBeHidden();
   expect(resetRequests).toEqual(["TRUCK-01","TRUCK-01"]);
+  expect(resetRequestKeys[0]).toMatch(/^[0-9a-f-]{36}$/i);
+  expect(new Set(resetRequestKeys).size).toBe(1);
 });
 
 test("sends one policy restore request for immediate repeated input",async({page})=>{
@@ -146,7 +152,7 @@ test("sends one policy restore request for immediate repeated input",async({page
 });
 
 test("keeps a policy restore error visible until retry succeeds",async({page})=>{
-  const {restoreRequests}=await mockPolicies(page,{restoreFailuresBeforeSuccess:1});
+  const {restoreRequests,restoreRequestKeys}=await mockPolicies(page,{restoreFailuresBeforeSuccess:1});
   page.on("dialog",dialog=>dialog.accept());
   await page.goto("/console#settings");
   const restore=page.getByRole("button",{name:"TRUCK-01 정책 이력 복원"});
@@ -158,4 +164,6 @@ test("keeps a policy restore error visible until retry succeeds",async({page})=>
   await expect(restore).toBeEnabled({timeout:1_500});
   await expect(error).toBeHidden();
   expect(restoreRequests).toEqual([audit.id,audit.id]);
+  expect(restoreRequestKeys[0]).toMatch(/^[0-9a-f-]{36}$/i);
+  expect(new Set(restoreRequestKeys).size).toBe(1);
 });

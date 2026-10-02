@@ -25,7 +25,7 @@ public class AlertPolicyService {
         var prior=audits.findByRequestKey(requestKey);
         if(prior.isPresent()){
             var completed=prior.get();
-            if(!completed.getActor().equals(operator)||!matches(request,completed))throw new IllegalStateException("Idempotency key was used with a different alert policy request");
+            if(completed.getAction()!=AlertPolicyAudit.Action.UPSERT||!completed.getActor().equals(operator)||!matches(request,completed))throw new IllegalStateException("Idempotency key was used with a different alert policy request");
             var current=policies.findByVehicleId(vehicle).orElseThrow(()->new IllegalStateException("Saved alert policy no longer exists"));
             if(matches(current,completed)&&current.isActive()&&current.getUpdatedBy().equals(operator)&&current.getUpdatedAt().equals(completed.getPolicyUpdatedAt()))return current;
             throw new IllegalStateException("Saved alert policy has changed since this request completed");
@@ -39,22 +39,54 @@ public class AlertPolicyService {
     }
     @Transactional
     public AlertPolicy reset(String vehicleId,String actor){
+        return reset(vehicleId,actor,null);
+    }
+    @Transactional
+    public AlertPolicy reset(String vehicleId,String actor,String requestKey){
         var vehicle=normalize("vehicleId",vehicleId);var operator=normalize("X-Operator",actor);
         if(AlertPolicy.DEFAULT_VEHICLE.equals(vehicle))throw new IllegalArgumentException("Global default policy cannot be reset");
+        if(requestKey!=null){
+            InputLimits.required(requestKey,"Idempotency-Key",160);audits.lockRequestKey(requestKey);
+            var prior=audits.findByRequestKey(requestKey);
+            if(prior.isPresent()){
+                var completed=prior.get();
+                if(completed.getAction()!=AlertPolicyAudit.Action.RESET||!completed.getActor().equals(operator)||!completed.getVehicleId().equals(vehicle))throw new IllegalStateException("Idempotency key was used with a different alert policy request");
+                var current=policies.findByVehicleId(vehicle).orElseThrow(()->new IllegalStateException("Reset alert policy no longer exists"));
+                if(matches(current,completed)&&!current.isActive()&&current.getUpdatedBy().equals(operator)&&current.getUpdatedAt().equals(completed.getPolicyUpdatedAt()))return current;
+                throw new IllegalStateException("Reset alert policy has changed since this request completed");
+            }
+        }
         var policy=policies.findByVehicleId(vehicle).orElseThrow(()->new NoSuchElementException("Vehicle alert policy not found"));
         if(!policy.isActive()){
+            if(requestKey!=null)throw new IllegalStateException("Vehicle alert policy has already been reset");
             if(policy.getUpdatedBy().equals(operator))return policy;
             throw new IllegalStateException("Vehicle alert policy has already been reset");
         }
-        policy.deactivate(operator);policy=policies.save(policy);audits.save(new AlertPolicyAudit(policy,operator,AlertPolicyAudit.Action.RESET));return policy;
+        policy.deactivate(operator);policy=policies.save(policy);audits.save(new AlertPolicyAudit(policy,operator,AlertPolicyAudit.Action.RESET,requestKey));return policy;
     }
     @Transactional
     public AlertPolicy restore(UUID auditId,String actor){
+        return restore(auditId,actor,null);
+    }
+    @Transactional
+    public AlertPolicy restore(UUID auditId,String actor,String requestKey){
         var operator=normalize("X-Operator",actor);
+        if(requestKey!=null){
+            InputLimits.required(requestKey,"Idempotency-Key",160);audits.lockRequestKey(requestKey);
+            var completed=audits.findByRequestKey(requestKey);
+            if(completed.isPresent()){
+                var prior=completed.get();
+                if(prior.getAction()!=AlertPolicyAudit.Action.RESTORE||!prior.getActor().equals(operator)||!Objects.equals(prior.getRestoredFromAuditId(),auditId))throw new IllegalStateException("Idempotency key was used with a different alert policy request");
+                var current=policies.findByVehicleId(prior.getVehicleId()).orElseThrow(()->new IllegalStateException("Restored alert policy no longer exists"));
+                if(matches(current,prior)&&current.isActive()&&current.getUpdatedBy().equals(operator)&&current.getUpdatedAt().equals(prior.getPolicyUpdatedAt()))return current;
+                throw new IllegalStateException("Restored alert policy has changed since this request completed");
+            }
+        }
         var snapshot=audits.findByIdForUpdate(Objects.requireNonNull(auditId,"auditId must be provided"))
             .orElseThrow(()->new NoSuchElementException("Alert policy audit snapshot not found"));
         var prior=audits.findByRestoredFromAuditIdAndActor(snapshot.getId(),operator);
         if(prior.isPresent()){
+            if(requestKey!=null)throw new IllegalStateException("Alert policy snapshot has already been restored");
             var current=policies.findByVehicleId(snapshot.getVehicleId()).orElseThrow(()->new IllegalStateException("Restored alert policy no longer exists"));
             if(matches(current,prior.get())&&current.isActive()&&current.getUpdatedBy().equals(operator))return current;
             throw new IllegalStateException("Restored alert policy has changed since this request completed");
@@ -64,7 +96,7 @@ public class AlertPolicyService {
             snapshot.getCriticalDeviationMeters(),snapshot.getDelayOpenSeconds(),snapshot.getDelayCloseSeconds(),snapshot.getCriticalDelaySeconds(),operator));
         if(existing.isPresent())policy.update(snapshot.getDeviationOpenMeters(),snapshot.getDeviationCloseMeters(),snapshot.getCriticalDeviationMeters(),
             snapshot.getDelayOpenSeconds(),snapshot.getDelayCloseSeconds(),snapshot.getCriticalDelaySeconds(),operator);
-        policy=policies.save(policy);audits.save(new AlertPolicyAudit(policy,operator,snapshot.getId()));return policy;
+        policy=policies.save(policy);audits.save(new AlertPolicyAudit(policy,operator,snapshot.getId(),requestKey));return policy;
     }
     private boolean matches(AlertPolicy policy,AlertPolicyAudit audit){return Double.compare(policy.getDeviationOpenMeters(),audit.getDeviationOpenMeters())==0
         &&Double.compare(policy.getDeviationCloseMeters(),audit.getDeviationCloseMeters())==0&&Double.compare(policy.getCriticalDeviationMeters(),audit.getCriticalDeviationMeters())==0
