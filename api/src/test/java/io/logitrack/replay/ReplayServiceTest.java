@@ -28,8 +28,8 @@ class ReplayServiceTest {
     @Test void countsSuccessfulAuditedReplay(){
         var events=mock(DeadLetterEventRepository.class);var audits=mock(ReplayAuditRepository.class);var kafka=mock(KafkaTemplate.class);var metrics=new SimpleMeterRegistry();var service=new ReplayService(events,audits,kafka,metrics);
         var event=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,1);when(events.lockById(event.getId())).thenReturn(Optional.of(event));when(kafka.send(anyString(),any(),any())).thenReturn(CompletableFuture.completedFuture(null));
-        service.replay(event.getId()," operator ");
-        assertEquals(DeadLetterEvent.Status.REPLAYED,event.getStatus());verify(events).lockById(event.getId());verify(audits).save(any());assertEquals(1,metrics.get("logitrack.dlq.replays").counter().count());
+        service.replay(event.getId()," operator ","request-key");
+        assertEquals(DeadLetterEvent.Status.REPLAYED,event.getStatus());verify(events).lockById(event.getId());verify(audits).save(argThat(audit->"request-key".equals(audit.getRequestKey())));assertEquals(1,metrics.get("logitrack.dlq.replays").counter().count());
     }
     @Test void hidesBrokerDetailsOnReplayFailure(){
         var events=mock(DeadLetterEventRepository.class);var kafka=mock(KafkaTemplate.class);var service=new ReplayService(events,mock(ReplayAuditRepository.class),kafka,new SimpleMeterRegistry());
@@ -46,12 +46,18 @@ class ReplayServiceTest {
         var event=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,1);event.markReplayed("operator");when(events.lockById(event.getId())).thenReturn(Optional.of(event));
         assertThrows(IllegalStateException.class,()->service.replay(event.getId(),"another-operator"));
     }
+    @Test void keyedReplayReturnsOnlyTheMatchingStoredRequest(){
+        var events=mock(DeadLetterEventRepository.class);var audits=mock(ReplayAuditRepository.class);var service=new ReplayService(events,audits,mock(KafkaTemplate.class),new SimpleMeterRegistry());var id=UUID.randomUUID();
+        var event=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,1);var audit=new ReplayAudit(id,"REPLAY","operator",null,"request-key");when(audits.findByRequestKey("request-key")).thenReturn(Optional.of(audit));when(events.lockById(id)).thenReturn(Optional.of(event));
+        assertSame(event,service.replay(id,"operator","request-key"));verify(audits).lockRequestKey("request-key");verify(audits,never()).save(any());
+        assertThrows(IllegalStateException.class,()->service.replay(UUID.randomUUID(),"operator","request-key"));assertThrows(IllegalStateException.class,()->service.replay(id,"another-operator","request-key"));
+    }
     @Test void discardsPendingEventWithAuditAndMetric(){
         var events=mock(DeadLetterEventRepository.class);var audits=mock(ReplayAuditRepository.class);var metrics=new SimpleMeterRegistry();var service=new ReplayService(events,audits,mock(KafkaTemplate.class),metrics);
         var event=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,2);when(events.lockById(event.getId())).thenReturn(Optional.of(event));
-        service.discard(event.getId()," operator "," invalid fixture ");
+        service.discard(event.getId()," operator "," invalid fixture ","request-key");
         assertEquals(DeadLetterEvent.Status.DISCARDED,event.getStatus());assertEquals("operator",event.getDiscardedBy());assertEquals("invalid fixture",event.getDiscardReason());
-        var audit=org.mockito.ArgumentCaptor.forClass(ReplayAudit.class);verify(audits).save(audit.capture());assertEquals("DISCARD",audit.getValue().getAction());assertEquals("invalid fixture",audit.getValue().getReason());assertEquals(1,metrics.get("logitrack.dlq.discards").counter().count());
+        var audit=org.mockito.ArgumentCaptor.forClass(ReplayAudit.class);verify(audits).save(audit.capture());assertEquals("DISCARD",audit.getValue().getAction());assertEquals("invalid fixture",audit.getValue().getReason());assertEquals("request-key",audit.getValue().getRequestKey());assertEquals(1,metrics.get("logitrack.dlq.discards").counter().count());
     }
     @Test void validatesDiscardReasonBeforeLocking(){
         var events=mock(DeadLetterEventRepository.class);var service=new ReplayService(events,mock(ReplayAuditRepository.class),mock(KafkaTemplate.class),new SimpleMeterRegistry());
@@ -66,6 +72,12 @@ class ReplayServiceTest {
         var events=mock(DeadLetterEventRepository.class);var service=new ReplayService(events,mock(ReplayAuditRepository.class),mock(KafkaTemplate.class),new SimpleMeterRegistry());
         var event=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,2);event.discard("operator","invalid fixture");when(events.lockById(event.getId())).thenReturn(Optional.of(event));
         assertThrows(IllegalStateException.class,()->service.discard(event.getId(),"another-operator","different reason"));
+    }
+    @Test void keyedDiscardReturnsOnlyTheMatchingStoredRequest(){
+        var events=mock(DeadLetterEventRepository.class);var audits=mock(ReplayAuditRepository.class);var service=new ReplayService(events,audits,mock(KafkaTemplate.class),new SimpleMeterRegistry());var id=UUID.randomUUID();
+        var event=new DeadLetterEvent("vehicle.telemetry.v1","key","{}","trace","error","vehicle.telemetry.dlq.v1",0,2);var audit=new ReplayAudit(id,"DISCARD","operator","invalid fixture","request-key");when(audits.findByRequestKey("request-key")).thenReturn(Optional.of(audit));when(events.lockById(id)).thenReturn(Optional.of(event));
+        assertSame(event,service.discard(id,"operator","invalid fixture","request-key"));verify(audits).lockRequestKey("request-key");verify(audits,never()).save(any());
+        assertThrows(IllegalStateException.class,()->service.discard(id,"operator","different reason","request-key"));assertThrows(IllegalStateException.class,()->service.replay(id,"operator","request-key"));
     }
     @Test void conflictingTerminalRecoveryRemainsRejected(){
         var events=mock(DeadLetterEventRepository.class);var service=new ReplayService(events,mock(ReplayAuditRepository.class),mock(KafkaTemplate.class),new SimpleMeterRegistry());

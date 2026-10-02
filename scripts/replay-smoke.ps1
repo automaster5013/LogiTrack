@@ -10,7 +10,8 @@ $poison = @{
   payload = @{}
 } | ConvertTo-Json -Compress
 try {
-$poison | docker compose exec -T kafka /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server kafka:29092 --topic vehicle.telemetry.v1
+$message = "dlq-smoke|$poison"
+$message | docker compose exec -T kafka /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server kafka:29092 --topic vehicle.telemetry.v1 --property parse.key=true --property key.separator='|'
 
 $started = Get-Date
 $deadline = $started.AddSeconds(15)
@@ -22,19 +23,20 @@ do {
 if (-not $event) { throw "Poison event was not cataloged in the DLQ" }
 $quarantineSeconds = ((Get-Date) - $started).TotalSeconds
 
-$replayed = Invoke-RestMethod "http://localhost:8080/api/operations/dlq/$($event.id)/replay" -Method Post -Headers @{"X-Operator"="smoke-operator"}
+$requestKey=[guid]::NewGuid().ToString()
+$replayed = Invoke-RestMethod "http://localhost:8080/api/operations/dlq/$($event.id)/replay" -Method Post -Headers @{"X-Operator"="smoke-operator";"Idempotency-Key"=$requestKey}
 if ($replayed.status -ne "REPLAYED") { throw "DLQ event was not marked replayed" }
 $audits = Invoke-RestMethod "http://localhost:8080/api/operations/replay-audits"
 $audit = $audits.Where({$_.deadLetterEventId -eq $event.id}) | Select-Object -First 1
 if (-not $audit -or $audit.actor -ne "smoke-operator") { throw "Replay audit was not recorded" }
 
-$repeated = Invoke-RestMethod "http://localhost:8080/api/operations/dlq/$($event.id)/replay" -Method Post -Headers @{"X-Operator"="smoke-operator"}
+$repeated = Invoke-RestMethod "http://localhost:8080/api/operations/dlq/$($event.id)/replay" -Method Post -Headers @{"X-Operator"="smoke-operator";"Idempotency-Key"=$requestKey}
 if ($repeated.status -ne "REPLAYED" -or $repeated.replayedBy -ne "smoke-operator") { throw "Identical replay retry did not return the stored result" }
 $repeatedAudits = @((Invoke-RestMethod "http://localhost:8080/api/operations/replay-audits") | Where-Object {$_.deadLetterEventId -eq $event.id})
 if ($repeatedAudits.Count -ne 1) { throw "Identical replay retry duplicated audit evidence" }
 
 try {
-  Invoke-RestMethod "http://localhost:8080/api/operations/dlq/$($event.id)/replay" -Method Post -Headers @{"X-Operator"="another-operator"}
+  Invoke-RestMethod "http://localhost:8080/api/operations/dlq/$($event.id)/replay" -Method Post -Headers @{"X-Operator"="another-operator";"Idempotency-Key"=$requestKey}
   throw "Replay by a different operator unexpectedly succeeded"
 } catch {
   if ($_.Exception.Response.StatusCode.value__ -ne 409) { throw }
