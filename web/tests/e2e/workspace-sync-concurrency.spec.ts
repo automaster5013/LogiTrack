@@ -7,6 +7,7 @@ async function mockOverview(page:Page,fixture:OverviewFixture={}){
   const deliveryRequests:number[]=[];
   const alertRequests:number[]=[];
   const kpiRequests:number[]=[];
+  const orderRequests:number[]=[];
   await page.route("**/api/**",async route=>{
     const request=route.request();
     const url=new URL(request.url());
@@ -27,11 +28,15 @@ async function mockOverview(page:Page,fixture:OverviewFixture={}){
       await new Promise(resolve=>setTimeout(resolve,100));
       return route.fulfill({...common,json:[]});
     }
+    if(url.pathname==="/api/orders/page"){
+      orderRequests.push(orderRequests.length+1);
+      return route.fulfill({...common,json:{items:[],page:0,size:100,totalElements:0,hasMore:false}});
+    }
     if(["/api/routes","/api/telemetry/points"].includes(url.pathname))return route.fulfill({...common,json:[]});
     if(url.pathname==="/api/stream/deliveries")return route.fulfill({status:200,contentType:"text/event-stream",body:"event: connected\ndata: {}\n\n",headers:{"Access-Control-Allow-Origin":"*"}});
     return route.fulfill({status:404,...common,json:{error:"not_found"}});
   });
-  return {deliveryRequests,alertRequests,kpiRequests};
+  return {deliveryRequests,alertRequests,kpiRequests,orderRequests};
 }
 
 test("sends one workspace refresh for immediate repeated input",async({page})=>{
@@ -70,6 +75,20 @@ test("keeps a workspace error visible and pauses retries while offline",async({p
   await expect(error).toBeVisible();
   await expect(error).toBeHidden({timeout:3_000});
   expect(deliveryRequests).toHaveLength(2);
+});
+
+test("pauses workspace polling offline and refreshes immediately after reconnecting",async({page,context})=>{
+  const {orderRequests}=await mockOverview(page);
+  await page.goto("/console#orders");
+  await expect.poll(()=>orderRequests.length).toBe(1);
+
+  await context.setOffline(true);
+  await expect(page.locator(".headerStatus")).toContainText("오프라인");
+  await page.waitForTimeout(16_000);
+  expect(orderRequests).toHaveLength(1);
+
+  await context.setOffline(false);
+  await expect.poll(()=>orderRequests.length).toBe(2);
 });
 
 const failedAt="2026-09-28T05:00:00Z";
