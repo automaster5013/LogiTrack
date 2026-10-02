@@ -6,6 +6,7 @@ import io.logitrack.event.EventEnvelope;
 import io.logitrack.outbox.*;
 import io.logitrack.route.RouteSnapshotRepository;
 import io.logitrack.stream.CommittedDeliveryStream;
+import io.logitrack.config.InputLimits;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
@@ -34,10 +35,24 @@ public class AlertService {
     }
     @Transactional
     public DeliveryAlert acknowledge(UUID id,String actor,String traceId){
+        return acknowledge(id,actor,traceId,null);
+    }
+    @Transactional
+    public DeliveryAlert acknowledge(UUID id,String actor,String traceId,String requestKey){
         var normalizedActor=actor==null?"":actor.trim();
         if(normalizedActor.isBlank()||normalizedActor.length()>120)throw new IllegalArgumentException("X-Operator must be 1-120 characters");
+        if(requestKey!=null){
+            InputLimits.required(requestKey,"Idempotency-Key",160);alerts.lockAcknowledgementRequestKey(requestKey);
+            var prior=alerts.findByAcknowledgementRequestKey(requestKey);
+            if(prior.isPresent()){
+                var acknowledged=prior.get();
+                if(!acknowledged.getId().equals(id)||!normalizedActor.equals(acknowledged.getAcknowledgedBy()))throw new IllegalStateException("Idempotency key was used with a different alert acknowledgement");
+                return acknowledged;
+            }
+        }
         var alert=alerts.findByIdForUpdate(id).orElseThrow(()->new NoSuchElementException("Delivery alert not found"));
-        if(alert.acknowledge(normalizedActor))emit(alert,"ACKNOWLEDGED",traceId==null||traceId.isBlank()?UUID.randomUUID().toString():traceId);
+        if(requestKey!=null&&alert.getAcknowledgedAt()!=null)throw new IllegalStateException("Delivery alert has already been acknowledged");
+        if(alert.acknowledge(normalizedActor,requestKey))emit(alert,"ACKNOWLEDGED",traceId==null||traceId.isBlank()?UUID.randomUUID().toString():traceId);
         return alert;
     }
     private void reconcile(Delivery delivery,DeliveryAlert.Type type,double value,boolean shouldOpen,boolean shouldClose,

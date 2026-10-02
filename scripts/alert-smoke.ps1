@@ -21,10 +21,19 @@ try {
   if (($active | Where-Object {$_.occurrenceCount -ne 2}).Count -ne 0) { throw "Repeated observations did not update the existing alerts" }
 
   $alertToAcknowledge = @($active | Where-Object alertType -eq "ROUTE_DEVIATION")[0]
-  $acknowledged = Invoke-RestMethod "http://localhost:8080/api/alerts/$($alertToAcknowledge.id)/acknowledgement" -Method Post -Headers @{"X-Operator"="smoke-operator";"X-Trace-Id"=[guid]::NewGuid().ToString()}
-  $idempotent = Invoke-RestMethod "http://localhost:8080/api/alerts/$($alertToAcknowledge.id)/acknowledgement" -Method Post -Headers @{"X-Operator"="smoke-operator";"X-Trace-Id"=[guid]::NewGuid().ToString()}
+  $requestKey = [guid]::NewGuid().ToString()
+  $acknowledged = Invoke-RestMethod "http://localhost:8080/api/alerts/$($alertToAcknowledge.id)/acknowledgement" -Method Post -Headers @{"X-Operator"="smoke-operator";"X-Trace-Id"=$requestKey;"Idempotency-Key"=$requestKey}
+  $idempotent = Invoke-RestMethod "http://localhost:8080/api/alerts/$($alertToAcknowledge.id)/acknowledgement" -Method Post -Headers @{"X-Operator"="smoke-operator";"X-Trace-Id"=$requestKey;"Idempotency-Key"=$requestKey}
   if ($acknowledged.acknowledgedBy -ne "smoke-operator" -or -not $acknowledged.acknowledgedAt) { throw "Alert acknowledgement audit fields were not stored" }
   if ($idempotent.acknowledgedBy -ne "smoke-operator") { throw "Repeated acknowledgement did not preserve the original operator" }
+  try {
+    Invoke-RestMethod "http://localhost:8080/api/alerts/$($alertToAcknowledge.id)/acknowledgement" -Method Post -Headers @{"X-Operator"="another-operator";"Idempotency-Key"=$requestKey} | Out-Null
+    throw "Acknowledgement key reuse by another operator unexpectedly succeeded"
+  } catch { if ($_.Exception.Response.StatusCode.value__ -ne 409) { throw } }
+  try {
+    Invoke-RestMethod "http://localhost:8080/api/alerts/$($alertToAcknowledge.id)/acknowledgement" -Method Post -Headers @{"X-Operator"="smoke-operator";"Idempotency-Key"=[guid]::NewGuid().ToString()} | Out-Null
+    throw "An acknowledged alert accepted a different request key"
+  } catch { if ($_.Exception.Response.StatusCode.value__ -ne 409) { throw } }
   Start-Sleep -Seconds 1
   $ackEvents = docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT count(*) FROM outbox_events WHERE aggregate_id='$($alertToAcknowledge.id)' AND payload LIKE '%ACKNOWLEDGED%'"
   if ([int]$ackEvents.Trim() -ne 1) { throw "Repeated acknowledgement emitted $ackEvents events instead of one" }
@@ -35,7 +44,7 @@ try {
   if ($resolved.Count -ne 2) { throw "Expected both alerts to resolve, got $($resolved.Count)" }
   $published = docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT count(*) FROM outbox_events WHERE aggregate_type='DELIVERY_ALERT' AND payload LIKE '%$($created.id)%' AND status='PUBLISHED'"
   if ([int]$published.Trim() -ne 5) { throw "Expected five lifecycle events, got $published" }
-  Write-Host "PASS: delivery=$($created.id), active=2, acknowledged=1 idempotently, resolved=2, lifecycle events=5"
+  Write-Host "PASS: delivery=$($created.id), active=2, acknowledged=1 idempotently, key conflicts=409, resolved=2, lifecycle events=5"
 }
 finally {
   docker compose start simulator | Out-Null

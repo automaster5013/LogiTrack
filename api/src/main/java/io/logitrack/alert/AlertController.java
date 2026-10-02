@@ -16,7 +16,7 @@ public class AlertController {
     }
     @PostMapping("/{id}/acknowledgement")
     public DeliveryAlert acknowledge(@PathVariable UUID id,@RequestHeader("X-Operator") String actor,
-        @RequestHeader(value="X-Trace-Id",required=false) String traceId){return service.acknowledge(id,actor,traceId);}
+        @RequestHeader(value="X-Trace-Id",required=false) String traceId,@RequestHeader("Idempotency-Key") String requestKey){return service.acknowledge(id,actor,traceId,requestKey);}
     private int validLimit(int limit){if(limit<1||limit>500)throw new IllegalArgumentException("limit must be between 1 and 500");return limit;}
     private Sort stableSort(){return Sort.by(Sort.Direction.DESC,"lastObservedAt").and(Sort.by(Sort.Direction.DESC,"id"));}
     public record AlertPage(List<DeliveryAlert> items,int page,int size,long totalElements,boolean hasMore){}

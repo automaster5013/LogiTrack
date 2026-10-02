@@ -81,7 +81,7 @@ async function mockOverview(page: Page, deliveryRows: typeof deliveries, alertRo
       const traceId = headers["x-trace-id"] || "";
       const alertId = url.pathname.split("/")[3];
       const acknowledgementResponse = streamFixture?.acknowledgementResponses?.[alertId] || streamFixture?.acknowledgementResponse;
-      if (headers["x-operator"] !== "control-tower" || !/^[0-9a-f-]{36}$/i.test(traceId) || !acknowledgementResponse) {
+      if (headers["x-operator"] !== "control-tower" || !/^[0-9a-f-]{36}$/i.test(traceId) || headers["idempotency-key"] !== traceId || !acknowledgementResponse) {
         return route.fulfill({ status: 400, ...common, json: { error: "invalid_acknowledgement" } });
       }
       acknowledgementRequestCount += 1;
