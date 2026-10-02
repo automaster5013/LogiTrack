@@ -13,6 +13,7 @@ type PolicyFixture={saveFailuresBeforeSuccess?:number;resetFailuresBeforeSuccess
 
 async function mockPolicies(page:Page,fixture:PolicyFixture={}){
   const saveRequests:string[]=[];
+  const saveRequestKeys:string[]=[];
   const resetRequests:string[]=[];
   const restoreRequests:string[]=[];
   await page.route("**/api/**",async route=>{
@@ -21,6 +22,7 @@ async function mockPolicies(page:Page,fixture:PolicyFixture={}){
     const common={headers:{"Access-Control-Allow-Origin":"*","Content-Type":"application/json"}};
     if(url.pathname==="/api/alert-policies"&&request.method()==="POST"){
       saveRequests.push(request.postDataJSON().vehicleId);
+      saveRequestKeys.push(request.headers()["idempotency-key"]||"");
       await new Promise(resolve=>setTimeout(resolve,1_000));
       if(saveRequests.length<=(fixture.saveFailuresBeforeSuccess||0))return route.fulfill({status:503,...common,json:{error:"temporarily_unavailable"}});
       return route.fulfill({...common,json:policies.find(policy=>policy.vehicleId===saveRequests.at(-1))||policies[0]});
@@ -47,7 +49,7 @@ async function mockPolicies(page:Page,fixture:PolicyFixture={}){
     if(url.pathname==="/api/stream/deliveries")return route.fulfill({status:200,contentType:"text/event-stream",body:"event: connected\ndata: {}\n\n",headers:{"Access-Control-Allow-Origin":"*"}});
     return route.fulfill({status:404,...common,json:{error:"not_found"}});
   });
-  return {saveRequests,resetRequests,restoreRequests};
+  return {saveRequests,saveRequestKeys,resetRequests,restoreRequests};
 }
 
 test("sends one policy save request for immediate repeated input",async({page})=>{
@@ -89,7 +91,7 @@ test("pauses policy mutations while offline and restores them online",async({pag
 });
 
 test("keeps a policy save error visible until retry succeeds",async({page})=>{
-  const {saveRequests}=await mockPolicies(page,{saveFailuresBeforeSuccess:1});
+  const {saveRequests,saveRequestKeys}=await mockPolicies(page,{saveFailuresBeforeSuccess:1});
   await page.goto("/console#settings");
   const save=page.getByRole("button",{name:"변경 이력과 함께 저장"});
   const error=page.getByText("경고 정책 저장에 실패했습니다. 해제 < 경고 ≤ 긴급 순서를 확인해 주세요.");
@@ -100,6 +102,8 @@ test("keeps a policy save error visible until retry succeeds",async({page})=>{
   await expect(save).toBeEnabled({timeout:1_500});
   await expect(error).toBeHidden();
   expect(saveRequests).toEqual(["*","*"]);
+  expect(saveRequestKeys[0]).toMatch(/^[0-9a-f-]{36}$/i);
+  expect(new Set(saveRequestKeys).size).toBe(1);
 });
 
 test("sends one policy reset request for immediate repeated input",async({page})=>{

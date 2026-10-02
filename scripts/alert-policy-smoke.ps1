@@ -10,7 +10,11 @@ function Save-Policy($vehicleId, $deviationOpen, $deviationClose, $deviationCrit
     vehicleId=$vehicleId; deviationOpenMeters=$deviationOpen; deviationCloseMeters=$deviationClose; criticalDeviationMeters=$deviationCritical
     delayOpenSeconds=$delayOpen; delayCloseSeconds=$delayClose; criticalDelaySeconds=$delayCritical
   } | ConvertTo-Json
-  Invoke-RestMethod http://localhost:8080/api/alert-policies -Method Post -Headers @{"X-Operator"="policy-smoke"} -ContentType "application/json" -Body $body
+  $requestKey = [guid]::NewGuid().ToString()
+  $saved = Invoke-RestMethod http://localhost:8080/api/alert-policies -Method Post -Headers @{"X-Operator"="policy-smoke";"Idempotency-Key"=$requestKey} -ContentType "application/json" -Body $body
+  $repeated = Invoke-RestMethod http://localhost:8080/api/alert-policies -Method Post -Headers @{"X-Operator"="policy-smoke";"Idempotency-Key"=$requestKey} -ContentType "application/json" -Body $body
+  if ($saved.id -ne $repeated.id -or $saved.updatedAt -ne $repeated.updatedAt) { throw "Repeated policy save did not return the existing result" }
+  $saved
 }
 
 docker compose stop simulator | Out-Null
@@ -68,7 +72,7 @@ try {
   if ($afterRestore.Count -ne 0) { throw "Restored vehicle policy did not suppress alerts" }
   $audits = @((Invoke-RestMethod http://localhost:8080/api/alert-policies/audits) | Where-Object vehicleId -eq $vehicle)
   if ($audits.Count -ne 3 -or @($audits | Where-Object action -eq "RESTORE").Count -ne 1) { throw "Policy restore audit history was not persisted" }
-  Write-Host "PASS: vehicle=$vehicle, override/idempotent-reset/idempotent-restore behavior verified, audits=3"
+  Write-Host "PASS: vehicle=$vehicle, idempotent-save/reset/restore behavior verified, audits=3"
 }
 finally {
   docker compose start simulator | Out-Null

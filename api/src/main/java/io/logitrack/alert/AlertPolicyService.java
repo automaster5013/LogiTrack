@@ -3,6 +3,7 @@ package io.logitrack.alert;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.*;
+import io.logitrack.config.InputLimits;
 import java.util.*;
 
 @Service
@@ -17,15 +18,24 @@ public class AlertPolicyService {
     @Transactional(readOnly=true) public AuditPage auditPage(int page,int size){var result=audits.findAll(PageRequest.of(page,size,Sort.by(Sort.Direction.DESC,"occurredAt").and(Sort.by(Sort.Direction.DESC,"id"))));return new AuditPage(result.getContent(),result.getNumber(),result.getSize(),result.getTotalElements(),result.hasNext());}
     public record AuditPage(List<AlertPolicyAudit> items,int page,int size,long totalElements,boolean hasMore){}
     @Transactional
-    public AlertPolicy upsert(UpsertAlertPolicyRequest request,String actor){
+    public AlertPolicy upsert(UpsertAlertPolicyRequest request,String actor,String requestKey){
         if(request==null)throw new IllegalArgumentException("Alert policy request is required");
         var vehicle=normalize("vehicleId",request.vehicleId());var operator=normalize("X-Operator",actor);
+        InputLimits.required(requestKey,"Idempotency-Key",160);audits.lockRequestKey(requestKey);
+        var prior=audits.findByRequestKey(requestKey);
+        if(prior.isPresent()){
+            var completed=prior.get();
+            if(!completed.getActor().equals(operator)||!matches(request,completed))throw new IllegalStateException("Idempotency key was used with a different alert policy request");
+            var current=policies.findByVehicleId(vehicle).orElseThrow(()->new IllegalStateException("Saved alert policy no longer exists"));
+            if(matches(current,completed)&&current.isActive()&&current.getUpdatedBy().equals(operator)&&current.getUpdatedAt().equals(completed.getPolicyUpdatedAt()))return current;
+            throw new IllegalStateException("Saved alert policy has changed since this request completed");
+        }
         var existing=policies.findByVehicleId(vehicle);
         var policy=existing.orElseGet(()->new AlertPolicy(vehicle,request.deviationOpenMeters(),request.deviationCloseMeters(),
             request.criticalDeviationMeters(),request.delayOpenSeconds(),request.delayCloseSeconds(),request.criticalDelaySeconds(),operator));
         if(existing.isPresent())policy.update(request.deviationOpenMeters(),request.deviationCloseMeters(),request.criticalDeviationMeters(),
             request.delayOpenSeconds(),request.delayCloseSeconds(),request.criticalDelaySeconds(),operator);
-        policy=policies.save(policy);audits.save(new AlertPolicyAudit(policy,operator));return policy;
+        policy=policies.save(policy);audits.save(new AlertPolicyAudit(policy,operator,requestKey));return policy;
     }
     @Transactional
     public AlertPolicy reset(String vehicleId,String actor){
@@ -59,6 +69,10 @@ public class AlertPolicyService {
     private boolean matches(AlertPolicy policy,AlertPolicyAudit audit){return Double.compare(policy.getDeviationOpenMeters(),audit.getDeviationOpenMeters())==0
         &&Double.compare(policy.getDeviationCloseMeters(),audit.getDeviationCloseMeters())==0&&Double.compare(policy.getCriticalDeviationMeters(),audit.getCriticalDeviationMeters())==0
         &&policy.getDelayOpenSeconds()==audit.getDelayOpenSeconds()&&policy.getDelayCloseSeconds()==audit.getDelayCloseSeconds()&&policy.getCriticalDelaySeconds()==audit.getCriticalDelaySeconds();}
+    private boolean matches(UpsertAlertPolicyRequest request,AlertPolicyAudit audit){return request.vehicleId().trim().equals(audit.getVehicleId())
+        &&Double.compare(request.deviationOpenMeters(),audit.getDeviationOpenMeters())==0&&Double.compare(request.deviationCloseMeters(),audit.getDeviationCloseMeters())==0
+        &&Double.compare(request.criticalDeviationMeters(),audit.getCriticalDeviationMeters())==0&&request.delayOpenSeconds()==audit.getDelayOpenSeconds()
+        &&request.delayCloseSeconds()==audit.getDelayCloseSeconds()&&request.criticalDelaySeconds()==audit.getCriticalDelaySeconds();}
     private String normalize(String field,String value){var normalized=value==null?"":value.trim();
         if(normalized.isBlank()||normalized.length()>120)throw new IllegalArgumentException(field+" must be 1-120 characters");return normalized;}
 }
