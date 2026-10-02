@@ -14,7 +14,10 @@ do {
 if($selected.Count -ne 2){throw "Expected two cataloged events, got $($selected.Count)"}
 
 $body=@{eventIds=@($selected|ForEach-Object {$_.id})}|ConvertTo-Json
-$plan=Invoke-RestMethod http://localhost:8080/api/operations/replay-plans -Method Post -Headers @{"X-Operator"="batch-smoke"} -ContentType "application/json" -Body $body
+$requestKey=[guid]::NewGuid().ToString()
+$plan=Invoke-RestMethod http://localhost:8080/api/operations/replay-plans -Method Post -Headers @{"X-Operator"="batch-smoke";"Idempotency-Key"=$requestKey} -ContentType "application/json" -Body $body
+$repeatedPlan=Invoke-RestMethod http://localhost:8080/api/operations/replay-plans -Method Post -Headers @{"X-Operator"="batch-smoke";"Idempotency-Key"=$requestKey} -ContentType "application/json" -Body $body
+if($repeatedPlan.id -ne $plan.id){throw "Repeated replay plan creation did not return the stored plan"}
 if($plan.status -ne "PREPARED" -or $plan.eventIds.Count -ne 2){throw "Dry-run plan is invalid"}
 
 $timer=[Diagnostics.Stopwatch]::StartNew()
@@ -27,7 +30,7 @@ if($repeated.status -ne "EXECUTED" -or $repeated.succeededCount -ne 2 -or $repea
 
 $tooMany=@(1..21|ForEach-Object {[guid]::NewGuid().ToString()})
 try {
-  Invoke-RestMethod http://localhost:8080/api/operations/replay-plans -Method Post -Headers @{"X-Operator"="batch-smoke"} -ContentType "application/json" -Body (@{eventIds=$tooMany}|ConvertTo-Json)
+  Invoke-RestMethod http://localhost:8080/api/operations/replay-plans -Method Post -Headers @{"X-Operator"="batch-smoke";"Idempotency-Key"=[guid]::NewGuid().ToString()} -ContentType "application/json" -Body (@{eventIds=$tooMany}|ConvertTo-Json)
   throw "Oversized replay plan unexpectedly succeeded"
 } catch {
   if($_.Exception.Response.StatusCode.value__ -ne 400){throw}

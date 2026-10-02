@@ -13,7 +13,7 @@ class DiscardPlanServiceTest {
         var plans=mock(DiscardPlanRepository.class);var events=mock(DeadLetterEventRepository.class);var replay=mock(ReplayService.class);
         var service=new DiscardPlanService(plans,events,replay,20);var id=UUID.randomUUID();
         var event=new DeadLetterEvent("topic","key","{}","trace","error","dlq",0,1);when(events.findAllById(List.of(id))).thenReturn(List.of(event));when(plans.save(any())).thenAnswer(invocation->invocation.getArgument(0));
-        var plan=service.prepare(new CreateDiscardPlanRequest(List.of(id,id)," invalid fixtures ")," operator ");
+        var plan=service.prepare(new CreateDiscardPlanRequest(List.of(id,id)," invalid fixtures ")," operator ","request-1");
         assertEquals(List.of(id),plan.getEventIds());assertEquals("operator",plan.getActor());assertEquals("invalid fixtures",plan.getReason());assertEquals(DiscardPlan.Status.PREPARED,plan.getStatus());
     }
 
@@ -34,7 +34,7 @@ class DiscardPlanServiceTest {
     @Test void rejectsUnsafeInputsBeforeMutation(){
         var plans=mock(DiscardPlanRepository.class);var events=mock(DeadLetterEventRepository.class);var replay=mock(ReplayService.class);
         assertThrows(IllegalArgumentException.class,()->new DiscardPlanService(plans,events,replay,0));
-        var service=new DiscardPlanService(plans,events,replay,20);assertThrows(IllegalArgumentException.class,()->service.prepare(new CreateDiscardPlanRequest(List.of(UUID.randomUUID())," "),"operator"));
+        var service=new DiscardPlanService(plans,events,replay,20);assertThrows(IllegalArgumentException.class,()->service.prepare(new CreateDiscardPlanRequest(List.of(UUID.randomUUID())," "),"operator","request"));
         assertThrows(IllegalArgumentException.class,()->service.execute(UUID.randomUUID(),"operator","APPROVE"));verifyNoInteractions(plans,events,replay);
     }
 
@@ -48,5 +48,12 @@ class DiscardPlanServiceTest {
         var plans=mock(DiscardPlanRepository.class);var replay=mock(ReplayService.class);var service=new DiscardPlanService(plans,mock(DeadLetterEventRepository.class),replay,20);
         var plan=new DiscardPlan("operator","reason",List.of(UUID.randomUUID()));plan.complete(1,0);when(plans.findByIdForUpdate(plan.getId())).thenReturn(Optional.of(plan));
         assertThrows(IllegalArgumentException.class,()->service.execute(plan.getId(),"another-operator","DISCARD"));verifyNoInteractions(replay);
+    }
+    @Test void repeatedPreparationReturnsStoredPlanAndRejectsKeyReuse(){
+        var plans=mock(DiscardPlanRepository.class);var events=mock(DeadLetterEventRepository.class);var service=new DiscardPlanService(plans,events,mock(ReplayService.class),20);
+        var ids=List.of(UUID.randomUUID());var prior=new DiscardPlan("operator","request-2","reason",ids);when(plans.findByRequestKey("request-2")).thenReturn(Optional.of(prior));
+        assertSame(prior,service.prepare(new CreateDiscardPlanRequest(ids," reason ")," operator ","request-2"));
+        assertThrows(IllegalStateException.class,()->service.prepare(new CreateDiscardPlanRequest(ids,"different"),"operator","request-2"));
+        verifyNoInteractions(events);verify(plans,never()).save(any());
     }
 }

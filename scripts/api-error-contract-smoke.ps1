@@ -14,7 +14,7 @@ try{Invoke-WebRequest http://localhost:8080/api/orders -Method Post -Headers @{"
 }
 foreach($case in @(
   @{url="http://localhost:8080/api/alert-policies";headers=@{"X-Operator"="boundary-smoke"};body='null'},
-  @{url="http://localhost:8080/api/operations/replay-plans";headers=@{"X-Operator"="boundary-smoke"};body='{"eventIds":[null]}'}
+  @{url="http://localhost:8080/api/operations/replay-plans";headers=@{"X-Operator"="boundary-smoke";"Idempotency-Key"=[guid]::NewGuid().ToString()};body='{"eventIds":[null]}'}
 )){
   try{Invoke-WebRequest $case.url -Method Post -Headers $case.headers -ContentType application/json -Body $case.body -UseBasicParsing|Out-Null;throw "Invalid null request was accepted: $($case.url)"}catch{
     if($_.Exception.Response.StatusCode.value__-ne 400){throw}

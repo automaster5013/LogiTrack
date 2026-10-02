@@ -39,14 +39,14 @@ public class ReplayController {
     }
 
     @PostMapping("/replay-plans")
-    public ReplayPlan prepare(@RequestBody CreateReplayPlanRequest request, @RequestHeader("X-Operator") String actor){return plans.prepare(request,actor);}
+    public ReplayPlan prepare(@RequestBody CreateReplayPlanRequest request,@RequestHeader("X-Operator") String actor,@RequestHeader("Idempotency-Key") String requestKey){return plans.prepare(request,actor,requestKey);}
 
     @PostMapping("/replay-plans/{id}/execute")
     public ReplayPlan execute(@PathVariable UUID id, @RequestHeader("X-Operator") String actor,
         @RequestHeader("X-Replay-Approval") String approval){return plans.execute(id,actor,approval);}
 
     @PostMapping("/discard-plans")
-    public DiscardPlan prepareDiscard(@RequestBody CreateDiscardPlanRequest request,@RequestHeader("X-Operator") String actor){return discardPlans.prepare(request,actor);}
+    public DiscardPlan prepareDiscard(@RequestBody CreateDiscardPlanRequest request,@RequestHeader("X-Operator") String actor,@RequestHeader("Idempotency-Key") String requestKey){return discardPlans.prepare(request,actor,requestKey);}
 
     @PostMapping("/discard-plans/{id}/execute")
     public DiscardPlan executeDiscard(@PathVariable UUID id,@RequestHeader("X-Operator") String actor,

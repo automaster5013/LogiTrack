@@ -14,6 +14,7 @@ import java.util.UUID;
 public class DiscardPlan {
     @Id private UUID id;
     @Column(nullable=false) private String actor;
+    @Column(name="request_key",nullable=false,length=160,unique=true) private String requestKey;
     @Column(nullable=false) private String reason;
     @JdbcTypeCode(SqlTypes.JSON) @Column(name="event_ids",nullable=false,columnDefinition="jsonb") private List<UUID> eventIds;
     @Enumerated(EnumType.STRING) @Column(nullable=false) private Status status;
@@ -24,8 +25,9 @@ public class DiscardPlan {
     @Column(name="failed_count",nullable=false) private int failedCount;
 
     protected DiscardPlan() {}
-    public DiscardPlan(String actor,String reason,List<UUID> eventIds){
-        id=UUID.randomUUID();this.actor=actor;this.reason=reason;this.eventIds=List.copyOf(eventIds);status=Status.PREPARED;
+    DiscardPlan(String actor,String reason,List<UUID> eventIds){this(actor,UUID.randomUUID().toString(),reason,eventIds);}
+    public DiscardPlan(String actor,String requestKey,String reason,List<UUID> eventIds){
+        id=UUID.randomUUID();this.actor=actor;this.requestKey=requestKey;this.reason=reason;this.eventIds=List.copyOf(eventIds);status=Status.PREPARED;
         createdAt=Instant.now();expiresAt=createdAt.plus(10, ChronoUnit.MINUTES);
     }
     public void expire(){if(status==Status.PREPARED)status=Status.EXPIRED;}
@@ -33,7 +35,7 @@ public class DiscardPlan {
         if(status!=Status.PREPARED)throw new IllegalStateException("Discard plan is not executable");
         succeededCount=succeeded;failedCount=failed;executedAt=Instant.now();status=failed==0?Status.EXECUTED:Status.PARTIAL;
     }
-    public UUID getId(){return id;} public String getActor(){return actor;} public String getReason(){return reason;} public List<UUID> getEventIds(){return eventIds;}
+    public UUID getId(){return id;} public String getActor(){return actor;} public String getRequestKey(){return requestKey;} public String getReason(){return reason;} public List<UUID> getEventIds(){return eventIds;}
     public Status getStatus(){return status;} public Instant getCreatedAt(){return createdAt;} public Instant getExpiresAt(){return expiresAt;} public Instant getExecutedAt(){return executedAt;}
     public int getSucceededCount(){return succeededCount;} public int getFailedCount(){return failedCount;}
     public enum Status{PREPARED,EXECUTED,PARTIAL,EXPIRED}
