@@ -43,6 +43,7 @@ async function mockRecovery(page: Page, fixture: RecoveryFixture = {}) {
   const discardPlanRequests: string[][] = [];
   const discardPlanRequestKeys: string[] = [];
   const discardPlanExecutionRequests: string[] = [];
+  const discardPlanExecutionRequestKeys: string[] = [];
   const outboxRetryRequests: string[] = [];
   const outboxRetryRequestKeys: string[] = [];
   const discardPlan: DiscardPlan = { id:"00000000-0000-4000-8000-000000000201", actor:"control-tower", reason:"invalid telemetry payloads", eventIds:[events[0].id], status:"PREPARED", createdAt:failedAt, expiresAt:"2026-09-28T02:00:00Z", succeededCount:0, failedCount:0 };
@@ -78,6 +79,7 @@ async function mockRecovery(page: Page, fixture: RecoveryFixture = {}) {
     }
     if (url.pathname === `/api/operations/discard-plans/${discardPlan.id}/execute` && request.method() === "POST") {
       discardPlanExecutionRequests.push(discardPlan.id);
+      discardPlanExecutionRequestKeys.push(request.headers()["idempotency-key"]||"");
       await new Promise(resolve => setTimeout(resolve, 1_000));
       if (discardPlanExecutionRequests.length <= (fixture.discardPlanExecutionFailuresBeforeSuccess || 0)) return route.fulfill({ status:503, ...common, json:{ error:"temporarily_unavailable" } });
       return route.fulfill({ ...common, json:{ ...discardPlan, status:"EXECUTED", succeededCount:discardPlan.eventIds.length, executedAt:"2026-09-28T01:30:00Z" } });
@@ -108,7 +110,7 @@ async function mockRecovery(page: Page, fixture: RecoveryFixture = {}) {
     }
     return route.fulfill({ status: 404, ...common, json: { error: "not_found" } });
   });
-  return { replayRequests, replayRequestKeys, discardRequests, discardRequestKeys, discardPlanRequests, discardPlanRequestKeys, discardPlanExecutionRequests, outboxRetryRequests, outboxRetryRequestKeys };
+  return { replayRequests, replayRequestKeys, discardRequests, discardRequestKeys, discardPlanRequests, discardPlanRequestKeys, discardPlanExecutionRequests, discardPlanExecutionRequestKeys, outboxRetryRequests, outboxRetryRequestKeys };
 }
 
 test("keeps each concurrent DLQ replay disabled until its own request finishes", async ({ page }) => {
@@ -366,7 +368,7 @@ test("keeps a bulk discard plan error visible until retry succeeds", async ({ pa
 });
 
 test("sends one bulk discard execution request for immediate repeated input", async ({ page }) => {
-  const { discardPlanExecutionRequests } = await mockRecovery(page);
+  const { discardPlanExecutionRequests, discardPlanExecutionRequestKeys } = await mockRecovery(page);
   await page.goto("/console#recovery");
   await page.getByRole("checkbox", { name:"trace-recovery-101 일괄 폐기 선택" }).check();
   await page.getByPlaceholder("폐기 사유를 입력하세요").fill("invalid telemetry payloads");
@@ -382,10 +384,11 @@ test("sends one bulk discard execution request for immediate repeated input", as
   await expect(page.getByRole("button", { name:"폐기 중…" })).toBeDisabled();
   await expect(page.getByText("실행 완료 · 1건")).toBeVisible({ timeout:1_500 });
   expect(discardPlanExecutionRequests).toEqual(["00000000-0000-4000-8000-000000000201"]);
+  expect(discardPlanExecutionRequestKeys[0]).toMatch(/^[0-9a-f-]{36}$/i);
 });
 
 test("keeps a bulk discard execution error visible until retry succeeds", async ({ page }) => {
-  const { discardPlanExecutionRequests } = await mockRecovery(page, { discardPlanExecutionFailuresBeforeSuccess:1 });
+  const { discardPlanExecutionRequests, discardPlanExecutionRequestKeys } = await mockRecovery(page, { discardPlanExecutionFailuresBeforeSuccess:1 });
   await page.goto("/console#recovery");
   await page.getByRole("checkbox", { name:"trace-recovery-101 일괄 폐기 선택" }).check();
   await page.getByPlaceholder("폐기 사유를 입력하세요").fill("invalid telemetry payloads");
@@ -401,4 +404,6 @@ test("keeps a bulk discard execution error visible until retry succeeds", async 
   await expect(page.getByText("실행 완료 · 1건")).toBeVisible({ timeout:1_500 });
   await expect(error).toBeHidden();
   expect(discardPlanExecutionRequests).toEqual(["00000000-0000-4000-8000-000000000201","00000000-0000-4000-8000-000000000201"]);
+  expect(discardPlanExecutionRequestKeys[0]).toMatch(/^[0-9a-f-]{36}$/i);
+  expect(new Set(discardPlanExecutionRequestKeys).size).toBe(1);
 });

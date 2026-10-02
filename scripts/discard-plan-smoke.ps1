@@ -23,13 +23,14 @@ try {
   if ($plan.status -ne "PREPARED" -or $plan.eventIds.Count -ne 2 -or $plan.reason -ne $reason) { throw "Discard dry-run plan is invalid" }
 
   try {
-    Invoke-RestMethod "http://localhost:8080/api/operations/discard-plans/$($plan.id)/execute" -Method Post -Headers @{"X-Operator"="batch-smoke";"X-Discard-Approval"="APPROVE"}
+    Invoke-RestMethod "http://localhost:8080/api/operations/discard-plans/$($plan.id)/execute" -Method Post -Headers @{"X-Operator"="batch-smoke";"X-Discard-Approval"="APPROVE";"Idempotency-Key"=[guid]::NewGuid().ToString()}
     throw "Discard plan accepted an invalid approval"
   } catch {
     if ($_.Exception.Response.StatusCode.value__ -ne 400) { throw }
   }
 
-  $executed = Invoke-RestMethod "http://localhost:8080/api/operations/discard-plans/$($plan.id)/execute" -Method Post -Headers @{"X-Operator"="batch-smoke";"X-Discard-Approval"="DISCARD"}
+  $executionKey = [guid]::NewGuid().ToString()
+  $executed = Invoke-RestMethod "http://localhost:8080/api/operations/discard-plans/$($plan.id)/execute" -Method Post -Headers @{"X-Operator"="batch-smoke";"X-Discard-Approval"="DISCARD";"Idempotency-Key"=$executionKey}
   if ($executed.status -ne "EXECUTED" -or $executed.succeededCount -ne 2 -or $executed.failedCount -ne 0) { throw "Discard plan did not execute completely" }
 
   $discarded = @((Invoke-RestMethod "http://localhost:8080/api/operations/dlq?status=DISCARDED") | Where-Object {$_.traceId -like "$prefix-*"})
@@ -37,7 +38,7 @@ try {
   $wrongReasons = @($audits.Where({$_.reason -ne $reason}))
   if ($discarded.Count -ne 2 -or $audits.Count -ne 2 -or $wrongReasons.Count -ne 0) { throw "Discarded events or audits are incomplete: discarded=$($discarded.Count), audits=$($audits.Count), wrongReasons=$($wrongReasons.Count)" }
 
-  $repeated = Invoke-RestMethod "http://localhost:8080/api/operations/discard-plans/$($plan.id)/execute" -Method Post -Headers @{"X-Operator"="batch-smoke";"X-Discard-Approval"="DISCARD"}
+  $repeated = Invoke-RestMethod "http://localhost:8080/api/operations/discard-plans/$($plan.id)/execute" -Method Post -Headers @{"X-Operator"="batch-smoke";"X-Discard-Approval"="DISCARD";"Idempotency-Key"=$executionKey}
   $repeatedAudits = @((Invoke-RestMethod http://localhost:8080/api/operations/replay-audits) | Where-Object {@($first,$second) -contains $_.deadLetterEventId.ToString() -and $_.action -eq "DISCARD"})
   if ($repeated.status -ne "EXECUTED" -or $repeated.succeededCount -ne 2 -or $repeated.failedCount -ne 0 -or $repeatedAudits.Count -ne 2) { throw "Repeated discard execution did not return the stored result without duplicate audits" }
 
