@@ -34,14 +34,11 @@ try {
   $wrongReasons = @($audits.Where({$_.reason -ne $reason}))
   if ($discarded.Count -ne 2 -or $audits.Count -ne 2 -or $wrongReasons.Count -ne 0) { throw "Discarded events or audits are incomplete: discarded=$($discarded.Count), audits=$($audits.Count), wrongReasons=$($wrongReasons.Count)" }
 
-  try {
-    Invoke-RestMethod "http://localhost:8080/api/operations/discard-plans/$($plan.id)/execute" -Method Post -Headers @{"X-Operator"="batch-smoke";"X-Discard-Approval"="DISCARD"}
-    throw "Duplicate discard plan execution unexpectedly succeeded"
-  } catch {
-    if ($_.Exception.Response.StatusCode.value__ -ne 409) { throw }
-  }
+  $repeated = Invoke-RestMethod "http://localhost:8080/api/operations/discard-plans/$($plan.id)/execute" -Method Post -Headers @{"X-Operator"="batch-smoke";"X-Discard-Approval"="DISCARD"}
+  $repeatedAudits = @((Invoke-RestMethod http://localhost:8080/api/operations/replay-audits) | Where-Object {@($first,$second) -contains $_.deadLetterEventId.ToString() -and $_.action -eq "DISCARD"})
+  if ($repeated.status -ne "EXECUTED" -or $repeated.succeededCount -ne 2 -or $repeated.failedCount -ne 0 -or $repeatedAudits.Count -ne 2) { throw "Repeated discard execution did not return the stored result without duplicate audits" }
 
-  Write-Host "PASS: plan=$($plan.id), unique-events=2, status=$($executed.status), audits=2, duplicate=409"
+  Write-Host "PASS: plan=$($plan.id), unique-events=2, status=$($executed.status), audits=2, repeated=idempotent"
 } finally {
   $cleanup = "DELETE FROM dead_letter_events WHERE trace_id LIKE '$prefix-%';"
   if ($plan) { $cleanup += "DELETE FROM discard_plans WHERE id='$($plan.id)';" }

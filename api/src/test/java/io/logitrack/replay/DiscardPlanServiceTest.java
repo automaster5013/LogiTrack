@@ -37,4 +37,16 @@ class DiscardPlanServiceTest {
         var service=new DiscardPlanService(plans,events,replay,20);assertThrows(IllegalArgumentException.class,()->service.prepare(new CreateDiscardPlanRequest(List.of(UUID.randomUUID())," "),"operator"));
         assertThrows(IllegalArgumentException.class,()->service.execute(UUID.randomUUID(),"operator","APPROVE"));verifyNoInteractions(plans,events,replay);
     }
+
+    @Test void repeatedExecutionReturnsStoredResultWithoutDiscardingEventsAgain(){
+        var plans=mock(DiscardPlanRepository.class);var replay=mock(ReplayService.class);var service=new DiscardPlanService(plans,mock(DeadLetterEventRepository.class),replay,20);
+        var plan=new DiscardPlan("operator","reason",List.of(UUID.randomUUID(),UUID.randomUUID()));plan.complete(1,1);when(plans.findByIdForUpdate(plan.getId())).thenReturn(Optional.of(plan));
+        assertSame(plan,service.execute(plan.getId()," operator ","DISCARD"));verifyNoInteractions(replay);
+    }
+
+    @Test void repeatedExecutionStillRequiresOriginalOperator(){
+        var plans=mock(DiscardPlanRepository.class);var replay=mock(ReplayService.class);var service=new DiscardPlanService(plans,mock(DeadLetterEventRepository.class),replay,20);
+        var plan=new DiscardPlan("operator","reason",List.of(UUID.randomUUID()));plan.complete(1,0);when(plans.findByIdForUpdate(plan.getId())).thenReturn(Optional.of(plan));
+        assertThrows(IllegalArgumentException.class,()->service.execute(plan.getId(),"another-operator","DISCARD"));verifyNoInteractions(replay);
+    }
 }

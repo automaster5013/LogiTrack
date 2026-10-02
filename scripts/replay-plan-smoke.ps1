@@ -22,6 +22,8 @@ $executed=Invoke-RestMethod "http://localhost:8080/api/operations/replay-plans/$
 $timer.Stop()
 if($executed.status -ne "EXECUTED" -or $executed.succeededCount -ne 2){throw "Replay plan did not execute completely"}
 if($timer.Elapsed.TotalMilliseconds -lt 150){throw "Configured replay rate limit was not applied"}
+$repeated=Invoke-RestMethod "http://localhost:8080/api/operations/replay-plans/$($plan.id)/execute" -Method Post -Headers @{"X-Operator"="batch-smoke";"X-Replay-Approval"="APPROVE"}
+if($repeated.status -ne "EXECUTED" -or $repeated.succeededCount -ne 2 -or $repeated.failedCount -ne 0){throw "Repeated replay execution did not return the stored result"}
 
 $tooMany=@(1..21|ForEach-Object {[guid]::NewGuid().ToString()})
 try {
@@ -31,7 +33,7 @@ try {
   if($_.Exception.Response.StatusCode.value__ -ne 400){throw}
 }
 
-Write-Host "PASS: plan=$($plan.id), events=2, status=$($executed.status), elapsed=$([math]::Round($timer.Elapsed.TotalMilliseconds))ms, max-batch=20"
+Write-Host "PASS: plan=$($plan.id), events=2, status=$($executed.status), repeated=idempotent, elapsed=$([math]::Round($timer.Elapsed.TotalMilliseconds))ms, max-batch=20"
 
 $deadline=(Get-Date).AddSeconds(15)
 do {
