@@ -28,8 +28,12 @@ public class WarehouseService {
   var task=tasks.save(WarehouseTask.outbound(command,key));ledger.save(new InventoryLedgerEntry(task,InventoryLedgerEntry.Type.PICK,0,command.quantity(),stock));event(task,stock,"warehouse.outbound.picked.v1",traceId);return task;
  }
  @Transactional public WarehouseTask dispatch(UUID id,String traceId){
-  var task=tasks.findForUpdateById(id).orElseThrow(()->new NoSuchElementException("Warehouse task not found"));if(task.getStatus()==WarehouseTask.Status.DISPATCHED)return task;
-  var stock=stocks.lockByWarehouseAndSku(task.getWarehouseId(),task.getSku()).orElseThrow();stock.dispatch(task.getQuantity());task.dispatch();
+  return dispatch(id,traceId,null);
+ }
+ @Transactional public WarehouseTask dispatch(UUID id,String traceId,String requestKey){
+  if(requestKey!=null){InputLimits.required(requestKey,"Idempotency-Key",160);tasks.lockDispatchRequestKey(requestKey);var prior=tasks.findByDispatchRequestKey(requestKey);if(prior.isPresent()){if(!prior.get().getId().equals(id))throw new IllegalStateException("Idempotency key was used with a different warehouse dispatch");return prior.get();}}
+  var task=tasks.findForUpdateById(id).orElseThrow(()->new NoSuchElementException("Warehouse task not found"));if(task.getStatus()==WarehouseTask.Status.DISPATCHED){if(requestKey!=null)throw new IllegalStateException("Warehouse task has already been dispatched");return task;}
+  var stock=stocks.lockByWarehouseAndSku(task.getWarehouseId(),task.getSku()).orElseThrow();stock.dispatch(task.getQuantity());task.dispatch(requestKey);
   ledger.save(new InventoryLedgerEntry(task,InventoryLedgerEntry.Type.DISPATCH,-task.getQuantity(),-task.getQuantity(),stock));event(task,stock,"warehouse.outbound.dispatched.v1",traceId);return task;
  }
  public List<WarehouseStock> stock(int limit){return stocks.findAll(PageRequest.of(0,limit,stockSort())).getContent();} public List<WarehouseTask> tasks(int limit){return tasks.findAll(PageRequest.of(0,limit,taskSort())).getContent();} public List<InventoryLedgerEntry> ledger(){return ledger.findAll(PageRequest.of(0,100,ledgerSort())).getContent();}

@@ -9,8 +9,9 @@ $duplicate = Invoke-RestMethod http://localhost:8080/api/warehouse/receipts -Met
 if ($receipt.id -ne $duplicate.id) { throw "Receipt idempotency failed" }
 $pickBody = @{referenceNumber="OUT-$suffix";warehouseId=$warehouse;sku=$sku;quantity=4} | ConvertTo-Json
 $pick = Invoke-RestMethod http://localhost:8080/api/warehouse/outbounds -Method Post -Headers @{"Idempotency-Key"="pick-$suffix"} -ContentType "application/json" -Body $pickBody
-$dispatch = Invoke-RestMethod "http://localhost:8080/api/warehouse/outbounds/$($pick.id)/dispatch" -Method Post
-$dispatchAgain = Invoke-RestMethod "http://localhost:8080/api/warehouse/outbounds/$($pick.id)/dispatch" -Method Post
+$dispatchKey = "dispatch-$suffix"
+$dispatch = Invoke-RestMethod "http://localhost:8080/api/warehouse/outbounds/$($pick.id)/dispatch" -Method Post -Headers @{"Idempotency-Key"=$dispatchKey}
+$dispatchAgain = Invoke-RestMethod "http://localhost:8080/api/warehouse/outbounds/$($pick.id)/dispatch" -Method Post -Headers @{"Idempotency-Key"=$dispatchKey}
 if ($dispatch.status -ne "DISPATCHED" -or $dispatchAgain.status -ne "DISPATCHED") { throw "Dispatch idempotency failed" }
 $stock = (Invoke-RestMethod http://localhost:8080/api/warehouse/stock) | Where-Object {$_.warehouseId -eq $warehouse -and $_.sku -eq $sku}
 if ($stock.onHand -ne 6 -or $stock.reserved -ne 0 -or $stock.available -ne 6) { throw "Unexpected stock: $($stock | ConvertTo-Json -Compress)" }
