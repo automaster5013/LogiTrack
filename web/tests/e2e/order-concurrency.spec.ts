@@ -196,6 +196,7 @@ test("keeps an order creation error visible until retry succeeds", async ({ page
   await createButton.click();
   await expect(createButton).toBeEnabled({ timeout: 1_500 });
   expect(fixture.createRequests).toHaveLength(3);
+  expect(fixture.createRequests[2].orderNumber).toMatch(/^ORD-[0-9A-F]{12}$/);
   expect(fixture.createRequests[2].orderNumber).not.toBe(fixture.createRequests[1].orderNumber);
   expect(fixture.createRequests[2].idempotencyKey).not.toBe(fixture.createRequests[1].idempotencyKey);
 });
