@@ -46,7 +46,7 @@ public class ReplayPlanService {
         if(!"APPROVE".equals(approval)) throw new IllegalArgumentException("X-Replay-Approval must be APPROVE");
         var plan=plans.findByIdForUpdate(planId).orElseThrow(()->new java.util.NoSuchElementException("Replay plan not found"));
         if(!plan.getActor().equals(normalizedActor)) throw new IllegalArgumentException("Replay plan operator does not match X-Operator");
-        if(plan.getStatus()!=ReplayPlan.Status.PREPARED) throw new IllegalStateException("Replay plan is not executable");
+        if(plan.getStatus()!=ReplayPlan.Status.PREPARED) return plan;
         if(!plan.getExpiresAt().isAfter(Instant.now())) { plan.expire(); return plan; }
         int succeeded=0,failed=0;
         for(var eventId:plan.getEventIds()) {

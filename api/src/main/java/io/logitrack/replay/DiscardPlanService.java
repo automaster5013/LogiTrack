@@ -43,7 +43,7 @@ public class DiscardPlanService {
         if(!"DISCARD".equals(approval))throw new IllegalArgumentException("X-Discard-Approval must be DISCARD");
         var plan=plans.findByIdForUpdate(planId).orElseThrow(()->new java.util.NoSuchElementException("Discard plan not found"));
         if(!plan.getActor().equals(normalizedActor))throw new IllegalArgumentException("Discard plan operator does not match X-Operator");
-        if(plan.getStatus()!=DiscardPlan.Status.PREPARED)throw new IllegalStateException("Discard plan is not executable");
+        if(plan.getStatus()!=DiscardPlan.Status.PREPARED)return plan;
         if(!plan.getExpiresAt().isAfter(Instant.now())){plan.expire();return plan;}
         int succeeded=0,failed=0;
         for(var eventId:plan.getEventIds()){

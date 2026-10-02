@@ -218,9 +218,9 @@ API, analytics, simulator, web, OpenTelemetry Collector는 Linux capability를 �
 1. `POST /api/operations/discard-plans`에 `{"eventIds":[...],"reason":"..."}`와 `X-Operator`를 보내 최대 20건의 dry-run 계획을 만든다.
 2. 응답의 대상, 공통 폐기 사유와 10분 만료 시각을 검토한다.
 3. `POST /api/operations/discard-plans/{id}/execute`에 같은 `X-Operator`와 `X-Discard-Approval: DISCARD`를 보낸다.
-4. 각 성공 항목은 `DISCARDED` 상태와 개별 감사 행을 남기며, 이미 처리된 항목은 실패 수에 포함된다. 같은 계획은 다시 실행할 수 없다.
+4. 각 성공 항목은 `DISCARDED` 상태와 개별 감사 행을 남기며, 이미 처리된 항목은 실패 수에 포함된다. 응답 유실 뒤 같은 운영자와 승인으로 계획을 다시 실행하면 저장된 결과를 반환하고 항목이나 감사를 중복 처리하지 않는다.
 
-기본 최대 20건, 5 events/s이며 각각 `logitrack.replay.batch-max-size`, `logitrack.replay.batch-rate-per-second`로 조정한다. 중복 실행은 거절하고 이벤트별 감사 행을 유지한다.
+기본 최대 20건, 5 events/s이며 각각 `logitrack.replay.batch-max-size`, `logitrack.replay.batch-rate-per-second`로 조정한다. plan 잠금과 단방향 상태 전이는 동시 실행의 중복 부작용을 막고, 완료된 동일 실행의 재요청에는 저장된 결과를 반환하며 이벤트별 감사 행을 유지한다.
 
 batch 최대 크기는 양수, 처리율은 1~1,000 events/s여야 하며 범위를 벗어난 설정은 조용히 보정하지 않고 API 시작을 거부한다.
 
