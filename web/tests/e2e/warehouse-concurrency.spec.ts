@@ -14,7 +14,7 @@ const outboundTask: WarehouseTask = {
   updatedAt:now,
 };
 
-type WarehouseFixture = { receiptFailuresBeforeSuccess?:number; dispatchFailuresBeforeSuccess?:number };
+type WarehouseFixture = { receiptFailuresBeforeSuccess?:number; dispatchFailuresBeforeSuccess?:number; disconnectAfterPick?:boolean };
 
 async function mockWarehouse(page:Page, fixture:WarehouseFixture={}) {
   const receiptRequests:string[]=[];
@@ -33,6 +33,10 @@ async function mockWarehouse(page:Page, fixture:WarehouseFixture={}) {
     if(url.pathname==="/api/warehouse/outbounds"&&request.method()==="POST"){
       outboundRequests.push(request.postDataJSON().referenceNumber);
       await new Promise(resolve=>setTimeout(resolve,500));
+      if(fixture.disconnectAfterPick)await page.evaluate(()=>{
+        Object.defineProperty(Navigator.prototype,"onLine",{configurable:true,get:()=>false});
+        window.dispatchEvent(new Event("offline"));
+      });
       return route.fulfill({...common,json:outboundTask});
     }
     if(url.pathname===`/api/warehouse/outbounds/${outboundTask.id}/dispatch`&&request.method()==="POST"){
@@ -124,4 +128,27 @@ test("retries dispatch without creating another pick and preserves its error",as
   await expect(error).toBeHidden();
   expect(outboundRequests).toHaveLength(1);
   expect(dispatchRequests).toEqual([outboundTask.id,outboundTask.id]);
+});
+
+test("keeps the picked task and pauses dispatch when connectivity drops between steps",async({page})=>{
+  const {outboundRequests,dispatchRequests}=await mockWarehouse(page,{disconnectAfterPick:true});
+  await page.goto("/console#warehouse");
+  const dispatch=page.getByRole("button",{name:"재고 4개 피킹 및 출고"});
+  const error=page.getByText("출고 처리에 실패했습니다. 먼저 재고를 입고해 주세요.");
+
+  await dispatch.click();
+  await expect(dispatch).toHaveText("네트워크 연결 대기 중…");
+  await expect(error).toBeHidden();
+  expect(outboundRequests).toHaveLength(1);
+  expect(dispatchRequests).toHaveLength(0);
+
+  await page.evaluate(()=>{
+    Object.defineProperty(Navigator.prototype,"onLine",{configurable:true,get:()=>true});
+    window.dispatchEvent(new Event("online"));
+  });
+  await expect(dispatch).toHaveText("4개 피킹·출고");
+  await dispatch.click();
+  await expect(dispatch).toBeEnabled({timeout:1_500});
+  expect(outboundRequests).toHaveLength(1);
+  expect(dispatchRequests).toEqual([outboundTask.id]);
 });
