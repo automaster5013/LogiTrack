@@ -18,6 +18,7 @@ type WarehouseFixture = { receiptFailuresBeforeSuccess?:number; dispatchFailures
 
 async function mockWarehouse(page:Page, fixture:WarehouseFixture={}) {
   const receiptRequests:string[]=[];
+  const receiptIdempotencyKeys:string[]=[];
   const outboundRequests:string[]=[];
   const dispatchRequests:string[]=[];
   await page.route("**/api/**", async route=>{
@@ -26,6 +27,7 @@ async function mockWarehouse(page:Page, fixture:WarehouseFixture={}) {
     const common={headers:{"Access-Control-Allow-Origin":"*","Content-Type":"application/json"}};
     if(url.pathname==="/api/warehouse/receipts"&&request.method()==="POST"){
       receiptRequests.push(request.postDataJSON().referenceNumber);
+      receiptIdempotencyKeys.push(request.headers()["idempotency-key"]);
       await new Promise(resolve=>setTimeout(resolve,1_000));
       if(receiptRequests.length<=(fixture.receiptFailuresBeforeSuccess||0))return route.fulfill({status:503,...common,json:{error:"temporarily_unavailable"}});
       return route.fulfill({...common,json:{...outboundTask,id:"00000000-0000-4000-8000-000000000302",taskType:"INBOUND",status:"RECEIVED",referenceNumber:receiptRequests.at(-1)}});
@@ -50,7 +52,7 @@ async function mockWarehouse(page:Page, fixture:WarehouseFixture={}) {
     if(url.pathname==="/api/stream/deliveries")return route.fulfill({status:200,contentType:"text/event-stream",body:"event: connected\ndata: {}\n\n",headers:{"Access-Control-Allow-Origin":"*"}});
     return route.fulfill({status:404,...common,json:{error:"not_found"}});
   });
-  return {receiptRequests,outboundRequests,dispatchRequests};
+  return {receiptRequests,receiptIdempotencyKeys,outboundRequests,dispatchRequests};
 }
 
 test("sends one warehouse receipt for immediate repeated input",async({page})=>{
@@ -90,7 +92,7 @@ test("pauses warehouse mutations while offline and restores them online",async({
 });
 
 test("keeps a receipt error visible until receipt retry succeeds",async({page})=>{
-  const {receiptRequests}=await mockWarehouse(page,{receiptFailuresBeforeSuccess:1});
+  const {receiptRequests,receiptIdempotencyKeys}=await mockWarehouse(page,{receiptFailuresBeforeSuccess:1});
   await page.goto("/console#warehouse");
   const receive=page.getByRole("button",{name:"시연 재고 10개 입고"});
   const error=page.getByText("입고 처리에 실패했습니다.");
@@ -101,6 +103,13 @@ test("keeps a receipt error visible until receipt retry succeeds",async({page})=
   await expect(receive).toBeEnabled({timeout:1_500});
   await expect(error).toBeHidden();
   expect(receiptRequests).toHaveLength(2);
+  expect(new Set(receiptRequests).size).toBe(1);
+  expect(new Set(receiptIdempotencyKeys).size).toBe(1);
+  await receive.click();
+  await expect(receive).toBeEnabled({timeout:1_500});
+  expect(receiptRequests).toHaveLength(3);
+  expect(receiptRequests[2]).not.toBe(receiptRequests[1]);
+  expect(receiptIdempotencyKeys[2]).not.toBe(receiptIdempotencyKeys[1]);
 });
 
 test("sends one pick and dispatch flow for immediate repeated input",async({page})=>{
