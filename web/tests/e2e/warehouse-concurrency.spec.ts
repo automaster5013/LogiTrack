@@ -14,12 +14,13 @@ const outboundTask: WarehouseTask = {
   updatedAt:now,
 };
 
-type WarehouseFixture = { receiptFailuresBeforeSuccess?:number; dispatchFailuresBeforeSuccess?:number; disconnectAfterPick?:boolean };
+type WarehouseFixture = { receiptFailuresBeforeSuccess?:number; pickFailuresBeforeSuccess?:number; dispatchFailuresBeforeSuccess?:number; disconnectAfterPick?:boolean };
 
 async function mockWarehouse(page:Page, fixture:WarehouseFixture={}) {
   const receiptRequests:string[]=[];
   const receiptIdempotencyKeys:string[]=[];
   const outboundRequests:string[]=[];
+  const outboundIdempotencyKeys:string[]=[];
   const dispatchRequests:string[]=[];
   await page.route("**/api/**", async route=>{
     const request=route.request();
@@ -34,7 +35,9 @@ async function mockWarehouse(page:Page, fixture:WarehouseFixture={}) {
     }
     if(url.pathname==="/api/warehouse/outbounds"&&request.method()==="POST"){
       outboundRequests.push(request.postDataJSON().referenceNumber);
+      outboundIdempotencyKeys.push(request.headers()["idempotency-key"]);
       await new Promise(resolve=>setTimeout(resolve,500));
+      if(outboundRequests.length<=(fixture.pickFailuresBeforeSuccess||0))return route.fulfill({status:503,...common,json:{error:"temporarily_unavailable"}});
       if(fixture.disconnectAfterPick)await page.evaluate(()=>{
         Object.defineProperty(Navigator.prototype,"onLine",{configurable:true,get:()=>false});
         window.dispatchEvent(new Event("offline"));
@@ -52,7 +55,7 @@ async function mockWarehouse(page:Page, fixture:WarehouseFixture={}) {
     if(url.pathname==="/api/stream/deliveries")return route.fulfill({status:200,contentType:"text/event-stream",body:"event: connected\ndata: {}\n\n",headers:{"Access-Control-Allow-Origin":"*"}});
     return route.fulfill({status:404,...common,json:{error:"not_found"}});
   });
-  return {receiptRequests,receiptIdempotencyKeys,outboundRequests,dispatchRequests};
+  return {receiptRequests,receiptIdempotencyKeys,outboundRequests,outboundIdempotencyKeys,dispatchRequests};
 }
 
 test("sends one warehouse receipt for immediate repeated input",async({page})=>{
@@ -122,6 +125,30 @@ test("sends one pick and dispatch flow for immediate repeated input",async({page
   await expect(dispatch).toBeEnabled({timeout:2_000});
   expect(outboundRequests).toHaveLength(1);
   expect(dispatchRequests).toEqual([outboundTask.id]);
+});
+
+test("reuses the pick identity after an ambiguous failure and resets it after success",async({page})=>{
+  const {outboundRequests,outboundIdempotencyKeys,dispatchRequests}=await mockWarehouse(page,{pickFailuresBeforeSuccess:1});
+  await page.goto("/console#warehouse");
+  const dispatch=page.getByRole("button",{name:"재고 4개 피킹 및 출고"});
+  const error=page.getByText("출고 처리에 실패했습니다. 먼저 재고를 입고해 주세요.");
+
+  await dispatch.click();
+  await expect(error).toBeVisible({timeout:1_500});
+  await dispatch.click();
+  await expect(dispatch).toBeEnabled({timeout:2_000});
+  await expect(error).toBeHidden();
+  expect(outboundRequests).toHaveLength(2);
+  expect(new Set(outboundRequests).size).toBe(1);
+  expect(new Set(outboundIdempotencyKeys).size).toBe(1);
+  expect(dispatchRequests).toEqual([outboundTask.id]);
+
+  await dispatch.click();
+  await expect(dispatch).toBeEnabled({timeout:2_000});
+  expect(outboundRequests).toHaveLength(3);
+  expect(outboundRequests[2]).not.toBe(outboundRequests[1]);
+  expect(outboundIdempotencyKeys[2]).not.toBe(outboundIdempotencyKeys[1]);
+  expect(dispatchRequests).toEqual([outboundTask.id,outboundTask.id]);
 });
 
 test("retries dispatch without creating another pick and preserves its error",async({page})=>{
