@@ -22,6 +22,7 @@ public class RetentionCleanup {
     private final Duration replayedDlqRetention;
     private final int batchSize;
     private final AtomicBoolean cleanupHealthy=new AtomicBoolean(true);
+    private final io.micrometer.core.instrument.Counter lockSkipped;
 
     public RetentionCleanup(RetentionCleanupAttempt attempt,MeterRegistry metrics,
         @Value("${logitrack.retention.processed-events:30d}") Duration processedRetention,
@@ -34,13 +35,16 @@ public class RetentionCleanup {
         this.attempt=attempt;this.metrics=metrics;this.processedRetention=processedRetention;this.outboxRetention=outboxRetention;this.telemetryRetention=telemetryRetention;this.replayedDlqRetention=replayedDlqRetention;this.batchSize=batchSize;
         for(var table:new String[]{"processed_events","outbox_events","telemetry_points","dead_letter_events"})metrics.counter("logitrack.retention.deleted","table",table);
         metrics.counter("logitrack.retention.failures");
+        lockSkipped=metrics.counter("logitrack.retention.skipped","reason","leader-lock");
     }
 
     @Scheduled(initialDelayString="${logitrack.retention.initial-delay-ms:60000}",fixedDelayString="${logitrack.retention.poll-delay-ms:300000}")
     public void cleanup(){
         var now=Instant.now();
         try {
-            var result=attempt.cleanup(now.minus(processedRetention),now.minus(outboxRetention),now.minus(telemetryRetention),now.minus(replayedDlqRetention),batchSize);
+            var acquired=attempt.cleanup(now.minus(processedRetention),now.minus(outboxRetention),now.minus(telemetryRetention),now.minus(replayedDlqRetention),batchSize);
+            if(acquired.isEmpty()){lockSkipped.increment();return;}
+            var result=acquired.get();
             record("processed_events",result.processedEvents());
             record("outbox_events",result.outboxEvents());
             record("telemetry_points",result.telemetryPoints());
