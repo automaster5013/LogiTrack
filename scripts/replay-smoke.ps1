@@ -11,7 +11,7 @@ $poison = @{
 } | ConvertTo-Json -Compress
 try {
 $message = "dlq-smoke|$poison"
-$message | docker compose exec -T kafka /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server kafka:29092 --topic vehicle.telemetry.v1 --property parse.key=true --property key.separator='|'
+$message | docker compose exec -T kafka /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server kafka:29092 --topic vehicle.telemetry.v1 --reader-property parse.key=true --reader-property key.separator='|'
 
 $started = Get-Date
 $deadline = $started.AddSeconds(15)

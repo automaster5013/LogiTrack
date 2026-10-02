@@ -619,3 +619,4 @@
 - retention 정리 트랜잭션에 PostgreSQL try-advisory leader lock을 적용해 여러 API replica의 중복 batch 삭제 경쟁을 차단하고, 잠금으로 건너뛴 주기를 별도 metric으로 관측합니다.
 - 복구 metric 스모크가 retention leader lock 경쟁으로 건너뛴 주기의 `logitrack_retention_skipped_total` 노출도 필수 계약으로 검증합니다.
 - 일괄 DLQ 재처리 스모크가 Kafka DLQ consumer offset에 의존하지 않는 격리 fixture와 비소비 토픽을 사용해, 토픽 재생성 뒤에도 PostgreSQL의 기존 카탈로그 오프셋과 충돌하지 않도록 안정화했습니다.
+- 단건 DLQ 재처리 스모크의 Kafka console producer를 지원되는 `--reader-property` 계약으로 전환해 향후 Kafka CLI에서 deprecated `--property`가 제거돼도 복구 검증을 유지합니다.
