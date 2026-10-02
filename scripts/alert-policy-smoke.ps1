@@ -29,6 +29,13 @@ try {
   if ($suppressed.Count -ne 0) { throw "Vehicle override did not suppress alerts" }
 
   Invoke-RestMethod "http://localhost:8080/api/alert-policies/$vehicle" -Method Delete -Headers @{"X-Operator"="policy-smoke"} | Out-Null
+  Invoke-RestMethod "http://localhost:8080/api/alert-policies/$vehicle" -Method Delete -Headers @{"X-Operator"="policy-smoke"} | Out-Null
+  try {
+    Invoke-RestMethod "http://localhost:8080/api/alert-policies/$vehicle" -Method Delete -Headers @{"X-Operator"="another-operator"} | Out-Null
+    throw "Reset by a different operator unexpectedly succeeded"
+  } catch {
+    if ($_.Exception.Response.StatusCode.value__ -ne 409) { throw }
+  }
   $event.eventId=[guid]::NewGuid().ToString();$event.traceId=[guid]::NewGuid().ToString();$event.occurredAt=(Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
   Send-Telemetry $event
   Start-Sleep -Seconds 3
@@ -59,7 +66,7 @@ try {
   if ($afterRestore.Count -ne 0) { throw "Restored vehicle policy did not suppress alerts" }
   $audits = @((Invoke-RestMethod http://localhost:8080/api/alert-policies/audits) | Where-Object vehicleId -eq $vehicle)
   if ($audits.Count -ne 3 -or @($audits | Where-Object action -eq "RESTORE").Count -ne 1) { throw "Policy restore audit history was not persisted" }
-  Write-Host "PASS: vehicle=$vehicle, override/reset/restore behavior verified, audits=3"
+  Write-Host "PASS: vehicle=$vehicle, override/idempotent-reset/restore behavior verified, audits=3"
 }
 finally {
   docker compose start simulator | Out-Null

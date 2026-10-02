@@ -31,7 +31,11 @@ public class AlertPolicyService {
     public AlertPolicy reset(String vehicleId,String actor){
         var vehicle=normalize("vehicleId",vehicleId);var operator=normalize("X-Operator",actor);
         if(AlertPolicy.DEFAULT_VEHICLE.equals(vehicle))throw new IllegalArgumentException("Global default policy cannot be reset");
-        var policy=policies.findByVehicleIdAndActiveTrue(vehicle).orElseThrow(()->new NoSuchElementException("Active vehicle alert policy not found"));
+        var policy=policies.findByVehicleId(vehicle).orElseThrow(()->new NoSuchElementException("Vehicle alert policy not found"));
+        if(!policy.isActive()){
+            if(policy.getUpdatedBy().equals(operator))return policy;
+            throw new IllegalStateException("Vehicle alert policy has already been reset");
+        }
         policy.deactivate(operator);policy=policies.save(policy);audits.save(new AlertPolicyAudit(policy,operator,AlertPolicyAudit.Action.RESET));return policy;
     }
     @Transactional
