@@ -11,8 +11,8 @@ type OrderFixture = { dispatchFailuresBeforeSuccessById?: Record<string, number>
 
 async function mockOrders(page: Page, fixture: OrderFixture = {}) {
   const dispatchRequests: string[] = [];
-  const dispatchRequestDetails: { orderId: string; vehicleId: string; idempotencyKey: string | undefined }[] = [];
-  const createRequests: { orderNumber: string; idempotencyKey: string | undefined }[] = [];
+  const dispatchRequestDetails: { orderId: string; vehicleId: string; idempotencyKey: string | undefined; traceId: string | undefined }[] = [];
+  const createRequests: { orderNumber: string; idempotencyKey: string | undefined; traceId: string | undefined }[] = [];
   await page.route("**/api/**", async route => {
     const request = route.request();
     const url = new URL(request.url());
@@ -22,7 +22,7 @@ async function mockOrders(page: Page, fixture: OrderFixture = {}) {
       const order = orders.find(candidate => candidate.id === dispatchMatch[1]);
       if (!order) return route.fulfill({ status: 404, ...common, json: { error: "not_found" } });
       dispatchRequests.push(order.id);
-      dispatchRequestDetails.push({ orderId: order.id, vehicleId: request.postDataJSON().vehicleId, idempotencyKey: request.headers()["idempotency-key"] });
+      dispatchRequestDetails.push({ orderId: order.id, vehicleId: request.postDataJSON().vehicleId, idempotencyKey: request.headers()["idempotency-key"], traceId: request.headers()["x-trace-id"] });
       await new Promise(resolve => setTimeout(resolve, order.id === orders[0].id ? 1_000 : 2_500));
       const requestCount = dispatchRequests.filter(id => id === order.id).length;
       if (requestCount <= (fixture.dispatchFailuresBeforeSuccessById?.[order.id] || 0)) {
@@ -31,7 +31,7 @@ async function mockOrders(page: Page, fixture: OrderFixture = {}) {
       return route.fulfill({ ...common, json: { ...order, status: "DISPATCHED", deliveryId: `delivery-${order.id.slice(-3)}`, vehicleId: "TRUCK-01", deliveryStatus: "CREATED", updatedAt: timestamp } });
     }
     if (url.pathname === "/api/orders" && request.method() === "POST") {
-      createRequests.push({ orderNumber: request.postDataJSON().orderNumber, idempotencyKey: request.headers()["idempotency-key"] });
+      createRequests.push({ orderNumber: request.postDataJSON().orderNumber, idempotencyKey: request.headers()["idempotency-key"], traceId: request.headers()["x-trace-id"] });
       await new Promise(resolve => setTimeout(resolve, 1_000));
       if (createRequests.length <= (fixture.createFailuresBeforeSuccess || 0)) {
         return route.fulfill({ status: 503, ...common, json: { error: "temporarily_unavailable" } });
@@ -134,11 +134,13 @@ test("keeps a failed dispatch error and request identity until that order recove
   expect(dispatchRequests).toEqual([orders[0].id, orders[1].id, orders[0].id]);
   expect(dispatchRequestDetails[2].vehicleId).toBe(dispatchRequestDetails[0].vehicleId);
   expect(dispatchRequestDetails[2].idempotencyKey).toBe(dispatchRequestDetails[0].idempotencyKey);
+  expect(dispatchRequestDetails[2].traceId).toBe(dispatchRequestDetails[0].traceId);
 
   await firstDispatch.click();
   await expect(firstDispatch).toBeEnabled({ timeout: 1_500 });
   expect(dispatchRequestDetails).toHaveLength(4);
   expect(dispatchRequestDetails[3].idempotencyKey).not.toBe(dispatchRequestDetails[2].idempotencyKey);
+  expect(dispatchRequestDetails[3].traceId).not.toBe(dispatchRequestDetails[2].traceId);
 });
 
 test("sends one create request for immediate repeated input", async ({ page }) => {
@@ -192,6 +194,7 @@ test("keeps an order creation error visible until retry succeeds", async ({ page
   expect(fixture.createRequests).toHaveLength(2);
   expect(new Set(fixture.createRequests.map(request => request.orderNumber)).size).toBe(1);
   expect(new Set(fixture.createRequests.map(request => request.idempotencyKey)).size).toBe(1);
+  expect(new Set(fixture.createRequests.map(request => request.traceId)).size).toBe(1);
 
   await createButton.click();
   await expect(createButton).toBeEnabled({ timeout: 1_500 });
@@ -199,4 +202,5 @@ test("keeps an order creation error visible until retry succeeds", async ({ page
   expect(fixture.createRequests[2].orderNumber).toMatch(/^ORD-[0-9A-F]{12}$/);
   expect(fixture.createRequests[2].orderNumber).not.toBe(fixture.createRequests[1].orderNumber);
   expect(fixture.createRequests[2].idempotencyKey).not.toBe(fixture.createRequests[1].idempotencyKey);
+  expect(fixture.createRequests[2].traceId).not.toBe(fixture.createRequests[1].traceId);
 });

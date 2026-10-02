@@ -19,9 +19,12 @@ type WarehouseFixture = { receiptFailuresBeforeSuccess?:number; pickFailuresBefo
 async function mockWarehouse(page:Page, fixture:WarehouseFixture={}) {
   const receiptRequests:string[]=[];
   const receiptIdempotencyKeys:string[]=[];
+  const receiptTraceIds:string[]=[];
   const outboundRequests:string[]=[];
   const outboundIdempotencyKeys:string[]=[];
+  const outboundTraceIds:string[]=[];
   const dispatchRequests:string[]=[];
+  const dispatchTraceIds:string[]=[];
   await page.route("**/api/**", async route=>{
     const request=route.request();
     const url=new URL(request.url());
@@ -29,6 +32,7 @@ async function mockWarehouse(page:Page, fixture:WarehouseFixture={}) {
     if(url.pathname==="/api/warehouse/receipts"&&request.method()==="POST"){
       receiptRequests.push(request.postDataJSON().referenceNumber);
       receiptIdempotencyKeys.push(request.headers()["idempotency-key"]);
+      receiptTraceIds.push(request.headers()["x-trace-id"]);
       await new Promise(resolve=>setTimeout(resolve,1_000));
       if(receiptRequests.length<=(fixture.receiptFailuresBeforeSuccess||0))return route.fulfill({status:503,...common,json:{error:"temporarily_unavailable"}});
       return route.fulfill({...common,json:{...outboundTask,id:"00000000-0000-4000-8000-000000000302",taskType:"INBOUND",status:"RECEIVED",referenceNumber:receiptRequests.at(-1)}});
@@ -36,6 +40,7 @@ async function mockWarehouse(page:Page, fixture:WarehouseFixture={}) {
     if(url.pathname==="/api/warehouse/outbounds"&&request.method()==="POST"){
       outboundRequests.push(request.postDataJSON().referenceNumber);
       outboundIdempotencyKeys.push(request.headers()["idempotency-key"]);
+      outboundTraceIds.push(request.headers()["x-trace-id"]);
       await new Promise(resolve=>setTimeout(resolve,500));
       if(outboundRequests.length<=(fixture.pickFailuresBeforeSuccess||0))return route.fulfill({status:503,...common,json:{error:"temporarily_unavailable"}});
       if(fixture.disconnectAfterPick)await page.evaluate(()=>{
@@ -46,6 +51,7 @@ async function mockWarehouse(page:Page, fixture:WarehouseFixture={}) {
     }
     if(url.pathname===`/api/warehouse/outbounds/${outboundTask.id}/dispatch`&&request.method()==="POST"){
       dispatchRequests.push(outboundTask.id);
+      dispatchTraceIds.push(request.headers()["x-trace-id"]);
       await new Promise(resolve=>setTimeout(resolve,1_000));
       if(dispatchRequests.length<=(fixture.dispatchFailuresBeforeSuccess||0))return route.fulfill({status:503,...common,json:{error:"temporarily_unavailable"}});
       return route.fulfill({...common,json:{...outboundTask,status:"DISPATCHED"}});
@@ -55,7 +61,7 @@ async function mockWarehouse(page:Page, fixture:WarehouseFixture={}) {
     if(url.pathname==="/api/stream/deliveries")return route.fulfill({status:200,contentType:"text/event-stream",body:"event: connected\ndata: {}\n\n",headers:{"Access-Control-Allow-Origin":"*"}});
     return route.fulfill({status:404,...common,json:{error:"not_found"}});
   });
-  return {receiptRequests,receiptIdempotencyKeys,outboundRequests,outboundIdempotencyKeys,dispatchRequests};
+  return {receiptRequests,receiptIdempotencyKeys,receiptTraceIds,outboundRequests,outboundIdempotencyKeys,outboundTraceIds,dispatchRequests,dispatchTraceIds};
 }
 
 test("sends one warehouse receipt for immediate repeated input",async({page})=>{
@@ -95,7 +101,7 @@ test("pauses warehouse mutations while offline and restores them online",async({
 });
 
 test("keeps a receipt error visible until receipt retry succeeds",async({page})=>{
-  const {receiptRequests,receiptIdempotencyKeys}=await mockWarehouse(page,{receiptFailuresBeforeSuccess:1});
+  const {receiptRequests,receiptIdempotencyKeys,receiptTraceIds}=await mockWarehouse(page,{receiptFailuresBeforeSuccess:1});
   await page.goto("/console#warehouse");
   const receive=page.getByRole("button",{name:"시연 재고 10개 입고"});
   const error=page.getByText("입고 처리에 실패했습니다.");
@@ -108,12 +114,14 @@ test("keeps a receipt error visible until receipt retry succeeds",async({page})=
   expect(receiptRequests).toHaveLength(2);
   expect(new Set(receiptRequests).size).toBe(1);
   expect(new Set(receiptIdempotencyKeys).size).toBe(1);
+  expect(new Set(receiptTraceIds).size).toBe(1);
   await receive.click();
   await expect(receive).toBeEnabled({timeout:1_500});
   expect(receiptRequests).toHaveLength(3);
   expect(receiptRequests[2]).toMatch(/^ASN-[0-9A-F]{12}$/);
   expect(receiptRequests[2]).not.toBe(receiptRequests[1]);
   expect(receiptIdempotencyKeys[2]).not.toBe(receiptIdempotencyKeys[1]);
+  expect(receiptTraceIds[2]).not.toBe(receiptTraceIds[1]);
 });
 
 test("sends one pick and dispatch flow for immediate repeated input",async({page})=>{
@@ -129,7 +137,7 @@ test("sends one pick and dispatch flow for immediate repeated input",async({page
 });
 
 test("reuses the pick identity after an ambiguous failure and resets it after success",async({page})=>{
-  const {outboundRequests,outboundIdempotencyKeys,dispatchRequests}=await mockWarehouse(page,{pickFailuresBeforeSuccess:1});
+  const {outboundRequests,outboundIdempotencyKeys,outboundTraceIds,dispatchRequests,dispatchTraceIds}=await mockWarehouse(page,{pickFailuresBeforeSuccess:1});
   await page.goto("/console#warehouse");
   const dispatch=page.getByRole("button",{name:"재고 4개 피킹 및 출고"});
   const error=page.getByText("출고 처리에 실패했습니다. 먼저 재고를 입고해 주세요.");
@@ -142,7 +150,9 @@ test("reuses the pick identity after an ambiguous failure and resets it after su
   expect(outboundRequests).toHaveLength(2);
   expect(new Set(outboundRequests).size).toBe(1);
   expect(new Set(outboundIdempotencyKeys).size).toBe(1);
+  expect(new Set(outboundTraceIds).size).toBe(1);
   expect(dispatchRequests).toEqual([outboundTask.id]);
+  expect(dispatchTraceIds[0]).toBe(outboundTraceIds[1]);
 
   await dispatch.click();
   await expect(dispatch).toBeEnabled({timeout:2_000});
@@ -150,11 +160,13 @@ test("reuses the pick identity after an ambiguous failure and resets it after su
   expect(outboundRequests[2]).toMatch(/^OUT-[0-9A-F]{12}$/);
   expect(outboundRequests[2]).not.toBe(outboundRequests[1]);
   expect(outboundIdempotencyKeys[2]).not.toBe(outboundIdempotencyKeys[1]);
+  expect(outboundTraceIds[2]).not.toBe(outboundTraceIds[1]);
   expect(dispatchRequests).toEqual([outboundTask.id,outboundTask.id]);
+  expect(dispatchTraceIds[1]).toBe(outboundTraceIds[2]);
 });
 
 test("retries dispatch without creating another pick and preserves its error",async({page})=>{
-  const {outboundRequests,dispatchRequests}=await mockWarehouse(page,{dispatchFailuresBeforeSuccess:1});
+  const {outboundRequests,dispatchRequests,dispatchTraceIds}=await mockWarehouse(page,{dispatchFailuresBeforeSuccess:1});
   await page.goto("/console#warehouse");
   const dispatch=page.getByRole("button",{name:"재고 4개 피킹 및 출고"});
   const error=page.getByText("출고 처리에 실패했습니다. 먼저 재고를 입고해 주세요.");
@@ -166,6 +178,7 @@ test("retries dispatch without creating another pick and preserves its error",as
   await expect(error).toBeHidden();
   expect(outboundRequests).toHaveLength(1);
   expect(dispatchRequests).toEqual([outboundTask.id,outboundTask.id]);
+  expect(new Set(dispatchTraceIds).size).toBe(1);
 });
 
 test("keeps the picked task and pauses dispatch when connectivity drops between steps",async({page})=>{
