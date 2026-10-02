@@ -41,15 +41,24 @@ public class AlertPolicyService {
     @Transactional
     public AlertPolicy restore(UUID auditId,String actor){
         var operator=normalize("X-Operator",actor);
-        var snapshot=audits.findById(Objects.requireNonNull(auditId,"auditId must be provided"))
+        var snapshot=audits.findByIdForUpdate(Objects.requireNonNull(auditId,"auditId must be provided"))
             .orElseThrow(()->new NoSuchElementException("Alert policy audit snapshot not found"));
+        var prior=audits.findByRestoredFromAuditIdAndActor(snapshot.getId(),operator);
+        if(prior.isPresent()){
+            var current=policies.findByVehicleId(snapshot.getVehicleId()).orElseThrow(()->new IllegalStateException("Restored alert policy no longer exists"));
+            if(matches(current,prior.get())&&current.isActive()&&current.getUpdatedBy().equals(operator))return current;
+            throw new IllegalStateException("Restored alert policy has changed since this request completed");
+        }
         var existing=policies.findByVehicleId(snapshot.getVehicleId());
         var policy=existing.orElseGet(()->new AlertPolicy(snapshot.getVehicleId(),snapshot.getDeviationOpenMeters(),snapshot.getDeviationCloseMeters(),
             snapshot.getCriticalDeviationMeters(),snapshot.getDelayOpenSeconds(),snapshot.getDelayCloseSeconds(),snapshot.getCriticalDelaySeconds(),operator));
         if(existing.isPresent())policy.update(snapshot.getDeviationOpenMeters(),snapshot.getDeviationCloseMeters(),snapshot.getCriticalDeviationMeters(),
             snapshot.getDelayOpenSeconds(),snapshot.getDelayCloseSeconds(),snapshot.getCriticalDelaySeconds(),operator);
-        policy=policies.save(policy);audits.save(new AlertPolicyAudit(policy,operator,AlertPolicyAudit.Action.RESTORE));return policy;
+        policy=policies.save(policy);audits.save(new AlertPolicyAudit(policy,operator,snapshot.getId()));return policy;
     }
+    private boolean matches(AlertPolicy policy,AlertPolicyAudit audit){return Double.compare(policy.getDeviationOpenMeters(),audit.getDeviationOpenMeters())==0
+        &&Double.compare(policy.getDeviationCloseMeters(),audit.getDeviationCloseMeters())==0&&Double.compare(policy.getCriticalDeviationMeters(),audit.getCriticalDeviationMeters())==0
+        &&policy.getDelayOpenSeconds()==audit.getDelayOpenSeconds()&&policy.getDelayCloseSeconds()==audit.getDelayCloseSeconds()&&policy.getCriticalDelaySeconds()==audit.getCriticalDelaySeconds();}
     private String normalize(String field,String value){var normalized=value==null?"":value.trim();
         if(normalized.isBlank()||normalized.length()>120)throw new IllegalArgumentException(field+" must be 1-120 characters");return normalized;}
 }
