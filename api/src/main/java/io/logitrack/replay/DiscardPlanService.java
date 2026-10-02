@@ -3,6 +3,7 @@ package io.logitrack.replay;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import io.logitrack.config.InputLimits;
 
 import java.time.Instant;
 import java.util.LinkedHashSet;
@@ -24,17 +25,24 @@ public class DiscardPlanService {
     }
 
     @Transactional
-    public DiscardPlan prepare(CreateDiscardPlanRequest request,String actor){
+    public DiscardPlan prepare(CreateDiscardPlanRequest request,String actor,String requestKey){
         var normalizedActor=normalizeActor(actor);
         if(request==null||request.eventIds()==null||request.eventIds().isEmpty())throw new IllegalArgumentException("eventIds are required");
         if(request.eventIds().stream().anyMatch(Objects::isNull))throw new IllegalArgumentException("eventIds must not contain null");
         var reason=normalizeReason(request.reason());
         var ids=List.copyOf(new LinkedHashSet<>(request.eventIds()));
         if(ids.size()>maxBatchSize)throw new IllegalArgumentException("Discard batch exceeds maximum size "+maxBatchSize);
+        InputLimits.required(requestKey,"Idempotency-Key",160);plans.lockRequestKey(requestKey);
+        var prior=plans.findByRequestKey(requestKey);
+        if(prior.isPresent()){
+            var completed=prior.get();
+            if(!completed.getActor().equals(normalizedActor)||!completed.getReason().equals(reason)||!completed.getEventIds().equals(ids))throw new IllegalStateException("Idempotency key was used with a different discard plan request");
+            return completed;
+        }
         var selected=events.findAllById(ids);
         if(selected.size()!=ids.size())throw new java.util.NoSuchElementException("One or more DLQ events were not found");
         if(selected.stream().anyMatch(event->event.getStatus()!=DeadLetterEvent.Status.PENDING))throw new IllegalStateException("Discard plans may contain only PENDING events");
-        return plans.save(new DiscardPlan(normalizedActor,reason,ids));
+        return plans.save(new DiscardPlan(normalizedActor,requestKey,reason,ids));
     }
 
     @Transactional

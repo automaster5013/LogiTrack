@@ -16,7 +16,10 @@ docker compose exec -T postgres psql -U logitrack -d logitrack -v ON_ERROR_STOP=
 
 try {
   $body = @{eventIds=@($first,$second,$first);reason=$reason} | ConvertTo-Json
-  $plan = Invoke-RestMethod http://localhost:8080/api/operations/discard-plans -Method Post -Headers @{"X-Operator"="batch-smoke"} -ContentType "application/json" -Body $body
+  $requestKey = [guid]::NewGuid().ToString()
+  $plan = Invoke-RestMethod http://localhost:8080/api/operations/discard-plans -Method Post -Headers @{"X-Operator"="batch-smoke";"Idempotency-Key"=$requestKey} -ContentType "application/json" -Body $body
+  $repeatedPlan = Invoke-RestMethod http://localhost:8080/api/operations/discard-plans -Method Post -Headers @{"X-Operator"="batch-smoke";"Idempotency-Key"=$requestKey} -ContentType "application/json" -Body $body
+  if ($repeatedPlan.id -ne $plan.id) { throw "Repeated discard plan creation did not return the stored plan" }
   if ($plan.status -ne "PREPARED" -or $plan.eventIds.Count -ne 2 -or $plan.reason -ne $reason) { throw "Discard dry-run plan is invalid" }
 
   try {

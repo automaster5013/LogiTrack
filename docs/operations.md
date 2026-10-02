@@ -209,13 +209,13 @@ API, analytics, simulator, web, OpenTelemetry Collector는 Linux capability를 �
 
 ### 선택 범위 replay
 
-1. `POST /api/operations/replay-plans`에 `{"eventIds":[...]}`와 `X-Operator`를 보내 dry-run plan을 만든다.
+1. `POST /api/operations/replay-plans`에 `{"eventIds":[...]}`와 `X-Operator`, `Idempotency-Key`를 보내 dry-run plan을 만든다. 응답 유실 재시도에는 같은 키·운영자·event ID 목록을 사용하며 기존 plan을 반환한다. 같은 키의 다른 요청은 충돌로 거부한다.
 2. 응답의 대상과 10분 만료 시각을 검토한다.
 3. `POST /api/operations/replay-plans/{id}/execute`에 같은 `X-Operator`와 `X-Replay-Approval: APPROVE`를 보낸다.
 
 ### 선택 범위 폐기
 
-1. `POST /api/operations/discard-plans`에 `{"eventIds":[...],"reason":"..."}`와 `X-Operator`를 보내 최대 20건의 dry-run 계획을 만든다.
+1. `POST /api/operations/discard-plans`에 `{"eventIds":[...],"reason":"..."}`와 `X-Operator`, `Idempotency-Key`를 보내 최대 20건의 dry-run 계획을 만든다. 응답 유실 재시도에는 같은 키·운영자·event ID 목록·사유를 사용하며 기존 plan을 반환한다. 같은 키의 다른 요청은 충돌로 거부한다.
 2. 응답의 대상, 공통 폐기 사유와 10분 만료 시각을 검토한다.
 3. `POST /api/operations/discard-plans/{id}/execute`에 같은 `X-Operator`와 `X-Discard-Approval: DISCARD`를 보낸다.
 4. 각 성공 항목은 `DISCARDED` 상태와 개별 감사 행을 남기며, 이미 처리된 항목은 실패 수에 포함된다. 응답 유실 뒤 같은 운영자와 승인으로 계획을 다시 실행하면 저장된 결과를 반환하고 항목이나 감사를 중복 처리하지 않는다.
