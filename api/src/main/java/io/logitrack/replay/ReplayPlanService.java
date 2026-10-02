@@ -50,11 +50,25 @@ public class ReplayPlanService {
 
     @Transactional
     public ReplayPlan execute(UUID planId, String actor, String approval) {
+        return execute(planId,actor,approval,null);
+    }
+
+    @Transactional
+    public ReplayPlan execute(UUID planId, String actor, String approval,String requestKey) {
         var normalizedActor=normalizeActor(actor);
         if(!"APPROVE".equals(approval)) throw new IllegalArgumentException("X-Replay-Approval must be APPROVE");
+        if(requestKey!=null){
+            InputLimits.required(requestKey,"Idempotency-Key",160);plans.lockExecutionRequestKey(requestKey);
+            var prior=plans.findByExecutionRequestKey(requestKey);
+            if(prior.isPresent()){
+                if(!prior.get().getId().equals(planId)||!prior.get().getActor().equals(normalizedActor))throw new IllegalStateException("Idempotency key was used with a different replay plan execution");
+                return prior.get();
+            }
+        }
         var plan=plans.findByIdForUpdate(planId).orElseThrow(()->new java.util.NoSuchElementException("Replay plan not found"));
         if(!plan.getActor().equals(normalizedActor)) throw new IllegalArgumentException("Replay plan operator does not match X-Operator");
-        if(plan.getStatus()!=ReplayPlan.Status.PREPARED) return plan;
+        if(plan.getStatus()!=ReplayPlan.Status.PREPARED){if(requestKey!=null&&plan.getExecutionRequestKey()!=null)throw new IllegalStateException("Replay plan was executed with a different idempotency key");return plan;}
+        if(requestKey!=null)plan.bindExecutionRequest(requestKey);
         if(!plan.getExpiresAt().isAfter(Instant.now())) { plan.expire(); return plan; }
         int succeeded=0,failed=0;
         for(var eventId:plan.getEventIds()) {

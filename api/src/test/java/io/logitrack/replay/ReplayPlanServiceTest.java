@@ -38,4 +38,13 @@ class ReplayPlanServiceTest {
         assertThrows(IllegalStateException.class,()->service.prepare(new CreateReplayPlanRequest(List.of(UUID.randomUUID())),"operator","request-3"));
         verifyNoInteractions(events);verify(plans,never()).save(any());
     }
+    @Test void executionKeyReturnsStoredResultAndRejectsReuse(){
+        var plans=mock(ReplayPlanRepository.class);var replay=mock(ReplayService.class);var service=new ReplayPlanService(plans,mock(DeadLetterEventRepository.class),replay,20,1000);
+        var plan=new ReplayPlan("operator",List.of(UUID.randomUUID()));when(plans.findByIdForUpdate(plan.getId())).thenReturn(Optional.of(plan));
+        assertSame(plan,service.execute(plan.getId(),"operator","APPROVE","execution-1"));assertEquals("execution-1",plan.getExecutionRequestKey());verify(replay).replay(plan.getEventIds().get(0),"operator");
+        when(plans.findByExecutionRequestKey("execution-1")).thenReturn(Optional.of(plan));
+        assertSame(plan,service.execute(plan.getId()," operator ","APPROVE","execution-1"));verifyNoMoreInteractions(replay);
+        assertThrows(IllegalStateException.class,()->service.execute(UUID.randomUUID(),"operator","APPROVE","execution-1"));
+        assertThrows(IllegalStateException.class,()->service.execute(plan.getId(),"operator","APPROVE","execution-2"));
+    }
 }

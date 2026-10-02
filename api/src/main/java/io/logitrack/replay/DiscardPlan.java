@@ -21,6 +21,7 @@ public class DiscardPlan {
     @Column(name="created_at",nullable=false) private Instant createdAt;
     @Column(name="expires_at",nullable=false) private Instant expiresAt;
     @Column(name="executed_at") private Instant executedAt;
+    @Column(name="execution_request_key",length=160,unique=true) private String executionRequestKey;
     @Column(name="succeeded_count",nullable=false) private int succeededCount;
     @Column(name="failed_count",nullable=false) private int failedCount;
 
@@ -31,6 +32,7 @@ public class DiscardPlan {
         createdAt=Instant.now();expiresAt=createdAt.plus(10, ChronoUnit.MINUTES);
     }
     public void expire(){if(status==Status.PREPARED)status=Status.EXPIRED;}
+    public void bindExecutionRequest(String requestKey){executionRequestKey=requestKey;}
     public void complete(int succeeded,int failed){
         if(status!=Status.PREPARED)throw new IllegalStateException("Discard plan is not executable");
         succeededCount=succeeded;failedCount=failed;executedAt=Instant.now();status=failed==0?Status.EXECUTED:Status.PARTIAL;
@@ -38,5 +40,6 @@ public class DiscardPlan {
     public UUID getId(){return id;} public String getActor(){return actor;} public String getRequestKey(){return requestKey;} public String getReason(){return reason;} public List<UUID> getEventIds(){return eventIds;}
     public Status getStatus(){return status;} public Instant getCreatedAt(){return createdAt;} public Instant getExpiresAt(){return expiresAt;} public Instant getExecutedAt(){return executedAt;}
     public int getSucceededCount(){return succeededCount;} public int getFailedCount(){return failedCount;}
+    @com.fasterxml.jackson.annotation.JsonIgnore public String getExecutionRequestKey(){return executionRequestKey;}
     public enum Status{PREPARED,EXECUTED,PARTIAL,EXPIRED}
 }

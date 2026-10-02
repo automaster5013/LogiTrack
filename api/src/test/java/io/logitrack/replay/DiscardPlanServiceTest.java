@@ -56,4 +56,13 @@ class DiscardPlanServiceTest {
         assertThrows(IllegalStateException.class,()->service.prepare(new CreateDiscardPlanRequest(ids,"different"),"operator","request-2"));
         verifyNoInteractions(events);verify(plans,never()).save(any());
     }
+    @Test void executionKeyReturnsStoredResultAndRejectsReuse(){
+        var plans=mock(DiscardPlanRepository.class);var replay=mock(ReplayService.class);var service=new DiscardPlanService(plans,mock(DeadLetterEventRepository.class),replay,20);
+        var plan=new DiscardPlan("operator","reason",List.of(UUID.randomUUID()));when(plans.findByIdForUpdate(plan.getId())).thenReturn(Optional.of(plan));
+        assertSame(plan,service.execute(plan.getId(),"operator","DISCARD","execution-1"));assertEquals("execution-1",plan.getExecutionRequestKey());verify(replay).discard(plan.getEventIds().get(0),"operator","reason");
+        when(plans.findByExecutionRequestKey("execution-1")).thenReturn(Optional.of(plan));
+        assertSame(plan,service.execute(plan.getId()," operator ","DISCARD","execution-1"));verifyNoMoreInteractions(replay);
+        assertThrows(IllegalStateException.class,()->service.execute(UUID.randomUUID(),"operator","DISCARD","execution-1"));
+        assertThrows(IllegalStateException.class,()->service.execute(plan.getId(),"operator","DISCARD","execution-2"));
+    }
 }

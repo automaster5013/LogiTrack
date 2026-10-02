@@ -20,12 +20,13 @@ $repeatedPlan=Invoke-RestMethod http://localhost:8080/api/operations/replay-plan
 if($repeatedPlan.id -ne $plan.id){throw "Repeated replay plan creation did not return the stored plan"}
 if($plan.status -ne "PREPARED" -or $plan.eventIds.Count -ne 2){throw "Dry-run plan is invalid"}
 
+$executionKey=[guid]::NewGuid().ToString()
 $timer=[Diagnostics.Stopwatch]::StartNew()
-$executed=Invoke-RestMethod "http://localhost:8080/api/operations/replay-plans/$($plan.id)/execute" -Method Post -Headers @{"X-Operator"="batch-smoke";"X-Replay-Approval"="APPROVE"}
+$executed=Invoke-RestMethod "http://localhost:8080/api/operations/replay-plans/$($plan.id)/execute" -Method Post -Headers @{"X-Operator"="batch-smoke";"X-Replay-Approval"="APPROVE";"Idempotency-Key"=$executionKey}
 $timer.Stop()
 if($executed.status -ne "EXECUTED" -or $executed.succeededCount -ne 2){throw "Replay plan did not execute completely"}
 if($timer.Elapsed.TotalMilliseconds -lt 150){throw "Configured replay rate limit was not applied"}
-$repeated=Invoke-RestMethod "http://localhost:8080/api/operations/replay-plans/$($plan.id)/execute" -Method Post -Headers @{"X-Operator"="batch-smoke";"X-Replay-Approval"="APPROVE"}
+$repeated=Invoke-RestMethod "http://localhost:8080/api/operations/replay-plans/$($plan.id)/execute" -Method Post -Headers @{"X-Operator"="batch-smoke";"X-Replay-Approval"="APPROVE";"Idempotency-Key"=$executionKey}
 if($repeated.status -ne "EXECUTED" -or $repeated.succeededCount -ne 2 -or $repeated.failedCount -ne 0){throw "Repeated replay execution did not return the stored result"}
 
 $tooMany=@(1..21|ForEach-Object {[guid]::NewGuid().ToString()})

@@ -47,11 +47,25 @@ public class DiscardPlanService {
 
     @Transactional
     public DiscardPlan execute(UUID planId,String actor,String approval){
+        return execute(planId,actor,approval,null);
+    }
+
+    @Transactional
+    public DiscardPlan execute(UUID planId,String actor,String approval,String requestKey){
         var normalizedActor=normalizeActor(actor);
         if(!"DISCARD".equals(approval))throw new IllegalArgumentException("X-Discard-Approval must be DISCARD");
+        if(requestKey!=null){
+            InputLimits.required(requestKey,"Idempotency-Key",160);plans.lockExecutionRequestKey(requestKey);
+            var prior=plans.findByExecutionRequestKey(requestKey);
+            if(prior.isPresent()){
+                if(!prior.get().getId().equals(planId)||!prior.get().getActor().equals(normalizedActor))throw new IllegalStateException("Idempotency key was used with a different discard plan execution");
+                return prior.get();
+            }
+        }
         var plan=plans.findByIdForUpdate(planId).orElseThrow(()->new java.util.NoSuchElementException("Discard plan not found"));
         if(!plan.getActor().equals(normalizedActor))throw new IllegalArgumentException("Discard plan operator does not match X-Operator");
-        if(plan.getStatus()!=DiscardPlan.Status.PREPARED)return plan;
+        if(plan.getStatus()!=DiscardPlan.Status.PREPARED){if(requestKey!=null&&plan.getExecutionRequestKey()!=null)throw new IllegalStateException("Discard plan was executed with a different idempotency key");return plan;}
+        if(requestKey!=null)plan.bindExecutionRequest(requestKey);
         if(!plan.getExpiresAt().isAfter(Instant.now())){plan.expire();return plan;}
         int succeeded=0,failed=0;
         for(var eventId:plan.getEventIds()){
