@@ -30,6 +30,20 @@ class WarehouseServiceTest {
   assertThrows(IllegalStateException.class,()->service.dispatch(task.getId(),"trace","new-key"));
  }
 
+ @Test void firstKeyedRetryClaimsALegacyDispatchedTask(){
+  var task=WarehouseTask.outbound(new WarehouseCommand("OUT-LEGACY","WH-1","SKU-1",4),"pick-key");task.dispatch();
+  when(tasks.findByDispatchRequestKey("retry-key")).thenReturn(Optional.empty(),Optional.of(task));
+  when(tasks.findForUpdateById(task.getId())).thenReturn(Optional.of(task));
+
+  assertSame(task,service.dispatch(task.getId(),"trace","retry-key"));
+  assertEquals("retry-key",task.getDispatchRequestKey());
+  assertSame(task,service.dispatch(task.getId(),"other-trace","retry-key"));
+  verifyNoInteractions(stocks,ledger,outbox);
+
+  when(tasks.findByDispatchRequestKey("different-key")).thenReturn(Optional.empty());
+  assertThrows(IllegalStateException.class,()->service.dispatch(task.getId(),"trace","different-key"));
+ }
+
  @Test void pagesAllWarehouseCollectionsWithStableOrdering(){
   when(stocks.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(),PageRequest.of(1,25),51));
   when(tasks.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(),PageRequest.of(2,30),91));

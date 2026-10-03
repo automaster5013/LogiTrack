@@ -136,7 +136,7 @@ analytics 응답은 저장 전에 경로 ID, DB 길이에 맞는 provider·algor
 - 실패한 PENDING 이벤트는 1초부터 시작해 최대 5분인 지수 backoff의 `nextAttemptAt` 이후에만 다시 잠근다. 20회 실패 후 `FAILED`가 되며 운영자 retry는 시도 수를 초기화하고 즉시 재처리 대상으로 만든다.
 - Redis 중단: DB가 source of truth이며 cache miss로 처리한다. SSE 다중 인스턴스 fan-out은 degraded 상태가 되지만 API readiness는 유지한다.
 - DB 중단: API readiness가 실패하고 Kafka consumer가 재시도한다. broker의 이벤트는 보존된다.
-- 창고 출고 확정: 필수 `Idempotency-Key`를 warehouse task에 영속 결속하고 키와 task 행을 직렬화한다. 응답 유실 뒤 같은 키·작업 재시도는 기존 `DISPATCHED` 결과를 반환하고 다른 작업의 키 재사용이나 다른 키로 완료 작업을 다시 확정하면 충돌로 거부하며, 재고·ledger·outbox는 한 번만 변경한다. `./scripts/warehouse-dispatch-concurrency-smoke.ps1`로 동시성을 검증한다.
+- 창고 출고 확정: 필수 `Idempotency-Key`를 warehouse task에 영속 결속하고 키와 task 행을 직렬화한다. 응답 유실 뒤 같은 키·작업 재시도는 기존 `DISPATCHED` 결과를 반환하고 다른 작업의 키 재사용이나 다른 키로 완료 작업을 다시 확정하면 충돌로 거부하며, 재고·ledger·outbox는 한 번만 변경한다. 마이그레이션 이전에 이미 출고된 task는 배포 후 첫 키 재시도를 원자적으로 귀속한다. `./scripts/warehouse-dispatch-concurrency-smoke.ps1`로 동시성을, `./scripts/warehouse-legacy-dispatch-smoke.ps1`로 기존 작업 전환을 검증한다.
 - 최초 창고·SKU 재고 행 생성은 해당 문자열 키의 PostgreSQL transaction advisory lock으로 직렬화한다. 서로 다른 idempotency key의 동시 입고도 unique 충돌 없이 각각 한 번 합산되며 `./scripts/warehouse-receipt-concurrency-smoke.ps1`로 검증한다.
 - 입고·피킹 요청 수량은 1~1,000,000으로 제한하며 DB 제약도 같은 범위를 강제한다. 누적 재고가 32비트 저장 범위를 넘으려 하면 변경 없이 409로 거부한다.
 - SSE 연결은 인스턴스당 기본 1,000개(`SSE_MAX_CONNECTIONS`, 허용 범위 1~10,000), 인증 주체 또는 로컬 직접 연결 주소당 기본 5개(`SSE_MAX_CONNECTIONS_PER_SUBJECT`)로 제한한다. 초과 연결은 429로 거부하고 `logitrack_sse_rejected_total{reason="capacity|subject_capacity"}`에 기록한다. 주체 식별에는 클라이언트 전달 주소 헤더를 사용하지 않으며 연결 완료·타임아웃·오류·종료 시 점유량을 회수한다. heartbeat는 1~60초 범위만 허용한다.
