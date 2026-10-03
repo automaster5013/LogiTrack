@@ -629,3 +629,4 @@
 - 일괄 DLQ 재처리 스모크가 Kafka DLQ consumer offset에 의존하지 않는 격리 fixture와 비소비 토픽을 사용해, 토픽 재생성 뒤에도 PostgreSQL의 기존 카탈로그 오프셋과 충돌하지 않도록 안정화했습니다.
 - 단건 DLQ 재처리 스모크의 Kafka console producer를 지원되는 `--reader-property` 계약으로 전환해 향후 Kafka CLI에서 deprecated `--property`가 제거돼도 복구 검증을 유지합니다.
 - 주문 배차 요청 키를 주문에 영속 결속해 응답 유실 재시도는 기존 배송을 반환하고, 완료 주문의 새 키와 다른 주문·차량에 대한 키 재사용은 충돌로 차단하며 동시 동일 요청이 배송·수명주기 이벤트를 한 번만 생성하는지 실DB 스모크로 검증합니다.
+- GPS simulator가 구조적으로 잘못된 `delivery.created.v1` 이벤트를 worker 실행 전에 계약 검증하고 offset을 커밋해 poison-message 재시작 루프를 차단하되, API·Kafka 일시 장애는 미커밋 재시작으로 계속 재시도하도록 실패 경계를 분리했습니다.
