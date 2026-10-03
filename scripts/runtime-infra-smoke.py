@@ -103,8 +103,15 @@ if api_environment.get("LOGITRACK_DEMO_STALE_AFTER_SECONDS") != "7200" or api_en
     errors.append("staging must replace stale demo deliveries within a bounded interval")
 if api_environment.get("LOGITRACK_DEMO_COMPLETED_RETENTION") != "7d" or api_environment.get("LOGITRACK_DEMO_CLEANUP_BATCH_SIZE") != "250":
     errors.append("staging completed demo retention must stay bounded")
-if simulator_environment.get("SIMULATION_INTERVAL_SECONDS") != "60" or simulator_environment.get("SIMULATION_STEPS") != "60" or simulator_environment.get("SIMULATION_MAX_WORKERS") != "15":
-    errors.append("staging demo deliveries must move once per minute for one bounded hour")
+if simulator_environment.get("SIMULATION_INTERVAL_SECONDS") != "60" or simulator_environment.get("SIMULATION_STEPS") != "60" or simulator_environment.get("SIMULATION_MAX_WORKERS") != "20":
+    errors.append("staging demo deliveries must move once per minute for one bounded hour with five reserved workers")
+try:
+    demo_target = int(api_environment.get("LOGITRACK_DEMO_TARGET_ACTIVE_DELIVERIES", "0"))
+    simulator_workers = int(simulator_environment.get("SIMULATION_MAX_WORKERS", "0"))
+    if simulator_workers < demo_target + 5:
+        errors.append("staging simulator must reserve at least five workers beyond the live demo fleet")
+except ValueError:
+    errors.append("staging demo target and simulator workers must be integers")
 if "id-token: write" not in workflow or "AWS-RunShellScript" not in workflow:
     errors.append("deployment workflow must use OIDC and SSM Run Command")
 if "fetch-depth: 0" not in workflow:

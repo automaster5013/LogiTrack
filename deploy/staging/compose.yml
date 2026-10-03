@@ -116,7 +116,9 @@ services:
       API_URL: http://api:8080
       SIMULATION_INTERVAL_SECONDS: "60"
       SIMULATION_STEPS: "60"
-      SIMULATION_MAX_WORKERS: "15"
+      # Keep capacity beyond the 15-vehicle demo fleet so operator-created
+      # deliveries are not queued behind hour-long demo simulations.
+      SIMULATION_MAX_WORKERS: "20"
       SIMULATION_RESUME_FROM_API: "false"
       SIMULATOR_HEALTH_FILE: /tmp/logitrack-simulator-heartbeat
     depends_on:
