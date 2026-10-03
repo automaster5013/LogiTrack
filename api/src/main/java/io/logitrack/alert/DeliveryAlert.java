@@ -41,6 +41,13 @@ public class DeliveryAlert {
         if(normalized.isBlank()||normalized.length()>120)throw new IllegalArgumentException("X-Operator must be 1-120 characters");
         acknowledgedBy=normalized;acknowledgementRequestKey=requestKey;acknowledgedAt=Instant.now();return true;
     }
+    public void bindAcknowledgementRequestKey(String actor,String requestKey){
+        var normalized=actor==null?"":actor.trim();
+        if(acknowledgedAt==null)throw new IllegalStateException("Unacknowledged alert cannot claim a request key");
+        if(acknowledgementRequestKey!=null)throw new IllegalStateException("Acknowledgement request key cannot be changed");
+        if(!normalized.equals(acknowledgedBy))throw new IllegalStateException("Delivery alert was acknowledged by a different operator");
+        acknowledgementRequestKey=requestKey;
+    }
     public UUID getId(){return id;} public UUID getDeliveryId(){return deliveryId;} public Type getAlertType(){return alertType;}
     public Severity getSeverity(){return severity;} public Status getStatus(){return status;} public String getMessage(){return message;}
     public double getObservedValue(){return observedValue;} public double getThresholdValue(){return thresholdValue;} public int getOccurrenceCount(){return occurrenceCount;}
