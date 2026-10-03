@@ -67,7 +67,44 @@ class OrderServiceTest {
 
         assertEquals(CustomerOrder.Status.DISPATCHED,first.status());
         assertEquals(delivery.getId(),second.deliveryId());
+        verify(orders,times(2)).lockDispatchRequestKey("dispatch-key");
         verify(deliveryService,times(1)).createForOrder(eq(order.getId()),any(),eq("dispatch-key"),eq("trace-2"));
+    }
+
+    @Test void completedDispatchRejectsANewRequestKey(){
+        var order=CustomerOrder.create(request(),"order-key");order.dispatched("original-dispatch-key");
+        var delivery=Delivery.create(new CreateDeliveryRequest(order.getOrderNumber(),"TRUCK-1",
+            new CreateDeliveryRequest.Location("Seoul",37.5665,126.978),
+            new CreateDeliveryRequest.Location("Incheon",37.4563,126.7052)),"original-dispatch-key",order.getId());
+        when(orders.findForUpdateById(order.getId())).thenReturn(Optional.of(order));
+        when(deliveries.findByOrderId(order.getId())).thenReturn(Optional.of(delivery));
+
+        assertThrows(IllegalStateException.class,()->service.dispatch(order.getId(),new DispatchOrderRequest("TRUCK-1"),"new-dispatch-key","trace"));
+        verifyNoInteractions(deliveryService,outbox);
+    }
+
+    @Test void legacyDispatchedOrderClaimsItsFirstRequestKey(){
+        var order=CustomerOrder.create(request(),"order-key");order.dispatched();
+        var delivery=Delivery.create(new CreateDeliveryRequest(order.getOrderNumber(),"TRUCK-1",
+            new CreateDeliveryRequest.Location("Seoul",37.5665,126.978),
+            new CreateDeliveryRequest.Location("Incheon",37.4563,126.7052)),"legacy-delivery-key",order.getId());
+        when(orders.findForUpdateById(order.getId())).thenReturn(Optional.of(order));
+        when(deliveries.findByOrderId(order.getId())).thenReturn(Optional.of(delivery));
+
+        var result=service.dispatch(order.getId(),new DispatchOrderRequest("TRUCK-1"),"claimed-dispatch-key","trace");
+
+        assertEquals(delivery.getId(),result.deliveryId());
+        assertEquals("claimed-dispatch-key",order.getDispatchRequestKey());
+        verifyNoInteractions(deliveryService,outbox);
+    }
+
+    @Test void dispatchRequestKeyCannotBeReusedForAnotherOrder(){
+        var original=CustomerOrder.create(request(),"order-key");original.dispatched("dispatch-key");
+        when(orders.findByDispatchRequestKey("dispatch-key")).thenReturn(Optional.of(original));
+
+        assertThrows(IllegalStateException.class,()->service.dispatch(UUID.randomUUID(),new DispatchOrderRequest("TRUCK-1"),"dispatch-key","trace"));
+        verify(orders,never()).findForUpdateById(any());
+        verifyNoInteractions(deliveries,deliveryService,outbox);
     }
 
     @Test

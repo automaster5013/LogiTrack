@@ -67,11 +67,21 @@ public class OrderService {
     @Transactional
     public OrderSummary dispatch(UUID orderId, DispatchOrderRequest request, String idempotencyKey, String traceId) {
         InputLimits.required(idempotencyKey,"Idempotency-Key",160);
+        if(request==null)throw new IllegalArgumentException("vehicleId is required");InputLimits.required(request.vehicleId(),"vehicleId",80);
+        orders.lockDispatchRequestKey(idempotencyKey);
+        var prior=orders.findByDispatchRequestKey(idempotencyKey);
+        if(prior.isPresent()){
+            if(!prior.get().getId().equals(orderId))throw new IllegalStateException("Idempotency key was used with a different order dispatch");
+            var delivery=deliveries.findByOrderId(orderId).orElseThrow(()->new IllegalStateException("Dispatched order has no delivery"));
+            if(!delivery.getVehicleId().equals(request.vehicleId()))throw new IllegalStateException("Idempotency key was used with a different order dispatch");
+            return summary(prior.get(),delivery);
+        }
         var order=orders.findForUpdateById(orderId).orElseThrow(()->new NoSuchElementException("Order not found"));
         var existing=deliveries.findByOrderId(orderId);
-        if(request==null)throw new IllegalArgumentException("vehicleId is required");InputLimits.required(request.vehicleId(),"vehicleId",80);
         if(existing.isPresent()){
             if(!existing.get().getVehicleId().equals(request.vehicleId()))throw new IllegalStateException("Order was already dispatched to a different vehicle");
+            if(order.getDispatchRequestKey()!=null&&!order.getDispatchRequestKey().equals(idempotencyKey))throw new IllegalStateException("Order was already dispatched with a different idempotency key");
+            if(order.getDispatchRequestKey()==null)order.bindDispatchRequestKey(idempotencyKey);
             return summary(order,existing.get());
         }
         if(order.getStatus()!=CustomerOrder.Status.READY) throw new IllegalStateException("Order is not ready for dispatch");
@@ -79,7 +89,7 @@ public class OrderService {
             new CreateDeliveryRequest.Location(order.getOriginName(),order.getOriginLat(),order.getOriginLon()),
             new CreateDeliveryRequest.Location(order.getDestinationName(),order.getDestinationLat(),order.getDestinationLon()));
         var delivery=deliveryService.createForOrder(orderId,deliveryRequest,idempotencyKey,traceId);
-        order.dispatched();
+        order.dispatched(idempotencyKey);
         saveEvent(order,"order.dispatched.v1",traceId,Map.of("deliveryId",delivery.getId(),"vehicleId",delivery.getVehicleId(),"status",order.getStatus()));
         return summary(order,delivery);
     }

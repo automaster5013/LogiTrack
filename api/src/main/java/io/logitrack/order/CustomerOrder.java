@@ -17,6 +17,7 @@ public class CustomerOrder {
     @Column(name="destination_lat", nullable=false) private double destinationLat;
     @Column(name="destination_lon", nullable=false) private double destinationLon;
     @Column(name="idempotency_key", nullable=false, unique=true) private String idempotencyKey;
+    @Column(name="dispatch_request_key", length=160, unique=true) private String dispatchRequestKey;
     @Column(name="created_at", nullable=false) private Instant createdAt;
     @Column(name="updated_at", nullable=false) private Instant updatedAt;
 
@@ -40,9 +41,18 @@ public class CustomerOrder {
         return order;
     }
 
-    public void dispatched() {
+    public void dispatched() { dispatched(null); }
+
+    public void dispatched(String requestKey) {
         if (status != Status.READY) throw new IllegalStateException("Only ready orders can be dispatched");
         status = Status.DISPATCHED;
+        dispatchRequestKey = requestKey;
+        updatedAt = Instant.now();
+    }
+
+    public void bindDispatchRequestKey(String requestKey) {
+        if (status != Status.DISPATCHED || dispatchRequestKey != null) throw new IllegalStateException("Dispatch request key cannot be changed");
+        dispatchRequestKey = requestKey;
         updatedAt = Instant.now();
     }
 
@@ -57,6 +67,7 @@ public class CustomerOrder {
     public String getOriginName(){return originName;} public double getOriginLat(){return originLat;} public double getOriginLon(){return originLon;}
     public String getDestinationName(){return destinationName;} public double getDestinationLat(){return destinationLat;} public double getDestinationLon(){return destinationLon;}
     public Instant getCreatedAt(){return createdAt;} public Instant getUpdatedAt(){return updatedAt;}
+    @com.fasterxml.jackson.annotation.JsonIgnore public String getDispatchRequestKey(){return dispatchRequestKey;}
 
     public enum Status { READY, DISPATCHED, FULFILLED }
 }
