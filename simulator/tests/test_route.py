@@ -1,6 +1,7 @@
 import sys
 import unittest
 import uuid
+import json
 from unittest import mock
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -8,11 +9,59 @@ from tempfile import TemporaryDirectory
 sys.path.insert(0, str(Path(__file__).parents[1]))
 from logitrack_sim.route import Point, distance_km, interpolate, planned_eta, sample_route
 from logitrack_sim import main
-from logitrack_sim.main import ContiguousOffsetTracker, consumer_config, mark_healthy, pending_step_indexes, publish_telemetry, simulation_start_state, telemetry_event_id, validate_config
+from logitrack_sim.main import ContiguousOffsetTracker, InvalidDeliveryEvent, consumer_config, decode_delivery_event, mark_healthy, pending_step_indexes, publish_telemetry, simulation_start_state, telemetry_event_id, validate_config
 from datetime import datetime, timezone
 
 
 class RouteTest(unittest.TestCase):
+
+    def delivery_event(self):
+        return {
+            "eventId": "8c9bf7fe-25f0-4d08-9a88-69dd4f1ad051",
+            "eventType": "delivery.created.v1",
+            "traceId": "trace.safe-1",
+            "schemaVersion": 1,
+            "payload": {
+                "deliveryId": "7ae28b36-6178-42fa-a7ec-b4bed90867d1",
+                "vehicleId": "truck-1",
+                "origin": {"lat": 37.5, "lon": 126.9},
+                "destination": {"lat": 37.4, "lon": 127.1},
+                "route": [[126.9, 37.5], [127.1, 37.4]],
+                "plannedDurationSeconds": 900,
+            },
+        }
+
+    def test_decodes_and_normalizes_a_valid_delivery_event(self):
+        event = decode_delivery_event(json.dumps(self.delivery_event()))
+
+        self.assertEqual("truck-1", event["payload"]["vehicleId"])
+        self.assertEqual([[126.9, 37.5], [127.1, 37.4]], event["payload"]["route"])
+
+    def test_rejects_malformed_delivery_event_contracts(self):
+        cases = [
+            b"not-json",
+            json.dumps([]),
+            json.dumps({**self.delivery_event(), "eventType": "delivery.cancelled.v1"}),
+            json.dumps({**self.delivery_event(), "schemaVersion": True}),
+            json.dumps({**self.delivery_event(), "eventId": "not-a-uuid"}),
+            json.dumps({**self.delivery_event(), "traceId": "unsafe trace"}),
+        ]
+        for payload_change in (
+            {"deliveryId": "not-a-uuid"},
+            {"vehicleId": " "},
+            {"origin": {"lat": 91, "lon": 0}},
+            {"destination": {"lat": 0, "lon": float("inf")}},
+            {"route": [[126.9]]},
+            {"plannedDurationSeconds": 0},
+            {"plannedDurationSeconds": True},
+        ):
+            event = self.delivery_event()
+            event["payload"].update(payload_change)
+            cases.append(json.dumps(event))
+
+        for raw in cases:
+            with self.subTest(raw=raw), self.assertRaises(InvalidDeliveryEvent):
+                decode_delivery_event(raw)
 
     def test_telemetry_publish_requires_a_successful_delivery_report(self):
         producer = mock.Mock()

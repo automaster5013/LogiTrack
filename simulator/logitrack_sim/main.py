@@ -1,5 +1,7 @@
 import json
+import math
 import os
+import re
 import time
 import uuid
 from collections import deque
@@ -22,6 +24,89 @@ WORKERS = int(os.getenv("SIMULATION_MAX_WORKERS", "8"))
 RESUME_FROM_API = os.getenv("SIMULATION_RESUME_FROM_API", "true").lower()
 HEALTH_FILE = Path(os.getenv("SIMULATOR_HEALTH_FILE", "/tmp/logitrack-simulator-heartbeat"))
 DELIVERY_TIMEOUT_SECONDS = 5
+MAX_ROUTE_POINTS = 10_000
+SAFE_TRACE = re.compile(r"[A-Za-z0-9._:-]{1,128}")
+
+
+class InvalidDeliveryEvent(ValueError):
+    """A permanent delivery event contract violation that is safe to skip."""
+
+
+def _required_string(value: object, field: str, maximum: int) -> str:
+    if not isinstance(value, str) or not value.strip() or len(value) > maximum:
+        raise InvalidDeliveryEvent(f"{field} must be a non-blank string of at most {maximum} characters")
+    return value
+
+
+def _coordinate(value: object, field: str, minimum: float, maximum: float) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise InvalidDeliveryEvent(f"{field} must be a JSON number")
+    coordinate = float(value)
+    if not math.isfinite(coordinate) or not minimum <= coordinate <= maximum:
+        raise InvalidDeliveryEvent(f"{field} must be finite and between {minimum} and {maximum}")
+    return coordinate
+
+
+def _point(value: object, field: str) -> dict[str, float]:
+    if not isinstance(value, dict):
+        raise InvalidDeliveryEvent(f"{field} must be an object")
+    return {
+        "lat": _coordinate(value.get("lat"), f"{field}.lat", -90, 90),
+        "lon": _coordinate(value.get("lon"), f"{field}.lon", -180, 180),
+    }
+
+
+def decode_delivery_event(raw: bytes | str) -> dict:
+    """Decode and normalize the permanent delivery.created.v1 input contract."""
+    try:
+        event = json.loads(raw)
+    except (json.JSONDecodeError, UnicodeDecodeError, TypeError) as error:
+        raise InvalidDeliveryEvent(f"invalid JSON: {error}") from error
+    if not isinstance(event, dict):
+        raise InvalidDeliveryEvent("event must be an object")
+    if event.get("eventType") != "delivery.created.v1":
+        raise InvalidDeliveryEvent("eventType must be delivery.created.v1")
+    if event.get("schemaVersion") != 1 or isinstance(event.get("schemaVersion"), bool):
+        raise InvalidDeliveryEvent("schemaVersion must be 1")
+    try:
+        event["eventId"] = str(uuid.UUID(_required_string(event.get("eventId"), "eventId", 36)))
+    except ValueError as error:
+        raise InvalidDeliveryEvent("eventId must be a UUID") from error
+    trace_id = event.get("traceId")
+    if trace_id is not None and (not isinstance(trace_id, str) or SAFE_TRACE.fullmatch(trace_id) is None):
+        raise InvalidDeliveryEvent("traceId contains unsupported characters or length")
+
+    payload = event.get("payload")
+    if not isinstance(payload, dict):
+        raise InvalidDeliveryEvent("payload must be an object")
+    try:
+        payload["deliveryId"] = str(uuid.UUID(_required_string(payload.get("deliveryId"), "payload.deliveryId", 36)))
+    except ValueError as error:
+        raise InvalidDeliveryEvent("payload.deliveryId must be a UUID") from error
+    payload["vehicleId"] = _required_string(payload.get("vehicleId"), "payload.vehicleId", 80)
+    payload["origin"] = _point(payload.get("origin"), "payload.origin")
+    payload["destination"] = _point(payload.get("destination"), "payload.destination")
+
+    route = payload.get("route", [])
+    if not isinstance(route, list) or len(route) > MAX_ROUTE_POINTS:
+        raise InvalidDeliveryEvent(f"payload.route must be an array of at most {MAX_ROUTE_POINTS} points")
+    normalized_route = []
+    for index, coordinate in enumerate(route):
+        if not isinstance(coordinate, (list, tuple)) or len(coordinate) != 2:
+            raise InvalidDeliveryEvent(f"payload.route[{index}] must be a [longitude, latitude] pair")
+        normalized_route.append([
+            _coordinate(coordinate[0], f"payload.route[{index}][0]", -180, 180),
+            _coordinate(coordinate[1], f"payload.route[{index}][1]", -90, 90),
+        ])
+    payload["route"] = normalized_route
+
+    planned_duration = payload.get("plannedDurationSeconds")
+    if planned_duration is not None:
+        if isinstance(planned_duration, bool) or not isinstance(planned_duration, (int, float)):
+            raise InvalidDeliveryEvent("payload.plannedDurationSeconds must be a JSON number")
+        if not math.isfinite(float(planned_duration)) or planned_duration <= 0:
+            raise InvalidDeliveryEvent("payload.plannedDurationSeconds must be finite and positive")
+    return event
 
 
 def validate_config(interval: float, steps: int, workers: int) -> None:
@@ -220,8 +305,8 @@ def main() -> None:
                 print(f"Kafka error: {message.error()}", flush=True); continue
             offsets.register(message.topic(), message.partition(), message.offset())
             try:
-                event = json.loads(message.value())
-            except (json.JSONDecodeError, TypeError) as error:
+                event = decode_delivery_event(message.value())
+            except InvalidDeliveryEvent as error:
                 print(f"Invalid delivery event ignored: {error}", flush=True)
                 commit_completed(message)
                 continue
