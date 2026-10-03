@@ -7,7 +7,7 @@
 ## 결정
 
 - catalog consumer가 `vehicle.telemetry.dlq.v1`과 simulator의 `delivery.created.dlq.v1` 실패 레코드 및 원본 위치·예외 헤더를 PostgreSQL에 저장한다.
-- `(dlq_topic, dlq_partition, dlq_offset)`를 유일 키로 사용해 catalog 재수신을 멱등 처리한다.
+- `(dlq_topic, dlq_partition, dlq_offset)`를 유일 키로 사용해 같은 DLQ 레코드의 catalog 재수신을 멱등 처리한다. 원본 위치 헤더가 있는 레코드는 `(original_topic, original_partition, original_offset)`도 유일하게 유지해, DLQ 발행 뒤 source offset commit 전 재시작으로 서로 다른 DLQ offset에 재격리되어도 하나의 조사 항목만 만든다.
 - 운영자는 단일 `PENDING` 이벤트만 원본 topic으로 replay할 수 있다. 같은 catalog 항목의 중복 replay는 HTTP 409로 거절한다.
 - replay는 원본 payload와 event ID를 그대로 보존하며 `X-Operator`, 시각, 이벤트 ID를 별도 불변 감사 행으로 저장한다.
 - 영구 poison event가 다시 실패하면 새 DLQ offset의 새 항목으로 격리되며 자동 반복 replay하지 않는다.

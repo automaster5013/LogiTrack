@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 $expectedConstraints = @(
   "outbox_status_values", "outbox_attempts_nonnegative", "outbox_publication_state",
   "warehouse_task_type_status", "inventory_delta_shape", "delivery_alert_resolution_state",
-  "dead_letter_status_values", "dead_letter_terminal_state", "replay_audit_action_values", "replay_audit_reason_state",
+  "dead_letter_status_values", "dead_letter_terminal_state", "dead_letter_original_position_complete", "replay_audit_action_values", "replay_audit_reason_state",
   "replay_plan_execution_state", "deliveries_status_values", "deliveries_completion_state",
   "orders_origin_lat_range", "orders_origin_lon_range", "orders_destination_lat_range", "orders_destination_lon_range",
   "orders_required_text_nonblank", "orders_timestamp_order"
@@ -17,6 +17,16 @@ $cascade = (docker compose exec -T postgres psql -U logitrack -d logitrack -tAc 
 if ($cascade -ne "c") { throw "Outbox retry audit FK must cascade with retained parent deletion" }
 $replayCascade = (docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT confdeltype FROM pg_constraint WHERE conname='replay_audits_dead_letter_event_id_fkey'").Trim()
 if ($replayCascade -ne "c") { throw "Replay audit FK must cascade with retained parent deletion" }
+$sourcePositionIndex = (docker compose exec -T postgres psql -U logitrack -d logitrack -tAc "SELECT indexdef FROM pg_indexes WHERE schemaname='public' AND indexname='uq_dead_letter_original_position'").Trim()
+if ($sourcePositionIndex -notmatch "UNIQUE" -or $sourcePositionIndex -notmatch "original_topic, original_partition, original_offset") { throw "DLQ source-position uniqueness index is missing or malformed: $sourcePositionIndex" }
+$invalidDlqId = [guid]::NewGuid().ToString()
+$invalidDlqOffset = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+& docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U logitrack -d logitrack -c "INSERT INTO dead_letter_events(id,original_topic,original_partition,message_key,payload,dlq_topic,dlq_partition,dlq_offset,status,failed_at) VALUES ('$invalidDlqId','integrity-smoke.v1',0,'invalid-source-position','{}','integrity-smoke.dlq.v1',0,$invalidDlqOffset,'PENDING',now())" 2>$null | Out-Null
+if ($LASTEXITCODE -eq 0) { throw "Incomplete DLQ source position unexpectedly passed DB constraints" }
+$duplicateDlqId1 = [guid]::NewGuid().ToString()
+$duplicateDlqId2 = [guid]::NewGuid().ToString()
+& docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U logitrack -d logitrack -c "BEGIN; INSERT INTO dead_letter_events(id,original_topic,original_partition,original_offset,message_key,payload,dlq_topic,dlq_partition,dlq_offset,status,failed_at) VALUES ('$duplicateDlqId1','integrity-smoke.v1',0,$invalidDlqOffset,'duplicate-source-position','{}','integrity-smoke.dlq.v1',0,$invalidDlqOffset,'PENDING',now()); INSERT INTO dead_letter_events(id,original_topic,original_partition,original_offset,message_key,payload,dlq_topic,dlq_partition,dlq_offset,status,failed_at) VALUES ('$duplicateDlqId2','integrity-smoke.v1',0,$invalidDlqOffset,'duplicate-source-position','{}','integrity-smoke.dlq.v1',0,$($invalidDlqOffset + 1),'PENDING',now()); COMMIT;" 2>$null | Out-Null
+if ($LASTEXITCODE -eq 0) { throw "Duplicate DLQ source position unexpectedly passed the unique index" }
 
 $invalidId = [guid]::NewGuid().ToString()
 & docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U logitrack -d logitrack -c "INSERT INTO outbox_events(id,aggregate_type,aggregate_id,event_type,topic,event_key,payload,status,attempts,created_at,next_attempt_at) VALUES ('$invalidId','SMOKE','$invalidId','smoke.v1','smoke.v1','key','{}','PENDING',-1,now(),now())" 2>$null | Out-Null

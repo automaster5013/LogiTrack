@@ -9,6 +9,8 @@ import java.util.UUID;
 public class DeadLetterEvent {
     @Id private UUID id;
     @Column(name="original_topic", nullable=false) private String originalTopic;
+    @Column(name="original_partition") private Integer originalPartition;
+    @Column(name="original_offset") private Long originalOffset;
     @Column(name="message_key") private String messageKey;
     @Column(nullable=false, columnDefinition="text") private String payload;
     @Column(name="trace_id") private String traceId;
@@ -28,7 +30,14 @@ public class DeadLetterEvent {
 
     public DeadLetterEvent(String originalTopic, String messageKey, String payload, String traceId,
                            String exceptionMessage, String dlqTopic, int dlqPartition, long dlqOffset) {
+        this(originalTopic,null,null,messageKey,payload,traceId,exceptionMessage,dlqTopic,dlqPartition,dlqOffset);
+    }
+
+    public DeadLetterEvent(String originalTopic, Integer originalPartition, Long originalOffset,
+                           String messageKey, String payload, String traceId, String exceptionMessage,
+                           String dlqTopic, int dlqPartition, long dlqOffset) {
         this.id = UUID.randomUUID(); this.originalTopic = originalTopic; this.messageKey = messageKey;
+        this.originalPartition = originalPartition; this.originalOffset = originalOffset;
         this.payload = payload; this.traceId = traceId; this.exceptionMessage = exceptionMessage;
         this.dlqTopic = dlqTopic; this.dlqPartition = dlqPartition; this.dlqOffset = dlqOffset;
         this.status = Status.PENDING; this.failedAt = Instant.now();
@@ -44,7 +53,7 @@ public class DeadLetterEvent {
         status = Status.DISCARDED; discardedAt = Instant.now(); discardedBy = actor; discardReason = reason;
     }
 
-    public UUID getId(){return id;} public String getOriginalTopic(){return originalTopic;} public String getMessageKey(){return messageKey;}
+    public UUID getId(){return id;} public String getOriginalTopic(){return originalTopic;} public Integer getOriginalPartition(){return originalPartition;} public Long getOriginalOffset(){return originalOffset;} public String getMessageKey(){return messageKey;}
     public String getPayload(){return payload;} public String getTraceId(){return traceId;} public String getExceptionMessage(){return exceptionMessage;}
     public String getDlqTopic(){return dlqTopic;} public int getDlqPartition(){return dlqPartition;} public long getDlqOffset(){return dlqOffset;}
     public Status getStatus(){return status;} public Instant getFailedAt(){return failedAt;} public Instant getReplayedAt(){return replayedAt;} public String getReplayedBy(){return replayedBy;}

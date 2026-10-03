@@ -206,7 +206,7 @@ API, analytics, simulator, web, OpenTelemetry Collector는 Linux capability를 �
 - 목록: 호환용 최신 100건은 `GET /api/operations/dlq?status=PENDING`, 전체 backlog 탐색은 `GET /api/operations/dlq-page?status=PENDING&page=0&size=100`을 사용한다. page는 0 이상, size는 1~100이며 응답의 `totalElements`와 `hasMore`로 다음 페이지를 판단한다. Control Tower는 최신 100건을 먼저 표시하고 필요할 때 오래된 페이지를 추가 로드한다. `./scripts/dlq-pagination-smoke.ps1`는 PENDING 행을 변경하지 않고 모든 페이지의 중복·누락 여부를 DB count와 대조한다.
 - 단일 replay/discard: `POST /api/operations/dlq/{id}/replay|discard`와 필수 `X-Operator`, `Idempotency-Key` 헤더
 - 감사: `GET /api/operations/replay-audits`
-- 동일 catalog 항목은 한 번만 replay할 수 있다. 영구 오류가 다시 DLQ로 가면 새 항목으로 조사한다.
+- 동일 catalog 항목은 한 번만 replay할 수 있다. source topic·partition·offset 헤더가 있는 격리 레코드는 원본 위치 기준으로도 중복 수집하지 않으며 DB 부분 유일 인덱스가 동시 수집을 방어한다. 과거/headerless 레코드는 기존 DLQ topic·partition·offset 멱등성을 유지한다. 운영자가 replay한 영구 오류는 원본 Kafka 위치가 아닌 새 발행 레코드이므로 새 항목으로 조사한다.
 
 ### 선택 범위 replay
 

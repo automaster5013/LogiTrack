@@ -10,6 +10,7 @@ runtime_smoke = Path("scripts/data-integrity-smoke.ps1").read_text(encoding="utf
 required = (
     "dead_letter_status_values",
     "dead_letter_terminal_state",
+    "dead_letter_original_position_complete",
     "replay_audit_action_values",
     "replay_audit_reason_state",
 )
@@ -24,5 +25,7 @@ if missing_migrations or missing_runtime:
     )
 if '"dead_letter_replay_state"' in runtime_smoke:
     raise SystemExit("ERROR: runtime integrity smoke still expects the pre-discard DLQ constraint")
+if "uq_dead_letter_original_position" not in migrations:
+    raise SystemExit("ERROR: DLQ source-position uniqueness index is missing from migrations")
 
 print("PASS: runtime DB integrity smoke tracks replay, discard, and replay-audit migration constraints")
