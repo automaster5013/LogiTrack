@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from queue import Empty, Queue
-from threading import BoundedSemaphore
+from threading import BoundedSemaphore, Event
 from urllib.request import urlopen
 
 from confluent_kafka import Consumer, Producer, TopicPartition
@@ -21,6 +21,7 @@ STEPS = int(os.getenv("SIMULATION_STEPS", "20"))
 WORKERS = int(os.getenv("SIMULATION_MAX_WORKERS", "8"))
 RESUME_FROM_API = os.getenv("SIMULATION_RESUME_FROM_API", "true").lower()
 HEALTH_FILE = Path(os.getenv("SIMULATOR_HEALTH_FILE", "/tmp/logitrack-simulator-heartbeat"))
+DELIVERY_TIMEOUT_SECONDS = 5
 
 
 def validate_config(interval: float, steps: int, workers: int) -> None:
@@ -100,6 +101,40 @@ def telemetry_event_id(delivery_event_id: str, step_index: int) -> str:
     return str(uuid.uuid5(uuid.UUID(delivery_event_id), f"vehicle.telemetry.v1:{step_index}"))
 
 
+def publish_telemetry(
+    producer: Producer,
+    delivery_id: str,
+    telemetry: dict,
+    timeout_seconds: float = DELIVERY_TIMEOUT_SECONDS,
+) -> None:
+    delivery_reports: list[object | None] = []
+    report_received = Event()
+
+    def delivered(error, _message) -> None:
+        delivery_reports.append(error)
+        report_received.set()
+
+    producer.produce(
+        "vehicle.telemetry.v1",
+        key=delivery_id,
+        value=json.dumps(telemetry),
+        on_delivery=delivered,
+    )
+    deadline = time.monotonic() + timeout_seconds
+    while not report_received.is_set():
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            producer.poll(0)
+            if not report_received.is_set():
+                raise RuntimeError("Kafka telemetry delivery report timed out")
+            break
+        producer.poll(min(0.1, remaining))
+    if len(delivery_reports) != 1:
+        raise RuntimeError("Kafka telemetry delivery report count was invalid")
+    if delivery_reports[0] is not None:
+        raise RuntimeError(f"Kafka telemetry delivery failed: {delivery_reports[0]}")
+
+
 def load_delivery_state(delivery_id: str, api_url: str = API_URL) -> tuple[float, str]:
     with urlopen(f"{api_url}/api/deliveries/{delivery_id}", timeout=5) as response:
         delivery = json.load(response)
@@ -133,14 +168,17 @@ def simulate(producer: Producer, event: dict) -> None:
                         "status": status, "eta": None if status == "DELIVERED" else
                         (planned_eta(planned_duration, progress) if planned_duration else eta(point, destination))}
         }
-        producer.produce("vehicle.telemetry.v1", key=payload["deliveryId"], value=json.dumps(telemetry))
-        producer.flush(5)
+        publish_telemetry(producer, payload["deliveryId"], telemetry)
         time.sleep(INTERVAL)
 
 
 def main() -> None:
     consumer = Consumer(consumer_config())
-    producer = Producer({"bootstrap.servers": BOOTSTRAP, "enable.idempotence": True})
+    producer = Producer({
+        "bootstrap.servers": BOOTSTRAP,
+        "enable.idempotence": True,
+        "delivery.timeout.ms": DELIVERY_TIMEOUT_SECONDS * 1000,
+    })
     consumer.subscribe(["delivery.created.v1"])
     executor = ThreadPoolExecutor(max_workers=WORKERS, thread_name_prefix="delivery-sim")
     slots = BoundedSemaphore(WORKERS * 2)
