@@ -8,11 +8,47 @@ from tempfile import TemporaryDirectory
 sys.path.insert(0, str(Path(__file__).parents[1]))
 from logitrack_sim.route import Point, distance_km, interpolate, planned_eta, sample_route
 from logitrack_sim import main
-from logitrack_sim.main import mark_healthy, pending_step_indexes, simulation_start_state, telemetry_event_id, validate_config
+from logitrack_sim.main import ContiguousOffsetTracker, consumer_config, mark_healthy, pending_step_indexes, simulation_start_state, telemetry_event_id, validate_config
 from datetime import datetime, timezone
 
 
 class RouteTest(unittest.TestCase):
+
+    def test_consumer_disables_automatic_commits_and_allows_a_full_simulation_between_polls(self):
+        original_interval, original_steps = main.INTERVAL, main.STEPS
+        try:
+            main.INTERVAL, main.STEPS = 60, 60
+            config = consumer_config()
+            self.assertIs(False, config["enable.auto.commit"])
+            self.assertEqual(3_900_000, config["max.poll.interval.ms"])
+        finally:
+            main.INTERVAL, main.STEPS = original_interval, original_steps
+
+    def test_offsets_advance_only_across_contiguous_completed_simulations(self):
+        tracker = ContiguousOffsetTracker()
+        for offset in (10, 11, 14):
+            tracker.register("delivery.created.v1", 2, offset)
+
+        self.assertIsNone(tracker.complete("delivery.created.v1", 2, 11))
+        committed = tracker.complete("delivery.created.v1", 2, 10)
+        self.assertEqual(("delivery.created.v1", 2, 12), (committed.topic, committed.partition, committed.offset))
+        committed = tracker.complete("delivery.created.v1", 2, 14)
+        self.assertEqual(15, committed.offset)
+
+    def test_offset_tracking_is_independent_per_partition(self):
+        tracker = ContiguousOffsetTracker()
+        tracker.register("delivery.created.v1", 0, 4)
+        tracker.register("delivery.created.v1", 1, 9)
+        self.assertEqual(10, tracker.complete("delivery.created.v1", 1, 9).offset)
+        self.assertEqual(5, tracker.complete("delivery.created.v1", 0, 4).offset)
+
+    def test_offset_tracker_rejects_duplicate_or_unknown_transitions(self):
+        tracker = ContiguousOffsetTracker()
+        tracker.register("delivery.created.v1", 0, 1)
+        with self.assertRaises(ValueError):
+            tracker.register("delivery.created.v1", 0, 1)
+        with self.assertRaises(ValueError):
+            tracker.complete("delivery.created.v1", 0, 2)
 
     def test_telemetry_event_ids_are_stable_per_delivery_event_step(self):
         delivery_event_id = "8c9bf7fe-25f0-4d08-9a88-69dd4f1ad051"
