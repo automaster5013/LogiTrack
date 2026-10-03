@@ -5,134 +5,160 @@
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14964/badge)](https://www.bestpractices.dev/projects/14964)
 [![Live demo](https://img.shields.io/badge/live-logitrack.kr-16a34a)](https://www.logitrack.kr)
 
-실제 GPS 장비 없이 주문·창고·배송 차량의 상태 변화를 재현하고 실시간으로 관제하는 이벤트 기반 물류 운영 플랫폼입니다.
+> 주문 접수부터 창고, 배차, 실시간 GPS 관제, 이상 감지와 장애 복구까지 하나의 흐름으로 재현하는 이벤트 기반 물류 Control Tower입니다.
 
-**[라이브 데모](https://www.logitrack.kr)** · **[10분 데모 시나리오](docs/demo.md)** · **[아키텍처](docs/architecture.md)** · **[운영 가이드](docs/operations.md)**
+**[라이브 쇼케이스](https://www.logitrack.kr)** · **[10분 데모 시나리오](docs/demo.md)** · **[아키텍처 상세](docs/architecture.md)** · **[운영 설계](docs/operations.md)**
 
-LogiTrack is an event-driven logistics control tower that simulates order, warehouse, and fleet operations without dedicated GPS hardware.
+LogiTrack is a production-minded logistics control tower built with Spring Boot, Kafka, Python, Next.js, and PostgreSQL. It runs a complete, observable delivery workflow without dedicated GPS hardware.
+
+## 30초 요약
+
+| 보여주는 역량 | 구현 내용 |
+| --- | --- |
+| 제품 흐름 | 주문 → 배차 → 경로/ETA → GPS 이동 → 경고 → 배송 완료 |
+| 분산 시스템 신뢰성 | Transactional outbox, at-least-once Kafka, 멱등 consumer, DLQ replay와 감사 |
+| 실시간 운영 UX | MapLibre 지도, 계획/실제 경로, SSE 갱신, 검색·필터·고밀도 반응형 화면 |
+| 운영 가능성 | OpenTelemetry trace, Prometheus 경보, Grafana, 백업/복원과 장애 복구 runbook |
+| 전달 품질 | 자동 테스트, 80% coverage gate, SBOM, 취약점 검사, immutable image와 AWS staging |
+
+이 프로젝트의 핵심은 화면 수가 아니라 **실패해도 유실·중복·무한 재시도 없이 복구할 수 있는 업무 흐름**입니다. 생성 명령과 이벤트를 같은 PostgreSQL 트랜잭션에 기록하고, 재전달은 event ID와 요청 키로 흡수하며, 사람이 개입해야 하는 실패는 운영자·승인·감사를 남기는 복구 절차로 전환합니다.
 
 ## 화면 미리보기
 
 ![주문부터 창고, 배차, 실시간 운송, 이상 감지와 복구까지 하나의 흐름으로 소개하는 LogiTrack 프로젝트 화면](docs/images/project-overview.png)
 
-*프로젝트 소개 화면 — 최신 `main` 로컬 Docker Compose 환경, 1440×900 데스크톱 뷰포트.*
+*프로젝트 쇼케이스 — 문제, 시스템 경계와 핵심 운영 흐름을 한 화면에 설명합니다.*
 
 ![15대 실시간 차량과 선택 차량의 진행률, 최근 위치, 계획 및 실제 경로를 표시하는 LogiTrack 운영 상황판](docs/images/operator-console-active-delivery.jpg)
 
-*운영 상황판 — 최신 `main`의 자동 보충 데모 차량 15대, 상태 command center, 높이 최적화 지도와 접이식 범례를 표시한 로컬 Docker Compose 환경, 1440×900 데스크톱 뷰포트. 지도는 대형 화면의 남은 높이를 채우며 접근 가능한 확대 보기와 키보드 포커스 복귀를 지원합니다.*
+*운영 상황판 — 자동 보충되는 15대 차량, 상태 command center, 계획·실제 경로와 접근 가능한 확대 지도를 표시합니다.*
 
-## 핵심 기능
+## 데모 접근
 
-- **실시간 배송 관제** — MapLibre 지도, GPS 궤적, ETA, SSE 기반 차량·경고 업데이트
-- **신뢰할 수 있는 이벤트 처리** — transactional outbox, Kafka, 멱등 consumer, 재시도와 DLQ 복구
-- **창고 운영** — 입고·피킹·출고 workflow, 재고 원장, 동시성 제어와 감사 이력
-- **운영 가시성** — OpenTelemetry, Tempo, Prometheus, Alertmanager, Grafana, 일별 KPI와 CSV/PDF 보고서
-- **배포와 공급망 보안** — GitHub Actions, Docker Hub provenance, AWS OIDC, digest 고정 배포와 자동 rollback
+| 목적 | 경로 | 안내 |
+| --- | --- | --- |
+| 프로젝트 빠르게 보기 | [공개 쇼케이스](https://www.logitrack.kr/showcase) | 로그인 없이 가치, 시스템 구성과 처리 흐름 확인 |
+| 인증 UX 확인 | [운영자 로그인](https://www.logitrack.kr/login) | Passkey/WebAuthn과 교차 기기 QR 로그인 화면 |
+| 전체 기능 직접 체험 | [로컬 실행](#5분-로컬-실행) | 인증 없이 주문·창고·관제·복구 기능 사용 |
+| 발표 순서 따라가기 | [10분 데모 시나리오](docs/demo.md) | 기능과 기술적 의도를 함께 설명하는 walkthrough |
 
-## 아키텍처 한눈에 보기
+공개 AWS 환경의 운영 콘솔은 실제 운영 경계와 동일하게 인증으로 보호됩니다. 평가자가 모든 command를 직접 실행하려면 로컬 데모를 사용하면 됩니다. 공개 환경은 비용 최적화된 단일 호스트 **staging**이며 production 가용성을 주장하지 않습니다.
 
-```text
-Next.js console <── SSE/REST ──> Spring Boot API ──> PostgreSQL + Redis
-                                      │
-                               transactional outbox
-                                      │
-                                      v
-                                   Kafka ──> Python simulator
-                                      │              │
-                                      └── telemetry ─┘
-                                      │
-                                      └──> Python analytics (route, ETA, PDF)
+## 대표 시나리오
+
+1. 주문을 만들고 차량을 배차하면 주문·배송 aggregate와 outbox event가 한 트랜잭션으로 저장됩니다.
+2. Python analytics가 도로 경로와 ETA snapshot을 만들고 simulator가 결정론적 GPS event를 Kafka로 발행합니다.
+3. Spring Boot consumer가 위치·진행률을 멱등 반영하고 Redis Pub/Sub과 SSE로 모든 API 인스턴스와 브라우저에 전달합니다.
+4. 지연이나 경로 이탈은 hysteresis 기반 경고가 되어 운영자가 확인하고, 모든 변경은 감사 이력으로 남습니다.
+5. 영구 오류는 DLQ catalog로 격리됩니다. 운영자는 dry-run과 명시적 승인 후 replay 또는 discard하며 중복 실행은 차단됩니다.
+
+창고 시나리오에서는 입고 → 피킹 → 출고를 수행하면서 가용·예약 재고와 불변 원장을 확인할 수 있습니다. KPI 화면은 일별 cohort, 정시율과 cycle time을 제공하고 CSV/PDF로 내보냅니다.
+
+## 아키텍처
+
+```mermaid
+flowchart LR
+    Operator[Operator / Browser] <-->|REST + SSE| Web[Next.js Console]
+    Web <-->|BFF / JWT| API[Spring Boot API]
+    API <-->|source of truth| DB[(PostgreSQL)]
+    API <-->|fan-out / fallback| Redis[(Redis)]
+    API -->|transactional outbox| Kafka[(Kafka)]
+    Kafka -->|delivery.created| Simulator[Python GPS Simulator]
+    Simulator -->|vehicle.telemetry| Kafka
+    Kafka -->|at-least-once| API
+    API <-->|route · ETA · PDF| Analytics[Python Analytics]
+    API --> OTel[OpenTelemetry]
+    OTel --> Tempo[Tempo]
+    API --> Prometheus[Prometheus / Alertmanager]
+    Prometheus --> Grafana[Grafana]
 ```
+
+### 실패 경계를 설계한 방식
+
+| 위험 | 방어 |
+| --- | --- |
+| DB commit 후 event 유실 | 동일 transaction의 outbox와 bounded publisher retry |
+| Kafka 재전달 | `processed_events`와 결정론적 event ID |
+| 동일 command 재시도 | payload에 결속된 `Idempotency-Key`와 advisory/pessimistic lock |
+| poison event 재시작 loop | 계약 검증 후 DLQ 격리, source 위치 기반 catalog 중복 방지 |
+| Redis·route provider 장애 | local SSE 및 deterministic geodesic fallback |
+| 운영자 중복 조치 | dry-run plan, 만료 승인, 단방향 상태 전이와 불변 감사 |
+| 잘못된 배포 | commit SHA/digest 고정 image, provenance 검증과 자동 rollback |
+
+서비스 경계, event envelope, 데이터 모델과 확장 전략은 [아키텍처 문서](docs/architecture.md)에 정리되어 있습니다.
+
+## 기술 스택
 
 | 영역 | 기술 |
 | --- | --- |
-| Web | Next.js, TypeScript, MapLibre |
-| API | Java, Spring Boot, PostgreSQL, Redis |
-| Events & analytics | Kafka, Python, OSRM-compatible routing |
+| Web | Next.js, TypeScript, MapLibre, Playwright |
+| API | Java 21, Spring Boot, JPA, Flyway |
+| Data & messaging | PostgreSQL, Redis, Apache Kafka |
+| Analytics | Python, FastAPI, OSRM-compatible routing, ReportLab |
 | Observability | OpenTelemetry, Tempo, Prometheus, Alertmanager, Grafana |
-| Delivery | Docker Compose, GitHub Actions, Docker Hub, Terraform, AWS |
+| Delivery | Docker Compose, GitHub Actions, Terraform, AWS, Docker Hub |
 
-## 주문부터 배송 완료까지
+## 5분 로컬 실행
 
-1. API나 TypeScript 운영 콘솔에서 고객 주문을 `READY` 상태로 생성합니다.
-2. 배차 시 독립된 배송 aggregate를 주문에 연결하고 `order.dispatched.v1`과 `delivery.created.v1`을 transactional outbox로 발행합니다.
-3. Python 경로 분석 서비스가 도로망 경로와 ETA 스냅샷을 만들고, 시뮬레이터가 경로상의 GPS 점을 `vehicle.telemetry.v1`로 발행합니다.
-4. Spring Boot가 최신 위치와 배송 상태를 저장하고 SSE로 브라우저에 전송합니다. 배송 완료 시 연결 주문도 `FULFILLED`로 전환합니다.
-5. Next.js 콘솔에서 주문, 배송, 경로, 경고와 KPI를 함께 확인합니다.
+요구 사항은 Docker Desktop과 Docker Compose v2입니다.
 
-## 빠른 시작
-
-요구 사항: Docker Desktop + Docker Compose v2
-
-```bash
+```powershell
 pwsh ./scripts/init-env.ps1
-docker compose up --build
+docker compose up -d --build --wait
 ```
 
-`init-env.ps1`는 Git에서 제외된 `.env`에 PostgreSQL과 Grafana용 독립 난수 비밀번호를 생성하며 기존 파일은 덮어쓰지 않습니다. 영속 데이터를 유지한 자격 증명 회전은 실행 중인 스택에서 `./scripts/rotate-local-secrets.ps1`를 사용합니다. 두 비밀번호가 비어 있으면 Compose는 시작 전에 실패합니다. PostgreSQL 데이터베이스명과 사용자는 `.env`의 `POSTGRES_DB`, `POSTGRES_USER`로 변경할 수 있으며 API와 복제 인스턴스, 데이터베이스 healthcheck에 동일하게 적용됩니다.
-웹과 관측성 서비스는 HTTP 응답으로, simulator는 Kafka 소비 루프 heartbeat로 준비 상태를 판정하므로 `docker compose up --wait`가 모든 장기 실행 서비스의 실제 동작 가능 상태까지 기다립니다.
+`init-env.ps1`는 Git에서 제외된 `.env`에 PostgreSQL과 Grafana용 독립 난수 비밀번호를 만들며 기존 파일은 덮어쓰지 않습니다.
 
-- 프로젝트 쇼케이스: http://localhost:3000/
+- 쇼케이스: http://localhost:3000/
 - 운영 콘솔: http://localhost:3000/console
-- API health: http://localhost:8080/actuator/health
-- 경로 분석 health: http://localhost:8090/health
-- Prometheus: http://localhost:9090
-- Alertmanager: http://localhost:9093 (경보 그룹·억제·silence lifecycle)
+- API readiness: http://localhost:8080/actuator/health/readiness
 - Grafana: http://localhost:3001 (`admin` / `.env`의 `GRAFANA_ADMIN_PASSWORD`)
-- Tempo API: http://localhost:3200 (`Grafana → Explore → Tempo`에서 trace 조회)
-- OpenTelemetry Collector health: http://localhost:13133
+- Prometheus: http://localhost:9090
+- Alertmanager: http://localhost:9093
 
-Compose가 공개하는 모든 개발용 포트는 호스트의 `127.0.0.1`에만 바인딩되므로 같은 네트워크의 다른 장치에서는 접근할 수 없습니다. 로컬 기본값은 `SECURITY_ENABLED=false`이지만 CORS에 loopback 이외 origin이 하나라도 있으면 API가 시작을 거부합니다. 외부 배포는 `SECURITY_ENABLED=true`와 `SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI`를 설정하고 TLS ingress를 사용하세요.
-컨테이너 간 통신도 `edge`, `data`, `analytics-egress`, `observability` 영역으로 분리됩니다. 웹은 API에만, 데이터 서비스는 필요한 API·simulator에만 연결되며 analytics와 관측성 구성 요소도 별도 영역에서 필요한 상대만 탐색할 수 있습니다. 개발용 host port를 유지하면서 불필요한 컨테이너 간 DNS·직접 연결 경로를 제거합니다.
-Kafka JVM heap은 256~512 MiB로 고정해 1 GiB 컨테이너 상한 안에 native memory와 page cache 여유를 남깁니다. 기본·성능 Compose 검증과 runtime smoke가 이 간격을 회귀 검사합니다.
+스택은 15대의 움직이는 데모 차량을 자동 유지합니다. 새 배송은 콘솔의 `+ SIMULATE DELIVERY`로 만들 수 있으며, 종료해도 named volume의 업무 데이터와 관측 이력은 유지됩니다.
 
-PostgreSQL 논리 백업은 `./scripts/postgres-backup.ps1`로 충돌 없는 이름의 dump와 SHA-256 sidecar를 만들고, `./scripts/postgres-restore.ps1 -BackupPath <dump> -TargetDatabase logitrack_restore -Force`로 무결성을 확인한 뒤 격리된 데이터베이스에 복원합니다. 복구 내용은 고유 staging DB에 먼저 완전히 적재되므로 검증·restore 실패가 기존 대상 DB를 훼손하지 않습니다. checksum이 없는 신뢰 가능한 기존 dump만 명시적 `-AllowUnverified`로 복원할 수 있습니다. `./scripts/postgres-backup-restore-smoke.ps1`는 연속 백업 경로의 고유성, 1바이트 변조 거부, 실패 시 기존 대상 보존·staging 정리, 스키마·sentinel 왕복 복원을 검증합니다.
-
-샘플 주문 생성과 배차:
-
-```bash
-curl -X POST http://localhost:8080/api/orders \
-  -H "Content-Type: application/json" \
-  -H "Idempotency-Key: demo-001" \
-  -d '{"orderNumber":"ORD-1001","origin":{"name":"Seoul Hub","lat":37.5665,"lon":126.9780},"destination":{"name":"Incheon DC","lat":37.4563,"lon":126.7052}}'
-
-curl -X POST http://localhost:8080/api/orders/{orderId}/dispatch \
-  -H "Content-Type: application/json" \
-  -H "Idempotency-Key: dispatch-001" \
-  -d '{"vehicleId":"TRUCK-01"}'
+```powershell
+docker compose down
 ```
 
-주문 조회: `GET /api/orders`, 전체 주문 페이지 조회: `GET /api/orders/page?page=0&size=100`, 배송 목록·단건 조회: `GET /api/deliveries`, `GET /api/deliveries/{id}`, 전체 배송 페이지 조회: `GET /api/deliveries/page?page=0&size=100`, 전체 경고 페이지 조회: `GET /api/alerts/page?page=0&size=100`, 실시간 스트림: `GET /api/stream/deliveries`. 기존 목록과 범위 없는 경로 조회는 최신 200건이 기본이며 `limit=1..500`으로 조정합니다. 주문·배송·경고 페이지는 각각 `totalElements`와 `hasMore`를 제공하며 `page`는 0 이상, `size`는 1~500입니다. 기존 `POST /api/deliveries`는 호환성을 위해 유지하지만 신규 운영 흐름은 주문 생성 후 배차를 사용합니다.
+전체 설치·백업·자격 증명·포트 설명은 [English quick start](docs/quickstart.en.md)와 [운영 가이드](docs/operations.md)를 참고하세요.
 
-경로 스냅샷 조회는 `GET /api/routes`입니다. 개발 환경은 OSRM 호환 endpoint를 사용하며 2.5초 안에 응답하지 않거나 오류가 발생하면 로컬 geodesic 계산으로 자동 전환합니다. 공개 demo는 개발용이므로 운영에서는 `.env`의 `OSRM_BASE_URL`을 자체 호스팅 또는 계약된 공급자로 교체하세요. 완전한 오프라인 실행은 `ROUTING_PROVIDER=geodesic`으로 설정합니다.
+## 저장소 구조
 
-운영 콘솔은 MapLibre 기반 벡터 지도에서 계획 경로, PostgreSQL에 저장된 실제 GPS 주행 궤적, 차량 상태와 ETA를 실시간으로 표시합니다. 공통 command center는 실시간 운행·확인 필요·평균 진행률과 대표 작업을 첫 화면에 배치하고, 지도는 화면 높이에 맞춰 남은 공간을 사용합니다. 지도와 telemetry 목록은 최근 위치를 수신한 운행 차량을 보여주는 `LIVE` 범위를 기본으로 사용하며 진행 중 전체·확인 필요·위치 지연·`ALL` 범위로 전환할 수 있습니다. 즉시 검색으로 차량·주문·출발지·도착지를 좁히면 지도와 목록이 함께 갱신되고, 선택 차량은 계획·실제 경로와 거점까지 고대비로 강조됩니다. 접이식 범례와 전체 차량 맞춤, 키보드 포커스를 가두고 `Esc` 종료 후 원래 조작으로 복귀하는 접근 가능한 확대 보기를 제공합니다. 기본 OpenFreeMap 스타일은 별도 API key 없이 동작하며, 운영용 지도 공급자는 `.env`의 `NEXT_PUBLIC_MAP_STYLE_URL`로 교체할 수 있습니다.
+```text
+api/          Spring Boot command/query, event consumer, recovery API
+web/          Next.js showcase와 운영 콘솔
+simulator/    Kafka 기반 GPS·배송 상태 생성기
+analytics/    경로·ETA 분석과 KPI PDF renderer
+infra/        관측성 및 AWS/Terraform 구성
+scripts/      재현 가능한 계약·통합·장애·부하 smoke
+docs/         아키텍처, ADR, 운영 및 전환 문서
+```
+
+## 범위와 정직한 한계
+
+- 공개 환경은 포트폴리오 검증용 staging입니다. production용 다중 AZ 데이터·컴퓨트·edge Terraform과 안전한 cutover gate는 구현했지만 비용과 승인 없이 적용하지 않습니다.
+- 기본 공개 지도와 route provider는 개발·시연용입니다. 실제 상용 트래픽에는 계약된 SLA 공급자 또는 자체 호스팅이 필요합니다.
+- synthetic 배송과 GPS를 사용하므로 실제 운송사·ERP·WMS 계약 연동은 프로젝트 범위 밖입니다.
+
+이 구분을 통해 “작동하는 데모”와 “실제 production 전환에 필요한 책임”을 섞지 않습니다.
 
 ## 문서
 
-- [English quick start](docs/quickstart.en.md)
-- [요구사항과 성공 기준](docs/requirements.md)
-- [9주 실행 로드맵](docs/roadmap.md)
-- [아키텍처 및 데이터 모델](docs/architecture.md)
-- [운영자 QR·패스키 인증 설계](docs/qr-passkey-authentication.md)
-- [기술 선택 ADR](docs/adr/0001-technology-stack.md)
-- [실시간 지도 ADR](docs/adr/0002-live-map.md)
-- [경로 분석 ADR](docs/adr/0003-route-analytics.md)
-- [배송 경고 lifecycle ADR](docs/adr/0004-alert-lifecycle.md)
-- [분산 추적 ADR](docs/adr/0005-distributed-tracing.md)
-- [일별 KPI projection ADR](docs/adr/0006-daily-kpi-projection.md)
-- [DLQ replay와 감사 ADR](docs/adr/0007-dlq-replay.md)
-- [선택 범위 replay 승인 ADR](docs/adr/0008-batch-replay-approval.md)
-- [KPI PDF 보고서 ADR](docs/adr/0009-kpi-pdf-reporting.md)
-- [주문·배송 aggregate 분리 ADR](docs/adr/0010-order-delivery-boundary.md)
+- [아키텍처와 데이터 모델](docs/architecture.md)
 - [운영 및 장애 처리](docs/operations.md)
-- [Prometheus 경보 대응 runbook](docs/alert-runbooks.md)
 - [장애 주입 및 복구 runbook](docs/failure-recovery-runbook.md)
-- [로컬 성능 기준선](docs/performance.md)
+- [성능 기준선](docs/performance.md)
+- [9주 실행 로드맵](docs/roadmap.md)
 - [테스트 품질 기준선](docs/quality.md)
 - [CI/CD와 릴리스 전략](docs/delivery.md)
 - [10분 데모 시나리오](docs/demo.md)
 - [구현 진행 현황](docs/progress.md)
+- [프로덕션 cutover gate](docs/production-cutover.md)
+- [Transactional outbox 기술 선택](docs/adr/0001-technology-stack.md)
+- [DLQ replay와 감사](docs/adr/0007-dlq-replay.md)
+- [주문·배송 aggregate 경계](docs/adr/0010-order-delivery-boundary.md)
 - [기여 가이드](CONTRIBUTING.md)
 - [행동강령](CODE_OF_CONDUCT.md)
 
@@ -151,73 +177,11 @@ pwsh ./scripts/domain-coverage.ps1
 Push-Location web; npm ci; npx playwright install chromium; npm run build; npm run test:e2e; Pop-Location
 ```
 
-통합 smoke test는 전체 스택 실행 후 `./scripts/smoke.ps1`로 수행합니다.
+일상적인 변경은 위 검증으로 재현할 수 있습니다. 서비스 경계를 가로지르는 변경은 실행 중인 전체 스택에서 `pwsh ./scripts/smoke.ps1`도 수행합니다.
 
-`./scripts/compose-runtime-smoke.ps1`는 실행 중인 기본 스택과 선택적으로 활성화된 `scale-test` API replica의 health, 루트 showcase와 `/console` 라우팅, loopback 포트, 로그 회전, 종료 유예, 자원 상한, 권한 경계, read-only filesystem, Kafka volume topology가 현재 Compose 정책과 일치하는지 확인합니다.
-
-핵심 도메인의 line/branch coverage 80% gate는 `./scripts/domain-coverage.ps1`로 실행합니다. 현재 기준선은 line 92.37%, branch 88.71%이며 기준 미달 시 빌드가 실패합니다.
-
-GitHub Actions의 `CI` workflow는 main push와 pull request마다 API 테스트·coverage gate, Python analytics/simulator 테스트, Docker Compose 구성 검증, TypeScript production build와 Chromium E2E 회귀 검사를 병렬 실행합니다. workflow 권한은 저장소 읽기로 제한됩니다.
-
-배포 가능한 production image와 non-root runtime은 `./scripts/container-build.ps1`로 검증합니다. CD는 수동 승인된 GitHub `staging` environment와 AWS OIDC를 통해 기대 AWS 계정 ID 및 ECR의 immutable tag·scan-on-push·AES256 설정을 확인한 뒤 검증된 이미지를 commit SHA tag로 게시하고, ECR에서 확인한 digest와 GitHub workflow 실행 식별자를 고정한 release manifest를 보관합니다. 부분 게시 후 재실행할 때는 기존 immutable tag의 digest와 OCI revision provenance를 검증한 image만 안전하게 재사용합니다. 실제 AWS staging runtime은 서울 리전에 적용되어 `https://www.logitrack.kr`에서 운영 중입니다. 단일 `t3a.medium`, public IPv4, 30 GiB gp3와 Caddy를 사용해 NAT Gateway·ALB·관리형 데이터 계층의 고정비를 피하고 웹 80/443만 공개합니다. SSM SecureString, digest 고정 배포, 자동 직전 release rollback, 일일 EBS snapshot과 별도 S3 PostgreSQL dump, EC2 자동 복구, USD 70 budget alert의 구성과 운영 절차는 `infra/aws/runtime/README.md`를 따릅니다. `.github/workflows/staging-health.yml`은 자격 증명 없이 6시간마다 AWS runtime revision과 최신 GitHub `main` revision의 일치, DNS·HTTPS·TLS·보안 헤더와 내부 서비스 포트의 비공개 상태를 확인합니다. 이 staging은 단일 장애 도메인이므로 production 가용성 구성이 아닙니다.
-
-ECR repository 5개, Terraform destroy 차단, 최신 image 30개·미태그 7일 기본 보존 정책, Terraform caller와 OIDC provider 계정 일치 검증, 최소 권한 publisher role의 사전 구성은 `infra/aws/bootstrap` Terraform root에 정의되어 있습니다. CI는 format·provider 초기화·validate와 별도 trust-boundary smoke를 실행하지만, AWS 비용·리전·원격 state가 승인되기 전에는 plan/apply하지 않습니다.
-
-차량별 경고 정책은 관제 화면의 `Vehicle threshold policies`에서 설정합니다. `GLOBAL DEFAULT`를 기준으로 차량별 경로 이탈(m)과 ETA 지연(s)의 `CLOSE < OPEN ≤ CRITICAL` 값을 재정의하며, `RESET TO GLOBAL`로 안전하게 상속 상태로 되돌릴 수 있습니다. 저장·reset·restore는 `Idempotency-Key`에 결속된 PostgreSQL 불변 감사 이력을 남기고, `GET /api/alert-policies/audits/page`에서 누적 전체를 조회하며 각 감사 snapshot의 `RESTORE`로 과거 임계값을 다시 적용할 수 있습니다. 종단 간 검증은 `./scripts/alert-policy-smoke.ps1`로 수행합니다.
-
-production image 다섯 개의 CycloneDX SBOM 생성과 CRITICAL 취약점 0건 검증은 image build 후 `./scripts/container-security.ps1`로 재현합니다. SBOM은 CycloneDX 1.7 구조, 서비스별 image tag·digest, 구성요소 식별자와 현재 Git SHA provenance까지 검사한 뒤에만 업로드되며 CI artifact는 commit SHA별로 30일 보관됩니다.
-
-배송과 이벤트는 PostgreSQL에 같은 트랜잭션으로 기록됩니다. outbox publisher가 대기 이벤트를 Kafka에 전달하므로 broker가 일시 중단되어도 생성 이벤트가 유실되지 않습니다.
-
-20회 발행 실패로 격리된 outbox 이벤트는 관제 화면의 `Failed event recovery` 또는 `POST /api/operations/outbox/failures/{id}/retry`와 필수 `X-Operator`, `Idempotency-Key` 헤더로 재시도합니다. 실패 목록과 outbox/DLQ 복구 감사 이력은 페이지 API로 누적 전체를 조회합니다. 재시도는 비관적 잠금 아래 `PENDING`으로 초기화되고 요청 키가 결속된 불변 운영자 감사 이력을 남깁니다. 응답 유실 뒤 같은 키·운영자·이벤트로 재시도하면 현재 결과를 반환하며, 키를 다른 요청에 재사용하면 충돌로 거부합니다. `./scripts/outbox-recovery-smoke.ps1`로 검증합니다.
-
-주문과 배송의 독립 lifecycle은 `./scripts/order-smoke.ps1`로 검증합니다. 이 테스트는 주문 생성 멱등성, 단일 배송 연결, `READY → DISPATCHED → FULFILLED`, 주문 outbox 이벤트 3종과 simulator 원상 복구를 확인합니다.
-
-창고 흐름 검증은 `./scripts/warehouse-smoke.ps1`로 실행합니다. API는 `Idempotency-Key`가 필수인 `POST /api/warehouse/receipts`, `POST /api/warehouse/outbounds`, `POST /api/warehouse/outbounds/{id}/dispatch`와 재고·작업·ledger 조회를 제공합니다. 동시 출고 재시도는 `./scripts/warehouse-dispatch-concurrency-smoke.ps1`, 멱등 배차 마이그레이션 이전 작업의 첫 키 귀속은 `./scripts/warehouse-legacy-dispatch-smoke.ps1`로 검증합니다. 누적 이력은 `GET /api/warehouse/stock/page`, `/tasks/page`, `/ledger/page`에서 안정 정렬된 페이지로 조회할 수 있습니다.
-
-도로 경로와 ETA 흐름 검증은 `./scripts/route-smoke.ps1`로 실행합니다. 1KB 이상의 JSON·GeoJSON·CSV 응답은 gzip 협상을 지원하며 `./scripts/response-compression-smoke.ps1`가 경로 응답의 압축 헤더와 50% 이상 전송량 절감을 검증합니다.
-
-API의 정확한 CORS 허용 출처는 쉼표 구분 `CORS_ALLOWED_ORIGINS`로 설정합니다. 기본값은 로컬 콘솔의 두 주소인 `http://localhost:3000,http://127.0.0.1:3000`이며, 와일드카드와 HTTP(S) origin 이외의 값은 시작 시 거부합니다. API와 웹의 클릭재킹·MIME 스니핑·referrer·브라우저 권한 제한 헤더 및 신뢰하지 않는 출처 차단은 `./scripts/http-boundary-smoke.ps1`로 검증합니다. HTTPS의 HSTS는 TLS를 종료하는 배포 계층에서 설정합니다.
-
-API의 기본 HTTP 수용량은 Tomcat worker 128개, 동시 연결 512개, 대기 요청 100개로 제한하며 연결 수립 5초·keep-alive 20초·연결당 요청 100개의 상한을 둡니다. 배포 환경에서 `SERVER_MAX_THREADS`, `SERVER_MAX_CONNECTIONS`, `SERVER_ACCEPT_COUNT`와 관련 timeout 변수를 조정할 수 있고, 실제 적용값은 Prometheus의 `tomcat_threads_config_max_threads` 및 `tomcat_connections_config_max_connections` 지표로 확인합니다.
-
-Kafka telemetry consumer 부재 경보는 유휴 상태에서 생성되지 않을 수 있는 lag 지표가 아니라 consumer의 partition assignment 지표 자체가 사라졌는지를 사용하므로, 입력이 잠시 없을 때 오탐하지 않습니다.
-
-GPS simulator는 기본적으로 delivery event 처리 시작 시 API에서 현재 진행률을 확인하고 이미 적용된 step을 건너뜁니다. 따라서 로컬 simulator 재시작이나 수동 telemetry 부하 검증 후에도 진행률을 0부터 다시 발행해 DLQ를 오염시키지 않습니다. 인증이 활성화된 staging은 simulator에 API 자격 증명을 배포하지 않으며 `SIMULATION_RESUME_FROM_API=false`로 신규 `delivery.created` 이벤트를 0%에서 직접 시작합니다. 각 telemetry event ID는 원본 delivery event ID와 step 번호에서 결정론적으로 생성하므로 같은 생성 이벤트가 재전달되어도 API가 이미 처리한 step을 멱등하게 무시합니다. 이 격리 설정은 staging 구성 회귀 검사로 보호합니다.
-
-DLQ 단건·batch replay smoke는 의도적으로 잘못된 payload가 다시 격리되는 것까지 확인한 뒤 해당 실행의 원본·재격리 row와 연관 감사를 제거하므로, 반복 검증 자체가 운영 backlog 경보를 누적시키지 않습니다.
-
-API readiness는 필수 source of truth인 PostgreSQL 연결을 포함합니다. Redis 장애는 로컬 SSE fallback으로 계속 서비스하되 PostgreSQL 장애는 HTTP 503 readiness로 트래픽 유입을 중단하며, `./scripts/readiness-smoke.ps1`가 두 장애와 자동 복구를 검증합니다.
-
-모든 HTTP API 응답은 `X-Trace-Id`를 반환합니다. 호출자가 1~128자의 안전한 식별자를 보내면 보존하고, 없으면 생성해 controller와 로그 MDC에 전달합니다. 경계 동작은 `./scripts/request-trace-smoke.ps1`로 검증합니다.
-
-불변 GPS 이력 저장과 실제 주행 궤적 조회는 `./scripts/telemetry-track-smoke.ps1`로 검증합니다. `GET /api/telemetry/points`는 최근 5,000개 좌표를 최신순으로 반환하며 지도는 이를 시간순으로 연결해 계획 경로와 구분합니다. `deliveryIds` 범위 조회도 총 5,000개 상한을 유지하되 요청한 각 배송의 최신 좌표를 우선 포함해 고빈도 차량이 다른 차량의 현재 위치를 밀어내지 않습니다. `/api/routes`와 `/api/telemetry/points`의 조회 범위 및 응답 격리는 `./scripts/map-data-scope-smoke.ps1`로 검증하며, 범위 경로 조회는 배송별 최신 스냅샷 하나만 반환합니다. 콘솔은 기본 `LIVE` 배송의 지도 데이터만 먼저 받고, `ALL` 전환 시 누락된 배송을 최대 100건씩 지연 로드합니다.
-
-지연·경로 이탈 lifecycle과 운영자 확인은 `./scripts/alert-smoke.ps1`로 검증합니다. 활성 경고는 `POST /api/alerts/{id}/acknowledgement`와 `X-Operator`, `Idempotency-Key` 헤더로 영속 멱등 확인할 수 있으며, 콘솔에서도 미확인 경고 수와 최초 확인자를 표시합니다. 검증은 결정론적 telemetry 주입을 위해 simulator를 일시 중단한 뒤 자동으로 다시 시작합니다.
-
-Redis 기반 다중 API SSE fan-out은 `./scripts/sse-fanout-smoke.ps1`로 검증합니다. 스크립트가 `scale-test` profile의 API replica를 8081 포트에 일시 실행하고 primary에서 발생한 배송 갱신과 단일 `telemetry-point`가 replica 구독자에게 전달되는지 확인한 뒤 종료합니다. 브라우저는 초기 궤적을 한 번 조회한 뒤 각 GPS 점을 event ID로 멱등 병합해 이벤트마다 전체 이력을 다시 받지 않으며, SSE 재연결 시 누락 가능 구간을 읽기 전용 API snapshot으로 다시 동기화합니다.
-
-API에서 Python analytics까지 이어지는 trace는 `./scripts/tracing-smoke.ps1`로 검증합니다. 알려진 W3C trace ID를 주입하고 Tempo에서 두 서비스의 span을 직접 조회합니다.
-
-PostgreSQL 일별 KPI projection과 CSV 보고서는 `./scripts/kpi-smoke.ps1`로 검증합니다. 고품질 PDF 보고서는 `GET /api/reports/daily-kpis.pdf?days=30` 또는 대시보드의 `DOWNLOAD PDF`에서 내려받으며, `./scripts/pdf-smoke.ps1`가 실제 PDF를 `output/pdf/logitrack-daily-kpi-report.pdf`에 생성해 검증합니다. 대시보드의 `Delivery performance` 패널은 최근 14일 지표를 30초마다 갱신합니다.
-
-멱등 배송 생성 API의 20 RPS 기준선은 `./scripts/load-smoke.ps1`로 재현합니다. 99% 성공률과 p95 500ms 기준을 넘지 못하면 스크립트가 실패합니다.
-
-DLQ 격리, 선택 replay, 요청 키에 결속된 감사 기록과 중복 방지는 `./scripts/replay-smoke.ps1`로 검증합니다. 단건 replay/discard에는 `X-Operator`와 `Idempotency-Key`가 필수이며 영구 poison event는 replay 뒤 새 DLQ 항목으로 다시 격리되는 것이 정상입니다.
-
-재처리할 수 없는 DLQ 이벤트는 Control Tower의 `DISCARD` 작업으로 필수 사유와 운영자를 기록해 backlog에서 제외할 수 있습니다. 상태 전이는 단방향이며 실제 폐기·감사·중복 요청 거부는 `./scripts/dlq-discard-smoke.ps1`로 검증합니다.
-
-여러 건을 폐기할 때는 `POST /api/operations/discard-plans`로 최대 20건의 dry-run 계획을 만들고, 10분 안에 같은 운영자가 `X-Discard-Approval: DISCARD`와 `Idempotency-Key`로 실행합니다. 중복 ID 제거, 승인값, 부분 실패와 영속 단일 실행 보장은 `./scripts/discard-plan-smoke.ps1`로 검증합니다.
-
-Control Tower에서도 PENDING 이벤트를 최대 20건 선택해 공통 사유를 입력하고 계획을 검토할 수 있습니다. 실행 버튼은 운영자가 `DISCARD`를 정확히 입력해야 활성화되며, 실행 전에는 계획을 취소해 선택과 입력을 초기화할 수 있습니다.
-
-최대 20건 범위의 dry-run plan, 명시적 승인, 5 events/s 제한은 `./scripts/replay-plan-smoke.ps1`로 검증합니다.
-
-Kafka telemetry 100건의 API 반영 p95와 consumer lag는 `./scripts/telemetry-load.ps1`로 측정합니다.
-
-서로 다른 배송을 초당 100건 생성하는 최종 write-heavy 기준선은 `./scripts/load-unique-isolated.ps1`로 실행합니다. 별도 Compose project와 임시 PostgreSQL volume을 사용하고 성공률 99% 이상, p95 300ms 이하를 판정한 뒤 종료 시 자동 제거합니다.
-성능 스택도 외부 이미지를 digest로 고정하고 API를 loopback에만 공개하며, CPU·메모리·PID·로그·권한·임시 저장소 상한을 적용합니다. PostgreSQL·Redis·Kafka의 data 영역과 analytics 영역은 외부 egress가 없는 내부 네트워크이고, API만 부하 발생기의 host 접근을 위한 runner 네트워크를 추가로 사용합니다. `python scripts/perf-compose-config-smoke.py`가 이 격리 경계를 CI에서 검증합니다.
-
-분석 서비스, 단일 Kafka consumer, Redis 장애와 자동 복구는 `./scripts/recovery-drill.ps1`로 재현합니다. 스크립트는 장애 중 DB/Kafka 보존과 복구 후 정확히 한 번 반영을 확인하고 모든 서비스를 원상 복구합니다.
-
-오래 열린 운영 탭의 배포 감지와 자동 새로고침은 `./scripts/runtime-version-smoke.ps1`로 검증합니다. 같은 웹 runtime에서는 식별자가 안정적이고 컨테이너 교체 후에는 바뀌어야 합니다.
+- Java API: 80% line/branch domain coverage gate
+- Python: analytics와 simulator 단위·경계 테스트
+- Web: locked production build와 Chromium E2E
+- Runtime: 주문, 창고, 경로, 경고, SSE, tracing, KPI, DLQ, 백업/복원 smoke
+- Supply chain: production image 5종 SBOM, CRITICAL 취약점 0건, non-root/read-only runtime
+- Delivery: PR CI → immutable staging image → 승인 배포 → 독립 외부 health/revision 검사
