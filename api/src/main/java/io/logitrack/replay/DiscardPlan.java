@@ -32,7 +32,7 @@ public class DiscardPlan {
         createdAt=Instant.now();expiresAt=createdAt.plus(10, ChronoUnit.MINUTES);
     }
     public void expire(){if(status==Status.PREPARED)status=Status.EXPIRED;}
-    public void bindExecutionRequest(String requestKey){executionRequestKey=requestKey;}
+    public void bindExecutionRequest(String requestKey){if(executionRequestKey!=null)throw new IllegalStateException("Execution request key cannot be changed");executionRequestKey=requestKey;}
     public void complete(int succeeded,int failed){
         if(status!=Status.PREPARED)throw new IllegalStateException("Discard plan is not executable");
         succeededCount=succeeded;failedCount=failed;executedAt=Instant.now();status=failed==0?Status.EXECUTED:Status.PARTIAL;

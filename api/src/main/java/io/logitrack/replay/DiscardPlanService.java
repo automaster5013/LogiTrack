@@ -64,7 +64,7 @@ public class DiscardPlanService {
         }
         var plan=plans.findByIdForUpdate(planId).orElseThrow(()->new java.util.NoSuchElementException("Discard plan not found"));
         if(!plan.getActor().equals(normalizedActor))throw new IllegalArgumentException("Discard plan operator does not match X-Operator");
-        if(plan.getStatus()!=DiscardPlan.Status.PREPARED){if(requestKey!=null&&plan.getExecutionRequestKey()!=null)throw new IllegalStateException("Discard plan was executed with a different idempotency key");return plan;}
+        if(plan.getStatus()!=DiscardPlan.Status.PREPARED){if(requestKey!=null)plan.bindExecutionRequest(requestKey);return plan;}
         if(requestKey!=null)plan.bindExecutionRequest(requestKey);
         if(!plan.getExpiresAt().isAfter(Instant.now())){plan.expire();return plan;}
         int succeeded=0,failed=0;
