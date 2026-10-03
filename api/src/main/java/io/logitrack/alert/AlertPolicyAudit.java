@@ -33,6 +33,7 @@ public class AlertPolicyAudit {
     public AlertPolicyAudit(AlertPolicy policy,String actor,String requestKey){this(policy,actor,Action.UPSERT);this.requestKey=Objects.requireNonNull(requestKey);}
     public AlertPolicyAudit(AlertPolicy policy,String actor,UUID restoredFromAuditId){this(policy,actor,restoredFromAuditId,null);}
     public AlertPolicyAudit(AlertPolicy policy,String actor,UUID restoredFromAuditId,String requestKey){this(policy,actor,Action.RESTORE,requestKey);this.restoredFromAuditId=Objects.requireNonNull(restoredFromAuditId);}
+    public void bindRequestKey(String key){if(requestKey!=null)throw new IllegalStateException("Audit request key cannot be changed");requestKey=Objects.requireNonNull(key);}
     public UUID getId(){return id;} public UUID getPolicyId(){return policyId;} public String getVehicleId(){return vehicleId;}
     public double getDeviationOpenMeters(){return deviationOpenMeters;} public double getDeviationCloseMeters(){return deviationCloseMeters;}
     public double getCriticalDeviationMeters(){return criticalDeviationMeters;} public long getDelayOpenSeconds(){return delayOpenSeconds;}

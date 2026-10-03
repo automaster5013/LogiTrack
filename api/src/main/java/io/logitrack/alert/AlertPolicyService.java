@@ -86,9 +86,11 @@ public class AlertPolicyService {
             .orElseThrow(()->new NoSuchElementException("Alert policy audit snapshot not found"));
         var prior=audits.findByRestoredFromAuditIdAndActor(snapshot.getId(),operator);
         if(prior.isPresent()){
-            if(requestKey!=null)throw new IllegalStateException("Alert policy snapshot has already been restored");
             var current=policies.findByVehicleId(snapshot.getVehicleId()).orElseThrow(()->new IllegalStateException("Restored alert policy no longer exists"));
-            if(matches(current,prior.get())&&current.isActive()&&current.getUpdatedBy().equals(operator))return current;
+            if(matches(current,prior.get())&&current.isActive()&&current.getUpdatedBy().equals(operator)){
+                if(requestKey!=null)prior.get().bindRequestKey(requestKey);
+                return current;
+            }
             throw new IllegalStateException("Restored alert policy has changed since this request completed");
         }
         var existing=policies.findByVehicleId(snapshot.getVehicleId());
