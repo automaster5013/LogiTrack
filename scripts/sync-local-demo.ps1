@@ -18,7 +18,9 @@ try {
   $env:LOGITRACK_DEMO_SEED_DELAY_MS = "5000"
   $env:SIMULATION_INTERVAL_SECONDS = "1"
   $env:SIMULATION_STEPS = "120"
-  $env:SIMULATION_MAX_WORKERS = "15"
+  # Reserve five workers for ad-hoc deliveries while the 15-vehicle demo
+  # fleet is active. Without headroom, routine smoke requests can starve.
+  $env:SIMULATION_MAX_WORKERS = "20"
 
   docker compose up -d --build api simulator web
   if ($LASTEXITCODE -ne 0) { throw "Local live demo rebuild failed" }
