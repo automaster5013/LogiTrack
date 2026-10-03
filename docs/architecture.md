@@ -23,11 +23,17 @@ Operator -> POST /orders -> PostgreSQL(order + outbox) -> order.created.v1
                                              order.dispatched.v1 + delivery.created.v1
                                             |
                                       Python simulator
-                                            |
-                                  vehicle.telemetry.v1
-                                            |
-Kafka -> control-api consumer -> PostgreSQL(delivery; linked order fulfilled) -> Redis Pub/Sub -> every API SSE -> Web console
-                    failures -> retry topics -> telemetry.dlq.v1
+                              valid |       | invalid contract
+                                    |       |
+                         vehicle.telemetry.v1  delivery.created.dlq.v1
+                                    |                 |
+                         control-api consumer         |
+                            | failures                |
+                            | -> vehicle.telemetry.dlq.v1
+                            |             |           |
+                            |             +-- DLQ catalog
+                            |
+                            +-> PostgreSQL(delivery; linked order fulfilled) -> Redis Pub/Sub -> every API SSE -> Web console
 
 PostgreSQL KPI projection -> control-api -> analytics PDF renderer -> operator download
 ```

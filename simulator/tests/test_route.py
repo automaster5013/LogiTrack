@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 sys.path.insert(0, str(Path(__file__).parents[1]))
 from logitrack_sim.route import Point, distance_km, interpolate, planned_eta, sample_route
 from logitrack_sim import main
-from logitrack_sim.main import ContiguousOffsetTracker, InvalidDeliveryEvent, consumer_config, decode_delivery_event, mark_healthy, pending_step_indexes, publish_telemetry, simulation_start_state, telemetry_event_id, validate_config
+from logitrack_sim.main import ContiguousOffsetTracker, InvalidDeliveryEvent, consumer_config, decode_delivery_event, mark_healthy, pending_step_indexes, publish_telemetry, quarantine_invalid_delivery_event, simulation_start_state, telemetry_event_id, validate_config
 from datetime import datetime, timezone
 
 
@@ -97,6 +97,43 @@ class RouteTest(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "count was invalid"):
             publish_telemetry(producer, "delivery-1", {"eventId": "event-1"})
+
+    def test_invalid_delivery_is_quarantined_verbatim_with_source_headers(self):
+        producer = mock.Mock()
+        producer.produce.side_effect = lambda _topic, **kwargs: kwargs["on_delivery"](None, object())
+        message = mock.Mock()
+        message.topic.return_value = "delivery.created.v1"
+        message.partition.return_value = 2
+        message.offset.return_value = 41
+        message.key.return_value = b"delivery-key"
+        message.value.return_value = b'{"payload":{"deliveryId":"bad"}}'
+
+        quarantine_invalid_delivery_event(producer, message, InvalidDeliveryEvent("deliveryId must be a UUID"))
+
+        topic, = producer.produce.call_args.args
+        arguments = producer.produce.call_args.kwargs
+        self.assertEqual("delivery.created.dlq.v1", topic)
+        self.assertEqual(message.key(), arguments["key"])
+        self.assertEqual(message.value(), arguments["value"])
+        self.assertEqual([
+            ("kafka_dlt-original-topic", "delivery.created.v1"),
+            ("kafka_dlt-original-partition", "2"),
+            ("kafka_dlt-original-offset", "41"),
+            ("kafka_dlt-exception-message", "deliveryId must be a UUID"),
+        ], arguments["headers"])
+
+    def test_invalid_delivery_is_not_completed_when_quarantine_publish_fails(self):
+        producer = mock.Mock()
+        producer.produce.side_effect = lambda _topic, **kwargs: kwargs["on_delivery"]("broker unavailable", object())
+        message = mock.Mock()
+        message.topic.return_value = "delivery.created.v1"
+        message.partition.return_value = 0
+        message.offset.return_value = 7
+        message.key.return_value = None
+        message.value.return_value = b"not-json"
+
+        with self.assertRaisesRegex(RuntimeError, "Kafka delivery quarantine delivery failed"):
+            quarantine_invalid_delivery_event(producer, message, InvalidDeliveryEvent("invalid JSON"))
 
     def test_consumer_disables_automatic_commits_and_allows_a_full_simulation_between_polls(self):
         original_interval, original_steps = main.INTERVAL, main.STEPS

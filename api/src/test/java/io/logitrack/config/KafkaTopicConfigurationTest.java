@@ -19,7 +19,7 @@ class KafkaTopicConfigurationTest {
         var byName = topics.stream().collect(Collectors.toMap(topic -> topic.name(), Function.identity()));
 
         assertThat(byName).containsOnlyKeys(
-            "delivery.created.v1", "vehicle.telemetry.v1", "vehicle.telemetry.dlq.v1",
+            "delivery.created.v1", "delivery.created.dlq.v1", "vehicle.telemetry.v1", "vehicle.telemetry.dlq.v1",
             "inventory.received.v1", "warehouse.outbound.picked.v1",
             "warehouse.outbound.dispatched.v1", "delivery.alert.v1",
             "order.created.v1", "order.dispatched.v1", "order.fulfilled.v1"
@@ -33,6 +33,8 @@ class KafkaTopicConfigurationTest {
         assertThat(byName.get("vehicle.telemetry.v1").configs().get("retention.ms"))
             .isEqualTo(Long.toString(Duration.ofDays(30).toMillis()));
         assertThat(byName.get("vehicle.telemetry.dlq.v1").configs().get("retention.ms"))
+            .isEqualTo(Long.toString(Duration.ofDays(90).toMillis()));
+        assertThat(byName.get("delivery.created.dlq.v1").configs().get("retention.ms"))
             .isEqualTo(Long.toString(Duration.ofDays(90).toMillis()));
     }
 

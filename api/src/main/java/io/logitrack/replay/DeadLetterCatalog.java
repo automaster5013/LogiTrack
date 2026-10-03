@@ -18,7 +18,7 @@ public class DeadLetterCatalog {
         this.repository = repository; this.mapper = mapper;
     }
 
-    @KafkaListener(topics="vehicle.telemetry.dlq.v1", groupId="logitrack-dlq-catalog-v1",
+    @KafkaListener(topics={"vehicle.telemetry.dlq.v1", "delivery.created.dlq.v1"}, groupId="logitrack-dlq-catalog-v1",
         properties="auto.offset.reset=earliest")
     @Transactional
     public void capture(ConsumerRecord<String, String> record) {
