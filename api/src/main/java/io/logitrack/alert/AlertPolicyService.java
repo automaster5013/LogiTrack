@@ -56,9 +56,13 @@ public class AlertPolicyService {
                 throw new IllegalStateException("Reset alert policy has changed since this request completed");
             }
         }
-        var policy=policies.findByVehicleId(vehicle).orElseThrow(()->new NoSuchElementException("Vehicle alert policy not found"));
+        var policy=policies.findByVehicleIdForUpdate(vehicle).orElseThrow(()->new NoSuchElementException("Vehicle alert policy not found"));
         if(!policy.isActive()){
-            if(requestKey!=null)throw new IllegalStateException("Vehicle alert policy has already been reset");
+            if(requestKey!=null){
+                var prior=audits.findFirstByVehicleIdAndActionAndActorAndPolicyUpdatedAtOrderByOccurredAtDesc(vehicle,AlertPolicyAudit.Action.RESET,operator,policy.getUpdatedAt())
+                    .orElseThrow(()->new IllegalStateException("Vehicle alert policy has already been reset"));
+                prior.bindRequestKey(requestKey);return policy;
+            }
             if(policy.getUpdatedBy().equals(operator))return policy;
             throw new IllegalStateException("Vehicle alert policy has already been reset");
         }
