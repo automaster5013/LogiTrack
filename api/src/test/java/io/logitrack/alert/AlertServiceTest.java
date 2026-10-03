@@ -49,14 +49,21 @@ class AlertServiceTest {
         assertThrows(IllegalStateException.class,()->service.acknowledge(alert.getId(),"operator-b","trace","request-key"));
     }
 
-    @Test void newKeyCannotClaimAnAlreadyAcknowledgedAlert() {
+    @Test void firstMatchingKeyedRetryClaimsALegacyAcknowledgement() {
         var alert=new DeliveryAlert(UUID.randomUUID(),DeliveryAlert.Type.DELAY,
             DeliveryAlert.Severity.WARNING,"late",700,600);
         alert.acknowledge("operator-a");
-        when(alerts.findByAcknowledgementRequestKey("new-key")).thenReturn(Optional.empty());
+        when(alerts.findByAcknowledgementRequestKey("new-key")).thenReturn(Optional.empty(),Optional.of(alert));
         when(alerts.findByIdForUpdate(alert.getId())).thenReturn(Optional.of(alert));
-        assertThrows(IllegalStateException.class,()->service.acknowledge(alert.getId(),"operator-a","trace","new-key"));
+
+        assertSame(alert,service.acknowledge(alert.getId(),"operator-a","trace","new-key"));
+        assertEquals("new-key",alert.getAcknowledgementRequestKey());
+        assertSame(alert,service.acknowledge(alert.getId(),"operator-a","other-trace","new-key"));
         verifyNoInteractions(outbox);
+
+        when(alerts.findByAcknowledgementRequestKey("different-key")).thenReturn(Optional.empty());
+        assertThrows(IllegalStateException.class,()->service.acknowledge(alert.getId(),"operator-a","trace","different-key"));
+        assertThrows(IllegalStateException.class,()->service.acknowledge(alert.getId(),"operator-b","trace","different-key"));
     }
 
     @Test void missingAlertReturnsNotFoundSignal() {

@@ -51,7 +51,10 @@ public class AlertService {
             }
         }
         var alert=alerts.findByIdForUpdate(id).orElseThrow(()->new NoSuchElementException("Delivery alert not found"));
-        if(requestKey!=null&&alert.getAcknowledgedAt()!=null)throw new IllegalStateException("Delivery alert has already been acknowledged");
+        if(requestKey!=null&&alert.getAcknowledgedAt()!=null){
+            alert.bindAcknowledgementRequestKey(normalizedActor,requestKey);
+            return alert;
+        }
         if(alert.acknowledge(normalizedActor,requestKey))emit(alert,"ACKNOWLEDGED",traceId==null||traceId.isBlank()?UUID.randomUUID().toString():traceId);
         return alert;
     }
