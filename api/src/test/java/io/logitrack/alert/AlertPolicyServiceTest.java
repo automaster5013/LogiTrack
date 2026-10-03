@@ -113,6 +113,15 @@ class AlertPolicyServiceTest {
         when(audits.findByIdForUpdate(snapshot.getId())).thenReturn(Optional.of(snapshot));when(audits.findByRestoredFromAuditIdAndActor(snapshot.getId(),"restorer")).thenReturn(Optional.of(prior));when(policies.findByVehicleId("TRUCK-11")).thenReturn(Optional.of(current));
         assertSame(current,service.restore(snapshot.getId()," restorer "));verify(policies,never()).save(any());verify(audits,never()).save(any());
     }
+    @Test void firstKeyedRetryClaimsALegacyRestoreAudit(){
+        var source=new AlertPolicy("TRUCK-LEGACY",800,400,1800,900,400,2200,"old");var snapshot=new AlertPolicyAudit(source,"original");
+        var current=new AlertPolicy("TRUCK-LEGACY",800,400,1800,900,400,2200,"restorer");var prior=new AlertPolicyAudit(current,"restorer",snapshot.getId());
+        when(audits.findByRequestKey("restore-key")).thenReturn(Optional.empty(),Optional.of(prior));when(audits.findByIdForUpdate(snapshot.getId())).thenReturn(Optional.of(snapshot));
+        when(audits.findByRestoredFromAuditIdAndActor(snapshot.getId(),"restorer")).thenReturn(Optional.of(prior));when(policies.findByVehicleId("TRUCK-LEGACY")).thenReturn(Optional.of(current));
+        assertSame(current,service.restore(snapshot.getId(),"restorer","restore-key"));assertEquals("restore-key",prior.getRequestKey());
+        assertSame(current,service.restore(snapshot.getId(),"restorer","restore-key"));verify(audits,never()).save(any());
+        assertThrows(IllegalStateException.class,()->prior.bindRequestKey("different-key"));
+    }
     @Test void repeatedRestoreRejectsAChangedPolicy(){
         var source=new AlertPolicy("TRUCK-12",800,400,1800,900,400,2200,"old");var snapshot=new AlertPolicyAudit(source,"original");
         var restored=new AlertPolicy("TRUCK-12",800,400,1800,900,400,2200,"restorer");var prior=new AlertPolicyAudit(restored,"restorer",snapshot.getId());restored.update(900,450,1900,1000,500,2300,"another-operator");
