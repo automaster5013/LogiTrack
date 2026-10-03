@@ -6,7 +6,7 @@
 
 ## 결정
 
-- `vehicle.telemetry.dlq.v1` 전용 catalog consumer가 실패 레코드와 Spring Kafka 예외 헤더를 PostgreSQL에 저장한다.
+- catalog consumer가 `vehicle.telemetry.dlq.v1`과 simulator의 `delivery.created.dlq.v1` 실패 레코드 및 원본 위치·예외 헤더를 PostgreSQL에 저장한다.
 - `(dlq_topic, dlq_partition, dlq_offset)`를 유일 키로 사용해 catalog 재수신을 멱등 처리한다.
 - 운영자는 단일 `PENDING` 이벤트만 원본 topic으로 replay할 수 있다. 같은 catalog 항목의 중복 replay는 HTTP 409로 거절한다.
 - replay는 원본 payload와 event ID를 그대로 보존하며 `X-Operator`, 시각, 이벤트 ID를 별도 불변 감사 행으로 저장한다.

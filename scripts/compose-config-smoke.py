@@ -79,6 +79,8 @@ def main() -> None:
     kafka_command = services["kafka-init"]["command"][-1].lstrip()
     if not kafka_command.startswith("set -eu\n"):
         raise AssertionError("Kafka topic initialization is not fail-fast")
+    if "--topic delivery.created.dlq.v1 " not in kafka_command:
+        raise AssertionError("Kafka topic initialization omits the simulator delivery quarantine")
     if services["kafka"]["environment"].get("KAFKA_HEAP_OPTS") != "-Xms256m -Xmx512m":
         raise AssertionError("Kafka heap is not bounded below its container memory limit")
 

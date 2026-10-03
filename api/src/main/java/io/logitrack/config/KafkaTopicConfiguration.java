@@ -69,6 +69,7 @@ public class KafkaTopicConfiguration {
             .map(name -> topic(name, STANDARD_RETENTION_MS))
             .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
         topics.add(topic("vehicle.telemetry.dlq.v1", DLQ_RETENTION_MS));
+        topics.add(topic("delivery.created.dlq.v1", DLQ_RETENTION_MS));
         return List.copyOf(topics);
     }
 

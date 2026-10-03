@@ -26,6 +26,7 @@ HEALTH_FILE = Path(os.getenv("SIMULATOR_HEALTH_FILE", "/tmp/logitrack-simulator-
 DELIVERY_TIMEOUT_SECONDS = 5
 MAX_ROUTE_POINTS = 10_000
 SAFE_TRACE = re.compile(r"[A-Za-z0-9._:-]{1,128}")
+DELIVERY_DLQ_TOPIC = "delivery.created.dlq.v1"
 
 
 class InvalidDeliveryEvent(ValueError):
@@ -186,10 +187,13 @@ def telemetry_event_id(delivery_event_id: str, step_index: int) -> str:
     return str(uuid.uuid5(uuid.UUID(delivery_event_id), f"vehicle.telemetry.v1:{step_index}"))
 
 
-def publish_telemetry(
+def publish_confirmed(
     producer: Producer,
-    delivery_id: str,
-    telemetry: dict,
+    topic: str,
+    key: bytes | str | None,
+    value: bytes | str | None,
+    description: str,
+    headers: list[tuple[str, bytes | str]] | None = None,
     timeout_seconds: float = DELIVERY_TIMEOUT_SECONDS,
 ) -> None:
     delivery_reports: list[object | None] = []
@@ -200,9 +204,10 @@ def publish_telemetry(
         report_received.set()
 
     producer.produce(
-        "vehicle.telemetry.v1",
-        key=delivery_id,
-        value=json.dumps(telemetry),
+        topic,
+        key=key,
+        value=value,
+        headers=headers,
         on_delivery=delivered,
     )
     deadline = time.monotonic() + timeout_seconds
@@ -211,13 +216,52 @@ def publish_telemetry(
         if remaining <= 0:
             producer.poll(0)
             if not report_received.is_set():
-                raise RuntimeError("Kafka telemetry delivery report timed out")
+                raise RuntimeError(f"{description} delivery report timed out")
             break
         producer.poll(min(0.1, remaining))
     if len(delivery_reports) != 1:
-        raise RuntimeError("Kafka telemetry delivery report count was invalid")
+        raise RuntimeError(f"{description} delivery report count was invalid")
     if delivery_reports[0] is not None:
-        raise RuntimeError(f"Kafka telemetry delivery failed: {delivery_reports[0]}")
+        raise RuntimeError(f"{description} delivery failed: {delivery_reports[0]}")
+
+
+def publish_telemetry(
+    producer: Producer,
+    delivery_id: str,
+    telemetry: dict,
+    timeout_seconds: float = DELIVERY_TIMEOUT_SECONDS,
+) -> None:
+    publish_confirmed(
+        producer,
+        "vehicle.telemetry.v1",
+        delivery_id,
+        json.dumps(telemetry),
+        "Kafka telemetry",
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def quarantine_invalid_delivery_event(
+    producer: Producer,
+    message,
+    error: InvalidDeliveryEvent,
+    timeout_seconds: float = DELIVERY_TIMEOUT_SECONDS,
+) -> None:
+    headers = [
+        ("kafka_dlt-original-topic", message.topic()),
+        ("kafka_dlt-original-partition", str(message.partition())),
+        ("kafka_dlt-original-offset", str(message.offset())),
+        ("kafka_dlt-exception-message", str(error)),
+    ]
+    publish_confirmed(
+        producer,
+        DELIVERY_DLQ_TOPIC,
+        message.key(),
+        message.value(),
+        "Kafka delivery quarantine",
+        headers=headers,
+        timeout_seconds=timeout_seconds,
+    )
 
 
 def load_delivery_state(delivery_id: str, api_url: str = API_URL) -> tuple[float, str]:
@@ -307,7 +351,12 @@ def main() -> None:
             try:
                 event = decode_delivery_event(message.value())
             except InvalidDeliveryEvent as error:
-                print(f"Invalid delivery event ignored: {error}", flush=True)
+                quarantine_invalid_delivery_event(producer, message, error)
+                print(
+                    f"Invalid delivery event quarantined from "
+                    f"{message.topic()}[{message.partition()}]@{message.offset()}: {error}",
+                    flush=True,
+                )
                 commit_completed(message)
                 continue
             while not slots.acquire(timeout=1):
