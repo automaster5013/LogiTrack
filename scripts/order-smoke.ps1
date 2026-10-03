@@ -22,6 +22,21 @@ try {
   if ($dispatched.status -ne "DISPATCHED" -or -not $dispatched.deliveryId) { throw "Order was not linked to a delivery" }
   if ($dispatched.deliveryId -ne $dispatchAgain.deliveryId) { throw "Repeat dispatch created another delivery" }
 
+  try {
+    Invoke-RestMethod "http://localhost:8080/api/orders/$($created.id)/dispatch" -Method Post -Headers @{"Idempotency-Key"="dispatch-new-$suffix"} -ContentType "application/json" -Body $dispatchBody
+    throw "Completed order accepted a new dispatch request key"
+  } catch {
+    if ($_.Exception.Response.StatusCode.value__ -ne 409) { throw }
+  }
+  $otherBody = @{orderNumber="ORD-FLOW-OTHER-$suffix";origin=@{name="Seoul Hub";lat=37.5665;lon=126.978};destination=@{name="Incheon DC";lat=37.4563;lon=126.7052}} | ConvertTo-Json -Depth 4
+  $other = Invoke-RestMethod http://localhost:8080/api/orders -Method Post -Headers @{"Idempotency-Key"="order-other-$suffix"} -ContentType "application/json" -Body $otherBody
+  try {
+    Invoke-RestMethod "http://localhost:8080/api/orders/$($other.id)/dispatch" -Method Post -Headers @{"Idempotency-Key"=$dispatchKey} -ContentType "application/json" -Body $dispatchBody
+    throw "Dispatch request key was reused for another order"
+  } catch {
+    if ($_.Exception.Response.StatusCode.value__ -ne 409) { throw }
+  }
+
   $telemetryId = [guid]::NewGuid().ToString()
   Send-Telemetry @{eventId=$telemetryId;eventType="vehicle.telemetry.v1";occurredAt=(Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ");traceId=[guid]::NewGuid().ToString();schemaVersion=1;payload=@{deliveryId=$dispatched.deliveryId;vehicleId=$dispatched.vehicleId;lat=37.4563;lon=126.7052;progress=1;status="DELIVERED";eta=(Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")}}
 
