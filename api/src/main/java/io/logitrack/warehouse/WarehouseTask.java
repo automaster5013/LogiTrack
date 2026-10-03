@@ -23,6 +23,11 @@ public class WarehouseTask {
     private static WarehouseTask create(WarehouseCommand r,String key,Type type,Status status){var t=new WarehouseTask();var now=Instant.now();t.id=UUID.randomUUID();t.taskType=type;t.status=status;t.referenceNumber=r.referenceNumber();t.warehouseId=r.warehouseId();t.sku=r.sku();t.quantity=r.quantity();t.idempotencyKey=key;t.createdAt=now;t.updatedAt=now;return t;}
     public void dispatch(){dispatch(null);}
     public void dispatch(String requestKey){if(status==Status.DISPATCHED)return;if(status!=Status.PICKED)throw new IllegalStateException("Only picked tasks can be dispatched");status=Status.DISPATCHED;dispatchRequestKey=requestKey;updatedAt=Instant.now();}
+    public void bindDispatchRequestKey(String requestKey){
+        if(status!=Status.DISPATCHED||dispatchRequestKey!=null)throw new IllegalStateException("Dispatch request key cannot be changed");
+        dispatchRequestKey=requestKey;
+        updatedAt=Instant.now();
+    }
     public UUID getId(){return id;} public Type getTaskType(){return taskType;} public Status getStatus(){return status;}
     public String getReferenceNumber(){return referenceNumber;} public String getWarehouseId(){return warehouseId;} public String getSku(){return sku;}
     public int getQuantity(){return quantity;} public Instant getCreatedAt(){return createdAt;} public Instant getUpdatedAt(){return updatedAt;}

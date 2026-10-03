@@ -32,7 +32,10 @@ public class WarehouseService {
  }
  @Transactional public WarehouseTask dispatch(UUID id,String traceId,String requestKey){
   if(requestKey!=null){InputLimits.required(requestKey,"Idempotency-Key",160);tasks.lockDispatchRequestKey(requestKey);var prior=tasks.findByDispatchRequestKey(requestKey);if(prior.isPresent()){if(!prior.get().getId().equals(id))throw new IllegalStateException("Idempotency key was used with a different warehouse dispatch");return prior.get();}}
-  var task=tasks.findForUpdateById(id).orElseThrow(()->new NoSuchElementException("Warehouse task not found"));if(task.getStatus()==WarehouseTask.Status.DISPATCHED){if(requestKey!=null)throw new IllegalStateException("Warehouse task has already been dispatched");return task;}
+  var task=tasks.findForUpdateById(id).orElseThrow(()->new NoSuchElementException("Warehouse task not found"));if(task.getStatus()==WarehouseTask.Status.DISPATCHED){
+   if(requestKey!=null){if(task.getDispatchRequestKey()!=null&&!task.getDispatchRequestKey().equals(requestKey))throw new IllegalStateException("Warehouse task was dispatched with a different idempotency key");if(task.getDispatchRequestKey()==null)task.bindDispatchRequestKey(requestKey);}
+   return task;
+  }
   var stock=stocks.lockByWarehouseAndSku(task.getWarehouseId(),task.getSku()).orElseThrow();stock.dispatch(task.getQuantity());task.dispatch(requestKey);
   ledger.save(new InventoryLedgerEntry(task,InventoryLedgerEntry.Type.DISPATCH,-task.getQuantity(),-task.getQuantity(),stock));event(task,stock,"warehouse.outbound.dispatched.v1",traceId);return task;
  }
