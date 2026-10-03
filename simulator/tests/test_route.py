@@ -8,11 +8,46 @@ from tempfile import TemporaryDirectory
 sys.path.insert(0, str(Path(__file__).parents[1]))
 from logitrack_sim.route import Point, distance_km, interpolate, planned_eta, sample_route
 from logitrack_sim import main
-from logitrack_sim.main import ContiguousOffsetTracker, consumer_config, mark_healthy, pending_step_indexes, simulation_start_state, telemetry_event_id, validate_config
+from logitrack_sim.main import ContiguousOffsetTracker, consumer_config, mark_healthy, pending_step_indexes, publish_telemetry, simulation_start_state, telemetry_event_id, validate_config
 from datetime import datetime, timezone
 
 
 class RouteTest(unittest.TestCase):
+
+    def test_telemetry_publish_requires_a_successful_delivery_report(self):
+        producer = mock.Mock()
+        callback = {}
+        producer.produce.side_effect = lambda _topic, **kwargs: callback.update(deliver=kwargs["on_delivery"])
+        producer.poll.side_effect = lambda _timeout: callback["deliver"](None, object())
+
+        publish_telemetry(producer, "delivery-1", {"eventId": "event-1"})
+
+        producer.produce.assert_called_once()
+        producer.poll.assert_called_once()
+
+    def test_telemetry_publish_rejects_delivery_report_timeout(self):
+        producer = mock.Mock()
+
+        with self.assertRaisesRegex(RuntimeError, "timed out"):
+            publish_telemetry(producer, "delivery-1", {"eventId": "event-1"}, timeout_seconds=0.001)
+
+    def test_telemetry_publish_rejects_async_delivery_failure(self):
+        producer = mock.Mock()
+        producer.produce.side_effect = lambda _topic, **kwargs: kwargs["on_delivery"]("broker unavailable", object())
+        producer.flush.return_value = 0
+
+        with self.assertRaisesRegex(RuntimeError, "broker unavailable"):
+            publish_telemetry(producer, "delivery-1", {"eventId": "event-1"})
+
+    def test_telemetry_publish_rejects_duplicate_delivery_reports(self):
+        producer = mock.Mock()
+        producer.produce.side_effect = lambda _topic, **kwargs: (
+            kwargs["on_delivery"](None, object()),
+            kwargs["on_delivery"](None, object()),
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "count was invalid"):
+            publish_telemetry(producer, "delivery-1", {"eventId": "event-1"})
 
     def test_consumer_disables_automatic_commits_and_allows_a_full_simulation_between_polls(self):
         original_interval, original_steps = main.INTERVAL, main.STEPS
