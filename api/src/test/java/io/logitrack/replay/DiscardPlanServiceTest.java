@@ -49,6 +49,13 @@ class DiscardPlanServiceTest {
         var plan=new DiscardPlan("operator","reason",List.of(UUID.randomUUID()));plan.complete(1,0);when(plans.findByIdForUpdate(plan.getId())).thenReturn(Optional.of(plan));
         assertThrows(IllegalArgumentException.class,()->service.execute(plan.getId(),"another-operator","DISCARD"));verifyNoInteractions(replay);
     }
+    @Test void firstKeyedRetryClaimsALegacyCompletedPlan(){
+        var plans=mock(DiscardPlanRepository.class);var replay=mock(ReplayService.class);var service=new DiscardPlanService(plans,mock(DeadLetterEventRepository.class),replay,20);
+        var plan=new DiscardPlan("operator","reason",List.of(UUID.randomUUID()));plan.complete(1,0);when(plans.findByIdForUpdate(plan.getId())).thenReturn(Optional.of(plan));
+        assertSame(plan,service.execute(plan.getId(),"operator","DISCARD","execution-key"));assertEquals("execution-key",plan.getExecutionRequestKey());verifyNoInteractions(replay);
+        when(plans.findByExecutionRequestKey("execution-key")).thenReturn(Optional.of(plan));assertSame(plan,service.execute(plan.getId(),"operator","DISCARD","execution-key"));
+        assertThrows(IllegalStateException.class,()->service.execute(plan.getId(),"operator","DISCARD","different-key"));
+    }
     @Test void repeatedPreparationReturnsStoredPlanAndRejectsKeyReuse(){
         var plans=mock(DiscardPlanRepository.class);var events=mock(DeadLetterEventRepository.class);var service=new DiscardPlanService(plans,events,mock(ReplayService.class),20);
         var ids=List.of(UUID.randomUUID());var prior=new DiscardPlan("operator","request-2","reason",ids);when(plans.findByRequestKey("request-2")).thenReturn(Optional.of(prior));

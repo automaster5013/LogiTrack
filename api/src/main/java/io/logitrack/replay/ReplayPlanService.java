@@ -67,7 +67,7 @@ public class ReplayPlanService {
         }
         var plan=plans.findByIdForUpdate(planId).orElseThrow(()->new java.util.NoSuchElementException("Replay plan not found"));
         if(!plan.getActor().equals(normalizedActor)) throw new IllegalArgumentException("Replay plan operator does not match X-Operator");
-        if(plan.getStatus()!=ReplayPlan.Status.PREPARED){if(requestKey!=null&&plan.getExecutionRequestKey()!=null)throw new IllegalStateException("Replay plan was executed with a different idempotency key");return plan;}
+        if(plan.getStatus()!=ReplayPlan.Status.PREPARED){if(requestKey!=null)plan.bindExecutionRequest(requestKey);return plan;}
         if(requestKey!=null)plan.bindExecutionRequest(requestKey);
         if(!plan.getExpiresAt().isAfter(Instant.now())) { plan.expire(); return plan; }
         int succeeded=0,failed=0;
