@@ -61,7 +61,7 @@ class AlertPolicyServiceTest {
     }
     @Test void resetsVehicleOverrideWithAuditedSnapshot() {
         var policy=new AlertPolicy("TRUCK-06",500,300,1500,600,300,1800,"old");
-        when(policies.findByVehicleId("TRUCK-06")).thenReturn(Optional.of(policy));when(policies.save(policy)).thenReturn(policy);
+        when(policies.findByVehicleIdForUpdate("TRUCK-06")).thenReturn(Optional.of(policy));when(policies.save(policy)).thenReturn(policy);
         assertSame(policy,service.reset(" TRUCK-06 "," operator-r ","reset-key"));assertFalse(policy.isActive());assertEquals("operator-r",policy.getUpdatedBy());
         var audit=ArgumentCaptor.forClass(AlertPolicyAudit.class);verify(audits).save(audit.capture());assertEquals(AlertPolicyAudit.Action.RESET,audit.getValue().getAction());assertEquals("reset-key",audit.getValue().getRequestKey());verify(audits).lockRequestKey("reset-key");
         assertThrows(IllegalArgumentException.class,()->service.reset(AlertPolicy.DEFAULT_VEHICLE,"operator"));
@@ -69,12 +69,12 @@ class AlertPolicyServiceTest {
     }
     @Test void repeatedResetBySameOperatorReturnsCurrentPolicyWithoutDuplicateAudit(){
         var policy=new AlertPolicy("TRUCK-09",500,300,1500,600,300,1800,"old");policy.deactivate("operator-r");
-        when(policies.findByVehicleId("TRUCK-09")).thenReturn(Optional.of(policy));
+        when(policies.findByVehicleIdForUpdate("TRUCK-09")).thenReturn(Optional.of(policy));
         assertSame(policy,service.reset("TRUCK-09"," operator-r "));verify(policies,never()).save(any());verifyNoInteractions(audits);
     }
     @Test void resetByDifferentOperatorAfterCompletionRemainsRejected(){
         var policy=new AlertPolicy("TRUCK-10",500,300,1500,600,300,1800,"old");policy.deactivate("operator-r");
-        when(policies.findByVehicleId("TRUCK-10")).thenReturn(Optional.of(policy));
+        when(policies.findByVehicleIdForUpdate("TRUCK-10")).thenReturn(Optional.of(policy));
         assertThrows(IllegalStateException.class,()->service.reset("TRUCK-10","another-operator"));verify(policies,never()).save(any());verifyNoInteractions(audits);
     }
     @Test void keyedResetReturnsOnlyTheMatchingUnchangedResult(){
@@ -85,6 +85,14 @@ class AlertPolicyServiceTest {
         assertThrows(IllegalStateException.class,()->service.reset("TRUCK-OTHER","operator-r","reset-key"));
         assertThrows(IllegalStateException.class,()->service.reset("TRUCK-15","another","reset-key"));
         assertThrows(IllegalStateException.class,()->service.upsert(request("TRUCK-15"),"operator-r","reset-key"));
+    }
+    @Test void firstKeyedRetryClaimsALegacyResetAudit(){
+        var policy=new AlertPolicy("TRUCK-RESET-LEGACY",700,350,1700,800,350,2100,"operator");policy.deactivate("operator");
+        var prior=new AlertPolicyAudit(policy,"operator",AlertPolicyAudit.Action.RESET);
+        when(audits.findByRequestKey("reset-key")).thenReturn(Optional.empty(),Optional.of(prior));when(policies.findByVehicleIdForUpdate(policy.getVehicleId())).thenReturn(Optional.of(policy));when(policies.findByVehicleId(policy.getVehicleId())).thenReturn(Optional.of(policy));
+        when(audits.findFirstByVehicleIdAndActionAndActorAndPolicyUpdatedAtOrderByOccurredAtDesc(policy.getVehicleId(),AlertPolicyAudit.Action.RESET,"operator",policy.getUpdatedAt())).thenReturn(Optional.of(prior));
+        assertSame(policy,service.reset(policy.getVehicleId(),"operator","reset-key"));assertEquals("reset-key",prior.getRequestKey());
+        assertSame(policy,service.reset(policy.getVehicleId(),"operator","reset-key"));verify(audits,never()).save(any());
     }
     @Test void restoresPolicyFromImmutableAuditSnapshot() {
         var source=new AlertPolicy("TRUCK-07",200000,150000,250000,200000,150000,250000,"old");
