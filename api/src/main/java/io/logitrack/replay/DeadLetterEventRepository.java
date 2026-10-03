@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 
 public interface DeadLetterEventRepository extends JpaRepository<DeadLetterEvent, UUID> {
     boolean existsByDlqTopicAndDlqPartitionAndDlqOffset(String topic, int partition, long offset);
+    boolean existsByOriginalTopicAndOriginalPartitionAndOriginalOffset(String topic, int partition, long offset);
     List<DeadLetterEvent> findTop100ByOrderByFailedAtDesc();
     List<DeadLetterEvent> findTop100ByStatusOrderByFailedAtDesc(DeadLetterEvent.Status status);
     Page<DeadLetterEvent> findByStatus(DeadLetterEvent.Status status,Pageable pageable);
