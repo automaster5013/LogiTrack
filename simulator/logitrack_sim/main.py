@@ -2,13 +2,15 @@ import json
 import os
 import time
 import uuid
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
+from queue import Empty, Queue
 from threading import BoundedSemaphore
 from urllib.request import urlopen
 
-from confluent_kafka import Consumer, Producer
+from confluent_kafka import Consumer, Producer, TopicPartition
 from .route import Point, eta, interpolate, planned_eta, sample_route
 
 
@@ -35,6 +37,51 @@ def validate_config(interval: float, steps: int, workers: int) -> None:
 
 
 validate_config(INTERVAL, STEPS, WORKERS)
+
+
+def consumer_config() -> dict[str, object]:
+    # A full staging simulation lasts one hour. When every execution slot is
+    # occupied, the consumer may wait for the first worker before polling
+    # again, so keep the group membership beyond one complete simulation.
+    simulation_millis = int(INTERVAL * STEPS * 1000)
+    return {
+        "bootstrap.servers": BOOTSTRAP,
+        "group.id": "gps-simulator-v1",
+        "auto.offset.reset": "earliest",
+        "enable.auto.commit": False,
+        "max.poll.interval.ms": max(300_000, simulation_millis + 300_000),
+    }
+
+
+class ContiguousOffsetTracker:
+    """Advance a partition only after every preceding simulation succeeds."""
+
+    def __init__(self) -> None:
+        self._pending: dict[tuple[str, int], deque[int]] = {}
+        self._completed: dict[tuple[str, int], set[int]] = {}
+        self._last_seen: dict[tuple[str, int], int] = {}
+
+    def register(self, topic: str, partition: int, offset: int) -> None:
+        key = (topic, partition)
+        if key not in self._pending:
+            self._pending[key] = deque()
+            self._completed[key] = set()
+        if key in self._last_seen and offset <= self._last_seen[key]:
+            raise ValueError("Kafka offsets must be registered once in delivery order")
+        self._pending[key].append(offset)
+        self._last_seen[key] = offset
+
+    def complete(self, topic: str, partition: int, offset: int) -> TopicPartition | None:
+        key = (topic, partition)
+        if key not in self._pending or offset not in self._pending[key]:
+            raise ValueError("Kafka offset completed without being registered")
+        self._completed[key].add(offset)
+        committed_offset = None
+        while self._pending[key] and self._pending[key][0] in self._completed[key]:
+            completed_offset = self._pending[key].popleft()
+            self._completed[key].remove(completed_offset)
+            committed_offset = completed_offset + 1
+        return TopicPartition(topic, partition, committed_offset) if committed_offset is not None else None
 
 
 def utc_now() -> str:
@@ -92,35 +139,65 @@ def simulate(producer: Producer, event: dict) -> None:
 
 
 def main() -> None:
-    consumer = Consumer({"bootstrap.servers": BOOTSTRAP, "group.id": "gps-simulator-v1", "auto.offset.reset": "earliest"})
+    consumer = Consumer(consumer_config())
     producer = Producer({"bootstrap.servers": BOOTSTRAP, "enable.idempotence": True})
     consumer.subscribe(["delivery.created.v1"])
     executor = ThreadPoolExecutor(max_workers=WORKERS, thread_name_prefix="delivery-sim")
     slots = BoundedSemaphore(WORKERS * 2)
+    completions: Queue[tuple[object, BaseException | None]] = Queue()
+    offsets = ContiguousOffsetTracker()
     mark_healthy()
 
-    def completed(future) -> None:
+    def completed(message, future) -> None:
         slots.release()
-        error = future.exception()
-        if error is not None:
-            print(f"Simulation rejected: {type(error).__name__}: {error}", flush=True)
+        completions.put((message, future.exception()))
+
+    def commit_completed(message) -> None:
+        next_offset = offsets.complete(message.topic(), message.partition(), message.offset())
+        if next_offset is not None:
+            consumer.commit(offsets=[next_offset], asynchronous=False)
+
+    def drain_completions() -> None:
+        while True:
+            try:
+                message, error = completions.get_nowait()
+            except Empty:
+                return
+            if error is not None:
+                raise RuntimeError(
+                    f"Simulation failed before Kafka offset commit at "
+                    f"{message.topic()}[{message.partition()}]@{message.offset()}"
+                ) from error
+            commit_completed(message)
 
     try:
         while True:
+            drain_completions()
             message = consumer.poll(1.0)
             mark_healthy()
-            if message is None: continue
+            if message is None:
+                drain_completions()
+                continue
             if message.error():
                 print(f"Kafka error: {message.error()}", flush=True); continue
+            offsets.register(message.topic(), message.partition(), message.offset())
             try:
                 event = json.loads(message.value())
             except (json.JSONDecodeError, TypeError) as error:
                 print(f"Invalid delivery event ignored: {error}", flush=True)
+                commit_completed(message)
                 continue
             while not slots.acquire(timeout=1):
                 mark_healthy()
+                drain_completions()
             future = executor.submit(simulate, producer, event)
-            future.add_done_callback(completed)
+            future.add_done_callback(lambda result, consumed=message: completed(consumed, result))
+    except Exception as error:
+        # ThreadPoolExecutor waits for running workers during normal interpreter
+        # shutdown. Exit immediately so Docker can restart and replay every
+        # offset that was deliberately left uncommitted.
+        print(f"Simulator stopping for durable Kafka replay: {error}", flush=True)
+        os._exit(1)
     finally:
         consumer.close()
         executor.shutdown(wait=True, cancel_futures=False)
