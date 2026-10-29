@@ -7,3 +7,7 @@ opentelemetry-exporter-otlp-proto-http==1.44.0
 opentelemetry-instrumentation-fastapi==0.65b0
 opentelemetry-instrumentation-httpx==0.65b0
 reportlab==5.0.1
+
+# Security patch floors for transitive HTTP trust roots and PDF image decoding.
+certifi==2026.10.18
+pillow==13.0.0
