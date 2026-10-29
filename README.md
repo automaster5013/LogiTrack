@@ -11,6 +11,10 @@
 
 LogiTrack is a production-minded logistics control tower built with Spring Boot, Kafka, Python, Next.js, and PostgreSQL. It runs a complete, observable delivery workflow without dedicated GPS hardware.
 
+## Windows 로컬 저장소 이전 — 2026-10-30
+
+로컬 프로젝트를 E 기반 `T:\LogiTrack`으로 이전하고 `C:\LogiTrack` 연결 경로를 유지했습니다. 검증된 C 원본 백업은 정리했고 E 원본 보관본은 보존했습니다. 공유 Docker 자산과 AgentTrust 20개 정상 운영을 보존했으며, **로컬 LogiTrack 12개 컨테이너는 정지 상태를 유지**합니다. [이전·정리 검증 결과와 범위](docs/storage-migration-verification.md)를 확인하세요.
+
 ## 30초 요약
 
 | 보여주는 역량 | 구현 내용 |
