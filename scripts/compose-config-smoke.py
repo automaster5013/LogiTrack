@@ -46,17 +46,19 @@ def main() -> None:
         raise AssertionError("API security must fail closed when SECURITY_ENABLED is omitted")
     if "password: ${DB_PASSWORD}" not in application_config or "${DB_PASSWORD:logitrack}" in application_config:
         raise AssertionError("API must not provide a default database password")
-    if "jackson.parser.strict-duplicate-detection: true" not in application_config:
+    if "http.converters.preferred-json-mapper: jackson2" not in application_config:
+        raise AssertionError("MVC must use the explicitly constrained Jackson 2 mapper")
+    if "jackson2.parser.strict-duplicate-detection: true" not in application_config:
         raise AssertionError("API and event JSON parsing must reject duplicate object keys")
-    if "jackson.deserialization.fail-on-unknown-properties: true" not in application_config:
+    if "jackson2.deserialization.fail-on-unknown-properties: true" not in application_config:
         raise AssertionError("Typed JSON contracts must reject unknown properties")
-    if "jackson.deserialization.fail-on-trailing-tokens: true" not in application_config:
+    if "jackson2.deserialization.fail-on-trailing-tokens: true" not in application_config:
         raise AssertionError("Typed JSON contracts must reject trailing values")
-    if "jackson.deserialization.fail-on-null-for-primitives: true" not in application_config:
+    if "jackson2.deserialization.fail-on-null-for-primitives: true" not in application_config:
         raise AssertionError("Primitive JSON fields must reject null values")
-    if "jackson.deserialization.accept-float-as-int: false" not in application_config:
+    if "jackson2.deserialization.accept-float-as-int: false" not in application_config:
         raise AssertionError("Integer JSON fields must reject floating-point coercion")
-    if "jackson.mapper.allow-coercion-of-scalars: false" not in application_config:
+    if "jackson2.mapper.allow-coercion-of-scalars: false" not in application_config:
         raise AssertionError("Typed JSON contracts must reject scalar type coercion")
     if "json.max-nesting-depth: ${JSON_MAX_NESTING_DEPTH:100}" not in application_config:
         raise AssertionError("API and event JSON parsing must bound nesting depth")
