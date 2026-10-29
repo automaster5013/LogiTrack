@@ -42,3 +42,13 @@
 - 별도 물리 저장장치 백업은 사용자 결정으로 보류다. 원본 보관본과 활성 프로젝트가 같은 E 장치에 있으므로 물리 장애에 대비한 별도 매체 백업 완료로 표시하지 않는다.
 - GitHub에는 이 검증 요약만 반영한다. 비공개 원본 로그·manifest·컨테이너 ID·환경 설정·키·DB·VHDX·원본 보관본은 업로드하지 않는다.
 - 원본 근거는 비공개 `verification-result.json`, `path-switch.json`, `c-cleanup-verification.json`, `cleanup-final-result.json`이다. 공개 저장소 복제만으로 개인 환경용 이전 스크립트나 백업이 제공되지는 않는다.
+
+## 후속 CI 보안 의존성 보완 — 실행 환경 미적용
+
+이 문서 커밋의 CI에서 기존 API 이미지의 Brotli 1.2.0 및 Spring MVC 6.2.15에 대한 CRITICAL 보고로 이미지 게이트가 실패했다. 이전 파일 검증 실패와는 별개이며, 검사 severity·차단 조건을 완화하거나 CVE를 제외하지 않는다.
+
+PR 소스의 Spring Boot를 4.1.2 BOM으로 맞춰 Spring Framework 7.0.10 등 호환되는 보안 패치 버전을 사용한다. 기존 Jackson 2 데이터 계약과 엄격한 JSON 파싱 설정을 명시적으로 유지하고, Flyway 자동 구성을 명시한다. 이전 Boot 3 전용 의존성 override는 제거했다. API·웹의 고정 Alpine 베이스에서 Brotli는 빌드 시 1.2.1-r0 이상으로 갱신한다. 기존 이미지 digest·실행 컨테이너는 변경하지 않는다.
+
+이 변경은 PR 브랜치의 빌드 소스이며 로컬·공개 서비스에 적용하지 않았다. CI의 단위 테스트·이미지 검사 결과는 해당 커밋 실행을 기준으로 확인하며, 실제 서비스 배포·기동·DB 마이그레이션 검증과 구분한다. Jackson 2 호환 모듈은 Boot 4의 전환 지원 기능이므로 장기 Jackson 3 이전은 별도 검토 대상이다.
+
+공식 근거: [Spring XsltView 권고](https://spring.io/security/cve-2026-47884/), [Spring SSE fragment 권고](https://spring.io/security/cve-2026-47890/), [Boot JSON 호환 설정](https://docs.spring.io/spring-boot/4.1/reference/features/json.html).

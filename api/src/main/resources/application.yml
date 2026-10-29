@@ -1,11 +1,12 @@
 spring:
+  http.converters.preferred-json-mapper: jackson2
   application.name: logitrack-control-api
-  jackson.parser.strict-duplicate-detection: true
-  jackson.deserialization.fail-on-unknown-properties: true
-  jackson.deserialization.fail-on-trailing-tokens: true
-  jackson.deserialization.fail-on-null-for-primitives: true
-  jackson.deserialization.accept-float-as-int: false
-  jackson.mapper.allow-coercion-of-scalars: false
+  jackson2.parser.strict-duplicate-detection: true
+  jackson2.deserialization.fail-on-unknown-properties: true
+  jackson2.deserialization.fail-on-trailing-tokens: true
+  jackson2.deserialization.fail-on-null-for-primitives: true
+  jackson2.deserialization.accept-float-as-int: false
+  jackson2.mapper.allow-coercion-of-scalars: false
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/logitrack}
     username: ${DB_USER:logitrack}
