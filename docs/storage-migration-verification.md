@@ -51,6 +51,8 @@ PR 소스의 Spring Boot를 4.1.2 BOM으로 맞춰 Spring Framework 7.0.10 등 �
 
 analytics 이미지의 추가 검사에서 탐지된 Python `certifi`는 2026.10.18, Pillow는 13.0.0으로 갱신하고 런타임·CI SHA-256 잠금 파일을 다시 생성했다. 이 두 패키지 외 기존 잠금 버전은 유지했다.
 
+웹 이미지에서 탐지된 Next.js 두 CRITICAL 권고에 따라 Next.js를 16.4.1로 갱신하고 npm 잠금 파일도 함께 갱신했다. UI 기능 변경이나 로컬 웹 서비스 기동은 수행하지 않는다.
+
 이 변경은 PR 브랜치의 빌드 소스이며 로컬·공개 서비스에 적용하지 않았다. CI의 단위 테스트·이미지 검사 결과는 해당 커밋 실행을 기준으로 확인하며, 실제 서비스 배포·기동·DB 마이그레이션 검증과 구분한다. Jackson 2 호환 모듈은 Boot 4의 전환 지원 기능이므로 장기 Jackson 3 이전은 별도 검토 대상이다.
 
 공식 근거: [Spring XsltView 권고](https://spring.io/security/cve-2026-47884/), [Spring SSE fragment 권고](https://spring.io/security/cve-2026-47890/), [Boot JSON 호환 설정](https://docs.spring.io/spring-boot/4.1/reference/features/json.html).
