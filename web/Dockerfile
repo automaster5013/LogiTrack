@@ -12,6 +12,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 FROM node:26-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80
+# Patch the pinned Alpine base's vulnerable Brotli decoder at build time.
+RUN apk add --upgrade --no-cache 'brotli-libs>=1.2.1-r0'
 WORKDIR /app
 ARG APP_REVISION=local
 ARG APP_BUILD_TIME=unknown
