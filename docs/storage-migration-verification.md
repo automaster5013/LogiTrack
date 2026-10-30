@@ -55,7 +55,7 @@
 
 ## 유지할 결정과 공개 범위
 
-- LogiTrack은 계속 정지 상태로 유지한다. 이번 문서 업데이트로 컨테이너를 기동·재생성하거나 compose·볼륨·이미지·재시작 정책을 변경하지 않는다.
+- 이전·정리 당시에는 LogiTrack 정지를 유지했다. 이후 사용자 요청으로 12개 정상 운영을 재개했으며 아래 운영 재개 기록이 현재 기준이다. 이번 문서 업데이트 자체는 서비스나 운영 설정을 변경하지 않는다.
 - 별도 물리 저장장치 백업은 사용자 결정으로 보류다. 원본 보관본과 활성 프로젝트가 같은 E 장치에 있으므로 물리 장애에 대비한 별도 매체 백업 완료로 표시하지 않는다.
 - GitHub에는 이 검증 요약만 반영한다. 비공개 원본 로그·manifest·컨테이너 ID·환경 설정·키·DB·VHDX·원본 보관본은 업로드하지 않는다.
 - 원본 근거는 비공개 `verification-result.json`, `path-switch.json`, `c-cleanup-verification.json`, `cleanup-final-result.json`이다. 공개 저장소 복제만으로 개인 환경용 이전 스크립트나 백업이 제공되지는 않는다.
@@ -73,3 +73,22 @@ analytics 이미지의 추가 검사에서 탐지된 Python `certifi`는 2026.10
 이 변경은 PR 브랜치의 빌드 소스이며 로컬·공개 서비스에 적용하지 않았다. CI의 단위 테스트·이미지 검사 결과는 해당 커밋 실행을 기준으로 확인하며, 실제 서비스 배포·기동·DB 마이그레이션 검증과 구분한다. Jackson 2 호환 모듈은 Boot 4의 전환 지원 기능이므로 장기 Jackson 3 이전은 별도 검토 대상이다.
 
 공식 근거: [Spring XsltView 권고](https://spring.io/security/cve-2026-47884/), [Spring SSE fragment 권고](https://spring.io/security/cve-2026-47890/), [Boot JSON 호환 설정](https://docs.spring.io/spring-boot/4.1/reference/features/json.html).
+
+## LogiTrack 정상 운영 재개 — 2026-10-30
+
+사용자의 명시적 요청으로 이전의 LogiTrack 정지 유지 결정을 대체하고 기존 컨테이너 12개를 기동했다. 현재 운영 기준은 **AgentTrust 20개와 LogiTrack 12개 모두 정상 운영 유지**다. 위 이전·정리 당시의 정지 기록은 과거 검증 결과이며 현재 상태를 뜻하지 않는다.
+
+기존 PostgreSQL·Redis·Kafka·Tempo·Alertmanager·analytics의 준비 상태를 확인하고 관측 수집기, API, 웹·Prometheus, Grafana·simulator 순서로 기동했다. 기존 컨테이너만 시작했으며 새 이미지 빌드·pull, 컨테이너 재생성, 소스 배포, Docker Desktop 재시작이나 R·T 연결 설정 변경은 수행하지 않았다. 따라서 PR #411의 보안 의존성 수정은 여전히 미병합·미배포이며 이번 기동으로 적용됐다고 간주하지 않는다.
+
+| 항목 | 운영 재개 확인 결과 |
+| --- | --- |
+| LogiTrack | 기존 12개 모두 running 및 healthy |
+| AgentTrust | 기존 20개 healthy 유지 |
+| LogiTrack 웹 | `http://127.0.0.1:3000` HTTP 200 |
+| LogiTrack API readiness | `http://127.0.0.1:8080/actuator/health/readiness` HTTP 200 |
+| AgentTrust health | `http://127.0.0.1:4310/health` HTTP 200 |
+| 자산 | 컨테이너 42개 ID·이미지·마운트 연결 보존, 볼륨 18개 및 전체 이미지 목록 일치 |
+
+이 결과는 서비스 기동·health 및 HTTP 준비 상태 확인이다. 전체 업무 흐름·UI·부하·운영 DB 마이그레이션 검사나 운영 재개 후 별도 Windows 재부팅 검증은 수행하지 않았다. 기존 E 프로젝트·원본 보관본·Docker 자산을 보존하고 별도 물리 백업 보류 결정도 유지한다. 근거는 소유자의 비공개 `logitrack-start-20261030/result.json`과 전후 자산 비교 및 읽기 전용 HTTP 확인이다. 비공개 원본 로그·환경 설정·키·DB는 업로드하지 않는다.
+
+과거 이전 검증 도구 중 LogiTrack 정지를 통과 조건으로 삼는 도구는 이번 운영 재개 이후의 현재 상태 검증에 그대로 사용할 수 없다. 해당 조건 불일치를 이유로 서비스를 다시 정지하거나 복구 명령을 재실행하지 않는다.
