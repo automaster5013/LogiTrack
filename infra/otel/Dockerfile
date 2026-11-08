@@ -1,6 +1,6 @@
-FROM busybox:1.37.0-musl@sha256:fc6dddc4c44b1bfe37f41cae8e67d1693828e8f42a91862816d7953e2c9d3f23 AS health-tools
+FROM busybox:1.38.0-musl@sha256:80e38f9a1b39188b8bdb28879178edb322a4402b081a9aedda1924609decd6f6 AS health-tools
 
-FROM otel/opentelemetry-collector-contrib:0.161.0@sha256:fd328de2552466ad78385e1b1289c3f2402b1c45f265b252aab1955b42845ac1
+FROM otel/opentelemetry-collector-contrib:0.164.0-386@sha256:40392928d2b988b77e7525dbac33e5e3d9bedb40b9ff8c1f9119d92ca3a8a1c3
 COPY --from=health-tools /bin/busybox /busybox
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=6 \
   CMD ["/busybox", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:13133/"]
