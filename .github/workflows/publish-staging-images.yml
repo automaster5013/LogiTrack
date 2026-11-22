@@ -198,7 +198,7 @@ jobs:
           python scripts/sbom-smoke.py work/sbom --tag "$REVISION" --revision "$REVISION"
       - name: Upload immutable staging SBOMs
         id: sboms
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: staging-container-sboms-${{ steps.revision.outputs.sha }}
           path: |
@@ -404,7 +404,7 @@ jobs:
             --sbom-dir work/sbom
       - name: Upload immutable staging release manifest
         id: release-manifest
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: staging-release-manifest-${{ steps.revision.outputs.sha }}
           path: work/release/staging-release-manifest.json
